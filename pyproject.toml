@@ -1,0 +1,57 @@
+# pyproject.toml  (preferred for new projects, PEP 621)
+# Copyright 2025 Daniel Balparda (balparda@github.com)
+# Apache-2.0 license
+
+[build-system]
+requires = ["setuptools>=85", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "transcrypto"
+version = "1.0.0"
+description = "Basic crypto primitives, not intended for actual use, but as a companion to --Criptografia, Métodos e Algoritmos--"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+  { name = "Daniel Balparda", email = "balparda@github.com" }
+]
+requires-python = ">=3.13.5"  # if version changes, remember to change README.md
+classifiers = [  # see: https://pypi.org/classifiers/
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.13",
+  "Operating System :: OS Independent",
+  "Topic :: Utilities",
+  "Topic :: Security :: Cryptography"
+]
+dependencies = [
+]
+
+[project.urls]
+Homepage = "https://github.com/balparda/transcrypto"
+PyPI = "https://pypi.org/project/transcrypto/"
+
+[tool.setuptools]
+package-dir = {"" = "src"}   # root package namespace lives in src/
+
+[tool.setuptools.packages.find]
+where   = ["src"]           # auto-discover every importable package inside src/
+include = ["transcrypto*"]  # avoid picking up stuff not in "transcrypto"
+
+[tool.setuptools.package-data]
+"transcrypto" = ["py.typed"]
+
+[tool.poetry.requires-plugins]
+poetry-plugin-export = ">=1.8"
+
+[tool.poetry.group.dev.dependencies]
+pylint = "^3.3"
+flake8 = "^7.2"
+pyright = "^1.1"
+pytest = ">=8.4"
+pytest-pythonpath = ">=0.7"
+coverage = ">=7.9"
+tomli = ">=2.2.1"
+
+[pytest]
+pythonpath = ["src"]

@@ -1,0 +1,37 @@
+{
+  // python
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.terminal.activateEnvironment": true,
+  "python.analysis.diagnosticsSource": "Pylance",
+  "python.analysis.typeCheckingMode": "strict",
+  "python.analysis.languageServerMode": "full",
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": ["tests"],
+
+  // pylint
+  "pylint.enabled": true,
+  "pylint.path": ["${workspaceFolder}/.venv/bin/pylint"],
+  "pylint.args": [
+    "--indent-string='  '",
+    "--method-naming-style=PascalCase",
+    "--function-naming-style=PascalCase",
+    "--disable=line-too-long"
+  ],
+
+  // flake8
+  "flake8.enabled": true,
+  "flake8.path": ["${workspaceFolder}/.venv/bin/flake8"],
+  "flake8.args": [
+    "--ignore=E111,E114,E125,E129,E501,W504"
+  ],
+
+  // spelling
+  "cSpell.words": [
+    "Algoritmos",
+    "Criptografia",
+    "Métodos",
+    "pypi",
+    "pyright",
+    "transcrypto"
+  ]
+}
