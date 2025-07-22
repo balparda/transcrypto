@@ -159,7 +159,9 @@ def _MillerRabinWitnesses(n: int, /) -> set[int]:  # pylint: disable=too-many-re
   For n < 3317044064679887385961981 it is precise. That is more than 2**81. See:
   <https://en.wikipedia.org/wiki/Miller%E2%80%93Rabin_primality_test#Testing_against_small_sets_of_bases>
 
-  For n >= 3317044064679887385961981 it is probabilistic.
+  For n >= 3317044064679887385961981 it is probabilistic, but computes an number of witnesses
+  that should make the test fail less than once in 2**80 tries (once in 10^25). For all intent and
+  purposes it "never" fails.
   """
   # test inputs
   if n < 5:
@@ -262,8 +264,9 @@ def PrimeGenerator(start: int) -> Generator[int, None, None]:
   n: int = (start if start % 2 else start + 1) - 2  # n >= 1 always
   while True:
     n += 2  # next odd number
+    # is number divisible by (one of the) first 60 primes? test should eliminate 80%+ of candidates
     if n > PRIME_60 and GCD(n, COMPOSITE_60) != 1:
-      continue  # number is divisible by (one of the) first 60 primes, so not prime
+      continue  # not prime
     # do the (more expensive) primality test
     if MillerRabinIsPrime(n):
       yield n  # found a prime
@@ -282,8 +285,9 @@ def MersennePrimesGenerator(start: int) -> Generator[tuple[int, int, int], None,
   # "The exponents p corresponding to Mersenne primes must themselves be prime."
   for n in PrimeGenerator(start if start >= 1 else 1):
     mersenne: int = 2 ** n - 1
+    # is number divisible by (one of the) first 60 primes? test should eliminate 80%+ of candidates
     if mersenne > PRIME_60 and GCD(mersenne, COMPOSITE_60) != 1:
-      continue  # number is divisible by (one of the) first 60 primes, so not prime
+      continue  # not prime
     # do the (more expensive) primality test
     if MillerRabinIsPrime(mersenne):
       # found a prime, yield it plus the perfect number associated with it
