@@ -199,8 +199,7 @@ def test_IsPrime_basic() -> None:
     (2 ** 113 - 1, False),
     (2 ** 127 - 1, True),   # Mersenne prime
     (2 ** 131 - 1, False),
-    (2 ** 607 - 1, True),   # Mersenne prime
-    (2 ** 4253 - 1, True),  # Mersenne prime
+    (2 ** 1279 - 1, True),  # Mersenne prime
 ])
 def test_MillerRabinIsPrime(n: int, p: bool) -> None:
   """Test."""
@@ -224,6 +223,8 @@ def test_MillerRabinIsPrime_MillerRabinWitnesses_MillerRabinSR_invalid() -> None
 
 def test_PrimeGenerator() -> None:
   """Test."""
+  with pytest.raises(transcrypto.Error, match='invalid number'):
+    next(transcrypto.PrimeGenerator(-1))
   for i, n in enumerate(transcrypto.PrimeGenerator(0)):
     if i >= 60:
       break
@@ -231,6 +232,16 @@ def test_PrimeGenerator() -> None:
   g = transcrypto.PrimeGenerator(2 ** 100)
   assert next(g) == 2 ** 100 + 277
   assert next(g) == 2 ** 100 + 331
+
+
+def test_MersennePrimesGenerator() -> None:
+  """Test."""
+  mersenne: list[int] = []
+  for i, n in enumerate(transcrypto.MersennePrimesGenerator(0)):
+    mersenne.append(n[0])
+    if i > 12:
+      break
+  assert mersenne == [2, 3, 5, 7, 13, 17, 19, 31, 61, 89, 107, 127, 521, 607]
 
 
 if __name__ == '__main__':

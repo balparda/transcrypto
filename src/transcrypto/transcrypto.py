@@ -181,9 +181,9 @@ def _MillerRabinWitnesses(n: int, /) -> set[int]:  # pylint: disable=too-many-re
     return set(FIRST_60_PRIMES_SORTED[:13])  # "safety" 13, but 100% coverage
   # here n should be greater than 2 ** 81, so safety should be 34 or less
   n_bits: int = n.bit_length()
+  assert n_bits >= 82      # "should never happen"
   safety: int = int(math.ceil(0.375 + 1.59 / (0.000590 * n_bits))) if n_bits <= 1700 else 2
-  if n_bits < 82 or not 1 < safety <= 34:
-    raise Error(f'should never happen: out of bounds: {n=} / {n_bits=} >= 82 / {safety=} <= 34')
+  assert 1 < safety <= 34  # "should never happen"
   return set(FIRST_60_PRIMES_SORTED[:safety])
 
 
@@ -202,8 +202,7 @@ def _MillerRabinSR(n: int, /) -> tuple[int, int]:
     s += 1
     r //= 2
   # make sure everything checks out and return
-  if not 1 <= r <= n or not r % 2:
-    raise Error(f'should never happen: out of bounds: {n=} / {s=} >= 1 / 1 <= {r=} <= n & odd')
+  assert 1 <= r <= n and r % 2  # "should never happen"
   return (s, r)
 
 
@@ -268,3 +267,24 @@ def PrimeGenerator(start: int) -> Generator[int, None, None]:
     # do the (more expensive) primality test
     if MillerRabinIsPrime(n):
       yield n  # found a prime
+
+
+def MersennePrimesGenerator(start: int) -> Generator[tuple[int, int, int], None, None]:
+  """Generates all Mersenne prime (2 ** n - 1) exponents from 2**start until loop is broken.
+
+  <https://en.wikipedia.org/wiki/List_of_Mersenne_primes_and_perfect_numbers>
+
+  Yields:
+    (exponent, mersenne_prime, perfect_number), given some exponent `n` that will be exactly:
+    (n, 2 ** n - 1, (2 ** (n - 1)) * (2 ** n - 1))
+  """
+  # we now loop forever over prime exponents
+  # "The exponents p corresponding to Mersenne primes must themselves be prime."
+  for n in PrimeGenerator(start if start >= 1 else 1):
+    mersenne: int = 2 ** n - 1
+    if mersenne > PRIME_60 and GCD(mersenne, COMPOSITE_60) != 1:
+      continue  # number is divisible by (one of the) first 60 primes, so not prime
+    # do the (more expensive) primality test
+    if MillerRabinIsPrime(mersenne):
+      # found a prime, yield it plus the perfect number associated with it
+      yield (n, mersenne, (2 ** (n - 1)) * mersenne)
