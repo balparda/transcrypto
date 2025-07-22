@@ -175,6 +175,12 @@ def test_MillerRabinIsPrime_limits(n: int, witnesses: set[int], p: bool) -> None
   assert transcrypto.MillerRabinIsPrime(n, witnesses=witnesses) == p
 
 
+def test_COMPOSITE_60() -> None:
+  """Test."""
+  for n in transcrypto.FIRST_60_PRIMES:
+    assert not transcrypto.COMPOSITE_60 % n
+
+
 def test_IsPrime_basic() -> None:
   """Test."""
   for n in range(1, 283):
@@ -214,6 +220,17 @@ def test_MillerRabinIsPrime_MillerRabinWitnesses_MillerRabinSR_invalid() -> None
   for n in (4, 6, 110):
     with pytest.raises(transcrypto.Error, match='invalid odd number'):
       transcrypto._MillerRabinSR(n)
+
+
+def test_PrimeGenerator() -> None:
+  """Test."""
+  for i, n in enumerate(transcrypto.PrimeGenerator(0)):
+    if i >= 60:
+      break
+    assert n == transcrypto.FIRST_60_PRIMES_SORTED[i]
+  g = transcrypto.PrimeGenerator(2 ** 100)
+  assert next(g) == 2 ** 100 + 277
+  assert next(g) == 2 ** 100 + 331
 
 
 if __name__ == '__main__':

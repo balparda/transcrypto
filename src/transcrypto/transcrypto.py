@@ -7,7 +7,7 @@
 import math
 # import pdb
 import random
-from typing import Optional
+from typing import Generator, Optional
 
 __author__ = 'balparda@github.com'
 __version__: tuple[int, int, int] = (1, 0, 0)  # v1.0.0, 2025-07-20
@@ -23,6 +23,7 @@ FIRST_60_PRIMES_SORTED: list[int] = [
 ]
 FIRST_60_PRIMES: set[int] = set(FIRST_60_PRIMES_SORTED)
 COMPOSITE_60: int = math.prod(FIRST_60_PRIMES_SORTED)
+PRIME_60: int = FIRST_60_PRIMES_SORTED[-1]  # 281
 
 _MAX_PRIMALITY_SAFETY = 100  # this is an absurd number, just to have a max
 
@@ -247,3 +248,23 @@ def MillerRabinIsPrime(
         return False    # number is proved to be composite
   # we declare the number PROBABLY a prime to the limits of this test
   return True
+
+
+def PrimeGenerator(start: int) -> Generator[int, None, None]:
+  """Generates all primes from `start` until loop is broken. Tuned for huge numbers."""
+  # test inputs and make sure we start at an odd number
+  if start < 0:
+    raise Error(f'invalid number: {start=}')
+  # handle start of sequence manually if needed... because we have here the only EVEN prime...
+  if start <= 2:
+    yield 2
+    start = 3
+  # we now focus on odd numbers only and loop forever
+  n: int = (start if start % 2 else start + 1) - 2  # n >= 1 always
+  while True:
+    n += 2  # next odd number
+    if n > PRIME_60 and GCD(n, COMPOSITE_60) != 1:
+      continue  # number is divisible by (one of the) first 60 primes, so not prime
+    # do the (more expensive) primality test
+    if MillerRabinIsPrime(n):
+      yield n  # found a prime
