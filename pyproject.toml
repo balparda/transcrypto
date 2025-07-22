@@ -3,12 +3,12 @@
 # Apache-2.0 license
 
 [build-system]
-requires = ["setuptools>=85", "wheel"]
+requires = ["setuptools>=80", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "transcrypto"
-version = "1.0.1"
+version = "1.0.2"
 description = "Basic crypto primitives, not intended for actual use, but as a companion to --Criptografia, Métodos e Algoritmos--"
 readme = "README.md"
 license = "Apache-2.0"

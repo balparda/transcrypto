@@ -2,7 +2,7 @@
 
 Basic crypto primitives, not intended for actual use, but as a companion to "Criptografia, Métodos e Algoritmos".
 
-Started in July/2025, by Daniel Balparda. Since version 1.0.1 it is PyPI package:
+Started in July/2025, by Daniel Balparda. Since version 1.0.2 it is PyPI package:
 
 <https://pypi.org/project/transcrypto/>
 
@@ -118,8 +118,8 @@ poetry version <version-number>
 # (also updates `pyproject.toml` and `poetry.lock`)
 
 # publish to GIT, including a TAG
-git commit -a -m "release version 1.0.1"
-git tag 1.0.1
+git commit -a -m "release version 1.0.2"
+git tag 1.0.2
 git push
 git push --tags
 

@@ -10,7 +10,7 @@ import random
 from typing import Generator, Optional
 
 __author__ = 'balparda@github.com'
-__version__: tuple[int, int, int] = (1, 0, 1)  # v1.0.1, 2025-07-22
+__version__: tuple[int, int, int] = (1, 0, 2)  # v1.0.2, 2025-07-22
 
 
 FIRST_60_PRIMES_SORTED: list[int] = [
