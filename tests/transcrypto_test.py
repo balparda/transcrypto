@@ -241,7 +241,7 @@ def test_MersennePrimesGenerator() -> None:
     mersenne.append(n[0])
     if i > 12:
       break
-  assert mersenne == [2, 3, 5, 7, 13, 17, 19, 31, 61, 89, 107, 127, 521, 607]
+  assert mersenne == transcrypto.FIRST_49_MERSENNE_SORTED[:14]
 
 
 if __name__ == '__main__':
