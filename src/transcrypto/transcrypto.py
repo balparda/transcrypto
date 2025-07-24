@@ -5,7 +5,7 @@
 """Balparda's TransCrypto."""
 
 import math
-# import pdb
+import pdb
 import random
 from typing import Generator, Optional
 
@@ -24,7 +24,7 @@ FIRST_60_PRIMES: set[int] = {
 FIRST_60_PRIMES_SORTED: list[int] = sorted(FIRST_60_PRIMES)
 COMPOSITE_60: int = math.prod(FIRST_60_PRIMES_SORTED)
 PRIME_60: int = FIRST_60_PRIMES_SORTED[-1]
-assert len(FIRST_60_PRIMES) == 60 and PRIME_60 == 281
+assert len(FIRST_60_PRIMES) == 60 and PRIME_60 == 281, f'should never happen: {PRIME_60=}'
 FIRST_49_MERSENNE: set[int] = {  # <https://oeis.org/A000043>
     2, 3, 5, 7, 13, 17, 19, 31, 61, 89,
     107, 127, 521, 607, 1279, 2203, 2281, 3217, 4253, 4423,
@@ -33,12 +33,20 @@ FIRST_49_MERSENNE: set[int] = {  # <https://oeis.org/A000043>
     24036583, 25964951, 30402457, 32582657, 37156667, 42643801, 43112609, 57885161, 74207281,
 }
 FIRST_49_MERSENNE_SORTED: list[int] = sorted(FIRST_49_MERSENNE)
-assert len(FIRST_49_MERSENNE) == 49 and FIRST_49_MERSENNE_SORTED[-1] == 74207281
+assert len(FIRST_49_MERSENNE) == 49 and FIRST_49_MERSENNE_SORTED[-1] == 74207281, f'should never happen: {FIRST_49_MERSENNE_SORTED[-1]}'
 
 _MAX_PRIMALITY_SAFETY = 100  # this is an absurd number, just to have a max
 
 
 class Error(Exception):
+  """TransCrypto exception."""
+
+
+class InputError(Error):
+  """TransCrypto exception."""
+
+
+class ModularDivideError(Error):
   """TransCrypto exception."""
 
 
@@ -49,7 +57,7 @@ def GCD(a: int, b: int, /) -> int:
   """
   # test inputs
   if a < 0 or b < 0:
-    raise Error(f'negative input: {a=} , {b=}')
+    raise InputError(f'negative input: {a=} , {b=}')
   # algo needs to start with a >= b
   if a < b:
     a, b = b, a
@@ -71,7 +79,7 @@ def ExtendedGCD(a: int, b: int, /) -> tuple[int, int, int]:
   """
   # test inputs
   if a < 0 or b < 0:
-    raise Error(f'negative input: {a=} , {b=}')
+    raise InputError(f'negative input: {a=} , {b=}')
   # algo needs to start with a >= b (but we remember if we did swap)
   swapped = False
   if a < b:
@@ -89,13 +97,43 @@ def ExtendedGCD(a: int, b: int, /) -> tuple[int, int, int]:
   return (a, y2 if swapped else x2, x2 if swapped else y2)
 
 
+def ModInv(x: int, m: int, /) -> int:
+  """Modular inverse of `x` modulo `m`: a `y` such that (x * y) % m == 1 if GCD(x, m) == 1.
+
+  Args:
+    x (int): positive integer to invert, x >= 0
+    m (int): modulo, m > 0
+
+  Returns:
+    positive integer `y` such that (x * y) % m == 1
+    this only exists if GCD(x, m) == 1, so to guarantee an inverse `m` must be prime
+  """
+  # test inputs
+  if m < 1:
+    raise InputError(f'invalid module: {m=}')
+  if not 0 <= x < m:
+    raise InputError(f'invalid input: {x=}')
+  # easy special cases: 0 and 1
+  if not x:  # "division by 0"
+    gcd = m
+    raise ModularDivideError(f'null inverse {x=} mod {m=} with {gcd=}')
+  if x == 1:  # trivial degenerate case
+    return 1
+  # compute actual extended GCD and see if we will have an inverse
+  gcd, y, w = ExtendedGCD(x, m)
+  if gcd != 1:
+    raise ModularDivideError(f'invalid inverse {x=} mod {m=} with {gcd=}')
+  assert y and w and y >= -m, f'should never happen: {x=} mod {m=} -> {w=} ; {y=}'
+  return y if y >= 0 else (y + m)
+
+
 def ModExp(x: int, y: int, m: int, /) -> int:
   """Modular exponential: returns (x ** y) % m efficiently (can handle huge values)."""
   # test inputs
   if x < 0 or y < 0:
-    raise Error(f'negative input: {x=} , {y=}')
+    raise InputError(f'negative input: {x=} , {y=}')
   if m < 1:
-    raise Error(f'invalid module: {m=}')
+    raise InputError(f'invalid module: {m=}')
   # trivial cases
   if not x:
     return 0
@@ -137,7 +175,7 @@ def FermatIsPrime(
   """
   # test inputs and test for trivial cases: 1, 2, 3, divisible by 2
   if n < 1:
-    raise Error(f'invalid number: {n=}')
+    raise InputError(f'invalid number: {n=}')
   if n in (2, 3):
     return True
   if n == 1 or not n % 2:
@@ -147,7 +185,7 @@ def FermatIsPrime(
   if not witnesses:
     max_safety: int = min(n // 2, _MAX_PRIMALITY_SAFETY)
     if safety < 1:
-      raise Error(f'out of bounds safety: 1 <= {safety=} <= {max_safety}')
+      raise InputError(f'out of bounds safety: 1 <= {safety=} <= {max_safety}')
     safety = max_safety if safety > max_safety else safety
     witnesses = set()
     while len(witnesses) < safety:
@@ -155,7 +193,7 @@ def FermatIsPrime(
   # we have our witnesses: do the actual Fermat algo
   for w in sorted(witnesses):
     if not 2 <= w <= (n - 2):
-      raise Error(f'out of bounds witness: 2 <= {w=} <= {n - 2}')
+      raise InputError(f'out of bounds witness: 2 <= {w=} <= {n - 2}')
     if ModExp(w, n - 1, n) != 1:
       # number is proved to be composite
       return False
@@ -175,7 +213,7 @@ def _MillerRabinWitnesses(n: int, /) -> set[int]:  # pylint: disable=too-many-re
   """
   # test inputs
   if n < 5:
-    raise Error(f'invalid number: {n=}')
+    raise InputError(f'invalid number: {n=}')
   # for some "smaller" values there is research that shows these sets are always enough
   if n < 2047:
     return {2}                               # "safety" 1, but 100% coverage
@@ -193,9 +231,9 @@ def _MillerRabinWitnesses(n: int, /) -> set[int]:  # pylint: disable=too-many-re
     return set(FIRST_60_PRIMES_SORTED[:13])  # "safety" 13, but 100% coverage
   # here n should be greater than 2 ** 81, so safety should be 34 or less
   n_bits: int = n.bit_length()
-  assert n_bits >= 82      # "should never happen"
+  assert n_bits >= 82, f'should never happen: {n=} -> {n_bits=}'
   safety: int = int(math.ceil(0.375 + 1.59 / (0.000590 * n_bits))) if n_bits <= 1700 else 2
-  assert 1 < safety <= 34  # "should never happen"
+  assert 1 < safety <= 34, f'should never happen: {n=} -> {n_bits=} ; {safety=}'
   return set(FIRST_60_PRIMES_SORTED[:safety])
 
 
@@ -206,7 +244,7 @@ def _MillerRabinSR(n: int, /) -> tuple[int, int]:
   """
   # test inputs
   if n < 5 or not n % 2:
-    raise Error(f'invalid odd number: {n=}')
+    raise InputError(f'invalid odd number: {n=}')
   # divide by 2 until we can't anymore
   s: int = 1
   r: int = (n - 1) // 2
@@ -214,7 +252,7 @@ def _MillerRabinSR(n: int, /) -> tuple[int, int]:
     s += 1
     r //= 2
   # make sure everything checks out and return
-  assert 1 <= r <= n and r % 2  # "should never happen"
+  assert 1 <= r <= n and r % 2, f'should never happen: {n=} -> {r=}'
   return (s, r)
 
 
@@ -235,7 +273,7 @@ def MillerRabinIsPrime(
   """
   # test inputs and test for trivial cases: 1, 2, 3, divisible by 2
   if n < 1:
-    raise Error(f'invalid number: {n=}')
+    raise InputError(f'invalid number: {n=}')
   if n in (2, 3):
     return True
   if n == 1 or not n % 2:
@@ -247,7 +285,7 @@ def MillerRabinIsPrime(
   y: int
   for w in sorted(witnesses if witnesses else _MillerRabinWitnesses(n)):
     if not 2 <= w <= (n - 2):
-      raise Error(f'out of bounds witness: 2 <= {w=} <= {n - 2}')
+      raise InputError(f'out of bounds witness: 2 <= {w=} <= {n - 2}')
     x: int = ModExp(w, r, n)
     if x not in n_limits:
       for _ in range(s):  # s >= 1 so will execute at least once
@@ -265,7 +303,7 @@ def PrimeGenerator(start: int) -> Generator[int, None, None]:
   """Generates all primes from `start` until loop is broken. Tuned for huge numbers."""
   # test inputs and make sure we start at an odd number
   if start < 0:
-    raise Error(f'invalid number: {start=}')
+    raise InputError(f'invalid number: {start=}')
   # handle start of sequence manually if needed... because we have here the only EVEN prime...
   if start <= 2:
     yield 2

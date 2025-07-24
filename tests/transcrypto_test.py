@@ -27,6 +27,7 @@ __version__: tuple[int, int, int] = transcrypto.__version__  # tests inherit ver
     (3, 7, 1, -2, 1),
     (7, 3, 1, 1, -2),
     (100, 24, 4, 1, -4),
+    (100, 0, 100, 1, 0),
     (24, 100, 4, -4, 1),
     (367613542, 2136213, 59, 15377, -2646175),
     (2354153438, 65246322, 2, 4133449, -149139030),
@@ -45,10 +46,43 @@ def test_GCD(a: int, b: int, gcd: int, x: int, y: int) -> None:
 ])
 def test_GCD_negative(a: int, b: int) -> None:
   """Test."""
-  with pytest.raises(transcrypto.Error, match='negative input'):
+  with pytest.raises(transcrypto.InputError, match='negative input'):
     transcrypto.GCD(a, b)
-  with pytest.raises(transcrypto.Error, match='negative input'):
+  with pytest.raises(transcrypto.InputError, match='negative input'):
     transcrypto.ExtendedGCD(a, b)
+
+
+@pytest.mark.parametrize('x, m, y', [
+    (1, 2, 1),
+    (1, 3, 1),
+    (2, 3, 2),
+    (1, 5, 1),
+    (2, 5, 3),
+    (3, 5, 2),
+    (4, 5, 4),
+    (1975, 2 ** 100 + 277, 1048138445657062588680565232826),
+    (1976, 2 ** 100 + 277, 1207988906998864353754196425225),
+    (2, 2 ** 100 + 331, 633825300114114700748351602854),
+    (3, 2 ** 100 + 331, 422550200076076467165567735236),
+])
+def test_ModInv(x: int, m: int, y: int) -> None:
+  """Test."""
+  assert transcrypto.ModInv(x, m) == y
+  assert transcrypto.ModInv(y, m) == x
+  assert (x * y) % m == 1  # check the inverse!
+
+
+@pytest.mark.parametrize('m', [
+    19,
+    277,
+    1279,
+])
+def test_ModInv_prime(m: int) -> None:
+  """Test."""
+  for x in range(1, m):
+    y: int = transcrypto.ModInv(x, m)
+    assert (x * y) % m == 1  # check the inverse!
+    assert transcrypto.ModInv(y, m) == x
 
 
 @pytest.mark.parametrize('x, y, m, r', [
@@ -91,16 +125,32 @@ def test_ModExp_big(x: int, y: int, m: int, r: int) -> None:
 ])
 def test_ModExp_negative(x: int, y: int) -> None:
   """Test."""
-  with pytest.raises(transcrypto.Error, match='negative input'):
+  with pytest.raises(transcrypto.InputError, match='negative input'):
     transcrypto.ModExp(x, y, 1)
 
 
-def test_ModExp_module() -> None:
+def test_ModExp_ModInv_invalid() -> None:
   """Test."""
-  with pytest.raises(transcrypto.Error, match='invalid module'):
-    transcrypto.ModExp(1, 1, -1)
-  with pytest.raises(transcrypto.Error, match='invalid module'):
-    transcrypto.ModExp(1, 1, 0)
+  with pytest.raises(transcrypto.InputError, match='invalid input'):
+    transcrypto.ModInv(-1, 1)
+  with pytest.raises(transcrypto.InputError, match='invalid input'):
+    transcrypto.ModInv(3, 2)
+  with pytest.raises(transcrypto.ModularDivideError, match=r'null.*with gcd=3'):
+    transcrypto.ModInv(0, 3)
+  with pytest.raises(transcrypto.ModularDivideError, match=r'invalid.*with gcd=227'):
+    transcrypto.ModInv(227, 227 * 229)
+
+
+@pytest.mark.parametrize('m', [
+    -1,
+    0,
+])
+def test_ModExp_ModInv_module(m: int) -> None:
+  """Test."""
+  with pytest.raises(transcrypto.InputError, match='invalid module'):
+    transcrypto.ModInv(0, m)
+  with pytest.raises(transcrypto.InputError, match='invalid module'):
+    transcrypto.ModExp(1, 1, m)
 
 
 @pytest.mark.parametrize('n, witnesses, p', [
@@ -119,13 +169,13 @@ def test_FermatIsPrime(n: int, witnesses: set[int], p: bool) -> None:
 
 def test_FermatIsPrime_invalid() -> None:
   """Test."""
-  with pytest.raises(transcrypto.Error, match='invalid number'):
+  with pytest.raises(transcrypto.InputError, match='invalid number'):
     transcrypto.FermatIsPrime(0)
-  with pytest.raises(transcrypto.Error, match='out of bounds safety'):
+  with pytest.raises(transcrypto.InputError, match='out of bounds safety'):
     transcrypto.FermatIsPrime(11, safety=0)
-  with pytest.raises(transcrypto.Error, match='out of bounds witness'):
+  with pytest.raises(transcrypto.InputError, match='out of bounds witness'):
     transcrypto.FermatIsPrime(11, witnesses={1, 5})
-  with pytest.raises(transcrypto.Error, match='out of bounds witness'):
+  with pytest.raises(transcrypto.InputError, match='out of bounds witness'):
     transcrypto.FermatIsPrime(11, witnesses={5, 10})
 
 
@@ -208,22 +258,22 @@ def test_MillerRabinIsPrime(n: int, p: bool) -> None:
 
 def test_MillerRabinIsPrime_MillerRabinWitnesses_MillerRabinSR_invalid() -> None:
   """Test."""
-  with pytest.raises(transcrypto.Error, match='invalid number'):
+  with pytest.raises(transcrypto.InputError, match='invalid number'):
     transcrypto.MillerRabinIsPrime(0)
-  with pytest.raises(transcrypto.Error, match='out of bounds witness'):
+  with pytest.raises(transcrypto.InputError, match='out of bounds witness'):
     transcrypto.MillerRabinIsPrime(11, witnesses={1, 5})
-  with pytest.raises(transcrypto.Error, match='out of bounds witness'):
+  with pytest.raises(transcrypto.InputError, match='out of bounds witness'):
     transcrypto.MillerRabinIsPrime(11, witnesses={5, 10})
-  with pytest.raises(transcrypto.Error, match='invalid number'):
+  with pytest.raises(transcrypto.InputError, match='invalid number'):
     transcrypto._MillerRabinWitnesses(4)
   for n in (4, 6, 110):
-    with pytest.raises(transcrypto.Error, match='invalid odd number'):
+    with pytest.raises(transcrypto.InputError, match='invalid odd number'):
       transcrypto._MillerRabinSR(n)
 
 
 def test_PrimeGenerator() -> None:
   """Test."""
-  with pytest.raises(transcrypto.Error, match='invalid number'):
+  with pytest.raises(transcrypto.InputError, match='invalid number'):
     next(transcrypto.PrimeGenerator(-1))
   for i, n in enumerate(transcrypto.PrimeGenerator(0)):
     if i >= 60:
