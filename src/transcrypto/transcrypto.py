@@ -406,16 +406,16 @@ class RSAKey:
 class RSAObfuscationPair(RSAKey):
   """RSA (Rivest-Shamir-Adleman) obfuscation pair for a public key."""
   random_key: int      # random value key
-  random_inverse: int  # inverse for `random_key` in relation to the RSA public key
+  key_inverse: int  # inverse for `random_key` in relation to the RSA public key
 
   def __post_init__(self) -> None:
     """Check data."""
     super(RSAObfuscationPair, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
     if (not 1 < self.random_key < self.public_modulus or
-        not 1 < self.random_inverse < self.public_modulus or
-        self.random_key in (self.random_inverse, self.encrypt_exp, self.public_modulus)):
+        not 1 < self.key_inverse < self.public_modulus or
+        self.random_key in (self.key_inverse, self.encrypt_exp, self.public_modulus)):
       raise InputError(f'invalid keys: {self}')
-    if (self.random_key * self.random_inverse) % self.public_modulus != 1:
+    if (self.random_key * self.key_inverse) % self.public_modulus != 1:
       raise CryptoError(f'inconsistent keys: {self}')
 
   def ObfuscateMessage(self, message: int, /) -> int:
@@ -433,7 +433,7 @@ class RSAObfuscationPair(RSAKey):
     if not self.VerifySignature(obfuscated, signature):
       raise CryptoError(f'obfuscated message was not signed: {message=} ; {signature=}')
     # compute signature for original message and check it
-    original: int = (signature * self.random_inverse) % self.public_modulus
+    original: int = (signature * self.key_inverse) % self.public_modulus
     if not self.VerifySignature(message, original):
       raise CryptoError(f'failed signature recovery: {message=} ; {signature=}')
     return original
@@ -442,18 +442,21 @@ class RSAObfuscationPair(RSAKey):
   def New(cls, key: RSAKey, /) -> Self:
     """New obfuscation pair for this `key`."""
     # find a suitable random key based on the bit_length
-    random_key: int = secrets.randbits(key.public_modulus.bit_length() - 1)
-    while GCD(random_key, key.public_modulus) != 1 or random_key == key.encrypt_exp:
-      random_key += 1
-    if random_key >= key.public_modulus:  # can only reasonably occur for small numbers
-      raise CryptoError(f'failed to find a suitable key @ {random_key=}')
+    random_key: int = 0
+    key_inverse: int = 0
+    while (not random_key or not key_inverse or
+           random_key == key.encrypt_exp or
+           random_key == key_inverse or
+           key_inverse == key.encrypt_exp):
+      random_key = secrets.randbits(key.public_modulus.bit_length() - 1)
+      try:
+        key_inverse = ModInv(random_key, key.public_modulus)
+      except ModularDivideError:
+        key_inverse = 0
     # build object
     return cls(
-        public_modulus=key.public_modulus,
-        encrypt_exp=key.encrypt_exp,
-        random_key=random_key,
-        random_inverse=ModInv(random_key, key.public_modulus),
-    )
+        public_modulus=key.public_modulus, encrypt_exp=key.encrypt_exp,
+        random_key=random_key, key_inverse=key_inverse)
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)

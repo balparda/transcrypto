@@ -6,8 +6,9 @@
 # pyright: reportPrivateUsage=false
 """transcrypto.py unittest."""
 
-import pdb
+# import pdb
 import sys
+from unittest import mock
 
 import pytest
 
@@ -284,6 +285,16 @@ def test_PrimeGenerator() -> None:
   assert next(g) == 2 ** 100 + 331
 
 
+@mock.patch('secrets.randbits', autospec=True)
+def test_NBitRandomPrime(mock_bits: mock.MagicMock) -> None:
+  """Test."""
+  with pytest.raises(transcrypto.InputError, match='invalid n:'):
+    transcrypto.NBitRandomPrime(3)
+  mock_bits.side_effect = [9, 20]
+  assert transcrypto.NBitRandomPrime(5) == 23
+  assert mock_bits.call_args_list == [mock.call(5), mock.call(5)]
+
+
 def test_MersennePrimesGenerator() -> None:
   """Test."""
   mersenne: list[int] = []
@@ -298,18 +309,121 @@ def test_MersennePrimesGenerator() -> None:
     (10, 17),
     (11, 90),
     (12, 68),
-    (13, 314),
+    (13, 300),
 ])
-def test_RSAKeys_lots_of_small(n: int, sz: int) -> None:
+def test_RSAPrivateKey_lots_of_small_keys(n: int, sz: int) -> None:
   """Test: this is to make sure the smaller possible key values don't go into loops."""
   all_working: set[transcrypto.RSAPrivateKey] = set()
   for _ in range(1000):
-    all_working.add(transcrypto.RSAPrivateKey.New(n))
-  assert len(all_working) > sz
+    rsa: transcrypto.RSAPrivateKey = transcrypto.RSAPrivateKey.New(n)
+    all_working.add(rsa)
+    transcrypto.RSAObfuscationPair.New(rsa)
+  assert len(all_working) >= sz
 
 
-# RSAPrivateKey(tm=1753425278, bit_length=5, public_modulus=22, encrypt_exp=7, modulus_p=2, modulus_q=11, decrypt_exp=3)
-# RSAObfuscationPair(tm=1753425278, bit_length=5, public_modulus=22, encrypt_exp=7, random_key=9, random_inverse=5)
+@pytest.mark.parametrize(
+    'public_modulus, encrypt_exp, random_key, key_inverse, modulus_p, modulus_q, decrypt_exp, '
+    'message, expected_cypher, expected_obfuscated, expected_signed, expected_obfuscated_signed',
+    [
+        (22, 7, 9, 5, 2, 11, 3, 2, 18, 8, 8, 6),
+        (22, 7, 9, 5, 2, 11, 3, 10, 10, 18, 10, 2),
+        (22, 7, 9, 5, 2, 11, 3, 20, 4, 14, 14, 16),
+        (37627, 211, 8526, 28805, 191, 197, 12531, 10, 29096, 9308, 15036, 1747),
+        (37627, 211, 8526, 28805, 191, 197, 12531, 20, 4511, 18616, 768, 870),
+        (37627, 211, 8526, 28805, 191, 197, 12531, 30, 26303, 27924, 13231, 1760),
+        (8910991, 2437, 5557471, 3986528, 2741, 3251, 7538373, 10, 7265813, 3528557, 8909398, 4473751),
+    ])
+def test_RSA(  # pylint: disable=too-many-locals,too-many-arguments,too-many-positional-arguments
+    public_modulus: int, encrypt_exp: int, random_key: int, key_inverse: int,
+    modulus_p: int, modulus_q: int, decrypt_exp: int,
+    message: int, expected_cypher: int, expected_obfuscated: int,
+    expected_signed: int, expected_obfuscated_signed: int) -> None:
+  """Test."""
+  # create keys
+  public = transcrypto.RSAKey(public_modulus=public_modulus, encrypt_exp=encrypt_exp)
+  ob = transcrypto.RSAObfuscationPair(
+      public_modulus=public_modulus, encrypt_exp=encrypt_exp,
+      random_key=random_key, key_inverse=key_inverse)
+  private = transcrypto.RSAPrivateKey(
+      public_modulus=public_modulus, encrypt_exp=encrypt_exp,
+      modulus_p=modulus_p, modulus_q=modulus_q, decrypt_exp=decrypt_exp)
+  # do public key operations
+  with pytest.raises(transcrypto.InputError, match='invalid message'):
+    public.Encrypt(0)
+  with pytest.raises(transcrypto.InputError, match='invalid message'):
+    public.Encrypt(public_modulus)
+  cypher: int = public.Encrypt(message)
+  with pytest.raises(transcrypto.InputError, match='invalid message'):
+    ob.ObfuscateMessage(0)
+  with pytest.raises(transcrypto.InputError, match='invalid message'):
+    ob.ObfuscateMessage(public_modulus)
+  obfuscated: int = ob.ObfuscateMessage(message)
+  assert (cypher, obfuscated) == (expected_cypher, expected_obfuscated)
+  # do private key operations
+  with pytest.raises(transcrypto.InputError, match='invalid message'):
+    private.Decrypt(0)
+  with pytest.raises(transcrypto.InputError, match='invalid message'):
+    private.Decrypt(public_modulus)
+  assert private.Decrypt(cypher) == message
+  signed: int = private.Sign(message)
+  obfuscated_signed: int = private.Sign(obfuscated)
+  assert (signed, obfuscated_signed) == (expected_signed, expected_obfuscated_signed)
+  # check signatures with public key
+  assert public.VerifySignature(message, signed)
+  assert not public.VerifySignature(message, signed + 1)
+  assert not public.VerifySignature(message + 1, signed)
+  assert ob.RevealOriginalSignature(message, obfuscated_signed) == signed
+  with pytest.raises(transcrypto.CryptoError, match='obfuscated message was not signed'):
+    ob.RevealOriginalSignature(message, obfuscated_signed + 1)
+  with mock.patch('src.transcrypto.transcrypto.RSAKey.VerifySignature', autospec=True) as verify:
+    verify.side_effect = [True, False]
+    with pytest.raises(transcrypto.CryptoError, match='failed signature recovery'):
+      ob.RevealOriginalSignature(message + 1, obfuscated_signed)
+
+
+def test_RSAKey_invalid() -> None:
+  """Test."""
+  with pytest.raises(transcrypto.InputError, match='invalid public_modulus'):
+    transcrypto.RSAKey(public_modulus=4, encrypt_exp=1)
+  with pytest.raises(transcrypto.InputError, match='invalid public_modulus'):
+    transcrypto.RSAKey(public_modulus=7, encrypt_exp=1)
+  with pytest.raises(transcrypto.InputError, match='invalid encrypt_exp'):
+    transcrypto.RSAKey(public_modulus=22, encrypt_exp=1)
+  with pytest.raises(transcrypto.InputError, match='invalid encrypt_exp'):
+    transcrypto.RSAKey(public_modulus=22, encrypt_exp=22)
+  transcrypto.RSAKey(public_modulus=22, encrypt_exp=7)
+
+
+def test_RSAObfuscationPair_invalid() -> None:
+  """Test."""
+  with pytest.raises(transcrypto.InputError, match='invalid keys'):
+    transcrypto.RSAObfuscationPair(public_modulus=22, encrypt_exp=7, random_key=22, key_inverse=5)
+  with pytest.raises(transcrypto.InputError, match='invalid keys'):
+    transcrypto.RSAObfuscationPair(public_modulus=22, encrypt_exp=7, random_key=5, key_inverse=22)
+  with pytest.raises(transcrypto.InputError, match='invalid keys'):
+    transcrypto.RSAObfuscationPair(public_modulus=22, encrypt_exp=7, random_key=9, key_inverse=9)
+  with pytest.raises(transcrypto.CryptoError, match='inconsistent keys'):
+    transcrypto.RSAObfuscationPair(public_modulus=22, encrypt_exp=7, random_key=9, key_inverse=3)
+  transcrypto.RSAObfuscationPair(public_modulus=22, encrypt_exp=7, random_key=9, key_inverse=5)
+
+
+def test_RSAPrivateKey_invalid() -> None:
+  """Test."""
+  with pytest.raises(transcrypto.InputError, match='invalid modulus_p or modulus_q'):
+    transcrypto.RSAPrivateKey(public_modulus=22, encrypt_exp=7, modulus_p=2, modulus_q=6, decrypt_exp=3)
+  with pytest.raises(transcrypto.InputError, match='invalid modulus_p or modulus_q'):
+    transcrypto.RSAPrivateKey(public_modulus=22, encrypt_exp=7, modulus_p=6, modulus_q=11, decrypt_exp=3)
+  with pytest.raises(transcrypto.InputError, match='invalid modulus_p or modulus_q'):
+    transcrypto.RSAPrivateKey(public_modulus=22, encrypt_exp=7, modulus_p=7, modulus_q=11, decrypt_exp=3)
+  with pytest.raises(transcrypto.InputError, match='invalid decrypt_exp'):
+    transcrypto.RSAPrivateKey(public_modulus=22, encrypt_exp=7, modulus_p=2, modulus_q=11, decrypt_exp=22)
+  with pytest.raises(transcrypto.CryptoError, match=r'inconsistent modulus_p \* modulus_q'):
+    transcrypto.RSAPrivateKey(public_modulus=22, encrypt_exp=7, modulus_p=3, modulus_q=11, decrypt_exp=3)
+  with pytest.raises(transcrypto.CryptoError, match='inconsistent exponents'):
+    transcrypto.RSAPrivateKey(public_modulus=22, encrypt_exp=7, modulus_p=2, modulus_q=11, decrypt_exp=5)
+  with pytest.raises(transcrypto.InputError, match='invalid bit length'):
+    transcrypto.RSAPrivateKey.New(9)
+  transcrypto.RSAPrivateKey(public_modulus=22, encrypt_exp=7, modulus_p=2, modulus_q=11, decrypt_exp=3)
 
 
 if __name__ == '__main__':
