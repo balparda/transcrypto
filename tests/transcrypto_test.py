@@ -6,7 +6,7 @@
 # pyright: reportPrivateUsage=false
 """transcrypto.py unittest."""
 
-# import pdb
+import pdb
 import sys
 
 import pytest
@@ -145,11 +145,11 @@ def test_ModExp_ModInv_invalid() -> None:
     -1,
     0,
 ])
-def test_ModExp_ModInv_module(m: int) -> None:
+def test_ModExp_ModInv_modulus(m: int) -> None:
   """Test."""
-  with pytest.raises(transcrypto.InputError, match='invalid module'):
+  with pytest.raises(transcrypto.InputError, match='invalid modulus'):
     transcrypto.ModInv(0, m)
-  with pytest.raises(transcrypto.InputError, match='invalid module'):
+  with pytest.raises(transcrypto.InputError, match='invalid modulus'):
     transcrypto.ModExp(1, 1, m)
 
 
@@ -292,6 +292,24 @@ def test_MersennePrimesGenerator() -> None:
     if i > 12:
       break
   assert mersenne == transcrypto.FIRST_49_MERSENNE_SORTED[:14]
+
+
+@pytest.mark.parametrize('n, sz', [
+    (10, 17),
+    (11, 90),
+    (12, 68),
+    (13, 314),
+])
+def test_RSAKeys_lots_of_small(n: int, sz: int) -> None:
+  """Test: this is to make sure the smaller possible key values don't go into loops."""
+  all_working: set[transcrypto.RSAPrivateKey] = set()
+  for _ in range(1000):
+    all_working.add(transcrypto.RSAPrivateKey.New(n))
+  assert len(all_working) > sz
+
+
+# RSAPrivateKey(tm=1753425278, bit_length=5, public_modulus=22, encrypt_exp=7, modulus_p=2, modulus_q=11, decrypt_exp=3)
+# RSAObfuscationPair(tm=1753425278, bit_length=5, public_modulus=22, encrypt_exp=7, random_key=9, random_inverse=5)
 
 
 if __name__ == '__main__':

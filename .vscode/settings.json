@@ -27,6 +27,7 @@
 
   // spelling
   "cSpell.words": [
+    "Adleman",
     "Algoritmos",
     "Criptografia",
     "Mersenne",
@@ -34,6 +35,8 @@
     "Primality",
     "pypi",
     "pyright",
+    "Rivest",
+    "Shamir",
     "transcrypto"
   ]
 }

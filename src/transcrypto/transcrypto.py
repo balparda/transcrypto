@@ -4,10 +4,12 @@
 #
 """Balparda's TransCrypto."""
 
+import dataclasses
+import datetime
 import math
-import pdb
-import random
-from typing import Generator, Optional
+# import pdb
+import secrets
+from typing import Generator, Optional, Self
 
 __author__ = 'balparda@github.com'
 __version__: tuple[int, int, int] = (1, 0, 2)  # v1.0.2, 2025-07-22
@@ -37,17 +39,24 @@ assert len(FIRST_49_MERSENNE) == 49 and FIRST_49_MERSENNE_SORTED[-1] == 74207281
 
 _MAX_PRIMALITY_SAFETY = 100  # this is an absurd number, just to have a max
 
+MIN_TM = int(  # minimum allowed timestamp
+    datetime.datetime(2000, 1, 1, 0, 0, 0).replace(tzinfo=datetime.timezone.utc).timestamp())
+
 
 class Error(Exception):
   """TransCrypto exception."""
 
 
 class InputError(Error):
-  """TransCrypto exception."""
+  """Input exception (TransCrypto)."""
 
 
 class ModularDivideError(Error):
-  """TransCrypto exception."""
+  """Divide-by-zero-like exception (TransCrypto)."""
+
+
+class CryptoError(Error):
+  """Cryptographic exception (TransCrypto)."""
 
 
 def GCD(a: int, b: int, /) -> int:
@@ -110,7 +119,7 @@ def ModInv(x: int, m: int, /) -> int:
   """
   # test inputs
   if m < 1:
-    raise InputError(f'invalid module: {m=}')
+    raise InputError(f'invalid modulus: {m=}')
   if not 0 <= x < m:
     raise InputError(f'invalid input: {x=}')
   # easy special cases: 0 and 1
@@ -133,7 +142,7 @@ def ModExp(x: int, y: int, m: int, /) -> int:
   if x < 0 or y < 0:
     raise InputError(f'negative input: {x=} , {y=}')
   if m < 1:
-    raise InputError(f'invalid module: {m=}')
+    raise InputError(f'invalid modulus: {m=}')
   # trivial cases
   if not x:
     return 0
@@ -188,8 +197,9 @@ def FermatIsPrime(
       raise InputError(f'out of bounds safety: 1 <= {safety=} <= {max_safety}')
     safety = max_safety if safety > max_safety else safety
     witnesses = set()
+    rand = secrets.SystemRandom()
     while len(witnesses) < safety:
-      witnesses.add(random.randint(2, n - 2))
+      witnesses.add(rand.randint(2, n - 2))
   # we have our witnesses: do the actual Fermat algo
   for w in sorted(witnesses):
     if not 2 <= w <= (n - 2):
@@ -299,7 +309,23 @@ def MillerRabinIsPrime(
   return True
 
 
-def PrimeGenerator(start: int) -> Generator[int, None, None]:
+def IsPrime(n: int, /) -> bool:
+  """Primality test of `n` (n > 0).
+
+  Args:
+    n (int): Number to test primality
+
+  Returns:
+    False if certainly not prime ; True if (probabilistically) prime
+  """
+  # is number divisible by (one of the) first 60 primes? test should eliminate 80%+ of candidates
+  if n > PRIME_60 and GCD(n, COMPOSITE_60) != 1:
+    return False
+  # do the (more expensive) Miller-Rabin primality test
+  return MillerRabinIsPrime(n)
+
+
+def PrimeGenerator(start: int, /) -> Generator[int, None, None]:
   """Generates all primes from `start` until loop is broken. Tuned for huge numbers."""
   # test inputs and make sure we start at an odd number
   if start < 0:
@@ -312,15 +338,28 @@ def PrimeGenerator(start: int) -> Generator[int, None, None]:
   n: int = (start if start % 2 else start + 1) - 2  # n >= 1 always
   while True:
     n += 2  # next odd number
-    # is number divisible by (one of the) first 60 primes? test should eliminate 80%+ of candidates
-    if n > PRIME_60 and GCD(n, COMPOSITE_60) != 1:
-      continue  # not prime
-    # do the (more expensive) primality test
-    if MillerRabinIsPrime(n):
+    if IsPrime(n):
       yield n  # found a prime
 
 
-def MersennePrimesGenerator(start: int) -> Generator[tuple[int, int, int], None, None]:
+def NBitRandomPrime(n_bits: int, /) -> int:
+  """Generates a random prime with (guaranteed) `n_bits` binary representation length."""
+  # test inputs
+  if n_bits < 4:
+    raise InputError(f'invalid n: {n_bits=}')
+  # get a random number with guaranteed bit size
+  min_start: int = 2 ** (n_bits - 1)
+  prime: int = 0
+  while prime.bit_length() != n_bits:
+    start_point: int = secrets.randbits(n_bits)
+    while start_point < min_start:
+      # i know we could just set the bit, but IMO it is better to get another entirely
+      start_point = secrets.randbits(n_bits)
+    prime = next(PrimeGenerator(start_point))
+  return prime
+
+
+def MersennePrimesGenerator(start: int, /) -> Generator[tuple[int, int, int], None, None]:
   """Generates all Mersenne prime (2 ** n - 1) exponents from 2**start until loop is broken.
 
   <https://en.wikipedia.org/wiki/List_of_Mersenne_primes_and_perfect_numbers>
@@ -333,10 +372,156 @@ def MersennePrimesGenerator(start: int) -> Generator[tuple[int, int, int], None,
   # "The exponents p corresponding to Mersenne primes must themselves be prime."
   for n in PrimeGenerator(start if start >= 1 else 1):
     mersenne: int = 2 ** n - 1
-    # is number divisible by (one of the) first 60 primes? test should eliminate 80%+ of candidates
-    if mersenne > PRIME_60 and GCD(mersenne, COMPOSITE_60) != 1:
-      continue  # not prime
-    # do the (more expensive) primality test
-    if MillerRabinIsPrime(mersenne):
-      # found a prime, yield it plus the perfect number associated with it
-      yield (n, mersenne, (2 ** (n - 1)) * mersenne)
+    if IsPrime(mersenne):
+      yield (n, mersenne, (2 ** (n - 1)) * mersenne)  # found: also yield perfect number
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class RSAKey:
+  """RSA (Rivest-Shamir-Adleman) key, with the public part of the key."""
+  public_modulus: int  # modulus = (p * q)
+  encrypt_exp: int     # encryption exponent; encryption is: ModExp(message, encrypt_exp, public_modulus)
+
+  def __post_init__(self) -> None:
+    """Check data."""
+    if self.public_modulus < 6 or IsPrime(self.public_modulus):
+      raise InputError(f'invalid public_modulus: {self}')
+    if not 2 < self.encrypt_exp < self.public_modulus or not IsPrime(self.encrypt_exp):
+      raise InputError(f'invalid encrypt_exp: {self}')
+
+  def Encrypt(self, message: int, /) -> int:
+    """Encrypt `message` with this public key."""
+    # test inputs
+    if not 0 < message < self.public_modulus:
+      raise InputError(f'invalid message: {message=}')
+    # encrypt
+    return ModExp(message, self.encrypt_exp, self.public_modulus)
+
+  def VerifySignature(self, message: int, signature: int, /) -> bool:
+    """Verify a signature. True if OK; False if failed verification."""
+    return self.Encrypt(signature) == message
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class RSAObfuscationPair(RSAKey):
+  """RSA (Rivest-Shamir-Adleman) obfuscation pair for a public key."""
+  random_key: int      # random value key
+  random_inverse: int  # inverse for `random_key` in relation to the RSA public key
+
+  def __post_init__(self) -> None:
+    """Check data."""
+    super(RSAObfuscationPair, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
+    if (not 1 < self.random_key < self.public_modulus or
+        not 1 < self.random_inverse < self.public_modulus or
+        self.random_key in (self.random_inverse, self.encrypt_exp, self.public_modulus)):
+      raise InputError(f'invalid keys: {self}')
+    if (self.random_key * self.random_inverse) % self.public_modulus != 1:
+      raise CryptoError(f'inconsistent keys: {self}')
+
+  def ObfuscateMessage(self, message: int, /) -> int:
+    """Convert message to an obfuscated message to be signed by this key's owner."""
+    # test inputs
+    if not 0 < message < self.public_modulus:
+      raise InputError(f'invalid message: {message=}')
+    # encrypt
+    return (message * ModExp(self.random_key, self.encrypt_exp, self.public_modulus)) % self.public_modulus
+
+  def RevealOriginalSignature(self, message: int, signature: int, /) -> int:
+    """Recover original signature for `message` from obfuscated `signature`."""
+    # verify that obfuscated signature is valid
+    obfuscated: int = self.ObfuscateMessage(message)
+    if not self.VerifySignature(obfuscated, signature):
+      raise CryptoError(f'obfuscated message was not signed: {message=} ; {signature=}')
+    # compute signature for original message and check it
+    original: int = (signature * self.random_inverse) % self.public_modulus
+    if not self.VerifySignature(message, original):
+      raise CryptoError(f'failed signature recovery: {message=} ; {signature=}')
+    return original
+
+  @classmethod
+  def New(cls, key: RSAKey, /) -> Self:
+    """New obfuscation pair for this `key`."""
+    # find a suitable random key based on the bit_length
+    random_key: int = secrets.randbits(key.public_modulus.bit_length() - 1)
+    while GCD(random_key, key.public_modulus) != 1 or random_key == key.encrypt_exp:
+      random_key += 1
+    if random_key >= key.public_modulus:  # can only reasonably occur for small numbers
+      raise CryptoError(f'failed to find a suitable key @ {random_key=}')
+    # build object
+    return cls(
+        public_modulus=key.public_modulus,
+        encrypt_exp=key.encrypt_exp,
+        random_key=random_key,
+        random_inverse=ModInv(random_key, key.public_modulus),
+    )
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class RSAPrivateKey(RSAKey):
+  """RSA (Rivest-Shamir-Adleman) private key."""
+  modulus_p: int     # prime number p
+  modulus_q: int     # prime number q
+  decrypt_exp: int  # decryption exponent; decryption is: ModExp(message, decrypt_exp, public_modulus)
+
+  def __post_init__(self) -> None:
+    """Check data."""
+    super(RSAPrivateKey, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
+    if (self.modulus_p < 2 or not IsPrime(self.modulus_p) or  # pylint: disable=too-many-boolean-expressions
+        self.modulus_q < 2 or not IsPrime(self.modulus_q) or
+        self.modulus_p == self.modulus_q or
+        self.encrypt_exp in (self.modulus_p, self.modulus_q)):
+      raise InputError(f'invalid modulus_p or modulus_q: {self}')
+    if not 2 < self.decrypt_exp < self.public_modulus:
+      raise InputError(f'invalid decrypt_exp: {self}')
+    if self.modulus_p * self.modulus_q != self.public_modulus:
+      raise CryptoError(f'inconsistent modulus_p * modulus_q: {self}')
+    if (self.encrypt_exp * self.decrypt_exp) % ((self.modulus_p - 1) * (self.modulus_q - 1)) != 1:
+      raise CryptoError(f'inconsistent exponents: {self}')
+
+  def Decrypt(self, message: int, /) -> int:
+    """Decrypt `message` with this private key."""
+    # test inputs
+    if not 0 < message < self.public_modulus:
+      raise InputError(f'invalid message: {message=}')
+    # decrypt
+    return ModExp(message, self.decrypt_exp, self.public_modulus)
+
+  def Sign(self, message: int, /) -> int:
+    """Sign `message` with this private key."""
+    return self.Decrypt(message)
+
+  @classmethod
+  def New(cls, bit_length: int, /) -> Self:
+    """Make a new private key using `seed1`, `seed2` & `seed3` as starting points for keys."""
+    # test inputs
+    if bit_length < 10:
+      raise InputError(f'invalid bit length: {bit_length=}')
+    # generate primes / modulus
+    primes: list[int] = [NBitRandomPrime(bit_length // 2), NBitRandomPrime(bit_length // 2)]
+    modulus: int = primes[0] * primes[1]
+    while modulus.bit_length() != bit_length or primes[0] == primes[1]:
+      primes.remove(min(primes))
+      primes.append(NBitRandomPrime(bit_length // 2 + (bit_length % 2 if modulus.bit_length() < bit_length else 0)))
+      modulus = primes[0] * primes[1]
+    # phi / generate (prime_exp, inverse) pair
+    phi: int = (primes[0] - 1) * (primes[1] - 1)
+    prime_exp: int = 0
+    prime_exp_inv: int = 0
+    while (not prime_exp or
+           prime_exp_inv < 3 or
+           prime_exp == prime_exp_inv or
+           prime_exp in primes or
+           prime_exp_inv in primes):
+      prime_exp = NBitRandomPrime(bit_length // 2)
+      try:
+        prime_exp_inv = ModInv(prime_exp, phi)
+      except ModularDivideError:
+        prime_exp_inv = 0
+    # build object
+    return cls(
+        modulus_p=min(primes),  # "p" is always the smaller
+        modulus_q=max(primes),  # "q" is always the larger
+        public_modulus=modulus,
+        encrypt_exp=prime_exp,
+        decrypt_exp=prime_exp_inv,
+    )
