@@ -15,7 +15,7 @@
     "--indent-string='  '",
     "--method-naming-style=PascalCase",
     "--function-naming-style=PascalCase",
-    "--disable=line-too-long"
+    "--disable=line-too-long,too-many-lines"
   ],
 
   // flake8

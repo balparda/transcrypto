@@ -340,7 +340,7 @@ def test_RSA(  # pylint: disable=too-many-locals,too-many-arguments,too-many-pos
     expected_signed: int, expected_obfuscated_signed: int) -> None:
   """Test."""
   # create keys
-  public = transcrypto.RSAKey(public_modulus=public_modulus, encrypt_exp=encrypt_exp)
+  public = transcrypto.RSAPublicKey(public_modulus=public_modulus, encrypt_exp=encrypt_exp)
   ob = transcrypto.RSAObfuscationPair(
       public_modulus=public_modulus, encrypt_exp=encrypt_exp,
       random_key=random_key, key_inverse=key_inverse)
@@ -375,23 +375,23 @@ def test_RSA(  # pylint: disable=too-many-locals,too-many-arguments,too-many-pos
   assert ob.RevealOriginalSignature(message, obfuscated_signed) == signed
   with pytest.raises(transcrypto.CryptoError, match='obfuscated message was not signed'):
     ob.RevealOriginalSignature(message, obfuscated_signed + 1)
-  with mock.patch('src.transcrypto.transcrypto.RSAKey.VerifySignature', autospec=True) as verify:
+  with mock.patch('src.transcrypto.transcrypto.RSAPublicKey.VerifySignature', autospec=True) as verify:
     verify.side_effect = [True, False]
     with pytest.raises(transcrypto.CryptoError, match='failed signature recovery'):
       ob.RevealOriginalSignature(message + 1, obfuscated_signed)
 
 
-def test_RSAKey_invalid() -> None:
+def test_RSAPublicKey_invalid() -> None:
   """Test."""
   with pytest.raises(transcrypto.InputError, match='invalid public_modulus'):
-    transcrypto.RSAKey(public_modulus=4, encrypt_exp=1)
+    transcrypto.RSAPublicKey(public_modulus=4, encrypt_exp=1)
   with pytest.raises(transcrypto.InputError, match='invalid public_modulus'):
-    transcrypto.RSAKey(public_modulus=7, encrypt_exp=1)
+    transcrypto.RSAPublicKey(public_modulus=7, encrypt_exp=1)
   with pytest.raises(transcrypto.InputError, match='invalid encrypt_exp'):
-    transcrypto.RSAKey(public_modulus=22, encrypt_exp=1)
+    transcrypto.RSAPublicKey(public_modulus=22, encrypt_exp=1)
   with pytest.raises(transcrypto.InputError, match='invalid encrypt_exp'):
-    transcrypto.RSAKey(public_modulus=22, encrypt_exp=22)
-  transcrypto.RSAKey(public_modulus=22, encrypt_exp=7)
+    transcrypto.RSAPublicKey(public_modulus=22, encrypt_exp=22)
+  transcrypto.RSAPublicKey(public_modulus=22, encrypt_exp=7)
 
 
 def test_RSAObfuscationPair_invalid() -> None:

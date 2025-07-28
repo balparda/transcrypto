@@ -6,10 +6,11 @@
 
 import dataclasses
 import datetime
+import logging
 import math
 # import pdb
 import secrets
-from typing import Generator, Optional, Self
+from typing import Collection, Generator, Optional, Reversible, Self
 
 __author__ = 'balparda@github.com'
 __version__: tuple[int, int, int] = (1, 0, 2)  # v1.0.2, 2025-07-22
@@ -60,9 +61,17 @@ class CryptoError(Error):
 
 
 def GCD(a: int, b: int, /) -> int:
-  """Greatest Common Divisor for `a` and `b`, positive integers.
+  """Greatest Common Divisor for `a` and `b`, positive integers. Uses the Euclid method.
 
-  Uses the Euclid method.
+  Args:
+    a (int): integer a ≥ 0
+    b (int): integer b ≥ 0
+
+  Returns:
+    gcd(a, b)
+
+  Raises:
+    InputError: invalid inputs
   """
   # test inputs
   if a < 0 or b < 0:
@@ -78,13 +87,18 @@ def GCD(a: int, b: int, /) -> int:
 
 
 def ExtendedGCD(a: int, b: int, /) -> tuple[int, int, int]:
-  """Greatest Common Divisor Extended for `a` and `b`, positive integers.
+  """Greatest Common Divisor Extended for `a` and `b`, positive integers. Uses the Euclid method.
 
-  Uses the Euclid method.
+  Args:
+    a (int): integer a ≥ 0
+    b (int): integer b ≥ 0
 
   Returns:
     (gcd, x, y) so that a * x + b * y = gcd
     x and y may be negative integers or zero but won't be both zero.
+
+  Raises:
+    InputError: invalid inputs
   """
   # test inputs
   if a < 0 or b < 0:
@@ -110,12 +124,16 @@ def ModInv(x: int, m: int, /) -> int:
   """Modular inverse of `x` modulo `m`: a `y` such that (x * y) % m == 1 if GCD(x, m) == 1.
 
   Args:
-    x (int): positive integer to invert, x >= 0
-    m (int): modulo, m > 0
+    x (int): integer to invert, x ≥ 0
+    m (int): modulo, m ≥ 1
 
   Returns:
     positive integer `y` such that (x * y) % m == 1
     this only exists if GCD(x, m) == 1, so to guarantee an inverse `m` must be prime
+
+  Raises:
+    InputError: invalid modulus or x
+    ModularDivideError: divide-by-zero, i.e., GCD(x, m) != 1 or x == 0
   """
   # test inputs
   if m < 1:
@@ -136,8 +154,39 @@ def ModInv(x: int, m: int, /) -> int:
   return y if y >= 0 else (y + m)
 
 
+def ModDiv(x: int, y: int, m: int, /) -> int:
+  """Modular division of `x`/`y` modulo `m`, if GCD(y, m) == 1.
+
+  Args:
+    x (int): integer, x ≥ 0
+    y (int): integer, y ≥ 0
+    m (int): modulo, m ≥ 1
+
+  Returns:
+    positive integer `z` such that (z * y) % m == x
+    this only exists if GCD(y, m) == 1, so to guarantee an inverse `m` must be prime
+
+  Raises:
+    InputError: invalid modulus or x or y
+    ModularDivideError: divide-by-zero, i.e., GCD(y, m) != 1 or y == 0
+  """
+  return ((x % m) * ModInv(y % m, m)) % m
+
+
 def ModExp(x: int, y: int, m: int, /) -> int:
-  """Modular exponential: returns (x ** y) % m efficiently (can handle huge values)."""
+  """Modular exponential: returns (x ** y) % m efficiently (can handle huge values).
+
+  Args:
+    x (int): integer, x ≥ 0
+    y (int): integer, y ≥ 0
+    m (int): modulo, m ≥ 1
+
+  Returns:
+    (x ** y) mod m
+
+  Raises:
+    InputError: invalid inputs
+  """
   # test inputs
   if x < 0 or y < 0:
     raise InputError(f'negative input: {x=} , {y=}')
@@ -158,6 +207,95 @@ def ModExp(x: int, y: int, m: int, /) -> int:
       z = (z * x) % m
     x = (x * x) % m
   return z
+
+
+def ModPolynomial(polynomial: Reversible[int], x: int, m: int, /) -> int:
+  """Evaluates polynomial `poly` (coefficient iterable) at `x` modulus `m`.
+
+  Evaluate a polynomial at `x` under a modulus `m` using Horner's rule. Horner rewrites:
+      a_0 + a_1 x + a_2 x^2 + … + a_n x^n
+    = (…((a_n x + a_{n-1}) x + a_{n-2}) … ) x + a_0
+  This uses exactly n multiplies and n adds, and lets us take `% m` at each
+  step so intermediate numbers never explode.
+
+  Args:
+    polynomial (Reversible[int]): Iterable of coefficients a_0, a_1, …, a_n
+        (constant term first); it must be reversible because Horner's rule consumes
+        coefficients from highest degree downwards
+    x (int) The evaluation point (x ≥ 0)
+    m (int): Modulus (m ≥ 1); if you expect multiplicative inverses elsewhere, should be prime
+
+  Returns:
+    f(x) mod m
+
+  Raises:
+    InputError: invalid inputs
+  """
+  # test inputs
+  if x < 0:
+    raise InputError(f'negative input: {x=}')
+  if m < 1:
+    raise InputError(f'invalid modulus: {m=}')
+  # loop over polynomial coefficients
+  total: int = 0
+  x %= m
+  for coefficient in reversed(polynomial):
+    total = (total * x + coefficient) % m
+  return total
+
+
+def ModLagrangeInterpolate(x: int, points: dict[int, int], m: int, /) -> int:
+  """Find the f(x) solution for the given `x` and {x: y} `points` modulus prime `m`.
+
+  Given `points` will define a polynomial of up to len(points) order.
+  Evaluate (interpolate) the unique polynomial of degree ≤ (n-1) that passes
+  through the given points (x_i, y_i), and return f(x) modulo a prime `m`.
+
+  Lagrange interpolation writes the polynomial as:
+      f(X) = Σ_{i=0}^{n-1} y_i * L_i(X)
+  where
+      L_i(X) = Π_{j≠i} (X - x_j) / (x_i - x_j)
+  are the Lagrange basis polynomials. Each L_i(x_i) = 1 and L_i(x_j)=0 for j≠i,
+  so f matches every supplied point.
+
+  In modular arithmetic we replace division by multiplication with modular
+  inverses. Because `m` is prime (or at least co-prime with every denominator),
+  every (x_i - x_j) has an inverse `mod m`.
+
+  Args:
+    x (int): The x-value at which to evaluate the interpolated polynomial, x ≥ 0
+    points (dict[int, int]): A mapping {x_i: y_i}, where all x_i < m and y_i < m
+    m (int): Prime modulus (m ≥ 1); we need modular inverses, so gcd(denominator, m) must be 1
+
+  Returns:
+    y-value solution for f(x) mod m given `points` mapping
+
+  Raises:
+    InputError: invalid inputs
+  """
+  # test inputs
+  if x < 0:
+    raise InputError(f'negative input: {x=}')
+  if m < 1:
+    raise InputError(f'invalid modulus: {m=}')
+  if max(points) >= m or max(points.values()) >= m:
+    raise InputError(f'invalid point: {points=}')
+  # compute everything term-by-term
+  x %= m
+  result: int = 0
+  for xi, yi in points.items():
+    # build numerator and denominator of L_i(x)
+    num: int = 1  # Π (x - x_j)
+    den: int = 1  # Π (xi - x_j)
+    for xj in points:
+      if xj == xi:
+        continue
+      num = (num * (x - xj)) % m
+      den = (den * (xi - xj)) % m
+    # add to  the result: (y_i * L_i(x)) = (y_i * num / den)
+    result = (result + ModDiv(yi * num, den, m)) % m
+  # done
+  return result
 
 
 def FermatIsPrime(
@@ -181,6 +319,9 @@ def FermatIsPrime(
 
   Returns:
     False if certainly not prime ; True if (probabilistically) prime
+
+  Raises:
+    InputError: invalid inputs
   """
   # test inputs and test for trivial cases: 1, 2, 3, divisible by 2
   if n < 1:
@@ -220,6 +361,15 @@ def _MillerRabinWitnesses(n: int, /) -> set[int]:  # pylint: disable=too-many-re
   For n >= 3317044064679887385961981 it is probabilistic, but computes an number of witnesses
   that should make the test fail less than once in 2**80 tries (once in 10^25). For all intent and
   purposes it "never" fails.
+
+  Args:
+    n (int): number, n ≥ 5
+
+  Returns:
+    {witness1, witness2, ...} for either "certainty" of primality or error chance < 10**25
+
+  Raises:
+    InputError: invalid inputs
   """
   # test inputs
   if n < 5:
@@ -251,6 +401,15 @@ def _MillerRabinSR(n: int, /) -> tuple[int, int]:
   """Generates (s, r) where (2 ** s) * r == (n - 1) hold true, for odd n > 5.
 
   It should be always true that: s >= 1 and r >= 1 and r is odd.
+
+  Args:
+    n (int): odd number, n ≥ 5
+
+  Returns:
+    (s, r) so that (2 ** s) * r == (n - 1)
+
+  Raises:
+    InputError: invalid inputs
   """
   # test inputs
   if n < 5 or not n % 2:
@@ -275,11 +434,14 @@ def MillerRabinIsPrime(
   <https://en.wikipedia.org/wiki/Miller%E2%80%93Rabin_primality_test>
 
   Args:
-    n (int): Number to test primality
+    n (int): Number to test primality, n ≥ 1
     witnesses (set[int], optional): If given will use exactly these witnesses, in order
 
   Returns:
     False if certainly not prime ; True if (probabilistically) prime
+
+  Raises:
+    InputError: invalid inputs
   """
   # test inputs and test for trivial cases: 1, 2, 3, divisible by 2
   if n < 1:
@@ -313,10 +475,13 @@ def IsPrime(n: int, /) -> bool:
   """Primality test of `n` (n > 0).
 
   Args:
-    n (int): Number to test primality
+    n (int): Number to test primality, n ≥ 1
 
   Returns:
     False if certainly not prime ; True if (probabilistically) prime
+
+  Raises:
+    InputError: invalid inputs
   """
   # is number divisible by (one of the) first 60 primes? test should eliminate 80%+ of candidates
   if n > PRIME_60 and GCD(n, COMPOSITE_60) != 1:
@@ -326,7 +491,17 @@ def IsPrime(n: int, /) -> bool:
 
 
 def PrimeGenerator(start: int, /) -> Generator[int, None, None]:
-  """Generates all primes from `start` until loop is broken. Tuned for huge numbers."""
+  """Generates all primes from `start` until loop is broken. Tuned for huge numbers.
+
+  Args:
+    start (int): number at which to start generating primes, start ≥ 0
+
+  Yields:
+    prime numbers (int)
+
+  Raises:
+    InputError: invalid inputs
+  """
   # test inputs and make sure we start at an odd number
   if start < 0:
     raise InputError(f'invalid number: {start=}')
@@ -343,7 +518,17 @@ def PrimeGenerator(start: int, /) -> Generator[int, None, None]:
 
 
 def NBitRandomPrime(n_bits: int, /) -> int:
-  """Generates a random prime with (guaranteed) `n_bits` binary representation length."""
+  """Generates a random prime with (guaranteed) `n_bits` binary representation length.
+
+  Args:
+    n_bits (int): Number of guaranteed bits in prime representation, n ≥ 4
+
+  Returns:
+    random prime with `n_bits` bits
+
+  Raises:
+    InputError: invalid inputs
+  """
   # test inputs
   if n_bits < 4:
     raise InputError(f'invalid n: {n_bits=}')
@@ -364,9 +549,15 @@ def MersennePrimesGenerator(start: int, /) -> Generator[tuple[int, int, int], No
 
   <https://en.wikipedia.org/wiki/List_of_Mersenne_primes_and_perfect_numbers>
 
+  Args:
+    start (int): exponent at which to start generating primes, start ≥ 0
+
   Yields:
     (exponent, mersenne_prime, perfect_number), given some exponent `n` that will be exactly:
     (n, 2 ** n - 1, (2 ** (n - 1)) * (2 ** n - 1))
+
+  Raises:
+    InputError: invalid inputs
   """
   # we now loop forever over prime exponents
   # "The exponents p corresponding to Mersenne primes must themselves be prime."
@@ -377,20 +568,49 @@ def MersennePrimesGenerator(start: int, /) -> Generator[tuple[int, int, int], No
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
-class RSAKey:
-  """RSA (Rivest-Shamir-Adleman) key, with the public part of the key."""
-  public_modulus: int  # modulus = (p * q)
-  encrypt_exp: int     # encryption exponent; encryption is: ModExp(message, encrypt_exp, public_modulus)
+class CryptoKey:
+  """A cryptographic key."""
 
   def __post_init__(self) -> None:
     """Check data."""
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class RSAPublicKey(CryptoKey):
+  """RSA (Rivest-Shamir-Adleman) key, with the public part of the key.
+
+  Attributes:
+    public_modulus (int): modulus (p * q), ≥ 6
+    encrypt_exp (int): encryption exponent, 3 ≤ e < modulus, (e * decrypt) % ((p-1) * (q-1)) == 1
+  """
+
+  public_modulus: int
+  encrypt_exp: int
+
+  def __post_init__(self) -> None:
+    """Check data.
+
+    Raises:
+      InputError: invalid inputs
+    """
+    super(RSAPublicKey, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
     if self.public_modulus < 6 or IsPrime(self.public_modulus):
       raise InputError(f'invalid public_modulus: {self}')
     if not 2 < self.encrypt_exp < self.public_modulus or not IsPrime(self.encrypt_exp):
       raise InputError(f'invalid encrypt_exp: {self}')
 
   def Encrypt(self, message: int, /) -> int:
-    """Encrypt `message` with this public key."""
+    """Encrypt `message` with this public key.
+
+    Args:
+      message (int): message to encrypt, 1 ≤ m < modulus
+
+    Returns:
+      encrypted message (int, 1 ≤ m < modulus) = (m ** encrypt_exp) mod modulus
+
+    Raises:
+      InputError: invalid inputs
+    """
     # test inputs
     if not 0 < message < self.public_modulus:
       raise InputError(f'invalid message: {message=}')
@@ -398,18 +618,46 @@ class RSAKey:
     return ModExp(message, self.encrypt_exp, self.public_modulus)
 
   def VerifySignature(self, message: int, signature: int, /) -> bool:
-    """Verify a signature. True if OK; False if failed verification."""
+    """Verify a signature. True if OK; False if failed verification.
+
+    Args:
+      message (int): message that was signed by key owner, 1 ≤ m < modulus
+      signature (int): signature, 1 ≤ s < modulus
+
+    Returns:
+      True if signature is valid, False otherwise;
+      (signature ** encrypt_exp) mod modulus == message
+
+    Raises:
+      InputError: invalid inputs
+    """
     return self.Encrypt(signature) == message
+
+  @classmethod
+  def Copy(cls, other: 'RSAPublicKey', /) -> Self:
+    """Initialize a public key by taking the public parts of a public/private key."""
+    return cls(public_modulus=other.public_modulus, encrypt_exp=other.encrypt_exp)
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
-class RSAObfuscationPair(RSAKey):
-  """RSA (Rivest-Shamir-Adleman) obfuscation pair for a public key."""
-  random_key: int      # random value key
-  key_inverse: int  # inverse for `random_key` in relation to the RSA public key
+class RSAObfuscationPair(RSAPublicKey):
+  """RSA (Rivest-Shamir-Adleman) obfuscation pair for a public key.
+
+  Attributes:
+    random_key (int): random value key, 2 ≤ k < modulus
+    key_inverse (int): inverse for `random_key` in relation to the RSA public key, 2 ≤ i < modulus
+  """
+
+  random_key: int
+  key_inverse: int
 
   def __post_init__(self) -> None:
-    """Check data."""
+    """Check data.
+
+    Raises:
+      InputError: invalid inputs
+      CryptoError: modulus math is inconsistent with values
+    """
     super(RSAObfuscationPair, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
     if (not 1 < self.random_key < self.public_modulus or
         not 1 < self.key_inverse < self.public_modulus or
@@ -419,7 +667,17 @@ class RSAObfuscationPair(RSAKey):
       raise CryptoError(f'inconsistent keys: {self}')
 
   def ObfuscateMessage(self, message: int, /) -> int:
-    """Convert message to an obfuscated message to be signed by this key's owner."""
+    """Convert message to an obfuscated message to be signed by this key's owner.
+
+    Args:
+      message (int): message to obfuscate before signature, 1 ≤ m < modulus
+
+    Returns:
+      obfuscated message (int, 1 ≤ m < modulus) = (m * (random_key ** encrypt_exp)) mod modulus
+
+    Raises:
+      InputError: invalid inputs
+    """
     # test inputs
     if not 0 < message < self.public_modulus:
       raise InputError(f'invalid message: {message=}')
@@ -427,7 +685,20 @@ class RSAObfuscationPair(RSAKey):
     return (message * ModExp(self.random_key, self.encrypt_exp, self.public_modulus)) % self.public_modulus
 
   def RevealOriginalSignature(self, message: int, signature: int, /) -> int:
-    """Recover original signature for `message` from obfuscated `signature`."""
+    """Recover original signature for `message` from obfuscated `signature`.
+
+    Args:
+      message (int): original message before obfuscation, 1 ≤ m < modulus
+      signature (int): signature for obfuscated message (not `message`!), 1 ≤ s < modulus
+
+    Returns:
+      original signature (int, 1 ≤ s < modulus) to `message`;
+      signature * key_inverse mod modulus
+
+    Raises:
+      InputError: invalid inputs
+      CryptoError: some signatures were invalid (either plain or obfuscated)
+    """
     # verify that obfuscated signature is valid
     obfuscated: int = self.ObfuscateMessage(message)
     if not self.VerifySignature(obfuscated, signature):
@@ -439,8 +710,15 @@ class RSAObfuscationPair(RSAKey):
     return original
 
   @classmethod
-  def New(cls, key: RSAKey, /) -> Self:
-    """New obfuscation pair for this `key`."""
+  def New(cls, key: RSAPublicKey, /) -> Self:
+    """New obfuscation pair for this `key`, respecting the size of the public modulus.
+
+    Args:
+      key (RSAPublicKey): public RSA key to use as base for a new RSAObfuscationPair
+
+    Returns:
+      RSAObfuscationPair object ready for use
+    """
     # find a suitable random key based on the bit_length
     random_key: int = 0
     key_inverse: int = 0
@@ -460,17 +738,29 @@ class RSAObfuscationPair(RSAKey):
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
-class RSAPrivateKey(RSAKey):
-  """RSA (Rivest-Shamir-Adleman) private key."""
-  modulus_p: int     # prime number p
-  modulus_q: int     # prime number q
-  decrypt_exp: int  # decryption exponent; decryption is: ModExp(message, decrypt_exp, public_modulus)
+class RSAPrivateKey(RSAPublicKey):
+  """RSA (Rivest-Shamir-Adleman) private key.
+
+  Attributes:
+    modulus_p (int): prime number p, ≥ 2
+    modulus_q (int): prime number q, ≥ 3
+    decrypt_exp (int): decryption exponent, 2 ≤ d < modulus, (encrypt * d) % ((p-1) * (q-1)) == 1
+  """
+
+  modulus_p: int
+  modulus_q: int
+  decrypt_exp: int
 
   def __post_init__(self) -> None:
-    """Check data."""
+    """Check data.
+
+    Raises:
+      InputError: invalid inputs
+      CryptoError: modulus math is inconsistent with values
+    """
     super(RSAPrivateKey, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
     if (self.modulus_p < 2 or not IsPrime(self.modulus_p) or  # pylint: disable=too-many-boolean-expressions
-        self.modulus_q < 2 or not IsPrime(self.modulus_q) or
+        self.modulus_q < 3 or not IsPrime(self.modulus_q) or
         self.modulus_p == self.modulus_q or
         self.encrypt_exp in (self.modulus_p, self.modulus_q)):
       raise InputError(f'invalid modulus_p or modulus_q: {self}')
@@ -482,7 +772,17 @@ class RSAPrivateKey(RSAKey):
       raise CryptoError(f'inconsistent exponents: {self}')
 
   def Decrypt(self, message: int, /) -> int:
-    """Decrypt `message` with this private key."""
+    """Decrypt `message` with this private key.
+
+    Args:
+      message (int): message to encrypt, 1 ≤ m < modulus
+
+    Returns:
+      decrypted message (int, 1 ≤ m < modulus) = (m ** decrypt_exp) mod modulus
+
+    Raises:
+      InputError: invalid inputs
+    """
     # test inputs
     if not 0 < message < self.public_modulus:
       raise InputError(f'invalid message: {message=}')
@@ -490,12 +790,33 @@ class RSAPrivateKey(RSAKey):
     return ModExp(message, self.decrypt_exp, self.public_modulus)
 
   def Sign(self, message: int, /) -> int:
-    """Sign `message` with this private key."""
+    """Sign `message` with this private key.
+
+    Args:
+      message (int): message to sign, 1 ≤ m < modulus
+
+    Returns:
+      signed message (int, 1 ≤ m < modulus) = (m ** decrypt_exp) mod modulus;
+      identical to Decrypt()
+
+    Raises:
+      InputError: invalid inputs
+    """
     return self.Decrypt(message)
 
   @classmethod
   def New(cls, bit_length: int, /) -> Self:
-    """Make a new private key using `seed1`, `seed2` & `seed3` as starting points for keys."""
+    """Make a new private key of `bit_length` bits (primes p & q will be half this length).
+
+    Args:
+      bit_length (int): number of bits in the modulus, ≥ 10; primes p & q will be half this length
+
+    Returns:
+      RSAPrivateKey object ready for use
+
+    Raises:
+      InputError: invalid inputs
+    """
     # test inputs
     if bit_length < 10:
       raise InputError(f'invalid bit length: {bit_length=}')
@@ -528,3 +849,193 @@ class RSAPrivateKey(RSAKey):
         encrypt_exp=prime_exp,
         decrypt_exp=prime_exp_inv,
     )
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class ShamirSharedSecretPublic(CryptoKey):
+  """Shamir Shared Secret (SSS) public part (<https://en.wikipedia.org/wiki/Shamir's_secret_sharing>).
+
+  Attributes:
+    minimum (int): minimum shares needed for recovery, ≥ 2
+    modulus (int): prime modulus used for share generation, prime, ≥ 2
+  """
+
+  minimum: int
+  modulus: int
+
+  def __post_init__(self) -> None:
+    """Check data.
+
+    Raises:
+      InputError: invalid inputs
+    """
+    super(ShamirSharedSecretPublic, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
+    if (self.modulus < 2 or
+        not IsPrime(self.modulus) or
+        self.minimum < 2):
+      raise InputError(f'invalid modulus or minimum: {self}')
+
+  def RecoverSecret(
+      self, shares: Collection['ShamirSharePrivate'], /, *, force_recover: bool = False) -> int:
+    """Recover the secret from ShamirSharePrivate objects.
+
+    Raises:
+      InputError: invalid inputs
+      CryptoError: secret cannot be recovered
+    """
+    # check that we have enough shares
+    share_points: dict[int, int] = {s.share_key: s.share_value for s in shares}  # de-dup guaranteed
+    if (given_shares := len(share_points)) < self.minimum:
+      mess: str = f'distinct shares {given_shares} < minimum shares {self.minimum}'
+      if force_recover and given_shares > 1:
+        logging.error('recovering secret even though: %s', mess)
+      else:
+        raise CryptoError(f'unrecoverable secret: {mess}')
+    # do the math
+    return ModLagrangeInterpolate(0, share_points, self.modulus)
+
+  @classmethod
+  def Copy(cls, other: 'ShamirSharedSecretPublic', /) -> Self:
+    """Initialize a public key by taking the public parts of a public/private key."""
+    return cls(minimum=other.minimum, modulus=other.modulus)
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
+  """Shamir Shared Secret (SSS) private keys (<https://en.wikipedia.org/wiki/Shamir's_secret_sharing>).
+
+  Attributes:
+    polynomial (list[int]): prime coefficients for generation poly., each modulus.bit_length() size
+  """
+
+  polynomial: list[int]
+
+  def __post_init__(self) -> None:
+    """Check data.
+
+    Raises:
+      InputError: invalid inputs
+    """
+    super(ShamirSharedSecretPrivate, self).__post_init__()       # pylint: disable=super-with-arguments  # needed here b/c: dataclass
+    if (len(self.polynomial) != self.minimum - 1 or              # exactly this size
+        len(set(self.polynomial)) != self.minimum - 1 or         # no duplicate
+        self.modulus in self.polynomial or                       # different from modulus
+        any(not IsPrime(p) or p.bit_length() != self.modulus.bit_length()
+            for p in self.polynomial)):                          # all primes and the right size
+      raise InputError(f'invalid polynomial: {self}')
+
+  def Share(self, secret: int, /, *, share_key: int = 0) -> 'ShamirSharePrivate':
+    """Make a new ShamirSharePrivate for the `secret`.
+
+    Args:
+      secret (int): secret message to encrypt and share, 0 ≤ s < modulus
+      share_key (int, optional): if given, a random value to use, 1 ≤ r < modulus;
+          else will generate randomly
+
+    Returns:
+      ShamirSharePrivate object
+
+    Raises:
+      InputError: invalid inputs
+    """
+    # test inputs
+    if secret < 0:
+      raise InputError(f'invalid secret: {secret=}')
+    if not 1 < share_key < self.modulus:
+      if not share_key:  # default is zero, and that means we generate it here
+        sr = secrets.SystemRandom()
+        share_key = sr.randint(2, self.modulus - 1)
+        while share_key in self.polynomial:
+          share_key = sr.randint(2, self.modulus - 1)  # unlikely case key is not unique
+      else:
+        raise InputError(f'invalid secret: {secret=}')
+    # build object
+    return ShamirSharePrivate(
+        minimum=self.minimum, modulus=self.modulus,
+        share_key=share_key,
+        share_value=ModPolynomial([secret] + self.polynomial, share_key, self.modulus))
+
+  def Shares(
+      self, secret: int, /, *, max_shares: int = 0) -> Generator['ShamirSharePrivate', None, None]:
+    """Make any number of ShamirSharePrivate for the `secret`.
+
+    Args:
+      secret (int): secret message to encrypt and share, 0 ≤ s < modulus
+      max_shares (int, optional): if given, number (≥ 2) of shares to generate; else infinite
+
+    Yields:
+      ShamirSharePrivate object
+
+    Raises:
+      InputError: invalid inputs
+    """
+    # test inputs
+    if max_shares and max_shares < self.minimum:
+      raise InputError(f'invalid max_shares: {max_shares=} < {self.minimum=}')
+    # generate shares
+    sr = secrets.SystemRandom()
+    count: int = 0
+    used_keys: set[int] = set()
+    while not max_shares or count < max_shares:
+      share_key: int = sr.randint(2, self.modulus - 1)
+      while share_key in self.polynomial or share_key in used_keys:
+        share_key = sr.randint(2, self.modulus - 1)  # unlikely case key is not unique
+      used_keys.add(share_key)
+      yield self.Share(secret, share_key=share_key)
+      count += 1
+
+  @classmethod
+  def New(cls, minimum_shares: int, bit_length: int, /) -> Self:
+    """Make a new public sharing prime modulus of `bit_length` bits.
+
+    Args:
+      minimum_shares (int): minimum shares needed for recovery, ≥ 2
+      bit_length (int): number of bits in the primes, ≥ 10
+
+    Returns:
+      ShamirSharedSecretPrivate object ready for use
+
+    Raises:
+      InputError: invalid inputs
+    """
+    # test inputs
+    if minimum_shares < 2:
+      raise InputError(f'at least 2 shares are needed: {minimum_shares=}')
+    if bit_length < 10:
+      raise InputError(f'invalid bit length: {bit_length=}')
+    # make the primes
+    unique_primes: set[int] = set()
+    while len(unique_primes) < minimum_shares:
+      unique_primes.add(NBitRandomPrime(bit_length))
+    # get the largest prime for the modulus
+    ordered_primes: list[int] = list(unique_primes)
+    modulus: int = max(ordered_primes)
+    ordered_primes.remove(modulus)
+    # make polynomial be a random order
+    secrets.SystemRandom().shuffle(ordered_primes)
+    # build object
+    return cls(minimum=minimum_shares, modulus=modulus, polynomial=ordered_primes)
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class ShamirSharePrivate(ShamirSharedSecretPublic):
+  """Shamir Shared Secret (SSS) one share (<https://en.wikipedia.org/wiki/Shamir's_secret_sharing>).
+
+  Attributes:
+    share_key (int): share secret key; a randomly picked value, 1 ≤ k < modulus
+    share_value (int): share secret value, 1 ≤ v < modulus; (k, v) is a "point" of f(k)=v
+  """
+
+  share_key: int
+  share_value: int
+
+  def __post_init__(self) -> None:
+    """Check data.
+
+    Raises:
+      InputError: invalid inputs
+    """
+    super(ShamirSharePrivate, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
+    if (not 0 < self.share_key < self.modulus or
+        not 0 < self.share_value < self.modulus):
+      raise InputError(f'invalid share: {self}')
