@@ -209,7 +209,7 @@ def ModExp(x: int, y: int, m: int, /) -> int:
   return z
 
 
-def ModPolynomial(polynomial: Reversible[int], x: int, m: int, /) -> int:
+def ModPolynomial(x: int, polynomial: Reversible[int], m: int, /) -> int:
   """Evaluates polynomial `poly` (coefficient iterable) at `x` modulus `m`.
 
   Evaluate a polynomial at `x` under a modulus `m` using Horner's rule. Horner rewrites:
@@ -219,10 +219,10 @@ def ModPolynomial(polynomial: Reversible[int], x: int, m: int, /) -> int:
   step so intermediate numbers never explode.
 
   Args:
+    x (int) The evaluation point (x ≥ 0)
     polynomial (Reversible[int]): Iterable of coefficients a_0, a_1, …, a_n
         (constant term first); it must be reversible because Horner's rule consumes
         coefficients from highest degree downwards
-    x (int) The evaluation point (x ≥ 0)
     m (int): Modulus (m ≥ 1); if you expect multiplicative inverses elsewhere, should be prime
 
   Returns:
@@ -232,8 +232,8 @@ def ModPolynomial(polynomial: Reversible[int], x: int, m: int, /) -> int:
     InputError: invalid inputs
   """
   # test inputs
-  if x < 0:
-    raise InputError(f'negative input: {x=}')
+  if x < 0 or not polynomial:
+    raise InputError(f'negative input or no polynomial: {x=} ; {polynomial=}')
   if m < 1:
     raise InputError(f'invalid modulus: {m=}')
   # loop over polynomial coefficients
@@ -264,8 +264,8 @@ def ModLagrangeInterpolate(x: int, points: dict[int, int], m: int, /) -> int:
 
   Args:
     x (int): The x-value at which to evaluate the interpolated polynomial, x ≥ 0
-    points (dict[int, int]): A mapping {x_i: y_i}, where all x_i < m and y_i < m
-    m (int): Prime modulus (m ≥ 1); we need modular inverses, so gcd(denominator, m) must be 1
+    points (dict[int, int]): A mapping {x_i: y_i}, where all 0 ≤ x_i < m and 0 ≤ y_i < m, minimum of 2
+    m (int): Prime modulus (m ≥ 2); we need modular inverses, so gcd(denominator, m) must be 1
 
   Returns:
     y-value solution for f(x) mod m given `points` mapping
@@ -276,10 +276,10 @@ def ModLagrangeInterpolate(x: int, points: dict[int, int], m: int, /) -> int:
   # test inputs
   if x < 0:
     raise InputError(f'negative input: {x=}')
-  if m < 1:
+  if m < 2:
     raise InputError(f'invalid modulus: {m=}')
-  if max(points) >= m or max(points.values()) >= m:
-    raise InputError(f'invalid point: {points=}')
+  if len(points) < 2 or any(not 0 <= k < m or not 0 <= v < m for k, v in points.items()):
+    raise InputError(f'invalid points: {points=}')
   # compute everything term-by-term
   x %= m
   result: int = 0
@@ -682,7 +682,8 @@ class RSAObfuscationPair(RSAPublicKey):
     if not 0 < message < self.public_modulus:
       raise InputError(f'invalid message: {message=}')
     # encrypt
-    return (message * ModExp(self.random_key, self.encrypt_exp, self.public_modulus)) % self.public_modulus
+    return (message * ModExp(
+        self.random_key, self.encrypt_exp, self.public_modulus)) % self.public_modulus
 
   def RevealOriginalSignature(self, message: int, signature: int, /) -> int:
     """Recover original signature for `message` from obfuscated `signature`.
@@ -825,7 +826,8 @@ class RSAPrivateKey(RSAPublicKey):
     modulus: int = primes[0] * primes[1]
     while modulus.bit_length() != bit_length or primes[0] == primes[1]:
       primes.remove(min(primes))
-      primes.append(NBitRandomPrime(bit_length // 2 + (bit_length % 2 if modulus.bit_length() < bit_length else 0)))
+      primes.append(NBitRandomPrime(
+          bit_length // 2 + (bit_length % 2 if modulus.bit_length() < bit_length else 0)))
       modulus = primes[0] * primes[1]
     # phi / generate (prime_exp, inverse) pair
     phi: int = (primes[0] - 1) * (primes[1] - 1)
@@ -948,12 +950,12 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
         while share_key in self.polynomial:
           share_key = sr.randint(2, self.modulus - 1)  # unlikely case key is not unique
       else:
-        raise InputError(f'invalid secret: {secret=}')
+        raise InputError(f'invalid share_key: {secret=}')
     # build object
     return ShamirSharePrivate(
         minimum=self.minimum, modulus=self.modulus,
         share_key=share_key,
-        share_value=ModPolynomial([secret] + self.polynomial, share_key, self.modulus))
+        share_value=ModPolynomial(share_key, [secret] + self.polynomial, self.modulus))
 
   def Shares(
       self, secret: int, /, *, max_shares: int = 0) -> Generator['ShamirSharePrivate', None, None]:

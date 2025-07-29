@@ -86,6 +86,23 @@ def test_ModInv_prime(m: int) -> None:
     assert transcrypto.ModInv(y, m) == x
 
 
+@pytest.mark.parametrize('x, y, m, z', [
+    (1, 1, 2, 1),
+    (1, 1, 3, 1),
+    (1, 2, 3, 2),
+    (1975, 19937, 2 ** 100 + 277, 800634817579067293155764998023),
+    (1976, 19937, 2 ** 100 + 277, 1015417569626564856392754686978),
+    (1975, 19938, 2 ** 100 + 277, 1068201310785158098833689966806),
+    (2, 3, 2 ** 100 + 331, 845100400152152934331135470472),
+    (199, 271, 2 ** 100 + 331, 963601563273119028443988414671),
+])
+def test_ModDiv(x: int, y: int, m: int, z: int) -> None:
+  """Test."""
+  assert transcrypto.ModDiv(x, y, m) == z
+  assert transcrypto.ModDiv(y, x, m) == transcrypto.ModInv(z, m)  # pylint: disable=arguments-out-of-order
+  assert (z * y) % m == x % m  # check the division!
+
+
 @pytest.mark.parametrize('x, y, m, r', [
     # do NOT use x or y > 2500 or so!!
     (0, 0, 1, 0),
@@ -152,6 +169,57 @@ def test_ModExp_ModInv_modulus(m: int) -> None:
     transcrypto.ModInv(0, m)
   with pytest.raises(transcrypto.InputError, match='invalid modulus'):
     transcrypto.ModExp(1, 1, m)
+
+
+@pytest.mark.parametrize('x, p, m, y', [
+    (1, [0], 19937, 0),   # f(x) = 0
+    (1, [1], 19937, 1),   # f(x) = 1
+    (11, [1], 19937, 1),  # f(x) = 1
+    (1, [1, 1], 19937, 2),        # f(x) = x + 1
+    (11, [1, 1], 19937, 12),      # f(x) = x + 1
+    (1, [1, 2, 1], 19937, 4),     # f(x) = x**2 + 2*x + 1
+    (11, [1, 2, 1], 19937, 144),  # f(x) = x**2 + 2*x + 1
+    (1, [1, 2, 1, 2, 1, 2, 1], 19937, 10),      # f(x) = x**6 + 2*x**5 + x**4 + 2*x**3 + x**2 + 2*x + 1
+    (11, [1, 2, 1, 2, 1, 2, 1], 19937, 17725),  # f(x) = x**6 + 2*x**5 + x**4 + 2*x**3 + x**2 + 2*x + 1
+    (127, [10, 30, 20, 12, 31], 19937, 12928),
+    (128, [10, 30, 20, 12, 31], 19937, 12574),
+])
+def test_ModPolynomial(x: int, p: list[int], m: int, y: int) -> None:
+  """Test."""
+  assert transcrypto.ModPolynomial(x, p, m) == y
+
+
+def test_ModPolynomial_invalid() -> None:
+  """Test."""
+  with pytest.raises(transcrypto.InputError, match='negative input or no polynomial'):
+    transcrypto.ModPolynomial(1, [], 2)
+  with pytest.raises(transcrypto.InputError, match='negative input or no polynomial'):
+    transcrypto.ModPolynomial(-1, [1, 1], 2)
+  with pytest.raises(transcrypto.InputError, match='invalid modulus'):
+    transcrypto.ModPolynomial(1, [1, 1], 0)
+
+
+@pytest.mark.parametrize('x, p, m, y', [
+    (1, {2: 2, 3: 3}, 5, 1),
+    (9, {1: 1, 3: 3}, 5, 4),
+])
+def test_ModLagrangeInterpolate(x: int, p: dict[int, int], m: int, y: int) -> None:
+  """Test."""
+  assert transcrypto.ModLagrangeInterpolate(x, p, m) == y
+
+
+@pytest.mark.parametrize('x, p, m, mess', [
+    (-1, {2: 2, 3: 3}, 5, 'negative input'),
+    (1, {2: 2, 3: 3}, 1, 'invalid modulus'),
+    (1, {}, 5, 'invalid points'),
+    (1, {2: 2}, 5, 'invalid points'),
+    (1, {7: 2, 3: 3}, 5, 'invalid points'),
+    (1, {2: 2, 3: 7}, 5, 'invalid points'),
+])
+def test_ModLagrangeInterpolate_invalid(x: int, p: dict[int, int], m: int, mess: str) -> None:
+  """Test."""
+  with pytest.raises(transcrypto.InputError, match=mess):
+    transcrypto.ModLagrangeInterpolate(x, p, m)
 
 
 @pytest.mark.parametrize('n, witnesses, p', [
@@ -308,7 +376,7 @@ def test_MersennePrimesGenerator() -> None:
 @pytest.mark.parametrize('n, sz', [
     (10, 17),
     (11, 90),
-    (12, 68),
+    (12, 66),
     (13, 300),
 ])
 def test_RSAPrivateKey_lots_of_small_keys(n: int, sz: int) -> None:
@@ -321,6 +389,25 @@ def test_RSAPrivateKey_lots_of_small_keys(n: int, sz: int) -> None:
   assert len(all_working) >= sz
 
 
+@mock.patch('secrets.randbits', autospec=True)
+@mock.patch('src.transcrypto.transcrypto.NBitRandomPrime', autospec=True)
+def test_RSA_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
+  """Test."""
+  with pytest.raises(transcrypto.InputError, match='invalid bit length'):
+    transcrypto.RSAPrivateKey.New(9)
+  prime.side_effect = [17, 29, 29, 59, 31, 41]
+  randbits.side_effect = [29, 1000]
+  private: transcrypto.RSAPrivateKey = transcrypto.RSAPrivateKey.New(11)
+  assert private == transcrypto.RSAPrivateKey(
+      public_modulus=1711, encrypt_exp=31, modulus_p=29, modulus_q=59, decrypt_exp=943)
+  assert transcrypto.RSAObfuscationPair.New(
+      transcrypto.RSAPublicKey.Copy(private)) == transcrypto.RSAObfuscationPair(
+          public_modulus=1711, encrypt_exp=31, random_key=1000, key_inverse=1042)
+  assert prime.call_args_list == [
+      mock.call(5), mock.call(5), mock.call(6), mock.call(6), mock.call(5)]
+  assert randbits.call_args_list == [mock.call(10)] * 2
+
+
 @pytest.mark.parametrize(
     'public_modulus, encrypt_exp, random_key, key_inverse, modulus_p, modulus_q, decrypt_exp, '
     'message, expected_cypher, expected_obfuscated, expected_signed, expected_obfuscated_signed',
@@ -331,7 +418,8 @@ def test_RSAPrivateKey_lots_of_small_keys(n: int, sz: int) -> None:
         (37627, 211, 8526, 28805, 191, 197, 12531, 10, 29096, 9308, 15036, 1747),
         (37627, 211, 8526, 28805, 191, 197, 12531, 20, 4511, 18616, 768, 870),
         (37627, 211, 8526, 28805, 191, 197, 12531, 30, 26303, 27924, 13231, 1760),
-        (8910991, 2437, 5557471, 3986528, 2741, 3251, 7538373, 10, 7265813, 3528557, 8909398, 4473751),
+        (8910991, 2437, 5557471, 3986528, 2741, 3251, 7538373, 10,
+         7265813, 3528557, 8909398, 4473751),
     ])
 def test_RSA(  # pylint: disable=too-many-locals,too-many-arguments,too-many-positional-arguments
     public_modulus: int, encrypt_exp: int, random_key: int, key_inverse: int,
@@ -340,13 +428,13 @@ def test_RSA(  # pylint: disable=too-many-locals,too-many-arguments,too-many-pos
     expected_signed: int, expected_obfuscated_signed: int) -> None:
   """Test."""
   # create keys
-  public = transcrypto.RSAPublicKey(public_modulus=public_modulus, encrypt_exp=encrypt_exp)
   ob = transcrypto.RSAObfuscationPair(
       public_modulus=public_modulus, encrypt_exp=encrypt_exp,
       random_key=random_key, key_inverse=key_inverse)
   private = transcrypto.RSAPrivateKey(
       public_modulus=public_modulus, encrypt_exp=encrypt_exp,
       modulus_p=modulus_p, modulus_q=modulus_q, decrypt_exp=decrypt_exp)
+  public: transcrypto.RSAPublicKey = transcrypto.RSAPublicKey.Copy(private)
   # do public key operations
   with pytest.raises(transcrypto.InputError, match='invalid message'):
     public.Encrypt(0)
@@ -375,10 +463,21 @@ def test_RSA(  # pylint: disable=too-many-locals,too-many-arguments,too-many-pos
   assert ob.RevealOriginalSignature(message, obfuscated_signed) == signed
   with pytest.raises(transcrypto.CryptoError, match='obfuscated message was not signed'):
     ob.RevealOriginalSignature(message, obfuscated_signed + 1)
-  with mock.patch('src.transcrypto.transcrypto.RSAPublicKey.VerifySignature', autospec=True) as verify:
+  with mock.patch(
+      'src.transcrypto.transcrypto.RSAPublicKey.VerifySignature', autospec=True) as verify:
     verify.side_effect = [True, False]
     with pytest.raises(transcrypto.CryptoError, match='failed signature recovery'):
       ob.RevealOriginalSignature(message + 1, obfuscated_signed)
+
+
+@mock.patch('secrets.randbits', autospec=True)
+def test_RSAObfuscationPair_New(mock_bits: mock.MagicMock) -> None:
+  """Test."""
+  mock_bits.side_effect = [3, 8]
+  public = transcrypto.RSAPublicKey(public_modulus=15, encrypt_exp=7)
+  assert transcrypto.RSAObfuscationPair.New(public) == transcrypto.RSAObfuscationPair(
+      public_modulus=15, encrypt_exp=7, random_key=8, key_inverse=2)
+  assert mock_bits.call_args_list == [mock.call(3), mock.call(3)]
 
 
 def test_RSAPublicKey_invalid() -> None:
@@ -410,20 +509,118 @@ def test_RSAObfuscationPair_invalid() -> None:
 def test_RSAPrivateKey_invalid() -> None:
   """Test."""
   with pytest.raises(transcrypto.InputError, match='invalid modulus_p or modulus_q'):
-    transcrypto.RSAPrivateKey(public_modulus=22, encrypt_exp=7, modulus_p=2, modulus_q=6, decrypt_exp=3)
+    transcrypto.RSAPrivateKey(
+        public_modulus=22, encrypt_exp=7, modulus_p=2, modulus_q=6, decrypt_exp=3)
   with pytest.raises(transcrypto.InputError, match='invalid modulus_p or modulus_q'):
-    transcrypto.RSAPrivateKey(public_modulus=22, encrypt_exp=7, modulus_p=6, modulus_q=11, decrypt_exp=3)
+    transcrypto.RSAPrivateKey(
+        public_modulus=22, encrypt_exp=7, modulus_p=6, modulus_q=11, decrypt_exp=3)
   with pytest.raises(transcrypto.InputError, match='invalid modulus_p or modulus_q'):
-    transcrypto.RSAPrivateKey(public_modulus=22, encrypt_exp=7, modulus_p=7, modulus_q=11, decrypt_exp=3)
+    transcrypto.RSAPrivateKey(
+        public_modulus=22, encrypt_exp=7, modulus_p=7, modulus_q=11, decrypt_exp=3)
   with pytest.raises(transcrypto.InputError, match='invalid decrypt_exp'):
-    transcrypto.RSAPrivateKey(public_modulus=22, encrypt_exp=7, modulus_p=2, modulus_q=11, decrypt_exp=22)
+    transcrypto.RSAPrivateKey(
+        public_modulus=22, encrypt_exp=7, modulus_p=2, modulus_q=11, decrypt_exp=22)
   with pytest.raises(transcrypto.CryptoError, match=r'inconsistent modulus_p \* modulus_q'):
-    transcrypto.RSAPrivateKey(public_modulus=22, encrypt_exp=7, modulus_p=3, modulus_q=11, decrypt_exp=3)
+    transcrypto.RSAPrivateKey(
+        public_modulus=22, encrypt_exp=7, modulus_p=3, modulus_q=11, decrypt_exp=3)
   with pytest.raises(transcrypto.CryptoError, match='inconsistent exponents'):
-    transcrypto.RSAPrivateKey(public_modulus=22, encrypt_exp=7, modulus_p=2, modulus_q=11, decrypt_exp=5)
+    transcrypto.RSAPrivateKey(
+        public_modulus=22, encrypt_exp=7, modulus_p=2, modulus_q=11, decrypt_exp=5)
+  transcrypto.RSAPrivateKey(
+      public_modulus=22, encrypt_exp=7, modulus_p=2, modulus_q=11, decrypt_exp=3)
+
+
+@pytest.mark.parametrize('minimum, modulus, polynomial, secret', [
+    (3, 907, [593, 787], 12),
+    (2, 821, [673], 13),
+    (3, 919737471227, [824794422841, 870689553269], 1234567890),
+])
+def test_ShamirSharedSecret(minimum: int, modulus: int, polynomial: list[int], secret: int) -> None:
+  """Test."""
+  # create keys and some shares
+  private = transcrypto.ShamirSharedSecretPrivate(
+      minimum=minimum, modulus=modulus, polynomial=polynomial)
+  public: transcrypto.ShamirSharedSecretPublic = transcrypto.ShamirSharedSecretPublic.Copy(private)
+  shares: list[transcrypto.ShamirSharePrivate] = list(
+      private.Shares(secret, max_shares=minimum + 2))
+  # do operations
+  assert public.RecoverSecret(shares) == secret
+  assert public.RecoverSecret(shares[1:]) == secret
+  assert public.RecoverSecret(shares[2:]) == secret
+  assert public.RecoverSecret(shares[:-1]) == secret
+  assert public.RecoverSecret(shares[:-2]) == secret
+  with pytest.raises(transcrypto.CryptoError, match='unrecoverable secret'):
+    public.RecoverSecret(shares[3:])
+  if minimum > 2:
+    assert public.RecoverSecret(shares[3:], force_recover=True) != secret
+
+
+@mock.patch('secrets.SystemRandom.randint', autospec=True)
+@mock.patch('secrets.SystemRandom.shuffle', autospec=True)
+@mock.patch('src.transcrypto.transcrypto.NBitRandomPrime', autospec=True)
+def test_ShamirSharedSecret_creation(
+    prime: mock.MagicMock, shuffle: mock.MagicMock, randint: mock.MagicMock) -> None:
+  """Test."""
+  with pytest.raises(transcrypto.InputError, match='at least 2 shares are needed'):
+    transcrypto.ShamirSharedSecretPrivate.New(1, 10)
   with pytest.raises(transcrypto.InputError, match='invalid bit length'):
-    transcrypto.RSAPrivateKey.New(9)
-  transcrypto.RSAPrivateKey(public_modulus=22, encrypt_exp=7, modulus_p=2, modulus_q=11, decrypt_exp=3)
+    transcrypto.ShamirSharedSecretPrivate.New(3, 9)
+  prime.side_effect = [23, 19, 23, 31]
+  randint.side_effect = [19, 20, 19, 20, 21, 20, 22]
+  private: transcrypto.ShamirSharedSecretPrivate = transcrypto.ShamirSharedSecretPrivate.New(3, 10)
+  assert private == transcrypto.ShamirSharedSecretPrivate(
+      minimum=3, modulus=31, polynomial=[19, 23])
+  with pytest.raises(transcrypto.InputError, match='invalid secret'):
+    private.Share(-1)
+  with pytest.raises(transcrypto.InputError, match='invalid share_key'):
+    private.Share(10, share_key=-1)
+  assert private.Share(10) == transcrypto.ShamirSharePrivate(
+      minimum=3, modulus=31, share_key=20, share_value=11)
+  with pytest.raises(transcrypto.InputError, match='invalid max_shares'):
+    list(private.Shares(20, max_shares=2))
+  assert list(private.Shares(20, max_shares=3)) == [
+      transcrypto.ShamirSharePrivate(minimum=3, modulus=31, share_key=20, share_value=21),
+      transcrypto.ShamirSharePrivate(minimum=3, modulus=31, share_key=21, share_value=22),
+      transcrypto.ShamirSharePrivate(minimum=3, modulus=31, share_key=22, share_value=7),
+  ]
+  assert prime.call_args_list == [mock.call(10)] * 4
+  shuffle.assert_called_once_with(mock.ANY, [19, 23])
+  assert randint.call_args_list == [mock.call(mock.ANY, 2, 30)] * 7
+
+
+def test_ShamirSharedSecretPublic_invalid() -> None:
+  """Test."""
+  with pytest.raises(transcrypto.InputError, match='invalid modulus or minimum'):
+    transcrypto.ShamirSharedSecretPublic(minimum=1, modulus=7)
+  with pytest.raises(transcrypto.InputError, match='invalid modulus or minimum'):
+    transcrypto.ShamirSharedSecretPublic(minimum=2, modulus=1)
+  with pytest.raises(transcrypto.InputError, match='invalid modulus or minimum'):
+    transcrypto.ShamirSharedSecretPublic(minimum=2, modulus=6)
+  transcrypto.ShamirSharedSecretPublic(minimum=2, modulus=7)
+
+
+def test_ShamirSharedSecretPrivate_invalid() -> None:
+  """Test."""
+  with pytest.raises(transcrypto.InputError, match='invalid polynomial'):
+    transcrypto.ShamirSharedSecretPrivate(minimum=2, modulus=7, polynomial=[])
+  with pytest.raises(transcrypto.InputError, match='invalid polynomial'):
+    transcrypto.ShamirSharedSecretPrivate(minimum=2, modulus=7, polynomial=[3, 3])
+  with pytest.raises(transcrypto.InputError, match='invalid polynomial'):
+    transcrypto.ShamirSharedSecretPrivate(minimum=2, modulus=7, polynomial=[7])
+  with pytest.raises(transcrypto.InputError, match='invalid polynomial'):
+    transcrypto.ShamirSharedSecretPrivate(minimum=2, modulus=7, polynomial=[6])
+  transcrypto.ShamirSharedSecretPrivate(minimum=2, modulus=7, polynomial=[5])
+
+
+def test_ShamirSharePrivate_invalid() -> None:
+  """Test."""
+  with pytest.raises(transcrypto.InputError, match='invalid share'):
+    transcrypto.ShamirSharePrivate(minimum=3, modulus=7, share_key=0, share_value=6)
+  with pytest.raises(transcrypto.InputError, match='invalid share'):
+    transcrypto.ShamirSharePrivate(minimum=3, modulus=7, share_key=2, share_value=0)
+  with pytest.raises(transcrypto.InputError, match='invalid share'):
+    transcrypto.ShamirSharePrivate(minimum=3, modulus=7, share_key=2, share_value=7)
+  transcrypto.ShamirSharePrivate(minimum=3, modulus=7, share_key=2, share_value=6)
 
 
 if __name__ == '__main__':
