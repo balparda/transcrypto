@@ -38,7 +38,11 @@ FIRST_49_MERSENNE: set[int] = {  # <https://oeis.org/A000043>
 FIRST_49_MERSENNE_SORTED: list[int] = sorted(FIRST_49_MERSENNE)
 assert len(FIRST_49_MERSENNE) == 49 and FIRST_49_MERSENNE_SORTED[-1] == 74207281, f'should never happen: {FIRST_49_MERSENNE_SORTED[-1]}'
 
+_SMALL_ENCRYPTION_EXPONENT = 7
+_BIG_ENCRYPTION_EXPONENT = 2 ** 16 + 1  # 65537
+
 _MAX_PRIMALITY_SAFETY = 100  # this is an absurd number, just to have a max
+_MAX_KEY_GENERATION_FAILURES = 15
 
 MIN_TM = int(  # minimum allowed timestamp
     datetime.datetime(2000, 1, 1, 0, 0, 0).replace(tzinfo=datetime.timezone.utc).timestamp())
@@ -193,10 +197,10 @@ def ModExp(x: int, y: int, m: int, /) -> int:
   if m < 1:
     raise InputError(f'invalid modulus: {m=}')
   # trivial cases
-  if not x:
-    return 0
   if not y or x == 1:
     return 1 % m
+  if not x:
+    return 0  # 0**0==1 was already taken care of by previous condition
   if y == 1:
     return x % m
   # now both x > 1 and y > 1
@@ -595,8 +599,11 @@ class RSAPublicKey(CryptoKey):
     """
     super(RSAPublicKey, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
     if self.public_modulus < 6 or IsPrime(self.public_modulus):
+      # only a full factors check can prove modulus is product of only 2 primes, which is impossible
+      # to do for large numbers here; the private key checks the relationship though
       raise InputError(f'invalid public_modulus: {self}')
     if not 2 < self.encrypt_exp < self.public_modulus or not IsPrime(self.encrypt_exp):
+      # technically, encrypt_exp < phi, but again the private key tests for this explicitly
       raise InputError(f'invalid encrypt_exp: {self}')
 
   def Encrypt(self, message: int, /) -> int:
@@ -744,7 +751,7 @@ class RSAPrivateKey(RSAPublicKey):
 
   Attributes:
     modulus_p (int): prime number p, ≥ 2
-    modulus_q (int): prime number q, ≥ 3
+    modulus_q (int): prime number q, ≥ 3 and > p
     decrypt_exp (int): decryption exponent, 2 ≤ d < modulus, (encrypt * d) % ((p-1) * (q-1)) == 1
   """
 
@@ -760,16 +767,26 @@ class RSAPrivateKey(RSAPublicKey):
       CryptoError: modulus math is inconsistent with values
     """
     super(RSAPrivateKey, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
+    phi: int = (self.modulus_p - 1) * (self.modulus_q - 1)
+    min_prime_distance: int = 2 ** (self.public_modulus.bit_length() // 3 + 1)
     if (self.modulus_p < 2 or not IsPrime(self.modulus_p) or  # pylint: disable=too-many-boolean-expressions
         self.modulus_q < 3 or not IsPrime(self.modulus_q) or
-        self.modulus_p == self.modulus_q or
-        self.encrypt_exp in (self.modulus_p, self.modulus_q)):
+        self.modulus_q <= self.modulus_p or
+        (self.modulus_q - self.modulus_p) < min_prime_distance or
+        self.encrypt_exp in (self.modulus_p, self.modulus_q) or
+        self.encrypt_exp >= phi or
+        self.decrypt_exp in (self.encrypt_exp, self.modulus_p, self.modulus_q, phi)):
+      # encrypt_exp has to be less than phi;
+      # if p − q < 2*(n**(1/4)) then solving for p and q is trivial
       raise InputError(f'invalid modulus_p or modulus_q: {self}')
-    if not 2 < self.decrypt_exp < self.public_modulus:
+    min_decrypt_length: int = self.public_modulus.bit_length() // 2 + 1
+    if not (2 ** min_decrypt_length) < self.decrypt_exp < self.public_modulus:
+      # if decrypt_exp < public_modulus**(1/4)/3, then decrypt_exp can be computed efficiently
+      # from public_modulus and encrypt_exp so we make sure it is larger than public_modulus**(1/2)
       raise InputError(f'invalid decrypt_exp: {self}')
     if self.modulus_p * self.modulus_q != self.public_modulus:
       raise CryptoError(f'inconsistent modulus_p * modulus_q: {self}')
-    if (self.encrypt_exp * self.decrypt_exp) % ((self.modulus_p - 1) * (self.modulus_q - 1)) != 1:
+    if (self.encrypt_exp * self.decrypt_exp) % phi != 1:
       raise CryptoError(f'inconsistent exponents: {self}')
 
   def Decrypt(self, message: int, /) -> int:
@@ -810,7 +827,7 @@ class RSAPrivateKey(RSAPublicKey):
     """Make a new private key of `bit_length` bits (primes p & q will be half this length).
 
     Args:
-      bit_length (int): number of bits in the modulus, ≥ 10; primes p & q will be half this length
+      bit_length (int): number of bits in the modulus, ≥ 11; primes p & q will be half this length
 
     Returns:
       RSAPrivateKey object ready for use
@@ -819,38 +836,36 @@ class RSAPrivateKey(RSAPublicKey):
       InputError: invalid inputs
     """
     # test inputs
-    if bit_length < 10:
+    if bit_length < 11:
       raise InputError(f'invalid bit length: {bit_length=}')
     # generate primes / modulus
-    primes: list[int] = [NBitRandomPrime(bit_length // 2), NBitRandomPrime(bit_length // 2)]
-    modulus: int = primes[0] * primes[1]
-    while modulus.bit_length() != bit_length or primes[0] == primes[1]:
-      primes.remove(min(primes))
-      primes.append(NBitRandomPrime(
-          bit_length // 2 + (bit_length % 2 if modulus.bit_length() < bit_length else 0)))
-      modulus = primes[0] * primes[1]
-    # phi / generate (prime_exp, inverse) pair
-    phi: int = (primes[0] - 1) * (primes[1] - 1)
-    prime_exp: int = 0
-    prime_exp_inv: int = 0
-    while (not prime_exp or
-           prime_exp_inv < 3 or
-           prime_exp == prime_exp_inv or
-           prime_exp in primes or
-           prime_exp_inv in primes):
-      prime_exp = NBitRandomPrime(bit_length // 2)
+    failures: int = 0
+    while True:
       try:
-        prime_exp_inv = ModInv(prime_exp, phi)
-      except ModularDivideError:
-        prime_exp_inv = 0
-    # build object
-    return cls(
-        modulus_p=min(primes),  # "p" is always the smaller
-        modulus_q=max(primes),  # "q" is always the larger
-        public_modulus=modulus,
-        encrypt_exp=prime_exp,
-        decrypt_exp=prime_exp_inv,
-    )
+        primes: list[int] = [NBitRandomPrime(bit_length // 2), NBitRandomPrime(bit_length // 2)]
+        modulus: int = primes[0] * primes[1]
+        while modulus.bit_length() != bit_length or primes[0] == primes[1]:
+          primes.remove(min(primes))
+          primes.append(NBitRandomPrime(
+              bit_length // 2 + (bit_length % 2 if modulus.bit_length() < bit_length else 0)))
+          modulus = primes[0] * primes[1]
+        # build object
+        phi: int = (primes[0] - 1) * (primes[1] - 1)
+        prime_exp: int = (_SMALL_ENCRYPTION_EXPONENT if phi <= _BIG_ENCRYPTION_EXPONENT else
+                          _BIG_ENCRYPTION_EXPONENT)
+        obj: Self = cls(
+            modulus_p=min(primes),  # "p" is always the smaller
+            modulus_q=max(primes),  # "q" is always the larger
+            public_modulus=modulus,
+            encrypt_exp=prime_exp,
+            decrypt_exp=ModInv(prime_exp, phi),
+        )
+        return obj
+      except (InputError, ModularDivideError) as err:
+        failures += 1
+        if failures >= _MAX_KEY_GENERATION_FAILURES:
+          raise CryptoError(f'failed key generation {failures} times') from err
+        logging.warning(err)
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
@@ -941,14 +956,14 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
       InputError: invalid inputs
     """
     # test inputs
-    if secret < 0:
+    if not 0 <= secret < self.modulus:
       raise InputError(f'invalid secret: {secret=}')
     if not 1 < share_key < self.modulus:
       if not share_key:  # default is zero, and that means we generate it here
         sr = secrets.SystemRandom()
-        share_key = sr.randint(2, self.modulus - 1)
-        while share_key in self.polynomial:
-          share_key = sr.randint(2, self.modulus - 1)  # unlikely case key is not unique
+        share_key = 0
+        while not share_key or share_key in self.polynomial:
+          share_key = sr.randint(2, self.modulus - 1)
       else:
         raise InputError(f'invalid share_key: {secret=}')
     # build object
@@ -979,12 +994,31 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
     count: int = 0
     used_keys: set[int] = set()
     while not max_shares or count < max_shares:
-      share_key: int = sr.randint(2, self.modulus - 1)
-      while share_key in self.polynomial or share_key in used_keys:
-        share_key = sr.randint(2, self.modulus - 1)  # unlikely case key is not unique
-      used_keys.add(share_key)
-      yield self.Share(secret, share_key=share_key)
-      count += 1
+      share_key: int = 0
+      while not share_key or share_key in self.polynomial or share_key in used_keys:
+        share_key = sr.randint(2, self.modulus - 1)
+      try:
+        yield self.Share(secret, share_key=share_key)
+        used_keys.add(share_key)
+        count += 1
+      except InputError as err:
+        # it could happen, for example, that the share_key will generate a value of 0
+        logging.warning(err)
+
+  def VerifyShare(self, secret: int, share: 'ShamirSharePrivate', /) -> bool:
+    """Make a new ShamirSharePrivate for the `secret`.
+
+    Args:
+      secret (int): secret message to encrypt and share, 0 ≤ s < modulus
+      share (ShamirSharePrivate): share to verify
+
+    Returns:
+      True if share is valid; False otherwise
+
+    Raises:
+      InputError: invalid inputs
+    """
+    return share == self.Share(secret, share_key=share.share_key)
 
   @classmethod
   def New(cls, minimum_shares: int, bit_length: int, /) -> Self:

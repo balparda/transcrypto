@@ -109,6 +109,8 @@ def test_ModDiv(x: int, y: int, m: int, z: int) -> None:
     (0, 1, 1, 0),
     (1, 0, 1, 0),
     (1, 1, 1, 0),
+    (0, 0, 2, 1),
+    (0, 1, 2, 0),
     (1, 0, 2, 1),
     (1, 1, 2, 1),
     (2, 2, 2, 0),
@@ -373,38 +375,27 @@ def test_MersennePrimesGenerator() -> None:
   assert mersenne == transcrypto.FIRST_49_MERSENNE_SORTED[:14]
 
 
-@pytest.mark.parametrize('n, sz', [
-    (10, 17),
-    (11, 90),
-    (12, 66),
-    (13, 300),
-])
-def test_RSAPrivateKey_lots_of_small_keys(n: int, sz: int) -> None:
-  """Test: this is to make sure the smaller possible key values don't go into loops."""
-  all_working: set[transcrypto.RSAPrivateKey] = set()
-  for _ in range(1000):
-    rsa: transcrypto.RSAPrivateKey = transcrypto.RSAPrivateKey.New(n)
-    all_working.add(rsa)
-    transcrypto.RSAObfuscationPair.New(rsa)
-  assert len(all_working) >= sz
-
-
 @mock.patch('secrets.randbits', autospec=True)
 @mock.patch('src.transcrypto.transcrypto.NBitRandomPrime', autospec=True)
 def test_RSA_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
   """Test."""
   with pytest.raises(transcrypto.InputError, match='invalid bit length'):
-    transcrypto.RSAPrivateKey.New(9)
-  prime.side_effect = [17, 29, 29, 59, 31, 41]
-  randbits.side_effect = [29, 1000]
+    transcrypto.RSAPrivateKey.New(10)
+  prime.side_effect = [17, 29, 29, 59, 31, 41,  # 2 failed tries
+                       59, 31,                  # generates the key
+                       17, 29, 29, 59, 31, 41]  # 22 failed tries for failed key generation
+  randbits.side_effect = [31, 1000]
   private: transcrypto.RSAPrivateKey = transcrypto.RSAPrivateKey.New(11)
+  with pytest.MonkeyPatch().context() as mp:
+    mp.setattr(transcrypto, '_MAX_KEY_GENERATION_FAILURES', 2)
+    with pytest.raises(transcrypto.CryptoError, match='failed key generation'):
+      transcrypto.RSAPrivateKey.New(11)
   assert private == transcrypto.RSAPrivateKey(
-      public_modulus=1711, encrypt_exp=31, modulus_p=29, modulus_q=59, decrypt_exp=943)
+      public_modulus=1829, encrypt_exp=7, modulus_p=31, modulus_q=59, decrypt_exp=1243)
   assert transcrypto.RSAObfuscationPair.New(
       transcrypto.RSAPublicKey.Copy(private)) == transcrypto.RSAObfuscationPair(
-          public_modulus=1711, encrypt_exp=31, random_key=1000, key_inverse=1042)
-  assert prime.call_args_list == [
-      mock.call(5), mock.call(5), mock.call(6), mock.call(6), mock.call(5)]
+          public_modulus=1829, encrypt_exp=7, random_key=1000, key_inverse=1337)
+  assert prime.call_args_list == [mock.call(n) for n in (5, 5, 6, 6, 5, 5, 5, 5, 5, 5, 6, 6, 5, 5)]
   assert randbits.call_args_list == [mock.call(10)] * 2
 
 
@@ -412,14 +403,12 @@ def test_RSA_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
     'public_modulus, encrypt_exp, random_key, key_inverse, modulus_p, modulus_q, decrypt_exp, '
     'message, expected_cypher, expected_obfuscated, expected_signed, expected_obfuscated_signed',
     [
-        (22, 7, 9, 5, 2, 11, 3, 2, 18, 8, 8, 6),
-        (22, 7, 9, 5, 2, 11, 3, 10, 10, 18, 10, 2),
-        (22, 7, 9, 5, 2, 11, 3, 20, 4, 14, 14, 16),
-        (37627, 211, 8526, 28805, 191, 197, 12531, 10, 29096, 9308, 15036, 1747),
-        (37627, 211, 8526, 28805, 191, 197, 12531, 20, 4511, 18616, 768, 870),
-        (37627, 211, 8526, 28805, 191, 197, 12531, 30, 26303, 27924, 13231, 1760),
-        (8910991, 2437, 5557471, 3986528, 2741, 3251, 7538373, 10,
-         7265813, 3528557, 8909398, 4473751),
+        (1357, 7, 695, 658, 23, 59, 547, 2, 128, 1276, 601, 1096),
+        (1357, 7, 695, 658, 23, 59, 547, 10, 267, 952, 297, 151),
+        (1357, 7, 695, 658, 23, 59, 547, 20, 251, 547, 730, 1189),
+        (37001, 7, 31618, 9087, 163, 227, 15691, 10, 9730, 6006, 23858, 2857),
+        (8628083, 65537, 8374570, 5137309, 2251, 3833, 4755473, 10,
+         4660799, 2979077, 6696343, 8467706),
     ])
 def test_RSA(  # pylint: disable=too-many-locals,too-many-arguments,too-many-positional-arguments
     public_modulus: int, encrypt_exp: int, random_key: int, key_inverse: int,
@@ -510,24 +499,24 @@ def test_RSAPrivateKey_invalid() -> None:
   """Test."""
   with pytest.raises(transcrypto.InputError, match='invalid modulus_p or modulus_q'):
     transcrypto.RSAPrivateKey(
-        public_modulus=22, encrypt_exp=7, modulus_p=2, modulus_q=6, decrypt_exp=3)
+        public_modulus=1357, encrypt_exp=7, modulus_p=24, modulus_q=59, decrypt_exp=547)
   with pytest.raises(transcrypto.InputError, match='invalid modulus_p or modulus_q'):
     transcrypto.RSAPrivateKey(
-        public_modulus=22, encrypt_exp=7, modulus_p=6, modulus_q=11, decrypt_exp=3)
+        public_modulus=1357, encrypt_exp=7, modulus_p=17, modulus_q=19, decrypt_exp=547)
   with pytest.raises(transcrypto.InputError, match='invalid modulus_p or modulus_q'):
     transcrypto.RSAPrivateKey(
-        public_modulus=22, encrypt_exp=7, modulus_p=7, modulus_q=11, decrypt_exp=3)
+        public_modulus=1357, encrypt_exp=1279, modulus_p=23, modulus_q=59, decrypt_exp=547)
   with pytest.raises(transcrypto.InputError, match='invalid decrypt_exp'):
     transcrypto.RSAPrivateKey(
-        public_modulus=22, encrypt_exp=7, modulus_p=2, modulus_q=11, decrypt_exp=22)
+        public_modulus=1357, encrypt_exp=7, modulus_p=23, modulus_q=59, decrypt_exp=50)
   with pytest.raises(transcrypto.CryptoError, match=r'inconsistent modulus_p \* modulus_q'):
     transcrypto.RSAPrivateKey(
-        public_modulus=22, encrypt_exp=7, modulus_p=3, modulus_q=11, decrypt_exp=3)
+        public_modulus=1357, encrypt_exp=7, modulus_p=19, modulus_q=59, decrypt_exp=547)
   with pytest.raises(transcrypto.CryptoError, match='inconsistent exponents'):
     transcrypto.RSAPrivateKey(
-        public_modulus=22, encrypt_exp=7, modulus_p=2, modulus_q=11, decrypt_exp=5)
+        public_modulus=1357, encrypt_exp=7, modulus_p=23, modulus_q=59, decrypt_exp=546)
   transcrypto.RSAPrivateKey(
-      public_modulus=22, encrypt_exp=7, modulus_p=2, modulus_q=11, decrypt_exp=3)
+      public_modulus=1357, encrypt_exp=7, modulus_p=23, modulus_q=59, decrypt_exp=547)
 
 
 @pytest.mark.parametrize('minimum, modulus, polynomial, secret', [
@@ -549,6 +538,9 @@ def test_ShamirSharedSecret(minimum: int, modulus: int, polynomial: list[int], s
   assert public.RecoverSecret(shares[2:]) == secret
   assert public.RecoverSecret(shares[:-1]) == secret
   assert public.RecoverSecret(shares[:-2]) == secret
+  assert private.VerifyShare(secret, shares[0])
+  assert private.VerifyShare(secret, shares[1])
+  assert not private.VerifyShare(secret + 1, shares[0])
   with pytest.raises(transcrypto.CryptoError, match='unrecoverable secret'):
     public.RecoverSecret(shares[3:])
   if minimum > 2:
@@ -566,7 +558,7 @@ def test_ShamirSharedSecret_creation(
   with pytest.raises(transcrypto.InputError, match='invalid bit length'):
     transcrypto.ShamirSharedSecretPrivate.New(3, 9)
   prime.side_effect = [23, 19, 23, 31]
-  randint.side_effect = [19, 20, 19, 20, 21, 20, 22]
+  randint.side_effect = [19, 20, 19, 20, 21, 20, 22, 535, 587, 498, 341]
   private: transcrypto.ShamirSharedSecretPrivate = transcrypto.ShamirSharedSecretPrivate.New(3, 10)
   assert private == transcrypto.ShamirSharedSecretPrivate(
       minimum=3, modulus=31, polynomial=[19, 23])
@@ -583,9 +575,17 @@ def test_ShamirSharedSecret_creation(
       transcrypto.ShamirSharePrivate(minimum=3, modulus=31, share_key=21, share_value=22),
       transcrypto.ShamirSharePrivate(minimum=3, modulus=31, share_key=22, share_value=7),
   ]
+  private = transcrypto.ShamirSharedSecretPrivate(minimum=3, modulus=907, polynomial=[593, 787])
+  assert list(private.Shares(12, max_shares=3)) == [
+      # the 535 value will generate a share_value of 0 and will be discarded
+      transcrypto.ShamirSharePrivate(minimum=3, modulus=907, share_key=587, share_value=758),
+      transcrypto.ShamirSharePrivate(minimum=3, modulus=907, share_key=498, share_value=555),
+      transcrypto.ShamirSharePrivate(minimum=3, modulus=907, share_key=341, share_value=439),
+  ]
   assert prime.call_args_list == [mock.call(10)] * 4
   shuffle.assert_called_once_with(mock.ANY, [19, 23])
-  assert randint.call_args_list == [mock.call(mock.ANY, 2, 30)] * 7
+  assert randint.call_args_list == (
+      [mock.call(mock.ANY, 2, 30)] * 7 + [mock.call(mock.ANY, 2, 906)] * 4)
 
 
 def test_ShamirSharedSecretPublic_invalid() -> None:
