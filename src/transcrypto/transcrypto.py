@@ -13,7 +13,7 @@ import secrets
 from typing import Collection, Generator, Optional, Reversible, Self
 
 __author__ = 'balparda@github.com'
-__version__: tuple[int, int, int] = (1, 0, 2)  # v1.0.2, 2025-07-22
+__version__: tuple[int, int, int] = (1, 0, 3)  # v1.0.3, 2025-07-30
 
 
 FIRST_60_PRIMES: set[int] = {
