@@ -2,7 +2,7 @@
 #
 # Copyright 2025 Daniel Balparda (balparda@github.com) - Apache-2.0 license
 #
-"""Balparda's TransCrypto."""
+"""Balparda's TransCrypto base library."""
 
 import dataclasses
 # import datetime
@@ -29,11 +29,13 @@ class CryptoError(Error):
 
 
 def GCD(a: int, b: int, /) -> int:
-  """Greatest Common Divisor for `a` and `b`, positive integers. Uses the Euclid method.
+  """Greatest Common Divisor for `a` and `b`, integers ≥0. Uses the Euclid method.
+
+  O(log(min(a, b)))
 
   Args:
     a (int): integer a ≥ 0
-    b (int): integer b ≥ 0
+    b (int): integer b ≥ 0 (can't be both zero)
 
   Returns:
     gcd(a, b)
@@ -42,8 +44,8 @@ def GCD(a: int, b: int, /) -> int:
     InputError: invalid inputs
   """
   # test inputs
-  if a < 0 or b < 0:
-    raise InputError(f'negative input: {a=} , {b=}')
+  if a < 0 or b < 0 or (not a and not b):
+    raise InputError(f'negative input or undefined gcd(0, 0): {a=} , {b=}')
   # algo needs to start with a >= b
   if a < b:
     a, b = b, a
@@ -55,11 +57,13 @@ def GCD(a: int, b: int, /) -> int:
 
 
 def ExtendedGCD(a: int, b: int, /) -> tuple[int, int, int]:
-  """Greatest Common Divisor Extended for `a` and `b`, positive integers. Uses the Euclid method.
+  """Greatest Common Divisor Extended for `a` and `b`, integers ≥0. Uses the Euclid method.
+
+  O(log(min(a, b)))
 
   Args:
     a (int): integer a ≥ 0
-    b (int): integer b ≥ 0
+    b (int): integer b ≥ 0 (can't be both zero)
 
   Returns:
     (gcd, x, y) so that a * x + b * y = gcd
@@ -69,8 +73,8 @@ def ExtendedGCD(a: int, b: int, /) -> tuple[int, int, int]:
     InputError: invalid inputs
   """
   # test inputs
-  if a < 0 or b < 0:
-    raise InputError(f'negative input: {a=} , {b=}')
+  if a < 0 or b < 0 or (not a and not b):
+    raise InputError(f'negative input or undefined gcd(0, 0): {a=} , {b=}')
   # algo needs to start with a >= b (but we remember if we did swap)
   swapped = False
   if a < b:

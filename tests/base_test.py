@@ -17,8 +17,15 @@ __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: tuple[int, int, int] = base.__version__  # tests inherit version from module
 
 
+@pytest.mark.parametrize('n', [1, 17, 10 ** 12])
+def test_GCD_same_number(n: int) -> None:
+  """Test."""
+  assert base.GCD(n, n) == n
+  g, x, y = base.ExtendedGCD(n, n)
+  assert g == n == n * (x + y)  # because x or y will be 0
+
+
 @pytest.mark.parametrize('a, b, gcd, x, y', [
-    (0, 0, 0, 1, 0),
     (0, 1, 1, 0, 1),
     (1, 0, 1, 1, 0),
     (1, 2, 1, 1, 0),
@@ -43,6 +50,7 @@ def test_GCD(a: int, b: int, gcd: int, x: int, y: int) -> None:
 @pytest.mark.parametrize('a, b', [
     (-1, 1),
     (1, -1),
+    (0, 0),
 ])
 def test_GCD_negative(a: int, b: int) -> None:
   """Test."""
@@ -50,6 +58,14 @@ def test_GCD_negative(a: int, b: int) -> None:
     base.GCD(a, b)
   with pytest.raises(base.InputError, match='negative input'):
     base.ExtendedGCD(a, b)
+
+
+def test_NegativeZero() -> None:
+  """Test."""
+  assert base.GCD(-0, 5) == 5  # Python’s -0 is 0
+  g, x, y = base.ExtendedGCD(-0, 5)
+  assert g == 5 and 5 * y == 5 and not x
+  assert 0 == -0
 
 
 if __name__ == '__main__':

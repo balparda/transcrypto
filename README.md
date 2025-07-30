@@ -16,6 +16,8 @@ Unless required by applicable law or agreed to in writing, software distributed 
 
 ## Use
 
+All library methods' `int` are tailored to be efficient with arbitrarily large integers (≥ 0).
+
 ### Install
 
 To use in your project just do:
@@ -24,11 +26,34 @@ To use in your project just do:
 pip3 install transcrypto
 ```
 
-and then `from transcrypto import transcrypto` for using it.
+and then `from transcrypto import rsa` (or other parts of the library) for using it.
 
-### TODO
+### Base Library
 
-TODO: explain module...
+#### Computing the Greatest Common Divisor
+
+```py
+>>> from transcrypto import base
+>>> base.GCD(462, 1071)
+21
+>>> base.GCD(0, 17)
+17
+```
+
+The function is `O(log(min(a, b)))` and handles arbitrarily large integers. To find Bézout coefficients `(x, y)` such that `ax + by = gcd(a, b)` do:
+
+```py
+>>> base.ExtendedGCD(462, 1071)
+(21, -2, 1)
+>>> 462 * -2 + 1071 * 1
+21
+```
+
+Use-cases:
+
+* modular inverses: `inv = x % m` when `gcd(a, m) == 1`
+* solving linear Diophantine equations
+* RSA / ECC key generation internals
 
 ## Development Instructions
 

@@ -2,7 +2,10 @@
 #
 # Copyright 2025 Daniel Balparda (balparda@github.com) - Apache-2.0 license
 #
-"""Balparda's TransCrypto."""
+"""Balparda's TransCrypto RSA (Rivest-Shamir-Adleman) library.
+
+<https://en.wikipedia.org/wiki/RSA_cryptosystem>
+"""
 
 import dataclasses
 import logging

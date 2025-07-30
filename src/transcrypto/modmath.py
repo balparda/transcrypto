@@ -2,7 +2,7 @@
 #
 # Copyright 2025 Daniel Balparda (balparda@github.com) - Apache-2.0 license
 #
-"""Balparda's TransCrypto."""
+"""Balparda's TransCrypto modular math library."""
 
 import math
 # import pdb

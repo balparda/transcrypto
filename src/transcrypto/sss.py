@@ -2,7 +2,10 @@
 #
 # Copyright 2025 Daniel Balparda (balparda@github.com) - Apache-2.0 license
 #
-"""Balparda's TransCrypto."""
+"""Balparda's TransCrypto Shamir Shared Secret (SSS) library.
+
+<https://en.wikipedia.org/wiki/Shamir's_secret_sharing>
+"""
 
 import dataclasses
 import logging
@@ -19,7 +22,7 @@ __version__: tuple[int, int, int] = base.__version__  # version comes from base!
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class ShamirSharedSecretPublic(base.CryptoKey):
-  """Shamir Shared Secret (SSS) public part (<https://en.wikipedia.org/wiki/Shamir's_secret_sharing>).
+  """Shamir Shared Secret (SSS) public part.
 
   Attributes:
     minimum (int): minimum shares needed for recovery, ≥ 2
@@ -68,7 +71,7 @@ class ShamirSharedSecretPublic(base.CryptoKey):
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
-  """Shamir Shared Secret (SSS) private keys (<https://en.wikipedia.org/wiki/Shamir's_secret_sharing>).
+  """Shamir Shared Secret (SSS) private keys.
 
   Attributes:
     polynomial (list[int]): prime coefficients for generation poly., each modulus.bit_length() size
@@ -204,7 +207,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class ShamirSharePrivate(ShamirSharedSecretPublic):
-  """Shamir Shared Secret (SSS) one share (<https://en.wikipedia.org/wiki/Shamir's_secret_sharing>).
+  """Shamir Shared Secret (SSS) one share.
 
   Attributes:
     share_key (int): share secret key; a randomly picked value, 1 ≤ k < modulus
