@@ -37,7 +37,7 @@ def test_ShamirSharedSecret(minimum: int, modulus: int, polynomial: list[int], s
   assert public.RecoverSecret(shares[1:]) == secret
   assert public.RecoverSecret(shares[2:]) == secret
   assert public.RecoverSecret(shares[:-1]) == secret
-  assert public.RecoverSecret(shares[:-2]) == secret
+  assert public.RecoverSecret(shares[:-2] + shares[:2]) == secret  # duplicate shares
   assert private.VerifyShare(secret, shares[0])
   assert private.VerifyShare(secret, shares[1])
   assert not private.VerifyShare(secret + 1, shares[0])
@@ -45,6 +45,11 @@ def test_ShamirSharedSecret(minimum: int, modulus: int, polynomial: list[int], s
     public.RecoverSecret(shares[3:])
   if minimum > 2:
     assert public.RecoverSecret(shares[3:], force_recover=True) != secret
+  with pytest.raises(base.InputError, match='duplicated with conflicting value'):
+    bogus_share = sss.ShamirSharePrivate(  # same key, different value
+        minimum=shares[0].minimum, modulus=shares[0].modulus,
+        share_key=shares[0].share_key, share_value=shares[0].share_value - 1)
+    public.RecoverSecret(shares[:-2] + [bogus_share])
 
 
 @mock.patch('secrets.SystemRandom.randint', autospec=True)
@@ -85,7 +90,7 @@ def test_ShamirSharedSecret_creation(
   assert prime.call_args_list == [mock.call(10)] * 4
   shuffle.assert_called_once_with(mock.ANY, [19, 23])
   assert randint.call_args_list == (
-      [mock.call(mock.ANY, 2, 30)] * 7 + [mock.call(mock.ANY, 2, 906)] * 4)
+      [mock.call(mock.ANY, 14, 30)] * 7 + [mock.call(mock.ANY, 452, 906)] * 4)
 
 
 def test_ShamirSharedSecretPublic_invalid() -> None:

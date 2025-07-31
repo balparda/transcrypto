@@ -9,7 +9,8 @@
       - [Fast Modular Arithmetic](#fast-modular-arithmetic)
       - [Modular Polynomials \& Lagrange Interpolation](#modular-polynomials--lagrange-interpolation)
       - [Primality testing \& Prime generators, Mersenne primes](#primality-testing--prime-generators-mersenne-primes)
-      - [RSA (Rivest-Shamir-Adleman)](#rsa-rivest-shamir-adleman)
+      - [RSA (Rivest-Shamir-Adleman) Public Cryptography](#rsa-rivest-shamir-adleman-public-cryptography)
+      - [SSS (Shamir Shared Secret)](#sss-shamir-shared-secret)
   - [Development Instructions](#development-instructions)
     - [Setup](#setup)
     - [Updating Dependencies](#updating-dependencies)
@@ -81,6 +82,8 @@ Use-cases:
 #### Fast Modular Arithmetic
 
 ```py
+from transcrypto import modmath
+
 m = 2**256 - 189    # a large prime modulus
 
 # Inverse ──────────────────────────────
@@ -120,20 +123,20 @@ modmath.MillerRabinIsPrime(961748941, witnesses={2,7,61})
 
 # Infinite iterator of primes ≥ 10⁶
 for p in modmath.PrimeGenerator(1_000_000):
-    print(p)
-    if p > 1_000_100:
-        break
+  print(p)
+  if p > 1_000_100:
+    break
 
 # Secure random 384-bit prime (for RSA/ECC experiments)
 p384 = modmath.NBitRandomPrime(384)
 
 for k, m_p, perfect in modmath.MersennePrimesGenerator(0):
-    print(f'p = {k:>8}  M = {m_p}  perfect = {perfect}')
-    if k > 10000:          # stop after a few
-        break
+  print(f'p = {k:>8}  M = {m_p}  perfect = {perfect}')
+  if k > 10000:          # stop after a few
+    break
 ```
 
-#### RSA (Rivest-Shamir-Adleman)
+#### RSA (Rivest-Shamir-Adleman) Public Cryptography
 
 <https://en.wikipedia.org/wiki/RSA_cryptosystem>
 
@@ -142,6 +145,8 @@ This implementation is raw RSA, no OAEP or PSS! It works on the actual integers.
 By default and deliberate choice the *encryption exponent* will be either 7 or 65537, depending on the size of `phi=(p-1)*(q-1)`. If `phi` allows it the larger one will be chosen to avoid Coppersmith attacks.
 
 ```py
+from transcrypto import rsa
+
 # Generate a key pair
 priv = rsa.RSAPrivateKey.New(2048)     # 2048-bit modulus
 pub  = rsa.RSAPublicKey.Copy(priv)     # public half
@@ -164,7 +169,67 @@ blind_msg = pair.ObfuscateMessage(msg)            # what you send to signer
 blind_sig = priv.Sign(blind_msg)                  # signer’s output
 
 sig = pair.RevealOriginalSignature(msg, blind_sig)
-assert pub.VerifySignature(msg, sig)              #
+assert pub.VerifySignature(msg, sig)
+```
+
+#### SSS (Shamir Shared Secret)
+
+<https://en.wikipedia.org/wiki/Shamir's_secret_sharing>
+
+This is the information-theoretic SSS but with no authentication or binding between share and secret. Malicious share injection is possible! Add MAC or digital signature in hostile settings. Use at least 128-bit modulus for non-toy deployments.
+
+```py
+from transcrypto import sss
+
+# ➊  Generate parameters: at least 3 of 5 shares needed,
+#     coefficients & modulus are 128-bit primes
+priv = sss.ShamirSharedSecretPrivate.New(minimum_shares=3, bit_length=128)
+pub  = sss.ShamirSharedSecretPublic.Copy(priv)   # what you publish
+
+print(f'threshold        : {pub.minimum}')
+print(f'prime mod        : {pub.modulus}')
+print(f'poly coefficients: {priv.polynomial}')         # keep these private!
+
+# Issuing shares
+
+secret = 0xC0FFEE
+# Generate an unlimited stream; here we take 5
+five_shares = list(priv.Shares(secret, max_shares=5))
+for sh in five_shares:
+  print(f'share {sh.share_key} → {sh.share_value}')
+```
+
+A single share object looks like `sss.ShamirSharePrivate(minimum=3, modulus=..., share_key=42, share_value=123456789)`.
+
+```py
+# Re-constructing the secret
+
+subset = five_shares[:3]          # any 3 distinct shares
+recovered = pub.RecoverSecret(subset)
+assert recovered == secret
+```
+
+If you supply fewer than minimum shares you get a `CryptoError`, unless you explicitly override:
+
+```py
+try:
+  pub.RecoverSecret(five_shares[:2])        # raises
+except Exception as e:
+  print(e)                                  # "unrecoverable secret …"
+
+# Force the interpolation even with 2 points (gives a wrong secret, of course)
+print(pub.RecoverSecret(five_shares[:2], force_recover=True))
+
+# Checking that a share is genuine
+
+share = five_shares[0]
+ok = priv.VerifyShare(secret, share)       # ▶ True
+tampered = sss.ShamirSharePrivate(
+    minimum=share.minimum,
+    modulus=share.modulus,
+    share_key=share.share_key,
+    share_value=(share.share_value + 1) % share.modulus)
+print(priv.VerifyShare(secret, tampered))  # ▶ False
 ```
 
 ## Development Instructions

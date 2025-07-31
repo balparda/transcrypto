@@ -25,6 +25,10 @@ __version_tuple__: tuple[int, ...] = base.__version_tuple__
 class ShamirSharedSecretPublic(base.CryptoKey):
   """Shamir Shared Secret (SSS) public part.
 
+  This is the information-theoretic SSS but with no authentication or binding between
+  share and secret. Malicious share injection is possible! Add MAC or digital signature
+  in hostile settings.
+
   Attributes:
     minimum (int): minimum shares needed for recovery, ≥ 2
     modulus (int): prime modulus used for share generation, prime, ≥ 2
@@ -49,16 +53,37 @@ class ShamirSharedSecretPublic(base.CryptoKey):
       self, shares: Collection['ShamirSharePrivate'], /, *, force_recover: bool = False) -> int:
     """Recover the secret from ShamirSharePrivate objects.
 
+    Args:
+      shares (Collection[ShamirSharePrivate]): shares to use to recover the secret
+      force_recover (bool, optional): if True will try to recover
+
+    Returns:
+      the integer secret if all shares are correct and in the correct number; if there are
+      no "excess" shares, there can be no way to know if the recovered secret is the correct one
+
     Raises:
       InputError: invalid inputs
-      CryptoError: secret cannot be recovered
+      CryptoError: secret cannot be recovered (number of shares < `minimum`)
     """
-    # check that we have enough shares
-    share_points: dict[int, int] = {s.share_key: s.share_value for s in shares}  # de-dup guaranteed
+    # check that we have enough shares by de-duping them first
+    share_points: dict[int, int] = {}
+    share_dict: dict[int, ShamirSharePrivate] = {}
+    for share in shares:
+      k: int = share.share_key % self.modulus
+      v: int = share.share_value % self.modulus
+      if k in share_points:
+        if v != share_points[k]:
+          raise base.InputError(
+              f'{share} key/value {k}/{v} duplicated with conflicting value in {share_dict[k]}')
+        logging.warning(f'{share} key/value {k}/{v} is a duplicate of {share_dict[k]}: DISCARDED')
+        continue
+      share_points[k] = v
+      share_dict[k] = share
+    # if we don't have enough shares, complain loudly
     if (given_shares := len(share_points)) < self.minimum:
       mess: str = f'distinct shares {given_shares} < minimum shares {self.minimum}'
       if force_recover and given_shares > 1:
-        logging.error('recovering secret even though: %s', mess)
+        logging.error(f'recovering secret even though: {mess}')
       else:
         raise base.CryptoError(f'unrecoverable secret: {mess}')
     # do the math
@@ -73,6 +98,10 @@ class ShamirSharedSecretPublic(base.CryptoKey):
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
   """Shamir Shared Secret (SSS) private keys.
+
+  We deliberately choose prime coefficients. This shrinks the key-space and leaks a bit of
+  structure. It is "unusual", but with large enough modulus (bit length > ~ 500) it makes no
+  difference because there will be plenty entropy in these primes.
 
   Attributes:
     polynomial (list[int]): prime coefficients for generation poly., each modulus.bit_length() size
@@ -111,14 +140,14 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
     # test inputs
     if not 0 <= secret < self.modulus:
       raise base.InputError(f'invalid secret: {secret=}')
-    if not 1 < share_key < self.modulus:
+    if not 1 <= share_key < self.modulus:
       if not share_key:  # default is zero, and that means we generate it here
         sr = secrets.SystemRandom()
         share_key = 0
         while not share_key or share_key in self.polynomial:
-          share_key = sr.randint(2, self.modulus - 1)
+          share_key = sr.randint(self.modulus // 2 - 1, self.modulus - 1)
       else:
-        raise base.InputError(f'invalid share_key: {secret=}')
+        raise base.InputError(f'invalid share_key: {share_key=}')
     # build object
     return ShamirSharePrivate(
         minimum=self.minimum, modulus=self.modulus,
@@ -149,7 +178,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
     while not max_shares or count < max_shares:
       share_key: int = 0
       while not share_key or share_key in self.polynomial or share_key in used_keys:
-        share_key = sr.randint(2, self.modulus - 1)
+        share_key = sr.randint(self.modulus // 2 - 1, self.modulus - 1)
       try:
         yield self.Share(secret, share_key=share_key)
         used_keys.add(share_key)
@@ -159,7 +188,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
         logging.warning(err)
 
   def VerifyShare(self, secret: int, share: 'ShamirSharePrivate', /) -> bool:
-    """Make a new ShamirSharePrivate for the `secret`.
+    """Verify a ShamirSharePrivate object for the `secret`.
 
     Args:
       secret (int): secret message to encrypt and share, 0 ≤ s < modulus
@@ -175,7 +204,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
 
   @classmethod
   def New(cls, minimum_shares: int, bit_length: int, /) -> Self:
-    """Make a new public sharing prime modulus of `bit_length` bits.
+    """Makes a new private SSS object of `bit_length` bits prime modulus and coefficients.
 
     Args:
       minimum_shares (int): minimum shares needed for recovery, ≥ 2
