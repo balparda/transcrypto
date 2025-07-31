@@ -16,7 +16,7 @@ from src.transcrypto import base
 from src.transcrypto import sss
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
-__version__: tuple[int, int, int] = sss.__version__  # tests inherit version from module
+__version__: str = sss.__version__  # tests inherit version from module
 
 
 @pytest.mark.parametrize('minimum, modulus, polynomial, secret', [

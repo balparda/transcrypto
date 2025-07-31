@@ -9,4 +9,5 @@
 from . import base
 
 __author__ = 'balparda@github.com'
-__version__: tuple[int, int, int] = base.__version__  # version comes from base!
+__version__: str = base.__version__  # version comes from base!
+__version_tuple__: tuple[int, ...] = base.__version_tuple__

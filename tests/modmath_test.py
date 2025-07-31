@@ -16,11 +16,12 @@ from src.transcrypto import base
 from src.transcrypto import modmath
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
-__version__: tuple[int, int, int] = modmath.__version__  # tests inherit version from module
+__version__: str = modmath.__version__  # tests inherit version from module
 
 
 @pytest.mark.parametrize('x, m, y', [
     (1, 2, 1),
+    (3, 2, 1),
     (1, 3, 1),
     (2, 3, 2),
     (1, 5, 1),
@@ -35,7 +36,7 @@ __version__: tuple[int, int, int] = modmath.__version__  # tests inherit version
 def test_ModInv(x: int, m: int, y: int) -> None:
   """Test."""
   assert modmath.ModInv(x, m) == y
-  assert modmath.ModInv(y, m) == x
+  assert modmath.ModInv(y, m) == x % m
   assert (x * y) % m == 1  # check the inverse!
 
 
@@ -50,6 +51,20 @@ def test_ModInv_prime(m: int) -> None:
     y: int = modmath.ModInv(x, m)
     assert (x * y) % m == 1  # check the inverse!
     assert modmath.ModInv(y, m) == x
+
+
+def test_ModInv_invalid() -> None:
+  """Test."""
+  with pytest.raises(base.InputError, match='negative input'):
+    modmath.ModInv(-1, 1)
+  with pytest.raises(base.InputError, match='invalid modulus'):
+    modmath.ModInv(1, -1)
+  with pytest.raises(modmath.ModularDivideError, match=r'null inverse'):
+    modmath.ModInv(0, 3)
+  with pytest.raises(modmath.ModularDivideError, match=r'null inverse'):
+    modmath.ModInv(5, 5)
+  with pytest.raises(modmath.ModularDivideError, match=r'invalid.*with gcd=227'):
+    modmath.ModInv(227, 227 * 229)
 
 
 @pytest.mark.parametrize('x, y, m, z', [
@@ -67,6 +82,18 @@ def test_ModDiv(x: int, y: int, m: int, z: int) -> None:
   assert modmath.ModDiv(x, y, m) == z
   assert modmath.ModDiv(y, x, m) == modmath.ModInv(z, m)  # pylint: disable=arguments-out-of-order
   assert (z * y) % m == x % m  # check the division!
+
+
+def test_ModDiv_invalid() -> None:
+  """Test."""
+  with pytest.raises(base.InputError, match='invalid modulus'):
+    modmath.ModDiv(1, 1, 0)
+  with pytest.raises(base.InputError, match='negative input'):
+    modmath.ModDiv(-1, 1, 2)
+  with pytest.raises(base.InputError, match='negative input'):
+    modmath.ModDiv(1, -1, 2)
+  with pytest.raises(modmath.ModularDivideError, match='divide by zero'):
+    modmath.ModDiv(1, 0, 2)
 
 
 @pytest.mark.parametrize('x, y, m, r', [
@@ -115,18 +142,6 @@ def test_ModExp_negative(x: int, y: int) -> None:
     modmath.ModExp(x, y, 1)
 
 
-def test_ModExp_ModInv_invalid() -> None:
-  """Test."""
-  with pytest.raises(base.InputError, match='invalid input'):
-    modmath.ModInv(-1, 1)
-  with pytest.raises(base.InputError, match='invalid input'):
-    modmath.ModInv(3, 2)
-  with pytest.raises(modmath.ModularDivideError, match=r'null.*with gcd=3'):
-    modmath.ModInv(0, 3)
-  with pytest.raises(modmath.ModularDivideError, match=r'invalid.*with gcd=227'):
-    modmath.ModInv(227, 227 * 229)
-
-
 @pytest.mark.parametrize('m', [
     -1,
     0,
@@ -143,14 +158,19 @@ def test_ModExp_ModInv_modulus(m: int) -> None:
     (1, [0], 19937, 0),   # f(x) = 0
     (1, [1], 19937, 1),   # f(x) = 1
     (11, [1], 19937, 1),  # f(x) = 1
-    (1, [1, 1], 19937, 2),        # f(x) = x + 1
-    (11, [1, 1], 19937, 12),      # f(x) = x + 1
-    (1, [1, 2, 1], 19937, 4),     # f(x) = x**2 + 2*x + 1
-    (11, [1, 2, 1], 19937, 144),  # f(x) = x**2 + 2*x + 1
+    (-1, [1], 19937, 1),  # f(x) = 1
+    (1, [1, 1], 19937, 2),         # f(x) = x + 1
+    (11, [1, 1], 19937, 12),       # f(x) = x + 1
+    (1, [1, 2, 1], 19937, 4),      # f(x) = x**2 + 2*x + 1
+    (11, [1, 2, 1], 19937, 144),   # f(x) = x**2 + 2*x + 1
+    (-11, [1, 2, 1], 19937, 100),  # f(x) = x**2 + 2*x + 1
     (1, [1, 2, 1, 2, 1, 2, 1], 19937, 10),      # f(x) = x**6 + 2*x**5 + x**4 + 2*x**3 + x**2 + 2*x + 1
     (11, [1, 2, 1, 2, 1, 2, 1], 19937, 17725),  # f(x) = x**6 + 2*x**5 + x**4 + 2*x**3 + x**2 + 2*x + 1
     (127, [10, 30, 20, 12, 31], 19937, 12928),
     (128, [10, 30, 20, 12, 31], 19937, 12574),
+    (-128, [10, 30, 20, 12, 31], 19937, 14171),
+    (128, [-10, 30, -20, 12, -31], 19937, 5766),
+    (128, [10, -2 ** 120, 2 ** 400, -12, 31], 19937, 10686),
 ])
 def test_ModPolynomial(x: int, p: list[int], m: int, y: int) -> None:
   """Test."""
@@ -159,17 +179,20 @@ def test_ModPolynomial(x: int, p: list[int], m: int, y: int) -> None:
 
 def test_ModPolynomial_invalid() -> None:
   """Test."""
-  with pytest.raises(base.InputError, match='negative input or no polynomial'):
+  with pytest.raises(base.InputError, match='no polynomial'):
     modmath.ModPolynomial(1, [], 2)
-  with pytest.raises(base.InputError, match='negative input or no polynomial'):
-    modmath.ModPolynomial(-1, [1, 1], 2)
   with pytest.raises(base.InputError, match='invalid modulus'):
     modmath.ModPolynomial(1, [1, 1], 0)
 
 
 @pytest.mark.parametrize('x, p, m, y', [
     (1, {2: 2, 3: 3}, 5, 1),
+    (1, {-1: -1, 3: 3}, 5, 1),
     (9, {1: 1, 3: 3}, 5, 4),
+    (-1, {1: 1, 3: 3}, 5, 4),
+    (23746, {23: 435435435, 45: 7639467, 38476928476: 28374}, 127, 64),
+    (23747, {23: 435435435, 45: 7639467, 38476928476: 28374}, 127, 23),
+    (23746, {23: 435435435, 45: 7639467, 38476928477: 28374}, 127, 87),
 ])
 def test_ModLagrangeInterpolate(x: int, p: dict[int, int], m: int, y: int) -> None:
   """Test."""
@@ -177,12 +200,10 @@ def test_ModLagrangeInterpolate(x: int, p: dict[int, int], m: int, y: int) -> No
 
 
 @pytest.mark.parametrize('x, p, m, mess', [
-    (-1, {2: 2, 3: 3}, 5, 'negative input'),
     (1, {2: 2, 3: 3}, 1, 'invalid modulus'),
     (1, {}, 5, 'invalid points'),
     (1, {2: 2}, 5, 'invalid points'),
-    (1, {7: 2, 3: 3}, 5, 'invalid points'),
-    (1, {2: 2, 3: 7}, 5, 'invalid points'),
+    (1, {4: 2, -1: 1}, 5, 'invalid points'),
 ])
 def test_ModLagrangeInterpolate_invalid(x: int, p: dict[int, int], m: int, mess: str) -> None:
   """Test."""
@@ -310,7 +331,7 @@ def test_MillerRabinIsPrime_MillerRabinWitnesses_MillerRabinSR_invalid() -> None
 
 def test_PrimeGenerator() -> None:
   """Test."""
-  with pytest.raises(base.InputError, match='invalid number'):
+  with pytest.raises(base.InputError, match='negative number'):
     next(modmath.PrimeGenerator(-1))
   for i, n in enumerate(modmath.PrimeGenerator(0)):
     if i >= 60:

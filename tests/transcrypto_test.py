@@ -14,7 +14,7 @@ import pytest
 from src.transcrypto import transcrypto
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
-__version__: tuple[int, int, int] = transcrypto.__version__  # tests inherit version from module
+__version__: str = transcrypto.__version__  # tests inherit version from module
 
 
 if __name__ == '__main__':

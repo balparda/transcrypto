@@ -12,7 +12,8 @@ from typing import Generator, Optional, Reversible
 from . import base
 
 __author__ = 'balparda@github.com'
-__version__: tuple[int, int, int] = base.__version__  # version comes from base!
+__version__: str = base.__version__  # version comes from base!
+__version_tuple__: tuple[int, ...] = base.__version_tuple__
 
 
 _FIRST_60_PRIMES: set[int] = {
@@ -62,16 +63,16 @@ def ModInv(x: int, m: int, /) -> int:
   # test inputs
   if m < 1:
     raise base.InputError(f'invalid modulus: {m=}')
-  if not 0 <= x < m:
-    raise base.InputError(f'invalid input: {x=}')
+  if x < 0:
+    raise base.InputError(f'negative input: {x=}')
   # easy special cases: 0 and 1
-  if not x:  # "division by 0"
-    gcd = m
-    raise ModularDivideError(f'null inverse {x=} mod {m=} with {gcd=}')
-  if x == 1:  # trivial degenerate case
+  reduced_x: int = x % m
+  if not reduced_x:  # "division by 0"
+    raise ModularDivideError(f'null inverse {x=} mod {m=}')
+  if reduced_x == 1:  # trivial degenerate case
     return 1
   # compute actual extended GCD and see if we will have an inverse
-  gcd, y, w = base.ExtendedGCD(x, m)
+  gcd, y, w = base.ExtendedGCD(reduced_x, m)
   if gcd != 1:
     raise ModularDivideError(f'invalid inverse {x=} mod {m=} with {gcd=}')
   assert y and w and y >= -m, f'should never happen: {x=} mod {m=} -> {w=} ; {y=}'
@@ -94,11 +95,21 @@ def ModDiv(x: int, y: int, m: int, /) -> int:
     InputError: invalid modulus or x or y
     ModularDivideError: divide-by-zero, i.e., GCD(y, m) != 1 or y == 0
   """
+  # test inputs
+  if m < 1:
+    raise base.InputError(f'invalid modulus: {m=}')
+  if x < 0 or y < 0:
+    raise base.InputError(f'negative input: {x=} / {y=}')
+  if not y:  # "division by 0"
+    raise ModularDivideError(f'divide by zero {x=} / {y=} mod {m=}')
+  # do the math
   return ((x % m) * ModInv(y % m, m)) % m
 
 
 def ModExp(x: int, y: int, m: int, /) -> int:
   """Modular exponential: returns (x ** y) % m efficiently (can handle huge values).
+
+  0 ** 0 mod m = 1 (by convention)
 
   Args:
     x (int): integer, x ≥ 0
@@ -143,7 +154,7 @@ def ModPolynomial(x: int, polynomial: Reversible[int], m: int, /) -> int:
   step so intermediate numbers never explode.
 
   Args:
-    x (int) The evaluation point (x ≥ 0)
+    x (int): The evaluation point
     polynomial (Reversible[int]): Iterable of coefficients a_0, a_1, …, a_n
         (constant term first); it must be reversible because Horner's rule consumes
         coefficients from highest degree downwards
@@ -156,13 +167,13 @@ def ModPolynomial(x: int, polynomial: Reversible[int], m: int, /) -> int:
     InputError: invalid inputs
   """
   # test inputs
-  if x < 0 or not polynomial:
-    raise base.InputError(f'negative input or no polynomial: {x=} ; {polynomial=}')
+  if not polynomial:
+    raise base.InputError(f'no polynomial: {polynomial=}')
   if m < 1:
     raise base.InputError(f'invalid modulus: {m=}')
   # loop over polynomial coefficients
   total: int = 0
-  x %= m
+  x %= m  # takes care of negative numbers and also x >= m
   for coefficient in reversed(polynomial):
     total = (total * x + coefficient) % m
   return total
@@ -187,8 +198,9 @@ def ModLagrangeInterpolate(x: int, points: dict[int, int], m: int, /) -> int:
   every (x_i - x_j) has an inverse `mod m`.
 
   Args:
-    x (int): The x-value at which to evaluate the interpolated polynomial, x ≥ 0
-    points (dict[int, int]): A mapping {x_i: y_i}, where all 0 ≤ x_i < m and 0 ≤ y_i < m, minimum of 2
+    x (int): The x-value at which to evaluate the interpolated polynomial
+    points (dict[int, int]): A mapping {x_i: y_i}, with at least 2 points/entries;
+        dict keeps x_i distinct, as they should be; also, `x` cannot be a key to `points`
     m (int): Prime modulus (m ≥ 2); we need modular inverses, so gcd(denominator, m) must be 1
 
   Returns:
@@ -198,20 +210,19 @@ def ModLagrangeInterpolate(x: int, points: dict[int, int], m: int, /) -> int:
     InputError: invalid inputs
   """
   # test inputs
-  if x < 0:
-    raise base.InputError(f'negative input: {x=}')
   if m < 2:
     raise base.InputError(f'invalid modulus: {m=}')
-  if len(points) < 2 or any(not 0 <= k < m or not 0 <= v < m for k, v in points.items()):
-    raise base.InputError(f'invalid points: {points=}')
+  x %= m  # takes care of negative numbers and also x >= m
+  reduced_points: dict[int, int] = {k % m: v % m for k, v in points.items()}
+  if len(points) < 2 or len(reduced_points) != len(points) or x in reduced_points:
+    raise base.InputError(f'invalid points or duplicate x/x_i found: {x=} / {points=}')
   # compute everything term-by-term
-  x %= m
   result: int = 0
-  for xi, yi in points.items():
+  for xi, yi in reduced_points.items():
     # build numerator and denominator of L_i(x)
     num: int = 1  # Π (x - x_j)
     den: int = 1  # Π (xi - x_j)
-    for xj in points:
+    for xj in reduced_points:
       if xj == xi:
         continue
       num = (num * (x - xj)) % m
@@ -220,6 +231,16 @@ def ModLagrangeInterpolate(x: int, points: dict[int, int], m: int, /) -> int:
     result = (result + ModDiv(yi * num, den, m)) % m
   # done
   return result
+
+
+def CRTPair(a1: int, n1: int, a2: int, n2: int) -> int:
+  """Chinese Remainder Theorem Pair.
+
+  Solve x ≡ a1 (mod n1) and x ≡ a2 (mod n2); n1,n2 co-prime.
+  """
+  m1: int = ModInv(n1, n2)
+  m2: int = ModInv(n2, n1)
+  return (a1 * n2 * m2 + a2 * n1 * m1) % (n1 * n2)
 
 
 def FermatIsPrime(
@@ -428,7 +449,7 @@ def PrimeGenerator(start: int, /) -> Generator[int, None, None]:
   """
   # test inputs and make sure we start at an odd number
   if start < 0:
-    raise base.InputError(f'invalid number: {start=}')
+    raise base.InputError(f'negative number: {start=}')
   # handle start of sequence manually if needed... because we have here the only EVEN prime...
   if start <= 2:
     yield 2

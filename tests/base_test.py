@@ -14,7 +14,7 @@ import pytest
 from src.transcrypto import base
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
-__version__: tuple[int, int, int] = base.__version__  # tests inherit version from module
+__version__: str = base.__version__  # tests inherit version from module
 
 
 @pytest.mark.parametrize('n', [1, 17, 10 ** 12])

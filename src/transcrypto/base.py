@@ -9,8 +9,8 @@ import dataclasses
 # import pdb
 
 __author__ = 'balparda@github.com'
-__version__: tuple[int, int, int] = (1, 0, 3)  # v1.0.3, 2025-07-30
-
+__version__ = '1.0.3'  # v1.0.3, 2025-07-30
+__version_tuple__: tuple[int, ...] = tuple(int(v) for v in __version__.split('.'))
 
 # MIN_TM = int(  # minimum allowed timestamp
 #     datetime.datetime(2000, 1, 1, 0, 0, 0).replace(tzinfo=datetime.timezone.utc).timestamp())

@@ -16,7 +16,7 @@ from src.transcrypto import base
 from src.transcrypto import rsa
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
-__version__: tuple[int, int, int] = rsa.__version__  # tests inherit version from module
+__version__: str = rsa.__version__  # tests inherit version from module
 
 
 @mock.patch('secrets.randbits', autospec=True)

@@ -16,7 +16,11 @@ Unless required by applicable law or agreed to in writing, software distributed 
 
 ## Use
 
-All library methods' `int` are tailored to be efficient with arbitrarily large integers (≥ 0).
+Design assumptions:
+
+* Everything **should work**, as the library is **extensively tested**, *but not necessarily the most efficient or safe for real-world cryptographic use.* For real-world crypto use other optimized/safe libraries.
+* All library methods' `int` are tailored to be efficient with arbitrarily large integers (≥ 0).
+* *All operations here can be vulnerable to timing attacks.*
 
 ### Install
 
@@ -54,6 +58,61 @@ Use-cases:
 * modular inverses: `inv = x % m` when `gcd(a, m) == 1`
 * solving linear Diophantine equations
 * RSA / ECC key generation internals
+
+#### Fast Modular Arithmetic
+
+```py
+m = 2**256 - 189    # a large prime modulus
+
+# Inverse ──────────────────────────────
+x = 123456789
+x_inv = modmath.ModInv(x, m)
+assert (x * x_inv) % m == 1
+
+# Division (x / y) mod m ──────────────
+y = 987654321
+z = modmath.ModDiv(x, y, m)      # solves z·y ≡ x (mod m)
+assert (z * y) % m == x % m
+
+# Exponentiation ──────────────────────
+exp = modmath.ModExp(3, 10**20, m)   # ≈ log₂(y) time, handles huge exponents
+```
+
+#### Polynomials under a modulus & Lagrange interpolation
+
+```py
+# f(t) = 7t³ − 3t² + 2t + 5  (coeffs constant-term first)
+coeffs = [5, 2, -3, 7]
+print(modmath.ModPolynomial(11, coeffs, 97))   # → 19
+
+# Given three points build the degree-≤2 polynomial and evaluate it.
+pts = {2: 4, 5: 3, 7: 1}
+print(modmath.ModLagrangeInterpolate(9, pts, 11))   # → 2
+```
+
+#### Primality testing & Prime generators, Mersenne primes
+
+```py
+modmath.IsPrime(2**127 - 1)              # True  (Mersenne prime)
+modmath.IsPrime(3825123056546413051)     # False (strong pseudo-prime)
+
+# Direct Miller–Rabin with custom witnesses
+modmath.MillerRabinIsPrime(961748941, witnesses={2,7,61})
+
+# Infinite iterator of primes ≥ 10⁶
+for p in modmath.PrimeGenerator(1_000_000):
+    print(p)
+    if p > 1_000_100:
+        break
+
+# Secure random 384-bit prime (for RSA/ECC experiments)
+p384 = modmath.NBitRandomPrime(384)
+
+for k, m_p, perfect in modmath.MersennePrimesGenerator(0):
+    print(f'p = {k:>8}  M = {m_p}  perfect = {perfect}')
+    if k > 10000:          # stop after a few
+        break
+```
 
 ## Development Instructions
 
