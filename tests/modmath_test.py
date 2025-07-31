@@ -24,11 +24,14 @@ __version__: str = modmath.__version__  # tests inherit version from module
     (3, 2, 1),
     (1, 3, 1),
     (2, 3, 2),
+    (-1, 3, 2),
     (1, 5, 1),
     (2, 5, 3),
     (3, 5, 2),
     (4, 5, 4),
+    (-1, 5, 4),
     (1975, 2 ** 100 + 277, 1048138445657062588680565232826),
+    (-1975, 2 ** 100 + 277, 219512154571166812816137972827),
     (1976, 2 ** 100 + 277, 1207988906998864353754196425225),
     (2, 2 ** 100 + 331, 633825300114114700748351602854),
     (3, 2 ** 100 + 331, 422550200076076467165567735236),
@@ -55,10 +58,8 @@ def test_ModInv_prime(m: int) -> None:
 
 def test_ModInv_invalid() -> None:
   """Test."""
-  with pytest.raises(base.InputError, match='negative input'):
-    modmath.ModInv(-1, 1)
   with pytest.raises(base.InputError, match='invalid modulus'):
-    modmath.ModInv(1, -1)
+    modmath.ModInv(1, 1)
   with pytest.raises(modmath.ModularDivideError, match=r'null inverse'):
     modmath.ModInv(0, 3)
   with pytest.raises(modmath.ModularDivideError, match=r'null inverse'):
@@ -69,39 +70,69 @@ def test_ModInv_invalid() -> None:
 
 @pytest.mark.parametrize('x, y, m, z', [
     (1, 1, 2, 1),
+    (-1, 1, 2, 1),
+    (1, -1, 2, 1),
     (1, 1, 3, 1),
     (1, 2, 3, 2),
+    (0, 2, 3, 0),
     (1975, 19937, 2 ** 100 + 277, 800634817579067293155764998023),
     (1976, 19937, 2 ** 100 + 277, 1015417569626564856392754686978),
     (1975, 19938, 2 ** 100 + 277, 1068201310785158098833689966806),
+    (1975, -19938, 2 ** 100 + 277, 199449289443071302663013238847),
+    (-1975, 19938, 2 ** 100 + 277, 199449289443071302663013238847),
     (2, 3, 2 ** 100 + 331, 845100400152152934331135470472),
+    (-2, 3, 2 ** 100 + 331, 422550200076076467165567735235),
+    (2, -3, 2 ** 100 + 331, 422550200076076467165567735235),
     (199, 271, 2 ** 100 + 331, 963601563273119028443988414671),
+    (0, 271, 2 ** 100 + 331, 0),
 ])
 def test_ModDiv(x: int, y: int, m: int, z: int) -> None:
   """Test."""
   assert modmath.ModDiv(x, y, m) == z
-  assert modmath.ModDiv(y, x, m) == modmath.ModInv(z, m)  # pylint: disable=arguments-out-of-order
+  if x:
+    assert modmath.ModDiv(y, x, m) == modmath.ModInv(z, m)  # pylint: disable=arguments-out-of-order
   assert (z * y) % m == x % m  # check the division!
+
+
+@pytest.mark.parametrize('a1, m1, a2, m2, x', [
+    (10, 3, 22, 5, 7),
+    (-2, 3, -3, 5, 7),
+    (11, 19, 3, 17, 258),
+    (-1, 19, -1, 17, 322),
+    (19937, 57885161, 110503, 74207281, 213159153259226),
+    (9689, 57885161, 1279, 74207281, 3232352135479142),
+])
+def test_CRTPair(a1: int, m1: int, a2: int, m2: int, x: int) -> None:
+  """Test."""
+  assert modmath.CRTPair(a1, m1, a2, m2) == x
+  assert modmath.CRTPair(a2, m2, a1, m1) == x    # pylint: disable=arguments-out-of-order
+  # check the relationships
+  assert x % m1 == a1 % m1
+  assert x % m2 == a2 % m2
+
+
+def test_CRTPair_invalid() -> None:
+  """Test."""
+  with pytest.raises(base.InputError, match='invalid moduli'):
+    modmath.CRTPair(1, 1, 1, 3)
+  with pytest.raises(base.InputError, match='invalid moduli'):
+    modmath.CRTPair(1, 3, 1, 1)
+  with pytest.raises(base.InputError, match='invalid moduli'):
+    modmath.CRTPair(1, 3, 1, 3)
+  with pytest.raises(modmath.ModularDivideError, match='moduli not co-prime'):
+    modmath.CRTPair(1, 3, 1, 6)
 
 
 def test_ModDiv_invalid() -> None:
   """Test."""
   with pytest.raises(base.InputError, match='invalid modulus'):
     modmath.ModDiv(1, 1, 0)
-  with pytest.raises(base.InputError, match='negative input'):
-    modmath.ModDiv(-1, 1, 2)
-  with pytest.raises(base.InputError, match='negative input'):
-    modmath.ModDiv(1, -1, 2)
   with pytest.raises(modmath.ModularDivideError, match='divide by zero'):
     modmath.ModDiv(1, 0, 2)
 
 
 @pytest.mark.parametrize('x, y, m, r', [
     # do NOT use x or y > 2500 or so!!
-    (0, 0, 1, 0),
-    (0, 1, 1, 0),
-    (1, 0, 1, 0),
-    (1, 1, 1, 0),
     (0, 0, 2, 1),
     (0, 1, 2, 0),
     (1, 0, 2, 1),
@@ -132,19 +163,16 @@ def test_ModExp_big(x: int, y: int, m: int, r: int) -> None:
   assert modmath.ModExp(x, y, m) == r
 
 
-@pytest.mark.parametrize('x, y', [
-    (-1, 1),
-    (1, -1),
-])
-def test_ModExp_negative(x: int, y: int) -> None:
+def test_ModExp_negative() -> None:
   """Test."""
-  with pytest.raises(base.InputError, match='negative input'):
-    modmath.ModExp(x, y, 1)
+  with pytest.raises(base.InputError, match='negative exponent'):
+    modmath.ModExp(1, -1, 2)
 
 
 @pytest.mark.parametrize('m', [
     -1,
     0,
+    1,
 ])
 def test_ModExp_ModInv_modulus(m: int) -> None:
   """Test."""

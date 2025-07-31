@@ -1,5 +1,19 @@
 # TransCrypto
 
+- [TransCrypto](#transcrypto)
+  - [License](#license)
+  - [Use](#use)
+    - [Install](#install)
+    - [Base Library](#base-library)
+      - [Computing the Greatest Common Divisor](#computing-the-greatest-common-divisor)
+      - [Fast Modular Arithmetic](#fast-modular-arithmetic)
+      - [Modular Polynomials \& Lagrange Interpolation](#modular-polynomials--lagrange-interpolation)
+      - [Primality testing \& Prime generators, Mersenne primes](#primality-testing--prime-generators-mersenne-primes)
+  - [Development Instructions](#development-instructions)
+    - [Setup](#setup)
+    - [Updating Dependencies](#updating-dependencies)
+    - [Creating a New Version](#creating-a-new-version)
+
 Basic crypto primitives, not intended for actual use, but as a companion to "Criptografia, Métodos e Algoritmos".
 
 Started in July/2025, by Daniel Balparda. Since version 1.0.2 it is PyPI package:
@@ -18,9 +32,13 @@ Unless required by applicable law or agreed to in writing, software distributed 
 
 Design assumptions:
 
-* Everything **should work**, as the library is **extensively tested**, *but not necessarily the most efficient or safe for real-world cryptographic use.* For real-world crypto use other optimized/safe libraries.
-* All library methods' `int` are tailored to be efficient with arbitrarily large integers (≥ 0).
-* *All operations here can be vulnerable to timing attacks.*
+- The library is built to have reference, reliable, simple implementations of math and crypto primitives.
+- All library methods' `int` are tailored to be efficient with arbitrarily large integers.
+- Everything **should work**, as the library is **extensively tested**, *but not necessarily the most efficient or safe for real-world cryptographic use.* For real-world crypto use *other optimized/safe libraries* that were built to be resistant to malicious attacks.
+- *All operations in this library may be vulnerable to timing attacks.*
+- There is some logging and error messages that were written to be clear but in real-life security applications could leak private secrets. Again, this library is not build to be crypto safe. It was built as a simple tested reference implementation.
+
+That being said, all care was taken that this is a good library with a solid implementation. Have fun!
 
 ### Install
 
@@ -55,9 +73,9 @@ The function is `O(log(min(a, b)))` and handles arbitrarily large integers. To f
 
 Use-cases:
 
-* modular inverses: `inv = x % m` when `gcd(a, m) == 1`
-* solving linear Diophantine equations
-* RSA / ECC key generation internals
+- modular inverses: `inv = x % m` when `gcd(a, m) == 1`
+- solving linear Diophantine equations
+- RSA / ECC key generation internals
 
 #### Fast Modular Arithmetic
 
@@ -78,12 +96,12 @@ assert (z * y) % m == x % m
 exp = modmath.ModExp(3, 10**20, m)   # ≈ log₂(y) time, handles huge exponents
 ```
 
-#### Polynomials under a modulus & Lagrange interpolation
+#### Modular Polynomials & Lagrange Interpolation
 
 ```py
-# f(t) = 7t³ − 3t² + 2t + 5  (coeffs constant-term first)
-coeffs = [5, 2, -3, 7]
-print(modmath.ModPolynomial(11, coeffs, 97))   # → 19
+# f(t) = 7t³ − 3t² + 2t + 5  (coefficients constant-term first)
+coefficients = [5, 2, -3, 7]
+print(modmath.ModPolynomial(11, coefficients, 97))   # → 19
 
 # Given three points build the degree-≤2 polynomial and evaluate it.
 pts = {2: 4, 5: 3, 7: 1}

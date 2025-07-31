@@ -46,11 +46,11 @@ class ModularDivideError(base.Error):
 
 
 def ModInv(x: int, m: int, /) -> int:
-  """Modular inverse of `x` modulo `m`: a `y` such that (x * y) % m == 1 if GCD(x, m) == 1.
+  """Modular inverse of `x` mod `m`: a `y` such that (x * y) % m == 1 if GCD(x, m) == 1.
 
   Args:
-    x (int): integer to invert, x ≥ 0
-    m (int): modulo, m ≥ 1
+    x (int): integer to invert
+    m (int): modulus, m ≥ 2
 
   Returns:
     positive integer `y` such that (x * y) % m == 1
@@ -61,10 +61,8 @@ def ModInv(x: int, m: int, /) -> int:
     ModularDivideError: divide-by-zero, i.e., GCD(x, m) != 1 or x == 0
   """
   # test inputs
-  if m < 1:
+  if m < 2:
     raise base.InputError(f'invalid modulus: {m=}')
-  if x < 0:
-    raise base.InputError(f'negative input: {x=}')
   # easy special cases: 0 and 1
   reduced_x: int = x % m
   if not reduced_x:  # "division by 0"
@@ -80,12 +78,12 @@ def ModInv(x: int, m: int, /) -> int:
 
 
 def ModDiv(x: int, y: int, m: int, /) -> int:
-  """Modular division of `x`/`y` modulo `m`, if GCD(y, m) == 1.
+  """Modular division of `x`/`y` mod `m`, if GCD(y, m) == 1.
 
   Args:
-    x (int): integer, x ≥ 0
-    y (int): integer, y ≥ 0
-    m (int): modulo, m ≥ 1
+    x (int): integer
+    y (int): integer
+    m (int): modulus, m ≥ 2
 
   Returns:
     positive integer `z` such that (z * y) % m == x
@@ -96,14 +94,54 @@ def ModDiv(x: int, y: int, m: int, /) -> int:
     ModularDivideError: divide-by-zero, i.e., GCD(y, m) != 1 or y == 0
   """
   # test inputs
-  if m < 1:
+  if m < 2:
     raise base.InputError(f'invalid modulus: {m=}')
-  if x < 0 or y < 0:
-    raise base.InputError(f'negative input: {x=} / {y=}')
   if not y:  # "division by 0"
     raise ModularDivideError(f'divide by zero {x=} / {y=} mod {m=}')
   # do the math
+  if not x:
+    return 0
   return ((x % m) * ModInv(y % m, m)) % m
+
+
+def CRTPair(a1: int, m1: int, a2: int, m2: int) -> int:
+  """Chinese Remainder Theorem Pair: given co-prime `m1`/`m2`, solve a1 = x % m1 and a2 = x % m2.
+
+  <https://en.wikipedia.org/wiki/Chinese_remainder_theorem>
+
+  Finds the unique integer x in [0, m1 * m2) satisfying
+
+      x ≡ a1 (mod m1)
+      x ≡ a2 (mod m2)
+
+  The solution is guaranteed to exist and be unique because the moduli are assumed to
+  be positive, ≥ 2, and pairwise co-prime, gcd(m1, m2) == 1.
+
+  Args:
+    a1 (int): residue for the first congruence
+    m1 (int): modulus 1, m ≥ 2 and co-prime with m2, i.e. gcd(m1, m2) == 1
+    a2 (int): residue for the second congruence
+    m2 (int): modulus 2, m ≥ 2 and co-prime with m1, i.e. gcd(m1, m2) == 1
+
+  Returns:
+    the least non-negative solution `x` such that a1 = x % m1 and a2 = x % m2 and 0 ≤ x < m1 * m2
+
+  Raises:
+    InputError: invalid inputs
+    ModularDivideError: moduli are not co-prime, i.e. gcd(m1, m2) != 1
+  """
+  # test inputs
+  if m1 < 2 or m2 < 2 or m1 == m2:
+    raise base.InputError(f'invalid moduli: {m1=} / {m2=}')
+  # compute
+  a1 %= m1
+  a2 %= m2
+  try:
+    n1: int = ModInv(m1, m2)
+    n2: int = ModInv(m2, m1)
+  except ModularDivideError as err:
+    raise ModularDivideError(f'moduli not co-prime: {m1=} / {m2=}') from err
+  return (a1 * m2 * n2 + a2 * m1 * n1) % (m1 * m2)
 
 
 def ModExp(x: int, y: int, m: int, /) -> int:
@@ -112,9 +150,9 @@ def ModExp(x: int, y: int, m: int, /) -> int:
   0 ** 0 mod m = 1 (by convention)
 
   Args:
-    x (int): integer, x ≥ 0
+    x (int): integer
     y (int): integer, y ≥ 0
-    m (int): modulo, m ≥ 1
+    m (int): modulus, m ≥ 2
 
   Returns:
     (x ** y) mod m
@@ -123,17 +161,18 @@ def ModExp(x: int, y: int, m: int, /) -> int:
     InputError: invalid inputs
   """
   # test inputs
-  if x < 0 or y < 0:
-    raise base.InputError(f'negative input: {x=} , {y=}')
-  if m < 1:
+  if m < 2:
     raise base.InputError(f'invalid modulus: {m=}')
+  if y < 0:
+    raise base.InputError(f'negative exponent: {y=}')
   # trivial cases
+  x %= m
   if not y or x == 1:
     return 1 % m
   if not x:
     return 0  # 0**0==1 was already taken care of by previous condition
   if y == 1:
-    return x % m
+    return x
   # now both x > 1 and y > 1
   z: int = 1
   while y:
@@ -158,7 +197,7 @@ def ModPolynomial(x: int, polynomial: Reversible[int], m: int, /) -> int:
     polynomial (Reversible[int]): Iterable of coefficients a_0, a_1, …, a_n
         (constant term first); it must be reversible because Horner's rule consumes
         coefficients from highest degree downwards
-    m (int): Modulus (m ≥ 1); if you expect multiplicative inverses elsewhere, should be prime
+    m (int): modulus, m ≥ 2; if you expect multiplicative inverses elsewhere it should be prime
 
   Returns:
     f(x) mod m
@@ -169,7 +208,7 @@ def ModPolynomial(x: int, polynomial: Reversible[int], m: int, /) -> int:
   # test inputs
   if not polynomial:
     raise base.InputError(f'no polynomial: {polynomial=}')
-  if m < 1:
+  if m < 2:
     raise base.InputError(f'invalid modulus: {m=}')
   # loop over polynomial coefficients
   total: int = 0
@@ -184,7 +223,7 @@ def ModLagrangeInterpolate(x: int, points: dict[int, int], m: int, /) -> int:
 
   Given `points` will define a polynomial of up to len(points) order.
   Evaluate (interpolate) the unique polynomial of degree ≤ (n-1) that passes
-  through the given points (x_i, y_i), and return f(x) modulo a prime `m`.
+  through the given points (x_i, y_i), and return f(x) mod a prime `m`.
 
   Lagrange interpolation writes the polynomial as:
       f(X) = Σ_{i=0}^{n-1} y_i * L_i(X)
@@ -201,7 +240,7 @@ def ModLagrangeInterpolate(x: int, points: dict[int, int], m: int, /) -> int:
     x (int): The x-value at which to evaluate the interpolated polynomial
     points (dict[int, int]): A mapping {x_i: y_i}, with at least 2 points/entries;
         dict keeps x_i distinct, as they should be; also, `x` cannot be a key to `points`
-    m (int): Prime modulus (m ≥ 2); we need modular inverses, so gcd(denominator, m) must be 1
+    m (int): prime modulus, m ≥ 2; we need modular inverses, so gcd(denominator, m) must be 1
 
   Returns:
     y-value solution for f(x) mod m given `points` mapping
@@ -231,16 +270,6 @@ def ModLagrangeInterpolate(x: int, points: dict[int, int], m: int, /) -> int:
     result = (result + ModDiv(yi * num, den, m)) % m
   # done
   return result
-
-
-def CRTPair(a1: int, n1: int, a2: int, n2: int) -> int:
-  """Chinese Remainder Theorem Pair.
-
-  Solve x ≡ a1 (mod n1) and x ≡ a2 (mod n2); n1,n2 co-prime.
-  """
-  m1: int = ModInv(n1, n2)
-  m2: int = ModInv(n2, n1)
-  return (a1 * n2 * m2 + a2 * n1 * m1) % (n1 * n2)
 
 
 def FermatIsPrime(
