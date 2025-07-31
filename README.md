@@ -9,6 +9,7 @@
       - [Fast Modular Arithmetic](#fast-modular-arithmetic)
       - [Modular Polynomials \& Lagrange Interpolation](#modular-polynomials--lagrange-interpolation)
       - [Primality testing \& Prime generators, Mersenne primes](#primality-testing--prime-generators-mersenne-primes)
+      - [RSA (Rivest-Shamir-Adleman)](#rsa-rivest-shamir-adleman)
   - [Development Instructions](#development-instructions)
     - [Setup](#setup)
     - [Updating Dependencies](#updating-dependencies)
@@ -130,6 +131,40 @@ for k, m_p, perfect in modmath.MersennePrimesGenerator(0):
     print(f'p = {k:>8}  M = {m_p}  perfect = {perfect}')
     if k > 10000:          # stop after a few
         break
+```
+
+#### RSA (Rivest-Shamir-Adleman)
+
+<https://en.wikipedia.org/wiki/RSA_cryptosystem>
+
+This implementation is raw RSA, no OAEP or PSS! It works on the actual integers. For real uses you should look for higher-level implementations.
+
+By default and deliberate choice the *encryption exponent* will be either 7 or 65537, depending on the size of `phi=(p-1)*(q-1)`. If `phi` allows it the larger one will be chosen to avoid Coppersmith attacks.
+
+```py
+# Generate a key pair
+priv = rsa.RSAPrivateKey.New(2048)     # 2048-bit modulus
+pub  = rsa.RSAPublicKey.Copy(priv)     # public half
+print(priv.public_modulus.bit_length())   # 2048
+
+# Encrypt & decrypt
+msg = 123456789  # (Zero is forbidden by design; smallest valid message is 1.)
+cipher = pub.Encrypt(msg)
+plain  = priv.Decrypt(cipher)
+assert plain == msg
+
+# Sign & verify
+signature = priv.Sign(msg)
+assert pub.VerifySignature(msg, signature)
+
+# Blind signatures (obfuscation pair) - only works on raw RSA
+pair = rsa.RSAObfuscationPair.New(pub)
+
+blind_msg = pair.ObfuscateMessage(msg)            # what you send to signer
+blind_sig = priv.Sign(blind_msg)                  # signer’s output
+
+sig = pair.RevealOriginalSignature(msg, blind_sig)
+assert pub.VerifySignature(msg, sig)              #
 ```
 
 ## Development Instructions

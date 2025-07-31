@@ -31,6 +31,12 @@ _MAX_KEY_GENERATION_FAILURES = 15
 class RSAPublicKey(base.CryptoKey):
   """RSA (Rivest-Shamir-Adleman) key, with the public part of the key.
 
+  BEWARE: This is raw RSA, no OAEP or PSS!
+
+  By default and deliberate choice the encryption exponent will be either 7 or 65537,
+  depending on the size of phi=(p-1)*(q-1). If phi allows it the larger one will be chosen
+  to avoid Coppersmith attacks.
+
   Attributes:
     public_modulus (int): modulus (p * q), ≥ 6
     encrypt_exp (int): encryption exponent, 3 ≤ e < modulus, (e * decrypt) % ((p-1) * (q-1)) == 1
@@ -57,11 +63,13 @@ class RSAPublicKey(base.CryptoKey):
   def Encrypt(self, message: int, /) -> int:
     """Encrypt `message` with this public key.
 
+    We explicitly disallow `message` to be zero.
+
     Args:
       message (int): message to encrypt, 1 ≤ m < modulus
 
     Returns:
-      encrypted message (int, 1 ≤ m < modulus) = (m ** encrypt_exp) mod modulus
+      ciphertext message (int, 1 ≤ c < modulus) = (m ** encrypt_exp) mod modulus
 
     Raises:
       InputError: invalid inputs
@@ -74,6 +82,8 @@ class RSAPublicKey(base.CryptoKey):
 
   def VerifySignature(self, message: int, signature: int, /) -> bool:
     """Verify a signature. True if OK; False if failed verification.
+
+    We explicitly disallow `message` to be zero.
 
     Args:
       message (int): message that was signed by key owner, 1 ≤ m < modulus
@@ -124,11 +134,13 @@ class RSAObfuscationPair(RSAPublicKey):
   def ObfuscateMessage(self, message: int, /) -> int:
     """Convert message to an obfuscated message to be signed by this key's owner.
 
+    We explicitly disallow `message` to be zero.
+
     Args:
       message (int): message to obfuscate before signature, 1 ≤ m < modulus
 
     Returns:
-      obfuscated message (int, 1 ≤ m < modulus) = (m * (random_key ** encrypt_exp)) mod modulus
+      obfuscated message (int, 1 ≤ o < modulus) = (m * (random_key ** encrypt_exp)) mod modulus
 
     Raises:
       InputError: invalid inputs
@@ -142,6 +154,8 @@ class RSAObfuscationPair(RSAPublicKey):
 
   def RevealOriginalSignature(self, message: int, signature: int, /) -> int:
     """Recover original signature for `message` from obfuscated `signature`.
+
+    We explicitly disallow `message` to be zero.
 
     Args:
       message (int): original message before obfuscation, 1 ≤ m < modulus
@@ -178,6 +192,7 @@ class RSAObfuscationPair(RSAPublicKey):
     # find a suitable random key based on the bit_length
     random_key: int = 0
     key_inverse: int = 0
+    failures: int = 0
     while (not random_key or not key_inverse or
            random_key == key.encrypt_exp or
            random_key == key_inverse or
@@ -185,8 +200,12 @@ class RSAObfuscationPair(RSAPublicKey):
       random_key = secrets.randbits(key.public_modulus.bit_length() - 1)
       try:
         key_inverse = modmath.ModInv(random_key, key.public_modulus)
-      except modmath.ModularDivideError:
+      except modmath.ModularDivideError as err:
         key_inverse = 0
+        failures += 1
+        if failures >= _MAX_KEY_GENERATION_FAILURES:
+          raise base.CryptoError(f'failed key generation {failures} times') from err
+        logging.warning(err)
     # build object
     return cls(
         public_modulus=key.public_modulus, encrypt_exp=key.encrypt_exp,
@@ -197,15 +216,26 @@ class RSAObfuscationPair(RSAPublicKey):
 class RSAPrivateKey(RSAPublicKey):
   """RSA (Rivest-Shamir-Adleman) private key.
 
+  The attributes modulus_p (p), modulus_q (q) and decrypt_exp (d) are "enough" for a working key,
+  but we have the other 3 (remainder_p, remainder_q, q_inverse_p) to speedup decryption/signing
+  by a factor of 4 using the Chinese Remainder Theorem.
+
   Attributes:
     modulus_p (int): prime number p, ≥ 2
     modulus_q (int): prime number q, ≥ 3 and > p
     decrypt_exp (int): decryption exponent, 2 ≤ d < modulus, (encrypt * d) % ((p-1) * (q-1)) == 1
+    remainder_p (int): pre-computed, = d % (p - 1), 2 ≤ r_p < modulus
+    remainder_q (int): pre-computed, = d % (q - 1), 2 ≤ r_q < modulus
+    q_inverse_p (int): pre-computed, = ModInv(q, p), 2 ≤ q_i_p < modulus
   """
 
   modulus_p: int
   modulus_q: int
   decrypt_exp: int
+
+  remainder_p: int
+  remainder_q: int
+  q_inverse_p: int
 
   def __post_init__(self) -> None:
     """Check data.
@@ -232,16 +262,24 @@ class RSAPrivateKey(RSAPublicKey):
       # if decrypt_exp < public_modulus**(1/4)/3, then decrypt_exp can be computed efficiently
       # from public_modulus and encrypt_exp so we make sure it is larger than public_modulus**(1/2)
       raise base.InputError(f'invalid decrypt_exp: {self}')
+    if self.remainder_p < 2 or self.remainder_p < 2 or self.q_inverse_p < 2:
+      raise base.InputError(f'trivial remainder_p/remainder_q/q_inverse_p: {self}')
     if self.modulus_p * self.modulus_q != self.public_modulus:
       raise base.CryptoError(f'inconsistent modulus_p * modulus_q: {self}')
     if (self.encrypt_exp * self.decrypt_exp) % phi != 1:
       raise base.CryptoError(f'inconsistent exponents: {self}')
+    if (self.remainder_p != self.decrypt_exp % (self.modulus_p - 1) or
+        self.remainder_q != self.decrypt_exp % (self.modulus_q - 1) or
+        (self.q_inverse_p * self.modulus_q) % self.modulus_p != 1):
+      raise base.CryptoError(f'inconsistent speedup remainder_p/remainder_q/q_inverse_p: {self}')
 
-  def Decrypt(self, message: int, /) -> int:
-    """Decrypt `message` with this private key.
+  def Decrypt(self, ciphertext: int, /) -> int:
+    """Decrypt `ciphertext` with this private key.
+
+    We explicitly allow `ciphertext` to be zero for completeness, but it shouldn't be in practice.
 
     Args:
-      message (int): message to encrypt, 1 ≤ m < modulus
+      ciphertext (int): ciphertext to decrypt, 0 ≤ c < modulus
 
     Returns:
       decrypted message (int, 1 ≤ m < modulus) = (m ** decrypt_exp) mod modulus
@@ -250,13 +288,19 @@ class RSAPrivateKey(RSAPublicKey):
       InputError: invalid inputs
     """
     # test inputs
-    if not 0 < message < self.public_modulus:
-      raise base.InputError(f'invalid message: {message=}')
-    # decrypt
-    return modmath.ModExp(message, self.decrypt_exp, self.public_modulus)
+    if not 0 <= ciphertext < self.public_modulus:
+      raise base.InputError(f'invalid message: {ciphertext=}')
+    # decrypt using CRT (Chinese Remainder Theorem); 4x speedup; all the below is equivalent
+    # of doing: return modmath.ModExp(ciphertext, self.decrypt_exp, self.public_modulus)
+    m_p: int = modmath.ModExp(ciphertext % self.modulus_p, self.remainder_p, self.modulus_p)
+    m_q: int = modmath.ModExp(ciphertext % self.modulus_q, self.remainder_q, self.modulus_q)
+    h: int = (self.q_inverse_p * (m_p - m_q)) % self.modulus_p
+    return (m_q + h * self.modulus_q) % self.public_modulus
 
   def Sign(self, message: int, /) -> int:
     """Sign `message` with this private key.
+
+    We explicitly disallow `message` to be zero.
 
     Args:
       message (int): message to sign, 1 ≤ m < modulus
@@ -268,11 +312,15 @@ class RSAPrivateKey(RSAPublicKey):
     Raises:
       InputError: invalid inputs
     """
+    # test inputs
+    if not 0 < message < self.public_modulus:
+      raise base.InputError(f'invalid message: {message=}')
+    # call decryption
     return self.Decrypt(message)
 
   @classmethod
   def New(cls, bit_length: int, /) -> Self:
-    """Make a new private key of `bit_length` bits (primes p & q will be half this length).
+    """Make a new private key of `bit_length` bits (primes p & q will be ~half this length).
 
     Args:
       bit_length (int): number of bits in the modulus, ≥ 11; primes p & q will be half this length
@@ -302,14 +350,19 @@ class RSAPrivateKey(RSAPublicKey):
         phi: int = (primes[0] - 1) * (primes[1] - 1)
         prime_exp: int = (_SMALL_ENCRYPTION_EXPONENT if phi <= _BIG_ENCRYPTION_EXPONENT else
                           _BIG_ENCRYPTION_EXPONENT)
-        obj: Self = cls(
-            modulus_p=min(primes),  # "p" is always the smaller
-            modulus_q=max(primes),  # "q" is always the larger
+        decrypt_exp: int = modmath.ModInv(prime_exp, phi)
+        p: int = min(primes)  # "p" is always the smaller
+        q: int = max(primes)  # "q" is always the larger
+        return cls(
+            modulus_p=p,
+            modulus_q=q,
             public_modulus=modulus,
             encrypt_exp=prime_exp,
-            decrypt_exp=modmath.ModInv(prime_exp, phi),
+            decrypt_exp=decrypt_exp,
+            remainder_p=decrypt_exp % (p - 1),
+            remainder_q=decrypt_exp % (q - 1),
+            q_inverse_p=modmath.ModInv(q, p),
         )
-        return obj
       except (base.InputError, modmath.ModularDivideError) as err:
         failures += 1
         if failures >= _MAX_KEY_GENERATION_FAILURES:
