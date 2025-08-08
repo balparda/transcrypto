@@ -5,6 +5,11 @@
   "python.analysis.diagnosticsSource": "Pylance",
   "python.analysis.typeCheckingMode": "strict",
   "python.analysis.languageServerMode": "full",
+  "python.linting.enabled": true,
+  "python.linting.pylintEnabled": true,
+  "python.linting.flake8Enabled": true,
+  "python.linting.lintOnSave": true,
+  "python.linting.lintOnTextChange": false,
   "python.testing.pytestEnabled": true,
   "python.testing.pytestArgs": ["tests"],
 

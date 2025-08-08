@@ -41,6 +41,9 @@ include = ["transcrypto*"]  # avoid picking up stuff not in "transcrypto"
 [tool.setuptools.package-data]
 "transcrypto" = ["py.typed"]
 
+[tool.poetry]
+requires-poetry = "^2.1"
+
 [tool.poetry.requires-plugins]
 poetry-plugin-export = ">=1.8"
 
