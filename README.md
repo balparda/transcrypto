@@ -316,12 +316,10 @@ poetry add "pkg>=1.2.3"  # regenerates lock, updates env
 # also remember: "pkg@^1.2.3" = latest 1.* ; "pkg@~1.2.3" = latest 1.2.* ; "pkg@1.2.3" exact
 ```
 
-If you manually added a dependency to `pyproject.toml` you should do ***very carefully*** recreate the environment and files:
+If you manually added a dependency to `pyproject.toml` you should ***very carefully*** recreate the environment and files:
 
 ```sh
-rm -rf .venv
-rm -rf .poetry
-rm poetry.lock
+rm -rf .venv .poetry poetry.lock
 poetry env use python3.13
 poetry install
 ```

@@ -188,6 +188,9 @@ class RSAObfuscationPair(RSAPublicKey):
 
     Returns:
       RSAObfuscationPair object ready for use
+      
+    Raises:
+      CryptoError: failed generation
     """
     # find a suitable random key based on the bit_length
     random_key: int = 0
@@ -330,6 +333,7 @@ class RSAPrivateKey(RSAPublicKey):
 
     Raises:
       InputError: invalid inputs
+      CryptoError: failed generation
     """
     # test inputs
     if bit_length < 11:
