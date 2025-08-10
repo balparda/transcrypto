@@ -40,7 +40,7 @@ def test_RSA_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
     mp.setattr(elgamal, '_MAX_KEY_GENERATION_FAILURES', 2)
     with pytest.raises(base.CryptoError, match='failed key generation'):
       elgamal.ElGamalPrivateKey.New(group)
-  assert private._MakeEphemeralKey() == 149
+  assert private._MakeEphemeralKey() == (149, 299)
   assert prime.call_args_list == [mock.call(11)]
   assert randbits.call_args_list == [mock.call(10)] * 8
 
@@ -78,7 +78,8 @@ def test_ElGamal(
       individual_base=individual_base, decrypt_exp=decrypt_exp)
   public = elgamal.ElGamalPublicKey.Copy(private)
   # do public key operations
-  make_ephemeral.return_value = ephemeral
+  make_ephemeral.return_value = (
+      ephemeral, elgamal.modmath.ModInv(ephemeral, prime_modulus - 1))
   with pytest.raises(base.InputError, match='invalid message'):
     public.Encrypt(0)
   with pytest.raises(base.InputError, match='invalid message'):
@@ -104,7 +105,7 @@ def test_ElGamal(
   with pytest.raises(base.InputError, match='invalid message'):
     private.VerifySignature(0, (3, 3))
   with pytest.raises(base.InputError, match='invalid signature'):
-    private.VerifySignature(10, (-1, 3))
+    private.VerifySignature(10, (1, 3))
   with pytest.raises(base.InputError, match='invalid signature'):
     private.VerifySignature(10, (3, prime_modulus - 1))
 

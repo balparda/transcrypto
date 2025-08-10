@@ -105,21 +105,22 @@ class ElGamalPublicKey(ElGamalSharedPublicKey):
         self.individual_base == self.group_base):
       raise base.InputError(f'invalid individual_base: {self}')
 
-  def _MakeEphemeralKey(self) -> int:
+  def _MakeEphemeralKey(self) -> tuple[int, int]:
     """Make an ephemeral key adequate to be used with El-Gamal.
 
     Returns:
-      int key, 3 ≤ k < modulus - 1 and GCD(k, modulus - 1) == 1
+      (key, key_inverse), where 2 ≤ k < modulus - 1 and
+          GCD(k, modulus - 1) == 1 and (k*i) % (p-1) == 1
     """
     ephemeral_key: int = 0
     p_1: int = self.prime_modulus - 1
     bit_length: int = self.prime_modulus.bit_length()
-    while (not 2 < ephemeral_key < p_1 or
+    while (not 1 < ephemeral_key < p_1 or
            ephemeral_key in (self.group_base, self.individual_base)):
       ephemeral_key = secrets.randbits(bit_length - 1)
       if base.GCD(ephemeral_key, p_1) != 1:
         ephemeral_key = 0  # we have to try again
-    return ephemeral_key
+    return (ephemeral_key, modmath.ModInv(ephemeral_key, p_1))
 
   def Encrypt(self, message: int, /) -> tuple[int, int]:
     """Encrypt `message` with this public key.
@@ -130,7 +131,7 @@ class ElGamalPublicKey(ElGamalSharedPublicKey):
       message (int): message to encrypt, 1 ≤ m < modulus
 
     Returns:
-      ciphertext message tuple ((int, int), 1 ≤ c1,c2 < modulus)
+      ciphertext message tuple ((int, int), 2 ≤ c1,c2 < modulus)
 
     Raises:
       InputError: invalid inputs
@@ -139,10 +140,13 @@ class ElGamalPublicKey(ElGamalSharedPublicKey):
     if not 0 < message < self.prime_modulus:
       raise base.InputError(f'invalid message: {message=}')
     # encrypt
-    ephemeral_key: int = self._MakeEphemeralKey()
-    a: int = modmath.ModExp(self.group_base, ephemeral_key, self.prime_modulus)
-    s: int = modmath.ModExp(self.individual_base, ephemeral_key, self.prime_modulus)
-    return (a, (message * s) % self.prime_modulus)
+    ephemeral_key: int = self._MakeEphemeralKey()[0]
+    a, b = 0, 0
+    while a < 2 or b < 2:
+      a = modmath.ModExp(self.group_base, ephemeral_key, self.prime_modulus)
+      s: int = modmath.ModExp(self.individual_base, ephemeral_key, self.prime_modulus)
+      b = (message * s) % self.prime_modulus
+    return (a, b)
 
   def VerifySignature(self, message: int, signature: tuple[int, int], /) -> bool:
     """Verify a signature. True if OK; False if failed verification.
@@ -150,8 +154,8 @@ class ElGamalPublicKey(ElGamalSharedPublicKey):
     We explicitly disallow `message` to be zero.
 
     Args:
-      message (int): message that was signed by key owner, 1 ≤ m < modulus
-      signature (tuple[int, int]): signature, 1 ≤ s1 < modulus, 1 ≤ s2 < modulus-1
+      message (int): message that was signed by key owner, 0 < m < modulus
+      signature (tuple[int, int]): signature, 2 ≤ s1 < modulus, 2 ≤ s2 < modulus-1
 
     Returns:
       True if signature is valid, False otherwise
@@ -162,8 +166,8 @@ class ElGamalPublicKey(ElGamalSharedPublicKey):
     # test inputs
     if not 0 < message < self.prime_modulus:
       raise base.InputError(f'invalid message: {message=}')
-    if (not 0 <= signature[0] < self.prime_modulus or
-        not 0 <= signature[1] < self.prime_modulus - 1):
+    if (not 2 <= signature[0] < self.prime_modulus or
+        not 2 <= signature[1] < self.prime_modulus - 1):
       raise base.InputError(f'invalid signature: {signature=}')
     # verify
     a: int = modmath.ModExp(self.group_base, message, self.prime_modulus)
@@ -210,8 +214,6 @@ class ElGamalPrivateKey(ElGamalPublicKey):
   def Decrypt(self, ciphertext: tuple[int, int], /) -> int:
     """Decrypt `ciphertext` tuple with this private key.
 
-    We explicitly allow `ciphertext` to be zero for completeness, but it shouldn't be in practice.
-
     Args:
       ciphertext (tuple[int, int]): ciphertext to decrypt, 0 ≤ c1,c2 < modulus
 
@@ -222,8 +224,8 @@ class ElGamalPrivateKey(ElGamalPublicKey):
       InputError: invalid inputs
     """
     # test inputs
-    if (not 0 <= ciphertext[0] < self.prime_modulus or
-        not 0 <= ciphertext[1] < self.prime_modulus):
+    if (not 2 <= ciphertext[0] < self.prime_modulus or
+        not 2 <= ciphertext[1] < self.prime_modulus):
       raise base.InputError(f'invalid message: {ciphertext=}')
     # decrypt
     csi: int = modmath.ModExp(
@@ -239,7 +241,7 @@ class ElGamalPrivateKey(ElGamalPublicKey):
       message (int): message to sign, 1 ≤ m < modulus
 
     Returns:
-      signed message tuple ((int, int), 1 ≤ s1 < modulus, 1 ≤ s2 < modulus-1)
+      signed message tuple ((int, int), 2 ≤ s1 < modulus, 2 ≤ s2 < modulus-1)
 
     Raises:
       InputError: invalid inputs
@@ -248,11 +250,12 @@ class ElGamalPrivateKey(ElGamalPublicKey):
     if not 0 < message < self.prime_modulus:
       raise base.InputError(f'invalid message: {message=}')
     # sign
-    ephemeral_key: int = self._MakeEphemeralKey()
-    p_1: int = self.prime_modulus - 1
-    ephemeral_inv: int = modmath.ModInv(ephemeral_key, p_1)
-    a: int = modmath.ModExp(self.group_base, ephemeral_key, self.prime_modulus)
-    return (a, (ephemeral_inv * (message - a * self.decrypt_exp)) % p_1)
+    a, b, p_1 = 0, 0, self.prime_modulus - 1
+    while a < 2 or b < 2:
+      ephemeral_key, ephemeral_inv = self._MakeEphemeralKey()
+      a = modmath.ModExp(self.group_base, ephemeral_key, self.prime_modulus)
+      b = (ephemeral_inv * ((message - a * self.decrypt_exp) % p_1)) % p_1
+    return (a, b)
 
   @classmethod
   def New(cls, shared_key: ElGamalSharedPublicKey, /) -> Self:
