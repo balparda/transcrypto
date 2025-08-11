@@ -370,7 +370,7 @@ def test_PrimeGenerator() -> None:
   assert next(g) == 2 ** 100 + 331
 
 
-@mock.patch('secrets.randbits', autospec=True)
+@mock.patch('src.transcrypto.base.RandBits', autospec=True)
 def test_NBitRandomPrime(mock_bits: mock.MagicMock) -> None:
   """Test."""
   with pytest.raises(base.InputError, match='invalid n:'):

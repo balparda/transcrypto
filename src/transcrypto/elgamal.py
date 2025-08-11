@@ -19,7 +19,6 @@ a valid encryption `(c1,2*c2)` of the message `2*m`.
 import dataclasses
 import logging
 # import pdb
-import secrets
 from typing import Self
 
 from . import base
@@ -78,7 +77,7 @@ class ElGamalSharedPublicKey(base.CryptoKey):
     # generate random prime and number, create object (should never fail)
     return cls(
         prime_modulus=modmath.NBitRandomPrime(bit_length),
-        group_base=secrets.randbits(bit_length - 1),
+        group_base=base.RandBits(bit_length - 1),
     )
 
 
@@ -117,7 +116,7 @@ class ElGamalPublicKey(ElGamalSharedPublicKey):
     bit_length: int = self.prime_modulus.bit_length()
     while (not 1 < ephemeral_key < p_1 or
            ephemeral_key in (self.group_base, self.individual_base)):
-      ephemeral_key = secrets.randbits(bit_length - 1)
+      ephemeral_key = base.RandBits(bit_length - 1)
       if base.GCD(ephemeral_key, p_1) != 1:
         ephemeral_key = 0  # we have to try again
     return (ephemeral_key, modmath.ModInv(ephemeral_key, p_1))
@@ -283,7 +282,7 @@ class ElGamalPrivateKey(ElGamalPublicKey):
         decrypt_exp: int = 0
         while (not 2 < decrypt_exp < shared_key.prime_modulus - 1 or
                decrypt_exp == shared_key.group_base):
-          decrypt_exp = secrets.randbits(bit_length - 1)
+          decrypt_exp = base.RandBits(bit_length - 1)
         # make the object
         return cls(
             prime_modulus=shared_key.prime_modulus,

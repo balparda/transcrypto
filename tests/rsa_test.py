@@ -20,7 +20,7 @@ __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = rsa.__version__  # tests inherit version from module
 
 
-@mock.patch('secrets.randbits', autospec=True)
+@mock.patch('src.transcrypto.base.RandBits', autospec=True)
 @mock.patch('src.transcrypto.modmath.NBitRandomPrime', autospec=True)
 def test_RSA_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
   """Test."""
@@ -108,7 +108,7 @@ def test_RSA(  # pylint: disable=too-many-locals,too-many-arguments,too-many-pos
       ob.RevealOriginalSignature(message + 1, obfuscated_signed)
 
 
-@mock.patch('secrets.randbits', autospec=True)
+@mock.patch('src.transcrypto.base.RandBits', autospec=True)
 def test_RSAObfuscationPair_New(mock_bits: mock.MagicMock) -> None:
   """Test."""
   mock_bits.side_effect = [3, 8, 3]

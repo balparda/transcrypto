@@ -6,7 +6,10 @@
 # pyright: reportPrivateUsage=false
 """base.py unittest."""
 
-# import pdb
+import collections
+import concurrent.futures
+import itertools
+import pdb
 import sys
 
 import pytest
@@ -15,6 +18,117 @@ from src.transcrypto import base
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = base.__version__  # tests inherit version from module
+
+
+def test_RandBits() -> None:
+  """Test."""
+  with pytest.raises(base.InputError, match='n_bits must be ≥ 8'):
+    base.RandBits(7)
+  gn: set[int] = set()
+  for _ in range(50):
+    gn.add(base.RandBits(8))
+  assert len(gn) > 30  # has a chance of 1 in 531,000 to fail
+  gn = set()
+  for _ in range(20):
+    gn.add(base.RandBits(10000))
+  assert len(gn) == 20  # has a chance of 1 in 10**3008 to fail
+
+
+def test_RandBits_bit_length_and_bias() -> None:
+  """Test."""
+  for n_bits in (8, 17, 64, 4096):
+    xs: list[int] = [base.RandBits(n_bits) for _ in range(4000)]
+    assert all(x.bit_length() == n_bits for x in xs)
+    # check a few low bits for ~0.5 frequency
+    for k in (0, 1, 2, 3):
+      ones: int = sum((x >> k) & 1 for x in xs)
+      p: float = ones / len(xs)
+      assert 0.45 <= p <= 0.55  # has a chance of 1 in 10**8 to fail
+
+
+def test_RandInt() -> None:
+  """Test."""
+  with pytest.raises(base.InputError, match='min_int must be ≥ 0, and < max_int'):
+    base.RandInt(-1, 1)
+  with pytest.raises(base.InputError, match='min_int must be ≥ 0, and < max_int'):
+    base.RandInt(2, 1)
+  with pytest.raises(base.InputError, match='min_int must be ≥ 0, and < max_int'):
+    base.RandInt(2, 2)
+  gn: set[int] = set()
+  for _ in range(200):
+    gn.add(base.RandInt(10, 20))
+  assert min(gn) == 10
+  assert max(gn) == 20
+  assert len(gn) == 11  # chance of failure of 1 in 17.26 million
+
+
+def test_RandInt_uniform_small_range() -> None:
+  """Test."""
+  N: int = 30000
+  counts = collections.Counter(base.RandInt(10, 20) for _ in range(N))
+  # each should be close to N/11
+  for c in counts.values():
+    assert abs(c - N/11) < 0.1 * N/11  # chance of failure of 1 in 10 million
+
+
+def test_RandShuffle() -> None:
+  """Test."""
+  with pytest.raises(base.InputError, match='seq must have 2 or more elements'):
+    base.RandShuffle([])
+  with pytest.raises(base.InputError, match='seq must have 2 or more elements'):
+    base.RandShuffle([2])
+  seq: list[int] = [i + 1 for i in range(100)]  # sorted list [1, 2, 3, ... 100]
+  for _ in range(10):
+    seq_copy: list[int] = seq.copy()
+    base.RandShuffle(seq_copy)
+    assert seq != seq_copy  # chance of failure in any of 10 tests is 1 in 10**156
+
+
+def test_RandShuffle_preserves_multiset() -> None:
+  """Test."""
+  seq: list[int] = [1, 2, 2, 3, 4]
+  before = collections.Counter(seq)
+  base.RandShuffle(seq)
+  assert collections.Counter(seq) == before
+  assert len(seq) == 5
+
+
+def test_RandShuffle_n2_visits_both_orders() -> None:
+  """Test."""
+  seq: list[int] = [1, 2]
+  seen: set[int] = set()
+  for _ in range(200):
+    s: list[int] = seq[:]  # copy
+    base.RandShuffle(s)
+    seen.add(tuple(s))
+  assert seen == {(1, 2), (2, 1)}  # chance of failure is 1 in 10**60
+
+
+def test_RandShuffle_small_n_uniformity() -> None:
+  """Test."""
+  base_list: list[int] = [1, 2, 3]
+  perms: list[int] = list(itertools.permutations(base_list))
+  counts: dict[int, int] = {p: 0 for p in perms}
+  N: int = 6000
+  for _ in range(N):
+    s: list[int] = base_list[:]
+    base.RandShuffle(s)
+    counts[tuple(s)] += 1
+  # each of 6 perms should be close to N/6
+  for c in counts.values():
+    assert abs(c - N/6) < 0.2 * (N/6)  # chance of failure in any of 6 deviates is 1 in 10**11
+
+
+def test_RandBits_RandInt_RandShuffle_parallel_smoke() -> None:
+  """Test."""
+  with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
+    xs = list(ex.map(lambda _: base.RandBits(256), range(200)))
+    ys = list(ex.map(lambda _: base.RandInt(0, 1000), range(200)))
+    seq = list(range(50))
+    # shuffle some independent copies
+    list(ex.map(lambda _: base.RandShuffle(seq[:]), range(50)))
+  assert len(set(xs)) == len(xs)
+  assert all(0 <= y <= 1000 for y in ys)  # chance of failure in any of 200 draws is 1 in 10**73
 
 
 @pytest.mark.parametrize('n', [1, 17, 10 ** 12])

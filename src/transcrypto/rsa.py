@@ -10,7 +10,6 @@
 import dataclasses
 import logging
 # import pdb
-import secrets
 from typing import Self
 
 from . import base
@@ -200,7 +199,7 @@ class RSAObfuscationPair(RSAPublicKey):
            random_key == key.encrypt_exp or
            random_key == key_inverse or
            key_inverse == key.encrypt_exp):
-      random_key = secrets.randbits(key.public_modulus.bit_length() - 1)
+      random_key = base.RandBits(key.public_modulus.bit_length() - 1)
       try:
         key_inverse = modmath.ModInv(random_key, key.public_modulus)
       except modmath.ModularDivideError as err:

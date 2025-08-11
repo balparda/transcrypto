@@ -10,7 +10,6 @@
 import dataclasses
 import logging
 # import pdb
-import secrets
 from typing import Collection, Generator, Self
 
 from . import base
@@ -142,10 +141,9 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
       raise base.InputError(f'invalid secret: {secret=}')
     if not 1 <= share_key < self.modulus:
       if not share_key:  # default is zero, and that means we generate it here
-        sr = secrets.SystemRandom()
         share_key = 0
         while not share_key or share_key in self.polynomial:
-          share_key = sr.randint(self.modulus // 2 - 1, self.modulus - 1)
+          share_key = base.RandInt(self.modulus // 2 - 1, self.modulus - 1)  # TODO: replace for RandBits
       else:
         raise base.InputError(f'invalid share_key: {share_key=}')
     # build object
@@ -172,13 +170,12 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
     if max_shares and max_shares < self.minimum:
       raise base.InputError(f'invalid max_shares: {max_shares=} < {self.minimum=}')
     # generate shares
-    sr = secrets.SystemRandom()
     count: int = 0
     used_keys: set[int] = set()
     while not max_shares or count < max_shares:
       share_key: int = 0
       while not share_key or share_key in self.polynomial or share_key in used_keys:
-        share_key = sr.randint(self.modulus // 2 - 1, self.modulus - 1)
+        share_key = base.RandInt(self.modulus // 2 - 1, self.modulus - 1)  # TODO: replace with RandBits
       try:
         yield self.Share(secret, share_key=share_key)
         used_keys.add(share_key)
@@ -230,7 +227,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
     modulus: int = max(ordered_primes)
     ordered_primes.remove(modulus)
     # make polynomial be a random order
-    secrets.SystemRandom().shuffle(ordered_primes)
+    base.RandShuffle(ordered_primes)
     # build object
     return cls(minimum=minimum_shares, modulus=modulus, polynomial=ordered_primes)
 

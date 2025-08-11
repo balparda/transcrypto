@@ -52,8 +52,8 @@ def test_ShamirSharedSecret(minimum: int, modulus: int, polynomial: list[int], s
     public.RecoverSecret(shares[:-2] + [bogus_share])
 
 
-@mock.patch('secrets.SystemRandom.randint', autospec=True)
-@mock.patch('secrets.SystemRandom.shuffle', autospec=True)
+@mock.patch('src.transcrypto.base.RandInt', autospec=True)
+@mock.patch('src.transcrypto.base.RandShuffle', autospec=True)
 @mock.patch('src.transcrypto.modmath.NBitRandomPrime', autospec=True)
 def test_ShamirSharedSecret_creation(
     prime: mock.MagicMock, shuffle: mock.MagicMock, randint: mock.MagicMock) -> None:
@@ -88,9 +88,8 @@ def test_ShamirSharedSecret_creation(
       sss.ShamirSharePrivate(minimum=3, modulus=907, share_key=341, share_value=439),
   ]
   assert prime.call_args_list == [mock.call(10)] * 4
-  shuffle.assert_called_once_with(mock.ANY, [19, 23])
-  assert randint.call_args_list == (
-      [mock.call(mock.ANY, 14, 30)] * 7 + [mock.call(mock.ANY, 452, 906)] * 4)
+  shuffle.assert_called_once_with([19, 23])
+  assert randint.call_args_list == [mock.call(14, 30)] * 7 + [mock.call(452, 906)] * 4
 
 
 def test_ShamirSharedSecretPublic_invalid() -> None:

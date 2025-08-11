@@ -6,7 +6,7 @@
 # pyright: reportPrivateUsage=false
 """dsa.py unittest."""
 
-import pdb
+# import pdb
 import sys
 from unittest import mock
 
@@ -20,8 +20,8 @@ __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = dsa.__version__  # tests inherit version from module
 
 
-@mock.patch('secrets.randbits', autospec=True)
-@mock.patch('secrets.SystemRandom.randint', autospec=True)
+@mock.patch('src.transcrypto.base.RandBits', autospec=True)
+@mock.patch('src.transcrypto.base.RandInt', autospec=True)
 @mock.patch('src.transcrypto.modmath.NBitRandomPrime', autospec=True)
 def test_DSA_keys_creation(
     prime: mock.MagicMock, randint: mock.MagicMock, randbits: mock.MagicMock) -> None:
@@ -53,7 +53,7 @@ def test_DSA_keys_creation(
         dsa.DSAPrivateKey.New(group)
   assert private._MakeEphemeralKey() == (10, 768)
   assert prime.call_args_list == [mock.call(11)] * 2
-  assert randint.call_args_list == [mock.call(mock.ANY, 1913, 3821)] * 4
+  assert randint.call_args_list == [mock.call(1913, 3821)] * 4
   assert randbits.call_args_list == [mock.call(21)] + [mock.call(10)] * 6
 
 

@@ -12,8 +12,7 @@ In the future we will design a proper DSA+Hash implementation.
 
 import dataclasses
 import logging
-import pdb
-import secrets
+# import pdb
 from typing import Self
 
 from . import base
@@ -54,12 +53,11 @@ def NBitRandomDSAPrimes(p_bits: int, q_bits: int, /) -> tuple[int, int, int]:
   min_p, max_p = 2 ** (p_bits - 1), 2 ** p_bits - 1
   min_m, max_m = min_p // q + 2, max_p // q - 2
   assert max_m - min_m > 1000  # make sure we'll have options!
-  sr = secrets.SystemRandom()
   # start searching from a random multiple
   failures: int = 0
   while True:
     # try searching starting here
-    m: int = sr.randint(min_m, max_m)
+    m: int = base.RandInt(min_m, max_m)
     for _ in range(_PRIME_MULTIPLE_SEARCH):
       p: int = q * m + 1
       if p >= max_p:
@@ -127,7 +125,7 @@ class DSASharedPublicKey(base.CryptoKey):
     # generate random number, create object (should never fail)
     g: int = 0
     while g < 2:
-      h: int = secrets.randbits(p_bits - 1)
+      h: int = base.RandBits(p_bits - 1)
       g = modmath.ModExp(h, m, p)
     return cls(prime_modulus=p, prime_seed=q, group_base=g)
 
@@ -165,7 +163,7 @@ class DSAPublicKey(DSASharedPublicKey):
     bit_length: int = self.prime_seed.bit_length()
     while (not 2 < ephemeral_key < self.prime_seed or
            ephemeral_key in (self.group_base, self.individual_base)):
-      ephemeral_key = secrets.randbits(bit_length - 1)
+      ephemeral_key = base.RandBits(bit_length - 1)
     return (ephemeral_key, modmath.ModInv(ephemeral_key, self.prime_seed))
 
   def VerifySignature(self, message: int, signature: tuple[int, int], /) -> bool:
@@ -285,7 +283,7 @@ class DSAPrivateKey(DSAPublicKey):
         decrypt_exp: int = 0
         while (not 2 < decrypt_exp < shared_key.prime_seed - 1 or
                decrypt_exp == shared_key.group_base):
-          decrypt_exp = secrets.randbits(bit_length - 1)
+          decrypt_exp = base.RandBits(bit_length - 1)
         # make the object
         return cls(
             prime_modulus=shared_key.prime_modulus,

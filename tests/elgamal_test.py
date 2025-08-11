@@ -20,7 +20,7 @@ __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = elgamal.__version__  # tests inherit version from module
 
 
-@mock.patch('secrets.randbits', autospec=True)
+@mock.patch('src.transcrypto.base.RandBits', autospec=True)
 @mock.patch('src.transcrypto.modmath.NBitRandomPrime', autospec=True)
 def test_ElGamal_keys_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
   """Test."""

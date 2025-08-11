@@ -6,7 +6,6 @@
 
 import math
 # import pdb
-import secrets
 from typing import Generator, Optional, Reversible
 
 from . import base
@@ -312,9 +311,8 @@ def FermatIsPrime(
       raise base.InputError(f'out of bounds safety: 1 <= {safety=} <= {max_safety}')
     safety = max_safety if safety > max_safety else safety
     witnesses = set()
-    rand = secrets.SystemRandom()
     while len(witnesses) < safety:
-      witnesses.add(rand.randint(2, n - 2))
+      witnesses.add(base.RandInt(2, n - 2))
   # we have our witnesses: do the actual Fermat algo
   for w in sorted(witnesses):
     if not 2 <= w <= (n - 2):
@@ -510,10 +508,10 @@ def NBitRandomPrime(n_bits: int, /) -> int:
   min_start: int = 2 ** (n_bits - 1)
   prime: int = 0
   while prime.bit_length() != n_bits:
-    start_point: int = secrets.randbits(n_bits)
+    start_point: int = base.RandBits(n_bits)
     while start_point < min_start:
       # i know we could just set the bit, but IMO it is better to get another entirely
-      start_point = secrets.randbits(n_bits)
+      start_point = base.RandBits(n_bits)
     prime = next(PrimeGenerator(start_point))
   return prime
 
