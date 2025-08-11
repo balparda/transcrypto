@@ -143,7 +143,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
       if not share_key:  # default is zero, and that means we generate it here
         share_key = 0
         while not share_key or share_key in self.polynomial:
-          share_key = base.RandInt(self.modulus // 2 - 1, self.modulus - 1)  # TODO: replace for RandBits
+          share_key = base.RandBits(self.modulus.bit_length() - 1)
       else:
         raise base.InputError(f'invalid share_key: {share_key=}')
     # build object
@@ -175,7 +175,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
     while not max_shares or count < max_shares:
       share_key: int = 0
       while not share_key or share_key in self.polynomial or share_key in used_keys:
-        share_key = base.RandInt(self.modulus // 2 - 1, self.modulus - 1)  # TODO: replace with RandBits
+        share_key = base.RandBits(self.modulus.bit_length() - 1)
       try:
         yield self.Share(secret, share_key=share_key)
         used_keys.add(share_key)

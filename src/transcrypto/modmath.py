@@ -490,10 +490,14 @@ def PrimeGenerator(start: int, /) -> Generator[int, None, None]:
 
 
 def NBitRandomPrime(n_bits: int, /) -> int:
-  """Generates a random prime with (guaranteed) `n_bits` binary representation length.
+  """Generates a random prime with (guaranteed) `n_bits` size (i.e., first bit == 1).
+  
+  The fact that the first bit will be 1 means the entropy is ~ (n_bits-1) and
+  because of this we only allow for a byte or more prime bits generated. This drawback
+  is negligible for the large primes a crypto library will work with, in practice.
 
   Args:
-    n_bits (int): Number of guaranteed bits in prime representation, n ≥ 4
+    n_bits (int): Number of guaranteed bits in prime representation, n ≥ 8
 
   Returns:
     random prime with `n_bits` bits
@@ -502,17 +506,12 @@ def NBitRandomPrime(n_bits: int, /) -> int:
     InputError: invalid inputs
   """
   # test inputs
-  if n_bits < 4:
+  if n_bits < 8:
     raise base.InputError(f'invalid n: {n_bits=}')
   # get a random number with guaranteed bit size
-  min_start: int = 2 ** (n_bits - 1)
   prime: int = 0
   while prime.bit_length() != n_bits:
-    start_point: int = base.RandBits(n_bits)
-    while start_point < min_start:
-      # i know we could just set the bit, but IMO it is better to get another entirely
-      start_point = base.RandBits(n_bits)
-    prime = next(PrimeGenerator(start_point))
+    prime = next(PrimeGenerator(base.RandBits(n_bits)))
   return prime
 
 

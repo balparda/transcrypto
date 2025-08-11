@@ -52,18 +52,18 @@ def test_ShamirSharedSecret(minimum: int, modulus: int, polynomial: list[int], s
     public.RecoverSecret(shares[:-2] + [bogus_share])
 
 
-@mock.patch('src.transcrypto.base.RandInt', autospec=True)
+@mock.patch('src.transcrypto.base.RandBits', autospec=True)
 @mock.patch('src.transcrypto.base.RandShuffle', autospec=True)
 @mock.patch('src.transcrypto.modmath.NBitRandomPrime', autospec=True)
 def test_ShamirSharedSecret_creation(
-    prime: mock.MagicMock, shuffle: mock.MagicMock, randint: mock.MagicMock) -> None:
+    prime: mock.MagicMock, shuffle: mock.MagicMock, randbits: mock.MagicMock) -> None:
   """Test."""
   with pytest.raises(base.InputError, match='at least 2 shares are needed'):
     sss.ShamirSharedSecretPrivate.New(1, 10)
   with pytest.raises(base.InputError, match='invalid bit length'):
     sss.ShamirSharedSecretPrivate.New(3, 9)
   prime.side_effect = [23, 19, 23, 31]
-  randint.side_effect = [19, 20, 19, 20, 21, 20, 22, 535, 587, 498, 341]
+  randbits.side_effect = [19, 20, 19, 20, 21, 20, 22, 535, 587, 498, 341]
   private: sss.ShamirSharedSecretPrivate = sss.ShamirSharedSecretPrivate.New(3, 10)
   assert private == sss.ShamirSharedSecretPrivate(
       minimum=3, modulus=31, polynomial=[19, 23])
@@ -89,7 +89,7 @@ def test_ShamirSharedSecret_creation(
   ]
   assert prime.call_args_list == [mock.call(10)] * 4
   shuffle.assert_called_once_with([19, 23])
-  assert randint.call_args_list == [mock.call(14, 30)] * 7 + [mock.call(452, 906)] * 4
+  assert randbits.call_args_list == [mock.call(4)] * 7 + [mock.call(9)] * 4
 
 
 def test_ShamirSharedSecretPublic_invalid() -> None:

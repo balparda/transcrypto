@@ -374,10 +374,10 @@ def test_PrimeGenerator() -> None:
 def test_NBitRandomPrime(mock_bits: mock.MagicMock) -> None:
   """Test."""
   with pytest.raises(base.InputError, match='invalid n:'):
-    modmath.NBitRandomPrime(3)
-  mock_bits.side_effect = [9, 20]
-  assert modmath.NBitRandomPrime(5) == 23
-  assert mock_bits.call_args_list == [mock.call(5), mock.call(5)]
+    modmath.NBitRandomPrime(7)
+  mock_bits.side_effect = [12345, 194]
+  assert modmath.NBitRandomPrime(8) == 197
+  assert mock_bits.call_args_list == [mock.call(8), mock.call(8)]
 
 
 def test_MersennePrimesGenerator() -> None:
