@@ -22,7 +22,7 @@ __version__: str = elgamal.__version__  # tests inherit version from module
 
 @mock.patch('secrets.randbits', autospec=True)
 @mock.patch('src.transcrypto.modmath.NBitRandomPrime', autospec=True)
-def test_RSA_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
+def test_ElGamal_keys_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
   """Test."""
   with pytest.raises(base.InputError, match='invalid bit length'):
     elgamal.ElGamalSharedPublicKey.New(10)
@@ -46,7 +46,8 @@ def test_RSA_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
 
 
 @pytest.mark.parametrize(
-    'prime_modulus, group_base, individual_base, decrypt_exp, message, ephemeral, expected_cypher, expected_signed',
+    'prime_modulus, group_base, individual_base, decrypt_exp, message, ephemeral, '
+    'expected_cypher, expected_signed',
     [
         (1783, 146, 694, 409, 10, 5, (108, 1691), (108, 434)),     # one individual, message==10
         (1783, 146, 694, 409, 11, 5, (108, 612), (108, 1147)),     # same ephemeral different message, first cypher is equal!
@@ -68,8 +69,9 @@ def test_RSA_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
     ])
 @mock.patch('src.transcrypto.elgamal.ElGamalPublicKey._MakeEphemeralKey', autospec=True)
 def test_ElGamal(
-    make_ephemeral: mock.MagicMock, prime_modulus: int, group_base: int, individual_base: int, decrypt_exp: int,
-    message: int, ephemeral: int, expected_cypher: tuple[int, int], expected_signed: tuple[int, int]) -> None:
+    make_ephemeral: mock.MagicMock, prime_modulus: int, group_base: int, individual_base: int,
+    decrypt_exp: int, message: int, ephemeral: int, expected_cypher: tuple[int, int],
+    expected_signed: tuple[int, int]) -> None:
   """Test."""
   # create keys
   spc = elgamal.ElGamalSharedPublicKey(prime_modulus=prime_modulus, group_base=group_base)
