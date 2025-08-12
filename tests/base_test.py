@@ -11,6 +11,8 @@ import concurrent.futures
 import itertools
 import pdb
 import sys
+import tempfile
+from typing import Generator
 
 import pytest
 
@@ -180,6 +182,92 @@ def test_NegativeZero() -> None:
   g, x, y = base.ExtendedGCD(-0, 5)
   assert g == 5 and 5 * y == 5 and not x
   assert 0 == -0
+  
+  
+def test_bytes_conversions() -> None:
+  """Test."""
+  bb: bytes = 'xyz'.encode('utf-8')
+  assert base.BytesToHex(bb) == '78797a'
+  assert base.BytesToInt(bb) == 7895418
+  assert base.HexToBytes('78797a') == bb
+  assert base.IntToBytes(7895418) == bb
+  assert base.PadBytesTo(bb, 8) == bb
+  assert base.PadBytesTo(bb, 16) == bb
+  assert base.PadBytesTo(bb, 24) == bb
+  assert base.PadBytesTo(bb, 32) == b'\x00xyz'
+  assert base.PadBytesTo(bb, 40) == b'\x00\x00xyz'
+  assert base.PadBytesTo(b'\x01\x00', 40) == b'\x00\x00\x00\x01\x00'
+  padded: bytes = base.PadBytesTo(bb, 64)
+  assert padded == b'\x00\x00\x00\x00\x00xyz'
+  assert base.BytesToHex(padded) == '000000000078797a'
+  assert base.BytesToInt(padded) == 7895418
+  assert base.HexToBytes('000000000078797a') == padded
+
+
+@pytest.mark.parametrize('data, hash256, hash512', [
+
+    # values copied from <https://www.di-mgt.com.au/sha_testvectors.html>
+
+    ('',
+     'e3b0c442 98fc1c14 9afbf4c8 996fb924 27ae41e4 649b934c a495991b 7852b855',
+     'cf83e1357eefb8bd f1542850d66d8007 d620e4050b5715dc 83f4a921d36ce9ce'
+     '47d0d13c5d85f2b0 ff8318d2877eec2f 63b931bd47417a81 a538327af927da3e'),
+
+    ('abc',
+     'ba7816bf 8f01cfea 414140de 5dae2223 b00361a3 96177a9c b410ff61 f20015ad',
+     'ddaf35a193617aba cc417349ae204131 12e6fa4e89a97ea2 0a9eeee64b55d39a'
+     '2192992a274fc1a8 36ba3c23a3feebbd 454d4423643ce80e 2a9ac94fa54ca49f'),
+
+    ('abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq',
+     '248d6a61 d20638b8 e5c02693 0c3e6039 a33ce459 64ff2167 f6ecedd4 19db06c1',
+     '204a8fc6dda82f0a 0ced7beb8e08a416 57c16ef468b228a8 279be331a703c335'
+     '96fd15c13b1b07f9 aa1d3bea57789ca0 31ad85c7a71dd703 54ec631238ca3445'),
+
+    ('abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhi'
+     'jklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu',
+     'cf5b16a7 78af8380 036ce59e 7b049237 0b249b11 e8f07a51 afac4503 7afee9d1',
+     '8e959b75dae313da 8cf4f72814fc143f 8f7779c6eb9f7fa1 7299aeadb6889018'
+     '501d289e4900f7e4 331b99dec4b5433a c7d329eeb6dd2654 5e96e55b874be909'),
+     
+    ('a' * 1000000,
+     'cdc76e5c 9914fb92 81a1c7e2 84d73e67 f1809a48 a497200e 046d39cc c7112cd0',
+     'e718483d0ce76964 4e2e42c7bc15b463 8e1f98b13b204428 5632a803afa973eb'
+     'de0ff244877ea60a 4cb0432ce577c31b eb009c5c2c49aa2e 4eadb217ad8cc09b'),
+
+])
+def test_Hash(data: str, hash256: str, hash512: str) -> None:
+  """Test."""
+  bytes_data: bytes = data.encode('utf-8')
+  # raw SHA-256
+  h1: bytes = base.Hash256(bytes_data)
+  assert len(h1) == 32
+  assert base.BytesToHex(h1) == hash256.replace(' ', '')
+  # raw SHA-512
+  h2: bytes = base.Hash512(bytes_data)
+  assert len(h2) == 64
+  assert base.BytesToHex(h2) == hash512.replace(' ', '')
+  # save data to temp file
+  with tempfile.NamedTemporaryFile() as temp_file:
+    temp_file.write(bytes_data)
+    temp_file.flush()
+    file_path: str = temp_file.name
+    # SHA-256 file
+    h3: bytes = base.FileHash(file_path)
+    assert len(h3) == 32
+    assert base.BytesToHex(h3) == hash256.replace(' ', '')
+    # SHA-512 file
+    h4: bytes = base.FileHash(file_path, digest='sha512')
+    assert len(h4) == 64
+    assert base.BytesToHex(h4) == hash512.replace(' ', '')
+    # invalid digest type, but file exits
+    with pytest.raises(base.InputError, match='unrecognized digest'):
+      base.FileHash(file_path, digest='sha100')
+
+
+def test_FileHash_missing_file() -> None:
+  """Test."""
+  with pytest.raises(base.InputError, match=r'file .* not found for hashing'):
+    base.FileHash('/path/to/surely/not/exist-123')
 
 
 if __name__ == '__main__':

@@ -24,8 +24,6 @@ classifiers = [  # see: https://pypi.org/classifiers/
   "Topic :: Utilities",
   "Topic :: Security :: Cryptography"
 ]
-dependencies = [
-]
 
 [project.urls]
 Homepage = "https://github.com/balparda/transcrypto"
@@ -43,6 +41,9 @@ include = ["transcrypto*"]  # avoid picking up stuff not in "transcrypto"
 
 [tool.poetry]
 requires-poetry = "^2.1"
+
+[tool.poetry.dependencies]
+cryptography = ">=45.0.6"
 
 [tool.poetry.requires-plugins]
 poetry-plugin-export = ">=1.8"

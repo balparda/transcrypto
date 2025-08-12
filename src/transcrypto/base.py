@@ -6,9 +6,12 @@
 
 import dataclasses
 # import datetime
+import hashlib
+import logging
+import os.path
 # import pdb
 import secrets
-from typing import Any, MutableSequence
+from typing import Any, Callable, MutableSequence
 
 __author__ = 'balparda@github.com'
 __version__ = '1.0.3'  # v1.0.3, 2025-07-30
@@ -16,6 +19,15 @@ __version_tuple__: tuple[int, ...] = tuple(int(v) for v in __version__.split('.'
 
 # MIN_TM = int(  # minimum allowed timestamp
 #     datetime.datetime(2000, 1, 1, 0, 0, 0).replace(tzinfo=datetime.timezone.utc).timestamp())
+
+BytesToHex: Callable[[bytes], str] = lambda b: b.hex()
+BytesToInt: Callable[[bytes], int] = lambda b: int.from_bytes(b, 'big', signed=False)
+
+HexToBytes: Callable[[str], bytes] = lambda h: bytes.fromhex(h)
+IntToBytes: Callable[[int], bytes] = lambda i: i.to_bytes(
+    (i.bit_length() + 7) // 8, 'big', signed=False)
+
+PadBytesTo: Callable[[bytes, int], bytes] = lambda b, i: b.rjust((i + 7) // 8, b'\x00')
 
 
 class Error(Exception):
@@ -159,6 +171,61 @@ def ExtendedGCD(a: int, b: int, /) -> tuple[int, int, int]:
     x, y = x2 - q * x1, y2 - q * y1
     a, b, x1, x2, y1, y2 = b, r, x, x1, y, y1
   return (a, y2 if swapped else x2, x2 if swapped else y2)
+
+
+def Hash256(data: bytes, /) -> bytes:
+  """SHA-256 hash of bytes data. Always a length of 32 bytes.
+
+  Args:
+    data (bytes): Data to compute hash for
+
+  Returns:
+    32 bytes (256 bits) of SHA-256 hash;
+    if converted to hexadecimal (with BytesToHex() or hex()) will be 64 chars of string;
+    if converted to int (big-endian, unsigned, with BytesToInt()) will be 0 ≤ i < 2**256
+  """
+  return hashlib.sha256(data).digest()
+
+
+def Hash512(data: bytes, /) -> bytes:
+  """SHA-512 hash of bytes data. Always a length of 64 bytes.
+
+  Args:
+    data (bytes): Data to compute hash for
+
+  Returns:
+    64 bytes (512 bits) of SHA-512 hash;
+    if converted to hexadecimal (with BytesToHex() or hex()) will be 128 chars of string;
+    if converted to int (big-endian, unsigned, with BytesToInt()) will be 0 ≤ i < 2**512
+  """
+  return hashlib.sha512(data).digest()
+
+
+def FileHash(full_path: str, /, *, digest: str = 'sha256') -> bytes:
+  """SHA-256 hex hash of file on disk. Always a length of 32 bytes (if default digest=='sha256').
+
+  Args:
+    full_path (str): Path to exisiting file on disk
+    digest (str, optional): Hash method to use, default is 'sha256'
+
+  Returns:
+    32 bytes (256 bits) of SHA-256 hash (if default digest=='sha256');
+    if converted to hexadecimal (with BytesToHex() or hex()) will be 64 chars of string;
+    if converted to int (big-endian, unsigned, with BytesToInt()) will be 0 ≤ i < 2**256
+
+  Raises:
+    InputError: file could not be found
+  """
+  # test inputs
+  if digest not in ('sha256', 'sha512'):
+    raise InputError(f'unrecognized digest: {digest!r}')
+  full_path = full_path.strip()
+  if not full_path or not os.path.exists(full_path):
+    raise InputError(f'file {full_path!r} not found for hashing')
+  # compute hash
+  logging.info(f'Hashing file {full_path!r}')
+  with open(full_path, 'rb') as file_obj:
+    return hashlib.file_digest(file_obj, digest).digest()
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
