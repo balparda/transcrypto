@@ -9,6 +9,8 @@
 import collections
 import concurrent.futures
 import itertools
+import logging
+import math
 import pdb
 import sys
 import tempfile
@@ -20,6 +22,133 @@ from src.transcrypto import base
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = base.__version__  # tests inherit version from module
+
+
+def test_bytes_conversions() -> None:
+  """Test."""
+  bb: bytes = 'xyz'.encode('utf-8')
+  assert base.BytesToHex(bb) == '78797a'
+  assert base.BytesToInt(bb) == 7895418
+  assert base.BytesToEncoded(bb) == 'eHl6'
+  assert base.HexToBytes('78797a') == bb
+  assert base.IntToBytes(7895418) == bb
+  assert base.EncodedToBytes('eHl6') == bb
+  assert base.PadBytesTo(bb, 8) == bb
+  assert base.PadBytesTo(bb, 16) == bb
+  assert base.PadBytesTo(bb, 24) == bb
+  assert base.PadBytesTo(bb, 32) == b'\x00xyz'
+  assert base.PadBytesTo(bb, 40) == b'\x00\x00xyz'
+  assert base.PadBytesTo(b'\x01\x00', 40) == b'\x00\x00\x00\x01\x00'
+  padded: bytes = base.PadBytesTo(bb, 64)
+  assert padded == b'\x00\x00\x00\x00\x00xyz'
+  assert base.BytesToHex(padded) == '000000000078797a'
+  assert base.BytesToInt(padded) == 7895418
+  assert base.BytesToEncoded(padded) == 'AAAAAAB4eXo='
+  assert base.HexToBytes('000000000078797a') == padded
+  assert base.EncodedToBytes('AAAAAAB4eXo=') == padded
+
+
+@pytest.mark.parametrize('value, message', [
+    (0, '0 B'),                   # bytes < 1024
+    (512, '512 B'),
+    (1024, '1.00 KiB'),           # exact KiB
+    (1536, '1.50 KiB'),           # mid KiB
+    (1024 ** 2, '1.00 MiB'),      # exact MiB
+    (5 * 1024 ** 2, '5.00 MiB'),
+    (1024 ** 3, '1.00 GiB'),      # exact GiB
+    (3 * 1024 ** 3, '3.00 GiB'),
+    (1024 ** 4, '1.00 TiB'),      # exact TiB
+    (7 * 1024 ** 4, '7.00 TiB'),
+    (1024 ** 5, '1.00 PiB'),      # exact PiB
+    (2 * 1024 ** 5, '2.00 PiB'),
+    (1024 ** 6, '1.00 EiB'),      # exact EiB
+    (8 * 1024 ** 6, '8.00 EiB'),  # > EiB
+])
+def test_HumanizedBytes(value: int, message: str) -> None:
+  """Test."""
+  assert base.HumanizedBytes(value) == message
+  
+  
+@pytest.mark.parametrize('value, message, unit, unit_message', [
+    # <1000 integer, no unit / with unit
+    (0, '0', 'Hz', '0 Hz'),
+    (999, '999', 'V', '999 V'),
+    # <1000 float, 4 decimal places
+    (0.5, '0.5000', 'Hz', '0.5000 Hz'),
+    (999.9999, '999.9999', 'Hz', '999.9999 Hz'),
+    # k range
+    (1000, '1.00 k', 'Hz', '1.00 kHz'),
+    (1500, '1.50 k', 'Hz', '1.50 kHz'),
+    # M range
+    (1000 ** 2, '1.00 M', 'Hz', '1.00 MHz'),
+    (2500000, '2.50 M', 'Hz', '2.50 MHz'),
+    # G range
+    (1000 ** 3, '1.00 G', 'Hz', '1.00 GHz'),
+    (5 * 1000 ** 3, '5.00 G', 'Hz', '5.00 GHz'),
+    # T range
+    (1000 ** 4, '1.00 T', 'Hz', '1.00 THz'),
+    (7 * 1000 ** 4, '7.00 T', 'Hz', '7.00 THz'),
+    # P range
+    (1000**5, '1.00 P', 'Hz', '1.00 PHz'),
+    (3 * 1000 ** 5, '3.00 P', 'Hz', '3.00 PHz'),
+    # E range and above
+    (1000**6, '1.00 E', 'Hz', '1.00 EHz'),
+    (9 * 1000 ** 6, '9.00 E', 'Hz', '9.00 EHz'),
+])
+def test_HumanizedDecimal(value: int | float, message: str, unit: str, unit_message: str) -> None:
+  """Test."""
+  assert base.HumanizedDecimal(value) == message
+  assert base.HumanizedDecimal(value, unit) == unit_message
+  
+  
+@pytest.mark.parametrize('value, message', [
+    # zero
+    (0, '0.00 s'),
+    # microseconds
+    (0.0000005, '0.500 µs'),
+    (0.0005, '500.000 µs'),
+    (0.000999, '999.000 µs'),
+    # milliseconds
+    (0.001, '1.000 ms'),
+    (0.5, '500.000 ms'),
+    (0.999, '999.000 ms'),
+    # seconds
+    (1, '1.00 s'),
+    (59.99, '59.99 s'),   # edge just under a minute
+    (42, '42.00 s'),
+    # minutes
+    (60, '1.00 min'),
+    (3599, '59.98 min'),  # just under an hour
+    # hours
+    (3600, '1.00 h'),
+    (86399, '24.00 h'),   # just under a day
+    # days
+    (86400, '1.00 d'),
+    (172800, '2.00 d'),
+])
+def test_HumanizedSeconds(value: int | float, message: str) -> None:
+  """Test."""
+  assert base.HumanizedSeconds(value) == message
+
+
+def test_Humanized_fail() -> None:
+  """Test."""
+  with pytest.raises(base.InputError, match='input should be >=0'):
+    base.HumanizedBytes(-1)
+  with pytest.raises(base.InputError, match='input should be >=0'):
+    base.HumanizedDecimal(-1)
+  with pytest.raises(base.InputError, match='input should be >=0'):
+    base.HumanizedSeconds(-1)
+  # NaN
+  with pytest.raises(base.InputError, match='input should be >=0'):
+    base.HumanizedDecimal(math.nan)
+  with pytest.raises(base.InputError, match='input should be >=0'):
+    base.HumanizedSeconds(math.nan)
+  # infinity
+  with pytest.raises(base.InputError, match='input should be >=0'):
+    base.HumanizedDecimal(math.inf)
+  with pytest.raises(base.InputError, match='input should be >=0'):
+    base.HumanizedSeconds(math.inf)
 
 
 def test_RandBits() -> None:
@@ -182,57 +311,47 @@ def test_NegativeZero() -> None:
   g, x, y = base.ExtendedGCD(-0, 5)
   assert g == 5 and 5 * y == 5 and not x
   assert 0 == -0
-  
-  
-def test_bytes_conversions() -> None:
-  """Test."""
-  bb: bytes = 'xyz'.encode('utf-8')
-  assert base.BytesToHex(bb) == '78797a'
-  assert base.BytesToInt(bb) == 7895418
-  assert base.HexToBytes('78797a') == bb
-  assert base.IntToBytes(7895418) == bb
-  assert base.PadBytesTo(bb, 8) == bb
-  assert base.PadBytesTo(bb, 16) == bb
-  assert base.PadBytesTo(bb, 24) == bb
-  assert base.PadBytesTo(bb, 32) == b'\x00xyz'
-  assert base.PadBytesTo(bb, 40) == b'\x00\x00xyz'
-  assert base.PadBytesTo(b'\x01\x00', 40) == b'\x00\x00\x00\x01\x00'
-  padded: bytes = base.PadBytesTo(bb, 64)
-  assert padded == b'\x00\x00\x00\x00\x00xyz'
-  assert base.BytesToHex(padded) == '000000000078797a'
-  assert base.BytesToInt(padded) == 7895418
-  assert base.HexToBytes('000000000078797a') == padded
 
 
 @pytest.mark.parametrize('data, hash256, hash512', [
 
     # values copied from <https://www.di-mgt.com.au/sha_testvectors.html>
 
-    ('',
-     'e3b0c442 98fc1c14 9afbf4c8 996fb924 27ae41e4 649b934c a495991b 7852b855',
-     'cf83e1357eefb8bd f1542850d66d8007 d620e4050b5715dc 83f4a921d36ce9ce'
-     '47d0d13c5d85f2b0 ff8318d2877eec2f 63b931bd47417a81 a538327af927da3e'),
+    pytest.param(
+        '',
+        'e3b0c44298fc1c14 9afbf4c8996fb924 27ae41e4649b934c a495991b7852b855',
+        'cf83e1357eefb8bd f1542850d66d8007 d620e4050b5715dc 83f4a921d36ce9ce'
+        '47d0d13c5d85f2b0 ff8318d2877eec2f 63b931bd47417a81 a538327af927da3e',
+        id='empty'),
 
-    ('abc',
-     'ba7816bf 8f01cfea 414140de 5dae2223 b00361a3 96177a9c b410ff61 f20015ad',
-     'ddaf35a193617aba cc417349ae204131 12e6fa4e89a97ea2 0a9eeee64b55d39a'
-     '2192992a274fc1a8 36ba3c23a3feebbd 454d4423643ce80e 2a9ac94fa54ca49f'),
+    pytest.param(
+        'abc',
+        'ba7816bf8f01cfea 414140de5dae2223 b00361a396177a9c b410ff61f20015ad',
+        'ddaf35a193617aba cc417349ae204131 12e6fa4e89a97ea2 0a9eeee64b55d39a'
+        '2192992a274fc1a8 36ba3c23a3feebbd 454d4423643ce80e 2a9ac94fa54ca49f',
+        id='abc'),
 
-    ('abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq',
-     '248d6a61 d20638b8 e5c02693 0c3e6039 a33ce459 64ff2167 f6ecedd4 19db06c1',
-     '204a8fc6dda82f0a 0ced7beb8e08a416 57c16ef468b228a8 279be331a703c335'
-     '96fd15c13b1b07f9 aa1d3bea57789ca0 31ad85c7a71dd703 54ec631238ca3445'),
+    pytest.param(
+        'abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq',
+        '248d6a61d20638b8 e5c026930c3e6039 a33ce45964ff2167 f6ecedd419db06c1',
+        '204a8fc6dda82f0a 0ced7beb8e08a416 57c16ef468b228a8 279be331a703c335'
+        '96fd15c13b1b07f9 aa1d3bea57789ca0 31ad85c7a71dd703 54ec631238ca3445',
+        id='NIST-long-1'),
 
-    ('abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhi'
-     'jklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu',
-     'cf5b16a7 78af8380 036ce59e 7b049237 0b249b11 e8f07a51 afac4503 7afee9d1',
-     '8e959b75dae313da 8cf4f72814fc143f 8f7779c6eb9f7fa1 7299aeadb6889018'
-     '501d289e4900f7e4 331b99dec4b5433a c7d329eeb6dd2654 5e96e55b874be909'),
+    pytest.param(
+        'abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhi'
+        'jklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu',
+        'cf5b16a778af8380 036ce59e7b049237 0b249b11e8f07a51 afac45037afee9d1',
+        '8e959b75dae313da 8cf4f72814fc143f 8f7779c6eb9f7fa1 7299aeadb6889018'
+        '501d289e4900f7e4 331b99dec4b5433a c7d329eeb6dd2654 5e96e55b874be909',
+        id='NIST-long-2'),
      
-    ('a' * 1000000,
-     'cdc76e5c 9914fb92 81a1c7e2 84d73e67 f1809a48 a497200e 046d39cc c7112cd0',
-     'e718483d0ce76964 4e2e42c7bc15b463 8e1f98b13b204428 5632a803afa973eb'
-     'de0ff244877ea60a 4cb0432ce577c31b eb009c5c2c49aa2e 4eadb217ad8cc09b'),
+    pytest.param(
+        'a' * 1000000,
+        'cdc76e5c9914fb92 81a1c7e284d73e67 f1809a48a497200e 046d39ccc7112cd0',
+        'e718483d0ce76964 4e2e42c7bc15b463 8e1f98b13b204428 5632a803afa973eb'
+        'de0ff244877ea60a 4cb0432ce577c31b eb009c5c2c49aa2e 4eadb217ad8cc09b',
+        id='a*1_000_000'),
 
 ])
 def test_Hash(data: str, hash256: str, hash512: str) -> None:
@@ -268,6 +387,138 @@ def test_FileHash_missing_file() -> None:
   """Test."""
   with pytest.raises(base.InputError, match=r'file .* not found for hashing'):
     base.FileHash('/path/to/surely/not/exist-123')
+
+
+def _mock_perf(monkeypatch, values):
+  """Install a perf_counter that yields from `values`."""
+  it = iter(values)
+  monkeypatch.setattr(base.time, 'perf_counter', lambda: next(it))
+
+
+def test_Timer_str_unstarted() -> None:
+  t = base.Timer('T')
+  assert str(t) == 'T: <UNSTARTED>'
+
+
+def test_Timer_str_partial(monkeypatch) -> None:
+  # Start at 100.00; __str__ calls perf_counter again (100.12) → delta 0.12 s
+  _mock_perf(monkeypatch, [100.00, 100.12])
+  t = base.Timer('P')
+  t.Start()
+  assert str(t) == 'P: <PARTIAL> 120.000 ms'
+
+
+def test_Timer_start_twice_forbidden(monkeypatch) -> None:
+  _mock_perf(monkeypatch, [1.0])
+  t = base.Timer('X')
+  t.Start()
+  with pytest.raises(base.Error, match='Re-starting timer is forbidden'):
+    t.Start()
+
+
+def test_Timer_stop_unstarted_forbidden() -> None:
+  t = base.Timer('X')
+  with pytest.raises(base.Error, match='Stopping an unstarted timer'):
+    t.Stop()
+
+
+def test_Timer_stop_twice_forbidden(monkeypatch, caplog) -> None:
+  # Start=1.0, Stop=2.5  → elapsed=1.5
+  _mock_perf(monkeypatch, [1.0, 2.5])
+  caplog.set_level(logging.INFO)
+  t = base.Timer('X')
+  t.Start()
+  t.Stop()
+  # A second Stop should error
+  with pytest.raises(base.Error, match='Re-stopping timer is forbidden'):
+    t.Stop()
+  # Final string reflects final (not partial)
+  assert str(t) == 'X: 1.50 s'
+  # Logged exactly once
+  msgs = [rec.getMessage() for rec in caplog.records]
+  assert msgs == ['X: 1.50 s']
+
+
+def test_Timer_context_manager_logs_and_optionally_prints(monkeypatch, caplog, capsys) -> None:
+  # Enter=10.00, Exit=10.25 → 0.25 s
+  _mock_perf(monkeypatch, [10.00, 10.25])
+  caplog.set_level(logging.INFO)
+  with base.Timer('CTX', emit_print=True):
+    pass
+  # Logged
+  msgs = [rec.getMessage() for rec in caplog.records]
+  assert msgs == ['CTX: 250.000 ms']
+  # Printed (because emit_print=True in __exit__)
+  out = capsys.readouterr().out.strip()
+  assert out == 'CTX: 250.000 ms'
+
+
+def test_Timer_context_manager_exception_still_times_and_logs(monkeypatch, caplog) -> None:
+  # Enter=5.0, Exit=5.3 → 0.3 s even if exception occurs
+  _mock_perf(monkeypatch, [5.0, 5.3])
+  caplog.set_level(logging.INFO)
+  
+  class Boom(Exception): ...
+  
+  with pytest.raises(Boom):
+    with base.Timer('ERR'):
+      raise Boom('boom')
+  # Stop was called; message logged
+  msgs = [rec.getMessage() for rec in caplog.records]
+  assert msgs == ['ERR: 300.000 ms']
+
+
+def test_Timer_decorator_logs(monkeypatch, caplog) -> None:
+  # Start=1.00, Stop=1.40 → 0.40 s
+  _mock_perf(monkeypatch, [1.00, 1.40])
+  caplog.set_level(logging.INFO)
+
+  @base.Timer('DEC')
+  def f(a, b):
+    return a + b
+
+  assert f(2, 3) == 5
+  msgs = [rec.getMessage() for rec in caplog.records]
+  assert msgs == ['DEC: 400.000 ms']
+
+
+def test_Timer_decorator_emit_print_true_prints_and_logs(monkeypatch, caplog, capsys) -> None:
+  # Start=2.00, Stop=2.01 → 0.01 s
+  _mock_perf(monkeypatch, [2.00, 2.01])
+  caplog.set_level(logging.INFO)
+
+  @base.Timer('PRINT', emit_print=True)
+  def g():
+    return 'ok'
+
+  assert g() == 'ok'
+  # Logs (Stop) and prints (in __exit__)
+  msgs = [rec.getMessage() for rec in caplog.records]
+  assert msgs == ['PRINT: 10.000 ms']
+  out = capsys.readouterr().out.strip()
+  assert out == 'PRINT: 10.000 ms'
+
+
+def test_Timer_decorator_exception_propagates_and_logs(monkeypatch, caplog) -> None:
+  # Start=3.0, Stop=3.2 → 0.2 s even when raising
+  _mock_perf(monkeypatch, [3.0, 3.2])
+  caplog.set_level(logging.INFO)
+
+  class Oops(Exception): ...
+
+  @base.Timer('DECERR')
+  def h():
+    raise Oops('nope')
+
+  with pytest.raises(Oops, match='nope'):
+    h()
+  msgs = [rec.getMessage() for rec in caplog.records]
+  assert msgs == ['DECERR: 200.000 ms']
+
+
+def test_Timer_label_validation() -> None:
+  with pytest.raises(base.InputError, match='Empty label'):
+    base.Timer('   ')
 
 
 if __name__ == '__main__':

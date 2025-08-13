@@ -266,22 +266,24 @@ def test_FermatIsPrime_invalid() -> None:
 
 
 @pytest.mark.parametrize('n, witnesses', [
-    (2 ** 10, {2}),
-    (2 ** 20, {31, 73}),
-    (2 ** 30, {2, 7, 61}),
-    (2 ** 40, {2, 3, 5, 7, 11}),
-    (2 ** 45, {2, 3, 5, 7, 11, 13, 17}),
-    (2 ** 55, {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37}),
-    (2 ** 75, {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41}),
-    (2 ** 82, {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73,
-               79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137}),
-    (2 ** 100, {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73,
-                79, 83, 89, 97, 101, 103, 107}),
-    (2 ** 200, {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43}),
-    (2 ** 400, {2, 3, 5, 7, 11, 13, 17, 19}),
-    (2 ** 800, {2, 3, 5, 7}),
-    (2 ** 1600, {2, 3, 5}),
-    (2 ** 1800, {2, 3}),
+    pytest.param(2 ** 10, {2}, id='2**10'),
+    pytest.param(2 ** 20, {31, 73}, id='2**20'),
+    pytest.param(2 ** 30, {2, 7, 61}, id='2**30'),
+    pytest.param(2 ** 40, {2, 3, 5, 7, 11}, id='2**40'),
+    pytest.param(2 ** 45, {2, 3, 5, 7, 11, 13, 17}, id='2**45'),
+    pytest.param(2 ** 55, {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37}, id='2**55'),
+    pytest.param(2 ** 75, {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41}, id='2**75'),
+    pytest.param(
+        2 ** 82, {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73,
+                  79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137}, id='2**82'),
+    pytest.param(
+        2 ** 100, {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73,
+                   79, 83, 89, 97, 101, 103, 107}, id='2**100'),
+    pytest.param(2 ** 200, {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43}, id='2**200'),
+    pytest.param(2 ** 400, {2, 3, 5, 7, 11, 13, 17, 19}, id='2**400'),
+    pytest.param(2 ** 800, {2, 3, 5, 7}, id='2**800'),
+    pytest.param(2 ** 1600, {2, 3, 5}, id='2**1600'),
+    pytest.param(2 ** 1800, {2, 3}, id='2**1800'),
 ])
 def test_MillerRabinWitnesses(n: int, witnesses: set[int]) -> None:
   """Test."""
@@ -325,17 +327,17 @@ def test_IsPrime_basic() -> None:
 
 
 @pytest.mark.parametrize('n, p', [
-    (8911, False),   # strong pseudo-prime
-    (9881, False),   # strong pseudo-prime
-    (2 ** 16 + 1, True),  # 65537, largest Fermat prime
-    (97567, False),  # strong pseudo-prime
-    (79381, False),  # strong pseudo-prime
-    (3825123056546413051, False),
-    (3317044064679887385961983, False),
-    (2 ** 113 - 1, False),
-    (2 ** 127 - 1, True),   # Mersenne prime
-    (2 ** 131 - 1, False),
-    (2 ** 1279 - 1, True),  # Mersenne prime
+    pytest.param(8911, False),        # strong pseudo-prime
+    pytest.param(9881, False),        # strong pseudo-prime
+    pytest.param(2 ** 16 + 1, True),  # 65537, largest Fermat prime
+    pytest.param(97567, False),       # strong pseudo-prime
+    pytest.param(79381, False),       # strong pseudo-prime
+    pytest.param(3825123056546413051, False),
+    pytest.param(3317044064679887385961983, False),
+    pytest.param(2 ** 113 - 1, False, id='2**113-1'),
+    pytest.param(2 ** 127 - 1, True, id='2**127-1'),    # Mersenne prime
+    pytest.param(2 ** 131 - 1, False, id='2**131-1'),
+    pytest.param(2 ** 1279 - 1, True, id='2**1279-1'),  # Mersenne prime
 ])
 def test_MillerRabinIsPrime(n: int, p: bool) -> None:
   """Test."""
