@@ -121,7 +121,7 @@ class AESKey(base.CryptoKey):
       Args:
         key256 (AESKey): key
       """
-      self._cipher = ciphers.Cipher(algorithms.AES256(key256), modes.ECB())
+      self._cipher = ciphers.Cipher(algorithms.AES256(key256.key256), modes.ECB())
       assert self._cipher.algorithm.key_size == 256, 'should never happen: AES256+ECB should have 256 bits key'
       assert self._cipher.algorithm.block_size == 128, 'should never happen: AES256+ECB should have 128 bits block'
 
@@ -162,5 +162,5 @@ class AESKey(base.CryptoKey):
       """Decrypt a 256 bits hexadecimal block, outputting also a 256 bits hexadecimal block."""
       return base.BytesToHex(self.Decrypt(base.HexToBytes(ciphertext_hex)))
 
-  def ECBEncoder(self) -> ECBEncoderClass:
-    return AESKey.ECBEncoderClass(self.key256)
+  def ECBEncoder(self) -> 'AESKey.ECBEncoderClass':
+    return AESKey.ECBEncoderClass(self)

@@ -495,7 +495,7 @@ class Timer:
 
   _F = TypeVar('_F', bound=Callable[..., Any])
 
-  def __call__(self, func: _F) -> _F:
+  def __call__(self, func: 'Timer._F') -> 'Timer._F':
     """Allow the Timer to be used as a decorator.
 
     Args:

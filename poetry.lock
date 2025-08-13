@@ -586,6 +586,21 @@ files = [
 ]
 
 [[package]]
+name = "typeguard"
+version = "4.4.4"
+description = "Run-time type checker for Python"
+optional = false
+python-versions = ">=3.9"
+groups = ["dev"]
+files = [
+    {file = "typeguard-4.4.4-py3-none-any.whl", hash = "sha256:b5f562281b6bfa1f5492470464730ef001646128b180769880468bd84b68b09e"},
+    {file = "typeguard-4.4.4.tar.gz", hash = "sha256:3a7fd2dffb705d4d0efaed4306a704c89b9dee850b688f060a8b1615a79e5f74"},
+]
+
+[package.dependencies]
+typing_extensions = ">=4.14.0"
+
+[[package]]
 name = "typing-extensions"
 version = "4.14.1"
 description = "Backported and Experimental Type Hints for Python 3.9+"
@@ -600,4 +615,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13.5"
-content-hash = "67ea39e4d9710187d95a34270271029f99ae9ffec032ac8a8e9c7de41c3e9a0f"
+content-hash = "3447ce2e6102cd13312831205f7beb99fda9c4dcef354c6cd5507539113039f1"

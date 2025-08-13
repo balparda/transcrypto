@@ -312,7 +312,8 @@ To update `poetry.lock` file to more current versions do `poetry update`, it wil
 To add a new dependency you should do:
 
 ```sh
-poetry add "pkg>=1.2.3"  # regenerates lock, updates env
+poetry add "pkg>=1.2.3"  # regenerates lock, updates env (adds dep to prod code)
+poetry add -G dev "pkg>=1.2.3"  # adds dep to dev code ("group" dev)
 # also remember: "pkg@^1.2.3" = latest 1.* ; "pkg@~1.2.3" = latest 1.2.* ; "pkg@1.2.3" exact
 ```
 
