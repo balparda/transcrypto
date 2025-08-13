@@ -106,6 +106,7 @@ def test_DSA(
     private.VerifySignature(10, (1, 3))
   with pytest.raises(base.InputError, match='invalid signature'):
     private.VerifySignature(10, (3, prime_seed))
+  assert make_ephemeral.call_args_list == [mock.call(private)]
  
 
 def test_DSAKey_invalid() -> None:

@@ -248,6 +248,15 @@ def test_RandShuffle_small_n_uniformity() -> None:
   # each of 6 perms should be close to N/6
   for c in counts.values():
     assert abs(c - N/6) < 0.2 * (N/6)  # chance of failure in any of 6 deviates is 1 in 10**11
+    
+    
+def test_RandBytes() -> None:
+  """Test."""
+  with pytest.raises(base.InputError, match='n_bytes must be ≥ 1'):
+    base.RandBytes(0)
+  assert len(base.RandBytes(1)) == 1
+  assert len(base.RandBytes(1000)) == 1000
+  assert len(set(base.RandBytes(32) for _ in range(100))) == 100  # chance of failure is 1 in 10**74
 
 
 def test_RandBits_RandInt_RandShuffle_parallel_smoke() -> None:
@@ -255,11 +264,13 @@ def test_RandBits_RandInt_RandShuffle_parallel_smoke() -> None:
   with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
     xs = list(ex.map(lambda _: base.RandBits(256), range(200)))
     ys = list(ex.map(lambda _: base.RandInt(0, 1000), range(200)))
+    zs = list(ex.map(lambda _: base.RandBytes(32), range(200)))
     seq = list(range(50))
     # shuffle some independent copies
     list(ex.map(lambda _: base.RandShuffle(seq[:]), range(50)))
   assert len(set(xs)) == len(xs)
   assert all(0 <= y <= 1000 for y in ys)  # chance of failure in any of 200 draws is 1 in 10**73
+  assert len(set(zs)) == len(zs)
 
 
 @pytest.mark.parametrize('n', [1, 17, 10 ** 12])

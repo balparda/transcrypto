@@ -25,9 +25,10 @@ import pdb
 from typing import Any, Self
 
 from cryptography.hazmat.primitives import ciphers
-from cryptography.hazmat.primitives.ciphers import algorithms, modes
+from cryptography.hazmat.primitives.ciphers import algorithms, modes, aead
 from cryptography.hazmat.primitives import hashes as hazmat_hashes
 from cryptography.hazmat.primitives.kdf import pbkdf2 as hazmat_pbkdf2
+from cryptography import exceptions as crypt_exceptions
 
 from . import base
 
@@ -47,7 +48,7 @@ assert _PASSWORD_ITERATIONS == (6075308 + 1) // 3, 'should never happen: constan
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
-class AESKey(base.CryptoKey):
+class AESKey(base.CryptoKey, base.SymmetricCrypto):
   """Advanced Encryption Standard (AES) 256 bits key (32 bytes).
 
   Attributes:
@@ -108,7 +109,7 @@ class AESKey(base.CryptoKey):
     return cls(key256=kdf.derive(str_password.encode('utf-8')))
     
   class ECBEncoderClass(base.SymmetricCrypto):
-    """The simplest encryption possible (UNSAFE if misused): 128 bit block AES256-ECB, 256 bit key.
+    """The simplest encryption possible (UNSAFE if misused): 128 bit block AES-ECB, 256 bit key.
 
     Please DO **NOT** use this for regular cryptography. For regular crypto use Encrypt()/Decrypt().
     This class was specifically built to encode/decode 128 bit / 16 bytes blocks using a
@@ -125,30 +126,45 @@ class AESKey(base.CryptoKey):
       assert self._cipher.algorithm.key_size == 256, 'should never happen: AES256+ECB should have 256 bits key'
       assert self._cipher.algorithm.block_size == 128, 'should never happen: AES256+ECB should have 128 bits block'
 
-    @property
-    def name(self) -> str:
-      """Algorithm identifier (e.g., 'AES-ECB')."""
-      return 'AES/256-ECB/128'
-
-    @property
-    def key_size(self) -> int:
-      """Expected key size in BITS (informational; may be 0 if variable)."""
-      return 256
+    def Encrypt(self, plaintext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+      """Encrypt a 128 bits block (16 bytes) `plaintext` and return `ciphertext` of 128 bits.
       
-    @property
-    def block_size(self) -> int:
-      """Expected block size in BITS (informational; may be 0 if variable)."""
-      return 128
+      Please DO **NOT** use this for regular cryptography.
 
-    def Encrypt(self, plaintext: bytes, /) -> bytes:
-      """Encrypt a 128 bits block (16 bytes), output a 128 bits block (16 bytes)."""
+      Args:
+        plaintext (bytes): Data to encrypt.
+        associated_data (bytes, optional): DO NOT USE - not supported in ECB mode
+
+      Returns:
+        bytes: Ciphertext, a block of 128 bits (16 bytes)
+
+      Raises:
+        InputError: invalid inputs
+      """
+      if associated_data is not None:
+        raise base.InputError('AES/ECB does not support associated_data')
       if len(plaintext) != 16:
         raise base.InputError(f'plaintext must be 16 bytes long, got {len(plaintext)}')
       encryptor: ciphers.CipherContext = self._cipher.encryptor()
       return encryptor.update(plaintext) + encryptor.finalize()
 
-    def Decrypt(self, ciphertext: bytes, /) -> bytes:
-      """Decrypt a 128 bits block (16 bytes), output a 128 bits block (16 bytes)."""
+    def Decrypt(self, ciphertext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+      """Decrypt a 128 bits block (16 bytes) `ciphertext` and return original 128 bits `plaintext`.
+      
+      Please DO **NOT** use this for regular cryptography.
+
+      Args:
+        ciphertext (bytes): Data to decrypt (including any embedded nonce/tag if applicable)
+        associated_data (bytes, optional): DO NOT USE - not supported in ECB mode
+
+      Returns:
+        bytes: Decrypted plaintext, a block of 128 bits (16 bytes)
+
+      Raises:
+        InputError: invalid inputs
+      """
+      if associated_data is not None:
+        raise base.InputError('AES/ECB does not support associated_data')
       if len(ciphertext) != 16:
         raise base.InputError(f'ciphertext must be 16 bytes long, got {len(ciphertext)}')
       decryptor: ciphers.CipherContext = self._cipher.decryptor()
@@ -164,3 +180,65 @@ class AESKey(base.CryptoKey):
 
   def ECBEncoder(self) -> 'AESKey.ECBEncoderClass':
     return AESKey.ECBEncoderClass(self)
+
+  def Encrypt(self, plaintext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+    """Encrypt `plaintext` and return `ciphertext` with AES-256 + GCM algorithm.
+    
+    <https://en.wikipedia.org/wiki/Galois/Counter_Mode>
+    <https://cryptography.io/en/latest/hazmat/primitives/symmetric-encryption/#cryptography.hazmat.primitives.ciphers.modes.GCM>
+
+    Args:
+      plaintext (bytes): Data to encrypt.
+      associated_data (bytes, optional): Optional AAD (Authenticated Associated Data),
+          AEAD mode (authenticated encryption with associated data); must be provided
+          again on decrypt
+
+    Returns:
+      bytes: Ciphertext; if a nonce/tag is needed for decryption, the implementation
+      must encode it within the returned bytes (or document how to retrieve it)
+
+    Raises:
+      InputError: invalid inputs
+      CryptoError: internal crypto failures
+    """
+    iv: bytes = base.RandBytes(16)
+    cipher = ciphers.Cipher(algorithms.AES256(self.key256), modes.GCM(iv))
+    assert cipher.algorithm.key_size == 256, 'should never happen: AES256+GCM should have 256 bits key'
+    assert cipher.algorithm.block_size == 128, 'should never happen: AES256+GCM should have 128 bits block'
+    encryptor: ciphers.CipherContext = cipher.encryptor()
+    if associated_data:
+      encryptor.authenticate_additional_data(associated_data)
+    ciphertext: bytes = encryptor.update(plaintext) + encryptor.finalize()  # GCM doesn't need padding
+    tag: bytes = encryptor.tag
+    assert len(iv) == 16, 'should never happen: AES256+GCM should have 128 bits IV/nonce'
+    assert len(tag) == 16, 'should never happen: AES256+GCM should have 128 bits tag'
+    return iv + ciphertext + tag
+
+  def Decrypt(self, ciphertext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+    """Decrypt `ciphertext` and return the original `plaintext` with AES-256 + GCM algorithm.
+    
+    <https://en.wikipedia.org/wiki/Galois/Counter_Mode>
+    <https://cryptography.io/en/latest/hazmat/primitives/symmetric-encryption/#cryptography.hazmat.primitives.ciphers.modes.GCM>
+
+    Args:
+      ciphertext (bytes): Data to decrypt (including any embedded nonce/tag if applicable)
+      associated_data (bytes, optional): Optional AAD (Authenticated Associated Data);
+          must match what was used during encrypt
+
+    Returns:
+      bytes: Decrypted plaintext bytes
+
+    Raises:
+      InputError: invalid inputs
+      CryptoError: internal crypto failures, authentication failure, key mismatch, etc
+    """
+    assert len(ciphertext) >= 32, 'should never happen: AES256+GCM should have ≥32 bytes IV/ct/nonce'
+    iv, tag = ciphertext[:16], ciphertext[-16:]
+    decryptor: ciphers.CipherContext = ciphers.Cipher(
+        algorithms.AES256(self.key256), modes.GCM(iv, tag)).decryptor()
+    if associated_data:
+      decryptor.authenticate_additional_data(associated_data)
+    try:
+      return decryptor.update(ciphertext[16:-16]) + decryptor.finalize()
+    except crypt_exceptions.InvalidTag as err:
+      raise base.CryptoError('failed decryption') from err
