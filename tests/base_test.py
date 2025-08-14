@@ -532,6 +532,152 @@ def test_Timer_label_validation() -> None:
     base.Timer('   ')
 
 
+def test_Serialize() -> None:
+  """Test."""
+  return
+  pdb.set_trace()
+  key = aes.AESKey.FromStaticPassword('daniel')
+  obj = base.Serialize({1: 'a', 2: 'b', 3: 'loooooooooooouco'}, key=key)
+  loaded = base.DeSerialize(data=obj, key=key)
+  
+  
+  return
+  # do memory serialization test
+  serial: bytes = aes.BinSerialize(({1: 2, 3: 4}, []))
+  obj: Any = aes.BinDeSerialize(data=serial)
+  assert obj == ({1: 2, 3: 4}, [])
+  # do uncompressed memory serialization test
+  serial = aes.BinSerialize(({5: 6, 7: 8}, [9, 10]), compress=False)
+  obj = aes.BinDeSerialize(data=serial, compress=False)
+  assert obj == ({5: 6, 7: 8}, [9, 10])
+  # do encrypted uncompressed memory serialization test
+  crypto_key = b'LRtw2A4U9PAtihUow5p_eQex6IYKM7nUoPlf1fkKPgc='
+  serial = aes.BinSerialize(({10: 9, 8: 7}, {6, 5}), compress=False, key=crypto_key)
+  obj = aes.BinDeSerialize(data=serial, compress=False, key=crypto_key)
+  assert obj == ({10: 9, 8: 7}, {6, 5})
+  # do encrypted and compressed memory serialization test
+  serial = aes.BinSerialize(({100: 90, 80: 70}, {60, 50}), compress=True, key=crypto_key)
+  obj = aes.BinDeSerialize(data=serial, key=crypto_key)
+  assert obj == ({100: 90, 80: 70}, {60, 50})
+  # do compressed disk serialization test
+  with tempfile.TemporaryDirectory() as tmpdir:
+    tmp_file = os.path.join(tmpdir, f'base_test.test_Serialize.{int(time.time())}')
+    aes.BinSerialize(({4: 3, 2: 1}, [None, 7]), file_path=tmp_file)
+    assert aes.BinDeSerialize(file_path=tmp_file) == ({4: 3, 2: 1}, [None, 7])
+
+
+class _ToyCipher(base.SymmetricCrypto):
+  """Tiny reversible "cipher" for tests. Format: b'X' + secret + aad + plaintext."""
+
+  def __init__(self, secret: bytes):
+    self._secret = secret
+
+  def Encrypt(self, plaintext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+    aad = associated_data or b''
+    return b'X' + self._secret + aad + plaintext
+
+  def Decrypt(self, ciphertext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+    aad = associated_data or b''
+    prefix = b'X' + self._secret + aad
+    if not ciphertext.startswith(prefix):
+      raise base.CryptoError('decryption failed: bad key or aad')
+    return ciphertext[len(prefix):]
+
+
+@pytest.fixture
+def sample_obj():
+  # moderately nested object to exercise pickle well
+  return {
+    'nums': list(range(50)),
+    'nested': {'a': 1, 'b': b'bytes', 'c': None},
+    'text': 'zstd 🍰 compression test',
+  }
+
+
+def test_serialize_deserialize_no_compress_no_encrypt(sample_obj):
+  blob = base.Serialize(sample_obj, compress=None)
+  # should NOT look like zstd: DeSerialize should skip decompression path
+  obj2 = base.DeSerialize(data=blob)
+  assert obj2 == sample_obj
+
+
+def test_serialize_deserialize_with_compress_negative_clamped(sample_obj):
+  # request a very fast negative level; function clamps to >= -22 then compresses
+  blob = base.Serialize(sample_obj, compress=-100)  # expect clamp to -22 internally
+  # Verify magic-detected zstd path and successful round-trip
+  obj2 = base.DeSerialize(data=blob)
+  assert obj2 == sample_obj
+
+
+def test_serialize_deserialize_with_compress_high_clamped(sample_obj):
+  # request above max; function clamps to 22
+  blob = base.Serialize(sample_obj, compress=99)
+  obj2 = base.DeSerialize(data=blob)
+  assert obj2 == sample_obj
+
+
+def test_serialize_deserialize_with_encrypt_ok(sample_obj):
+  key = _ToyCipher(b'secret1')
+  blob = base.Serialize(sample_obj, compress=3, key=key)
+  # must supply same key (and same AAD inside implementation)
+  obj2 = base.DeSerialize(data=blob, key=key)
+  assert obj2 == sample_obj
+
+
+def test_serialize_save_and_load_from_file(tmp_path, sample_obj):
+  p = tmp_path / 'payload.bin'
+  blob = base.Serialize(sample_obj, compress=3, file_path=str(p))
+  assert p.exists() and p.stat().st_size == len(blob)
+  obj2 = base.DeSerialize(file_path=str(p))
+  assert obj2 == sample_obj
+
+
+def test_deserialize_exclusivity_both_args(tmp_path, sample_obj):
+  p = tmp_path / 'x.bin'
+  p.write_bytes(b'data')
+  with pytest.raises(base.InputError, match='you must provide only one of either'):
+    base.DeSerialize(data=b'data', file_path=str(p))
+
+
+def test_deserialize_invalid_calls():
+  with pytest.raises(base.InputError, match='you must provide only one of either'):
+    base.DeSerialize()
+  with pytest.raises(base.InputError, match='invalid file_path'):
+    base.DeSerialize(file_path='/definitely/not/here.bin')
+  with pytest.raises(base.InputError, match='invalid data: too small'):
+    base.DeSerialize(data=b'\x00\x01\x02')
+
+
+def test_deserialize_wrong_key_raises(sample_obj):
+  key_ok = _ToyCipher(b'k1')
+  key_bad = _ToyCipher(b'k2')
+  blob = base.Serialize(sample_obj, compress=3, key=key_ok)
+  with pytest.raises(base.CryptoError):
+    base.DeSerialize(data=blob, key=key_bad)
+
+
+def test_deserialize_corrupted_zstd_raises(sample_obj):
+  # create a valid zstd-compressed blob
+  blob = base.Serialize(sample_obj, compress=3)
+  # corrupt a byte beyond the first 4 (to keep magic intact)
+  mutable = bytearray(blob)
+  if len(mutable) <= 10:
+    pytest.skip('blob too small to corrupt safely for this test')
+  mutable[10] ^= 0xFF
+  corrupted = bytes(mutable)
+  # DeSerialize should detect zstd via magic, attempt to decompress, and zstd should error
+  with pytest.raises(base.zstandard.ZstdError):
+    base.DeSerialize(data=corrupted)
+
+
+def test_deserialize_no_compression_detected_branch(sample_obj):
+  # Craft a blob that is NOT zstd: disable compression
+  blob = base.Serialize(sample_obj, compress=None)
+  # This exercises the "(no compression detected)" branch
+  obj2 = base.DeSerialize(data=blob)
+  assert obj2 == sample_obj
+
+
 if __name__ == '__main__':
   # run only the tests in THIS file but pass through any extra CLI flags
   args: list[str] = sys.argv[1:] + [__file__]

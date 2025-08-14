@@ -1,3 +1,4 @@
-cffi==1.17.1 ; python_full_version >= "3.13.5" and platform_python_implementation != "PyPy"
+cffi==1.17.1 ; python_full_version >= "3.13.5"
 cryptography==45.0.6 ; python_full_version >= "3.13.5"
-pycparser==2.22 ; python_full_version >= "3.13.5" and platform_python_implementation != "PyPy"
+pycparser==2.22 ; python_full_version >= "3.13.5"
+zstandard==0.23.0 ; python_full_version >= "3.13.5"

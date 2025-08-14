@@ -52,6 +52,12 @@ pip3 install transcrypto
 
 and then `from transcrypto import rsa` (or other parts of the library) for using it.
 
+Known dependencies:
+
+<https://pypi.org/project/zstandard/> (<https://python-zstandard.readthedocs.org/>)
+
+<https://pypi.org/project/cryptography/> (<https://cryptography.io/en/latest/>)
+
 ### Base Library
 
 #### Computing the Greatest Common Divisor

@@ -13,11 +13,13 @@ import hashlib
 import logging
 import math
 import os.path
-# import pdb
+import pickle
+import pdb
 import secrets
 import time
 from typing import Any, Callable, MutableSequence, Protocol, TypeVar, runtime_checkable, final
 
+import zstandard
 
 __author__ = 'balparda@github.com'
 __version__ = '1.0.3'  # v1.0.3, 2025-07-30
@@ -36,6 +38,16 @@ IntToBytes: Callable[[int], bytes] = lambda i: i.to_bytes(
 EncodedToBytes: Callable[[bytes], str] = lambda e: base64.urlsafe_b64decode(e.encode('ascii'))
 
 PadBytesTo: Callable[[bytes, int], bytes] = lambda b, i: b.rjust((i + 7) // 8, b'\x00')
+
+
+# these control the pickling of data, do NOT ever change, or you will break all databases
+# <https://docs.python.org/3/library/pickle.html#pickle.DEFAULT_PROTOCOL>
+_PICKLE_PROTOCOL = 4  # protocol 4 available since python v3.8 # do NOT ever change!
+_PICKLE_AAD = b'transcrypto.base.Serialize'  # do NOT ever change!
+# these help find compressed files, do NOT change unless zstandard changes
+_ZSTD_MAGIC_FRAME = 0xFD2FB528
+_ZSTD_MAGIC_SKIPPABLE_MIN = 0x184D2A50
+_ZSTD_MAGIC_SKIPPABLE_MAX = 0x184D2A5F
 
 
 class Error(Exception):
@@ -454,15 +466,20 @@ class Timer:
     elapsed (float | None): Time delta
   """
 
-  def __init__(self, label: str = 'Elapsed time', /, *, emit_print: bool = False) -> None:
+  def __init__(
+      self, label: str = 'Elapsed time', /, *,
+      emit_log: bool = True, emit_print: bool = False) -> None:
     """Initialize the Timer.
 
     Args:
       label (str, optional): A description or name for the timed block or function
+      emit_log (bool, optional): Emit a log message when finished; default is True
+      emit_print (bool, optional): Emit a print() message when finished; default is False
 
     Raises:
       InputError: empty label
     """
+    self.emit_log: bool = emit_log
     self.emit_print: bool = emit_print
     self.label: str = label.strip()
     if not self.label:
@@ -498,7 +515,11 @@ class Timer:
       raise Error('Re-stopping timer is forbidden')
     self.end = time.perf_counter()
     self.elapsed = self.end - self.start
-    logging.info(str(self))
+    message: str = str(self)
+    if self.emit_log:
+      logging.info(message)
+    if self.emit_print:
+      print(message)
 
   def __exit__(
       self, exc_type: type[BaseException] | None,
@@ -511,8 +532,6 @@ class Timer:
       exc_tb (Any): Traceback object, if any.
     """
     self.Stop()
-    if self.emit_print:
-      print(str(self))
 
   _F = TypeVar('_F', bound=Callable[..., Any])
 
@@ -528,11 +547,10 @@ class Timer:
   
     @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
-      with self.__class__(self.label, emit_print=self.emit_print):
+      with self.__class__(self.label, emit_log=self.emit_log, emit_print=self.emit_print):
         return func(*args, **kwargs)
   
     return wrapper
-
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
@@ -548,16 +566,9 @@ class SymmetricCrypto(abc.ABC):
 
   Contract:
     - If algorithm accepts a `nonce` or `tag` these have to be handled internally by the
-      implementation and appended to the cyphertext.
+      implementation and appended to the ciphertext.
     - If AEAD is supported, `associated_data` (AAD) must be authenticated. If not supported
       then `associated_data` different from None must raise InputError.
-
-  Args:
-    key (bytes): Raw key material appropriate for the algorithm.
-
-  Attributes:
-    name (str): Short algorithm name (e.g., 'xor-demo', 'aes-gcm').
-    key_size (int): Key length in bytes (informational).
 
   Notes:
     The interface is deliberately minimal: byte-in / byte-out.
@@ -599,3 +610,133 @@ class SymmetricCrypto(abc.ABC):
       InputError: invalid inputs
       CryptoError: internal crypto failures, authentication failure, key mismatch, etc
     """
+
+
+def Serialize(
+    python_obj: Any, /, *, file_path: str | None = None,
+    compress: int | None = 3, key: SymmetricCrypto | None = None) -> bytes:
+  """Serialize a Python object into a BLOB, optionally compress / encrypt / save to disk.
+  
+  Data path is:
+  
+    `obj` => pickle => (compress) => (encrypt) => (save to `file_path`) => return
+    
+  At every step of the data path the data will be measured, in bytes.
+  Every data conversion will be timed. The measurements/times will be logged (once).
+  
+  Compression levels / speed can be controlled by `compress`. Use this as reference:
+  
+  | Level    | Speed       | Compression ratio                 | Typical use case                        |
+  | -------- | ------------| --------------------------------- | --------------------------------------- |
+  | –5 to –1 | Fastest     | Poor (better than no compression) | Real-time or very latency-sensitive     |
+  | 0–3      | Very fast   | Good ratio                        | Default CLI choice, safe baseline       |
+  | 4–6      | Moderate    | Better ratio                      | Good compromise for general persistence |
+  | 7–10     | Slower      | Marginally better ratio           | Only if storage space is precious       |
+  | 11–15    | Much slower | Slight gains                      | Large archives, not for runtime use     |
+  | 16–22    | Very slow   | Tiny gains                        | Archival-only, multi-GB datasets        |
+
+  Args:
+    python_obj (Any): serializable Python object
+    file_path (str, optional): full path to optionally save the data to
+    compress (int | None, optional): Compress level before encrypting/saving; -22 ≤ compress ≤ 22;
+        None is no compression; default is 3, which is fast, see table above for other values
+    key (SymmetricCrypto, optional): if given will key.Encrypt() data before saving
+
+  Returns:
+    bytes: serialized binary data corresponding to obj + (compression) + (encryption)
+  """
+  messages = []
+  with Timer('Serialization complete', emit_log=False) as tm_all:
+    # pickle
+    with Timer('PICKLE', emit_log=False) as tm_pickle:
+      obj: bytes = pickle.dumps(python_obj, protocol=_PICKLE_PROTOCOL)
+    messages.append(f'    {tm_pickle}, {HumanizedBytes(len(obj))}')
+    # compress, if needed
+    if compress is not None:
+      compress = -22 if compress < -22 else compress
+      compress = 22 if compress > 22 else compress
+      with Timer(f'COMPRESS@{compress}', emit_log=False) as tm_compress:
+        obj = zstandard.ZstdCompressor(level=compress).compress(obj)
+      messages.append(f'    {tm_compress}, {HumanizedBytes(len(obj))}')
+    # encrypt, if needed
+    if key is not None:
+      with Timer('ENCRYPT', emit_log=False) as tm_crypto:
+        obj = key.Encrypt(obj, associated_data=_PICKLE_AAD)
+      messages.append(f'    {tm_crypto}, {HumanizedBytes(len(obj))}')
+    # optionally save to disk
+    if file_path is not None:
+      with Timer('SAVE', emit_log=False) as tm_save:
+        with open(file_path, 'wb') as file_obj:
+          file_obj.write(obj)
+      messages.append(f'    {tm_save}, to {file_path!r}')
+  # log and return
+  logging.info(f'{tm_all}; parts:\n' + '\n'.join(messages))
+  return obj
+
+
+def DeSerialize(
+    *, data: bytes | None = None, file_path: str | None = None,
+    key: SymmetricCrypto | None = None) -> Any:
+  """Loads (de-serializes) a BLOB back to a Python object, optionally decrypting / decompressing.
+  
+  Data path is:
+  
+    `data` or `file_path` => (decrypt) => (decompress) => unpickle => return object
+    
+  At every step of the data path the data will be measured, in bytes.
+  Every data conversion will be timed. The measurements/times will be logged (once).
+  Compression versus no compression will be automatically detected.
+
+  Args:
+    data (bytes, optional): if given, use this as binary data string (input);
+       if you use this option, `file_path` will be ignored
+    file_path (str, optional): if given, use this as file path to load binary data string (input);
+       if you use this option, `data` will be ignored
+    key (SymmetricCrypto, optional): if given will key.Decrypt() data before decompressing/loading
+
+  Returns:
+    De-Serialized Python object corresponding to data
+
+  Raises:
+    InputError: invalid inputs
+    CryptoError: internal crypto failures, authentication failure, key mismatch, etc
+  """
+  # test inputs
+  if (data is None and file_path is None) or (data is not None and file_path is not None):
+    raise InputError(f'you must provide only one of either `data` or `file_path`')
+  if file_path and not os.path.exists(file_path):
+    raise InputError(f'invalid file_path: {file_path!r}')
+  if data and len(data) < 4:
+    raise InputError('invalid data: too small')
+  # start the pipeline
+  obj: bytes = data if data else b''
+  messages = [f'DATA: {HumanizedBytes(len(obj))}'] if data else []
+  with Timer('De-Serialization complete', emit_log=False) as tm_all:
+    # optionally load from disk
+    if file_path:
+      assert not obj, 'should never happen: if we have a file obj should be empty'
+      with Timer('LOAD', emit_log=False) as tm_load:
+        with open(file_path, 'rb') as file_obj:
+          obj = file_obj.read()
+      messages.append(f'    {tm_load}, {HumanizedBytes(len(obj))}, from {file_path!r}')
+    # decrypt, if needed
+    if key is not None:
+      with Timer('DECRYPT', emit_log=False) as tm_crypto:
+        obj = key.Decrypt(obj, associated_data=_PICKLE_AAD)
+      messages.append(f'    {tm_crypto}, {HumanizedBytes(len(obj))}')
+    # decompress: we try to detect compression to determine if we must call zstandard
+    if (len(obj) >= 4 and
+        (((magic := int.from_bytes(obj[:4], 'little')) == _ZSTD_MAGIC_FRAME) or
+         (_ZSTD_MAGIC_SKIPPABLE_MIN <= magic <= _ZSTD_MAGIC_SKIPPABLE_MAX))):
+      with Timer('DECOMPRESS', emit_log=False) as tm_decompress:
+        obj = zstandard.ZstdDecompressor().decompress(obj)
+      messages.append(f'    {tm_decompress}, {HumanizedBytes(len(obj))}')
+    else:
+      messages.append('    (no compression detected)')
+    # create the actual object = unpickle
+    with Timer('UNPICKLE', emit_log=False) as tm_unpickle:
+      python_obj: Any = pickle.loads(obj)  # nosec - this is dangerous!
+    messages.append(f'    {tm_unpickle}')
+  # log and return
+  logging.info(f'{tm_all}; parts:\n' + '\n'.join(messages))
+  return python_obj
