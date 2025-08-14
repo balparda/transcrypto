@@ -18,14 +18,11 @@ wrappers, consistent with the transcrypto style.
 
 import dataclasses
 # import datetime
-import hashlib
-import logging
-import os.path
-import pdb
-from typing import Any, Self
+# import pdb
+from typing import Self
 
 from cryptography.hazmat.primitives import ciphers
-from cryptography.hazmat.primitives.ciphers import algorithms, modes, aead
+from cryptography.hazmat.primitives.ciphers import algorithms, modes
 from cryptography.hazmat.primitives import hashes as hazmat_hashes
 from cryptography.hazmat.primitives.kdf import pbkdf2 as hazmat_pbkdf2
 from cryptography import exceptions as crypt_exceptions
@@ -66,7 +63,7 @@ class AESKey(base.CryptoKey, base.SymmetricCrypto):
     super(AESKey, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
     if len(self.key256) != 32:
       raise base.InputError(f'invalid key256: {self}')
-      
+
   @property
   def encoded(self) -> str:
     """Key encoded as URL-safe base64."""
@@ -105,9 +102,9 @@ class AESKey(base.CryptoKey, base.SymmetricCrypto):
       raise base.InputError('empty passwords not allowed, for safety reasons')
     kdf = hazmat_pbkdf2.PBKDF2HMAC(
         algorithm=hazmat_hashes.SHA256(), length=32,
-        salt=_PASSWORD_SALT_256, iterations=_PASSWORD_ITERATIONS)                             
+        salt=_PASSWORD_SALT_256, iterations=_PASSWORD_ITERATIONS)
     return cls(key256=kdf.derive(str_password.encode('utf-8')))
-    
+
   class ECBEncoderClass(base.SymmetricCrypto):
     """The simplest encryption possible (UNSAFE if misused): 128 bit block AES-ECB, 256 bit key.
 
@@ -179,6 +176,7 @@ class AESKey(base.CryptoKey, base.SymmetricCrypto):
       return base.BytesToHex(self.Decrypt(base.HexToBytes(ciphertext_hex)))
 
   def ECBEncoder(self) -> 'AESKey.ECBEncoderClass':
+    """Return a AESKey.ECBEncoderClass object using this key."""
     return AESKey.ECBEncoderClass(self)
 
   def Encrypt(self, plaintext: bytes, /, *, associated_data: bytes | None = None) -> bytes:

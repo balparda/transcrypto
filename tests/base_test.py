@@ -11,10 +11,9 @@ import concurrent.futures
 import itertools
 import logging
 import math
-import pdb
+# import pdb
 import sys
 import tempfile
-from typing import Generator
 
 import pytest
 
@@ -67,8 +66,8 @@ def test_bytes_conversions() -> None:
 def test_HumanizedBytes(value: int, message: str) -> None:
   """Test."""
   assert base.HumanizedBytes(value) == message
-  
-  
+
+
 @pytest.mark.parametrize('value, message, unit, unit_message', [
     # <1000 integer, no unit / with unit
     (0, '0', 'Hz', '0 Hz'),
@@ -99,8 +98,8 @@ def test_HumanizedDecimal(value: int | float, message: str, unit: str, unit_mess
   """Test."""
   assert base.HumanizedDecimal(value) == message
   assert base.HumanizedDecimal(value, unit) == unit_message
-  
-  
+
+
 @pytest.mark.parametrize('value, message', [
     # zero
     (0, '0.00 s'),
@@ -248,8 +247,8 @@ def test_RandShuffle_small_n_uniformity() -> None:
   # each of 6 perms should be close to N/6
   for c in counts.values():
     assert abs(c - N/6) < 0.2 * (N/6)  # chance of failure in any of 6 deviates is 1 in 10**11
-    
-    
+
+
 def test_RandBytes() -> None:
   """Test."""
   with pytest.raises(base.InputError, match='n_bytes must be ≥ 1'):
@@ -356,7 +355,7 @@ def test_NegativeZero() -> None:
         '8e959b75dae313da 8cf4f72814fc143f 8f7779c6eb9f7fa1 7299aeadb6889018'
         '501d289e4900f7e4 331b99dec4b5433a c7d329eeb6dd2654 5e96e55b874be909',
         id='NIST-long-2'),
-     
+
     pytest.param(
         'a' * 1000000,
         'cdc76e5c9914fb92 81a1c7e284d73e67 f1809a48a497200e 046d39ccc7112cd0',
@@ -407,11 +406,13 @@ def _mock_perf(monkeypatch, values):
 
 
 def test_Timer_str_unstarted() -> None:
+  """Test."""
   t = base.Timer('T')
   assert str(t) == 'T: <UNSTARTED>'
 
 
 def test_Timer_str_partial(monkeypatch) -> None:
+  """Test."""
   # Start at 100.00; __str__ calls perf_counter again (100.12) → delta 0.12 s
   _mock_perf(monkeypatch, [100.00, 100.12])
   t = base.Timer('P')
@@ -420,6 +421,7 @@ def test_Timer_str_partial(monkeypatch) -> None:
 
 
 def test_Timer_start_twice_forbidden(monkeypatch) -> None:
+  """Test."""
   _mock_perf(monkeypatch, [1.0])
   t = base.Timer('X')
   t.Start()
@@ -428,12 +430,14 @@ def test_Timer_start_twice_forbidden(monkeypatch) -> None:
 
 
 def test_Timer_stop_unstarted_forbidden() -> None:
+  """Test."""
   t = base.Timer('X')
   with pytest.raises(base.Error, match='Stopping an unstarted timer'):
     t.Stop()
 
 
 def test_Timer_stop_twice_forbidden(monkeypatch, caplog) -> None:
+  """Test."""
   # Start=1.0, Stop=2.5  → elapsed=1.5
   _mock_perf(monkeypatch, [1.0, 2.5])
   caplog.set_level(logging.INFO)
@@ -451,6 +455,7 @@ def test_Timer_stop_twice_forbidden(monkeypatch, caplog) -> None:
 
 
 def test_Timer_context_manager_logs_and_optionally_prints(monkeypatch, caplog, capsys) -> None:
+  """Test."""
   # Enter=10.00, Exit=10.25 → 0.25 s
   _mock_perf(monkeypatch, [10.00, 10.25])
   caplog.set_level(logging.INFO)
@@ -465,12 +470,13 @@ def test_Timer_context_manager_logs_and_optionally_prints(monkeypatch, caplog, c
 
 
 def test_Timer_context_manager_exception_still_times_and_logs(monkeypatch, caplog) -> None:
+  """Test."""
   # Enter=5.0, Exit=5.3 → 0.3 s even if exception occurs
   _mock_perf(monkeypatch, [5.0, 5.3])
   caplog.set_level(logging.INFO)
-  
+
   class Boom(Exception): ...
-  
+
   with pytest.raises(Boom):
     with base.Timer('ERR'):
       raise Boom('boom')
@@ -480,29 +486,31 @@ def test_Timer_context_manager_exception_still_times_and_logs(monkeypatch, caplo
 
 
 def test_Timer_decorator_logs(monkeypatch, caplog) -> None:
+  """Test."""
   # Start=1.00, Stop=1.40 → 0.40 s
   _mock_perf(monkeypatch, [1.00, 1.40])
   caplog.set_level(logging.INFO)
 
   @base.Timer('DEC')
-  def f(a, b):
+  def _f(a, b):
     return a + b
 
-  assert f(2, 3) == 5
+  assert _f(2, 3) == 5
   msgs = [rec.getMessage() for rec in caplog.records]
   assert msgs == ['DEC: 400.000 ms']
 
 
 def test_Timer_decorator_emit_print_true_prints_and_logs(monkeypatch, caplog, capsys) -> None:
+  """Test."""
   # Start=2.00, Stop=2.01 → 0.01 s
   _mock_perf(monkeypatch, [2.00, 2.01])
   caplog.set_level(logging.INFO)
 
   @base.Timer('PRINT', emit_print=True)
-  def g():
+  def _g():
     return 'ok'
 
-  assert g() == 'ok'
+  assert _g() == 'ok'
   # Logs (Stop) and prints (in __exit__)
   msgs = [rec.getMessage() for rec in caplog.records]
   assert msgs == ['PRINT: 10.000 ms']
@@ -511,6 +519,7 @@ def test_Timer_decorator_emit_print_true_prints_and_logs(monkeypatch, caplog, ca
 
 
 def test_Timer_decorator_exception_propagates_and_logs(monkeypatch, caplog) -> None:
+  """Test."""
   # Start=3.0, Stop=3.2 → 0.2 s even when raising
   _mock_perf(monkeypatch, [3.0, 3.2])
   caplog.set_level(logging.INFO)
@@ -518,65 +527,35 @@ def test_Timer_decorator_exception_propagates_and_logs(monkeypatch, caplog) -> N
   class Oops(Exception): ...
 
   @base.Timer('DECERR')
-  def h():
+  def _h():
     raise Oops('nope')
 
   with pytest.raises(Oops, match='nope'):
-    h()
+    _h()
   msgs = [rec.getMessage() for rec in caplog.records]
   assert msgs == ['DECERR: 200.000 ms']
 
 
 def test_Timer_label_validation() -> None:
+  """Test."""
   with pytest.raises(base.InputError, match='Empty label'):
     base.Timer('   ')
-
-
-def test_Serialize() -> None:
-  """Test."""
-  return
-  pdb.set_trace()
-  key = aes.AESKey.FromStaticPassword('daniel')
-  obj = base.Serialize({1: 'a', 2: 'b', 3: 'loooooooooooouco'}, key=key)
-  loaded = base.DeSerialize(data=obj, key=key)
-  
-  
-  return
-  # do memory serialization test
-  serial: bytes = aes.BinSerialize(({1: 2, 3: 4}, []))
-  obj: Any = aes.BinDeSerialize(data=serial)
-  assert obj == ({1: 2, 3: 4}, [])
-  # do uncompressed memory serialization test
-  serial = aes.BinSerialize(({5: 6, 7: 8}, [9, 10]), compress=False)
-  obj = aes.BinDeSerialize(data=serial, compress=False)
-  assert obj == ({5: 6, 7: 8}, [9, 10])
-  # do encrypted uncompressed memory serialization test
-  crypto_key = b'LRtw2A4U9PAtihUow5p_eQex6IYKM7nUoPlf1fkKPgc='
-  serial = aes.BinSerialize(({10: 9, 8: 7}, {6, 5}), compress=False, key=crypto_key)
-  obj = aes.BinDeSerialize(data=serial, compress=False, key=crypto_key)
-  assert obj == ({10: 9, 8: 7}, {6, 5})
-  # do encrypted and compressed memory serialization test
-  serial = aes.BinSerialize(({100: 90, 80: 70}, {60, 50}), compress=True, key=crypto_key)
-  obj = aes.BinDeSerialize(data=serial, key=crypto_key)
-  assert obj == ({100: 90, 80: 70}, {60, 50})
-  # do compressed disk serialization test
-  with tempfile.TemporaryDirectory() as tmpdir:
-    tmp_file = os.path.join(tmpdir, f'base_test.test_Serialize.{int(time.time())}')
-    aes.BinSerialize(({4: 3, 2: 1}, [None, 7]), file_path=tmp_file)
-    assert aes.BinDeSerialize(file_path=tmp_file) == ({4: 3, 2: 1}, [None, 7])
 
 
 class _ToyCipher(base.SymmetricCrypto):
   """Tiny reversible "cipher" for tests. Format: b'X' + secret + aad + plaintext."""
 
   def __init__(self, secret: bytes):
+    """Constructor."""
     self._secret = secret
 
   def Encrypt(self, plaintext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+    """Toy encrypt."""
     aad = associated_data or b''
     return b'X' + self._secret + aad + plaintext
 
   def Decrypt(self, ciphertext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+    """Toy decrypt."""
     aad = associated_data or b''
     prefix = b'X' + self._secret + aad
     if not ciphertext.startswith(prefix):
@@ -586,6 +565,7 @@ class _ToyCipher(base.SymmetricCrypto):
 
 @pytest.fixture
 def sample_obj():
+  """Sample object fixture."""
   # moderately nested object to exercise pickle well
   return {
     'nums': list(range(50)),
@@ -595,6 +575,7 @@ def sample_obj():
 
 
 def test_serialize_deserialize_no_compress_no_encrypt(sample_obj):
+  """Test."""
   blob = base.Serialize(sample_obj, compress=None)
   # should NOT look like zstd: DeSerialize should skip decompression path
   obj2 = base.DeSerialize(data=blob)
@@ -602,6 +583,7 @@ def test_serialize_deserialize_no_compress_no_encrypt(sample_obj):
 
 
 def test_serialize_deserialize_with_compress_negative_clamped(sample_obj):
+  """Test."""
   # request a very fast negative level; function clamps to >= -22 then compresses
   blob = base.Serialize(sample_obj, compress=-100)  # expect clamp to -22 internally
   # Verify magic-detected zstd path and successful round-trip
@@ -610,6 +592,7 @@ def test_serialize_deserialize_with_compress_negative_clamped(sample_obj):
 
 
 def test_serialize_deserialize_with_compress_high_clamped(sample_obj):
+  """Test."""
   # request above max; function clamps to 22
   blob = base.Serialize(sample_obj, compress=99)
   obj2 = base.DeSerialize(data=blob)
@@ -617,6 +600,7 @@ def test_serialize_deserialize_with_compress_high_clamped(sample_obj):
 
 
 def test_serialize_deserialize_with_encrypt_ok(sample_obj):
+  """Test."""
   key = _ToyCipher(b'secret1')
   blob = base.Serialize(sample_obj, compress=3, key=key)
   # must supply same key (and same AAD inside implementation)
@@ -625,6 +609,7 @@ def test_serialize_deserialize_with_encrypt_ok(sample_obj):
 
 
 def test_serialize_save_and_load_from_file(tmp_path, sample_obj):
+  """Test."""
   p = tmp_path / 'payload.bin'
   blob = base.Serialize(sample_obj, compress=3, file_path=str(p))
   assert p.exists() and p.stat().st_size == len(blob)
@@ -632,7 +617,8 @@ def test_serialize_save_and_load_from_file(tmp_path, sample_obj):
   assert obj2 == sample_obj
 
 
-def test_deserialize_exclusivity_both_args(tmp_path, sample_obj):
+def test_deserialize_exclusivity_both_args(tmp_path):
+  """Test."""
   p = tmp_path / 'x.bin'
   p.write_bytes(b'data')
   with pytest.raises(base.InputError, match='you must provide only one of either'):
@@ -640,6 +626,7 @@ def test_deserialize_exclusivity_both_args(tmp_path, sample_obj):
 
 
 def test_deserialize_invalid_calls():
+  """Test."""
   with pytest.raises(base.InputError, match='you must provide only one of either'):
     base.DeSerialize()
   with pytest.raises(base.InputError, match='invalid file_path'):
@@ -649,6 +636,7 @@ def test_deserialize_invalid_calls():
 
 
 def test_deserialize_wrong_key_raises(sample_obj):
+  """Test."""
   key_ok = _ToyCipher(b'k1')
   key_bad = _ToyCipher(b'k2')
   blob = base.Serialize(sample_obj, compress=3, key=key_ok)
@@ -657,6 +645,7 @@ def test_deserialize_wrong_key_raises(sample_obj):
 
 
 def test_deserialize_corrupted_zstd_raises(sample_obj):
+  """Test."""
   # create a valid zstd-compressed blob
   blob = base.Serialize(sample_obj, compress=3)
   # corrupt a byte beyond the first 4 (to keep magic intact)
@@ -671,6 +660,7 @@ def test_deserialize_corrupted_zstd_raises(sample_obj):
 
 
 def test_deserialize_no_compression_detected_branch(sample_obj):
+  """Test."""
   # Craft a blob that is NOT zstd: disable compression
   blob = base.Serialize(sample_obj, compress=None)
   # This exercises the "(no compression detected)" branch

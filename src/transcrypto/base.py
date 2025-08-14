@@ -14,10 +14,10 @@ import logging
 import math
 import os.path
 import pickle
-import pdb
+# import pdb
 import secrets
 import time
-from typing import Any, Callable, MutableSequence, Protocol, TypeVar, runtime_checkable, final
+from typing import Any, Callable, MutableSequence, TypeVar
 
 import zstandard
 
@@ -487,7 +487,7 @@ class Timer:
     self.start: float | None = None
     self.end: float | None = None
     self.elapsed: float | None = None
-    
+
   def __str__(self) -> str:
     """Current timer value."""
     if self.start is None:
@@ -544,12 +544,12 @@ class Timer:
     Returns:
       The wrapped function with timing behavior.
     """
-  
+
     @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
       with self.__class__(self.label, emit_log=self.emit_log, emit_print=self.emit_print):
         return func(*args, **kwargs)
-  
+
     return wrapper
 
 
@@ -703,7 +703,7 @@ def DeSerialize(
   """
   # test inputs
   if (data is None and file_path is None) or (data is not None and file_path is not None):
-    raise InputError(f'you must provide only one of either `data` or `file_path`')
+    raise InputError('you must provide only one of either `data` or `file_path`')
   if file_path and not os.path.exists(file_path):
     raise InputError(f'invalid file_path: {file_path!r}')
   if data and len(data) < 4:

@@ -13,7 +13,6 @@ from unittest import mock
 import pytest
 
 from src.transcrypto import base
-from src.transcrypto import modmath
 from src.transcrypto import elgamal
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
@@ -74,7 +73,7 @@ def test_ElGamal(
     expected_signed: tuple[int, int]) -> None:
   """Test."""
   # create keys
-  spc = elgamal.ElGamalSharedPublicKey(prime_modulus=prime_modulus, group_base=group_base)
+  elgamal.ElGamalSharedPublicKey(prime_modulus=prime_modulus, group_base=group_base)
   private = elgamal.ElGamalPrivateKey(
       prime_modulus=prime_modulus, group_base=group_base,
       individual_base=individual_base, decrypt_exp=decrypt_exp)

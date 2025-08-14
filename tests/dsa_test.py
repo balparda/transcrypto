@@ -13,7 +13,6 @@ from unittest import mock
 import pytest
 
 from src.transcrypto import base
-from src.transcrypto import modmath
 from src.transcrypto import dsa
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
@@ -82,7 +81,7 @@ def test_DSA(
     expected_signed: tuple[int, int]) -> None:
   """Test."""
   # create keys
-  spc = dsa.DSASharedPublicKey(
+  dsa.DSASharedPublicKey(
       prime_modulus=prime_modulus, prime_seed=prime_seed, group_base=group_base)
   private = dsa.DSAPrivateKey(
       prime_modulus=prime_modulus, prime_seed=prime_seed, group_base=group_base,
@@ -107,7 +106,7 @@ def test_DSA(
   with pytest.raises(base.InputError, match='invalid signature'):
     private.VerifySignature(10, (3, prime_seed))
   assert make_ephemeral.call_args_list == [mock.call(private)]
- 
+
 
 def test_DSAKey_invalid() -> None:
   """Test."""
