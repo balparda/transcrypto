@@ -7,6 +7,8 @@
 <https://en.wikipedia.org/wiki/Shamir's_secret_sharing>
 """
 
+from __future__ import annotations
+
 import dataclasses
 import logging
 # import pdb
@@ -49,7 +51,7 @@ class ShamirSharedSecretPublic(base.CryptoKey):
       raise base.InputError(f'invalid modulus or minimum: {self}')
 
   def RecoverSecret(
-      self, shares: Collection['ShamirSharePrivate'], /, *, force_recover: bool = False) -> int:
+      self, shares: Collection[ShamirSharePrivate], /, *, force_recover: bool = False) -> int:
     """Recover the secret from ShamirSharePrivate objects.
 
     Args:
@@ -89,7 +91,7 @@ class ShamirSharedSecretPublic(base.CryptoKey):
     return modmath.ModLagrangeInterpolate(0, share_points, self.modulus)
 
   @classmethod
-  def Copy(cls, other: 'ShamirSharedSecretPublic', /) -> Self:
+  def Copy(cls, other: ShamirSharedSecretPublic, /) -> Self:
     """Initialize a public key by taking the public parts of a public/private key."""
     return cls(minimum=other.minimum, modulus=other.modulus)
 
@@ -122,7 +124,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
             for p in self.polynomial)):                          # all primes and the right size
       raise base.InputError(f'invalid polynomial: {self}')
 
-  def Share(self, secret: int, /, *, share_key: int = 0) -> 'ShamirSharePrivate':
+  def Share(self, secret: int, /, *, share_key: int = 0) -> ShamirSharePrivate:
     """Make a new ShamirSharePrivate for the `secret`.
 
     Args:
@@ -153,7 +155,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
         share_value=modmath.ModPolynomial(share_key, [secret] + self.polynomial, self.modulus))
 
   def Shares(
-      self, secret: int, /, *, max_shares: int = 0) -> Generator['ShamirSharePrivate', None, None]:
+      self, secret: int, /, *, max_shares: int = 0) -> Generator[ShamirSharePrivate, None, None]:
     """Make any number of ShamirSharePrivate for the `secret`.
 
     Args:
@@ -184,7 +186,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
         # it could happen, for example, that the share_key will generate a value of 0
         logging.warning(err)
 
-  def VerifyShare(self, secret: int, share: 'ShamirSharePrivate', /) -> bool:
+  def VerifyShare(self, secret: int, share: ShamirSharePrivate, /) -> bool:
     """Verify a ShamirSharePrivate object for the `secret`.
 
     Args:

@@ -10,6 +10,8 @@ BEWARE: For now, this implemantation is raw DSA, no padding, no hash!
 In the future we will design a proper DSA+Hash implementation.
 """
 
+from __future__ import annotations
+
 import dataclasses
 import logging
 # import pdb
@@ -196,7 +198,7 @@ class DSAPublicKey(DSASharedPublicKey):
     return ((a * b) % self.prime_modulus) % self.prime_seed == signature[0]
 
   @classmethod
-  def Copy(cls, other: 'DSAPublicKey', /) -> Self:
+  def Copy(cls, other: DSAPublicKey, /) -> Self:
     """Initialize a public key by taking the public parts of a public/private key."""
     return cls(
         prime_modulus=other.prime_modulus,

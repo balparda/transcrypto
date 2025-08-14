@@ -16,6 +16,8 @@ not secure under chosen ciphertext attack. For example, given an encryption
 a valid encryption `(c1,2*c2)` of the message `2*m`.
 """
 
+from __future__ import annotations
+
 import dataclasses
 import logging
 # import pdb
@@ -175,7 +177,7 @@ class ElGamalPublicKey(ElGamalSharedPublicKey):
     return a == (b * c) % self.prime_modulus
 
   @classmethod
-  def Copy(cls, other: 'ElGamalPublicKey', /) -> Self:
+  def Copy(cls, other: ElGamalPublicKey, /) -> Self:
     """Initialize a public key by taking the public parts of a public/private key."""
     return cls(
         prime_modulus=other.prime_modulus,

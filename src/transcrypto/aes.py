@@ -16,6 +16,8 @@ We don't want to re-implement AES here, we will provide for good crypto
 wrappers, consistent with the transcrypto style.
 """
 
+from __future__ import annotations
+
 import dataclasses
 # import datetime
 # import pdb
@@ -113,7 +115,7 @@ class AESKey(base.CryptoKey, base.SymmetricCrypto):
     pre-existing key.
     """
 
-    def __init__(self, key256: 'AESKey', /) -> None:
+    def __init__(self, key256: AESKey, /) -> None:
       """Constructor.
 
       Args:
@@ -175,7 +177,7 @@ class AESKey(base.CryptoKey, base.SymmetricCrypto):
       """Decrypt a 256 bits hexadecimal block, outputting also a 256 bits hexadecimal block."""
       return base.BytesToHex(self.Decrypt(base.HexToBytes(ciphertext_hex)))
 
-  def ECBEncoder(self) -> 'AESKey.ECBEncoderClass':
+  def ECBEncoder(self) -> AESKey.ECBEncoderClass:
     """Return a AESKey.ECBEncoderClass object using this key."""
     return AESKey.ECBEncoderClass(self)
 

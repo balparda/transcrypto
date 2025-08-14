@@ -7,6 +7,8 @@
 <https://en.wikipedia.org/wiki/RSA_cryptosystem>
 """
 
+from __future__ import annotations
+
 import dataclasses
 import logging
 # import pdb
@@ -98,7 +100,7 @@ class RSAPublicKey(base.CryptoKey):
     return self.Encrypt(signature) == message
 
   @classmethod
-  def Copy(cls, other: 'RSAPublicKey', /) -> Self:
+  def Copy(cls, other: RSAPublicKey, /) -> Self:
     """Initialize a public key by taking the public parts of a public/private key."""
     return cls(public_modulus=other.public_modulus, encrypt_exp=other.encrypt_exp)
 

@@ -4,6 +4,8 @@
 #
 """Balparda's TransCrypto base library."""
 
+from __future__ import annotations
+
 import abc
 import base64
 import dataclasses
@@ -502,7 +504,7 @@ class Timer:
       raise Error('Re-starting timer is forbidden')
     self.start = time.perf_counter()
 
-  def __enter__(self) -> 'Timer':
+  def __enter__(self) -> Timer:
     """Start the timer when entering the context."""
     self.Start()
     return self
@@ -535,7 +537,7 @@ class Timer:
 
   _F = TypeVar('_F', bound=Callable[..., Any])
 
-  def __call__(self, func: 'Timer._F') -> 'Timer._F':
+  def __call__(self, func: Timer._F) -> Timer._F:
     """Allow the Timer to be used as a decorator.
 
     Args:
