@@ -59,5 +59,8 @@ coverage = ">=7.9"
 tomli = ">=2.2.1"
 typeguard = ">=4.4.4"
 
+[tool.poetry.scripts]
+transcrypto = "transcrypto.transcrypto:main"
+
 [pytest]
 pythonpath = ["src"]

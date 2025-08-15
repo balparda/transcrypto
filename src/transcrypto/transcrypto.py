@@ -21,11 +21,12 @@ sss new|shares|recover|verify
 from __future__ import annotations
 
 import argparse
+import enum
 import logging
 import os
 # import pdb
 import sys
-from typing import Any, Iterable
+from typing import Any, Iterable, Optional, Sequence
 
 from . import base, modmath, rsa, sss, elgamal, dsa, aes
 
@@ -34,10 +35,8 @@ __version__: str = base.__version__  # version comes from base!
 __version_tuple__: tuple[int, ...] = base.__version_tuple__
 
 
-
-# ---------------- helpers ----------------
-
-def _parse_int(s: str) -> int:
+def _ParseInt(s: str) -> int:
+  """Parse int, try to determine if binary, octal, decimal, or hexadecimal."""
   s = s.strip().lower().replace('_', '')
   base_guess = 10
   if s.startswith('0x'):
@@ -48,46 +47,204 @@ def _parse_int(s: str) -> int:
     base_guess = 8
   return int(s, base_guess)
 
-def _parse_int_list(items: Iterable[str]) -> list[int]:
-  return [_parse_int(x) for x in items]
 
-def _bytes_from_text(text: str, is_hex: bool, is_b64: bool) -> bytes:
-  if is_hex:
-    return base.HexToBytes(text)
-  if is_b64:
-    return base.EncodedToBytes(text)
-  return text.encode('utf-8')
+def _ParseIntList(items: Iterable[str]) -> list[int]:
+  """Parse list of strings into listo of ints."""
+  return [_ParseInt(x) for x in items]
 
-def _bytes_to_text(b: bytes, out_hex: bool, out_b64: bool) -> str:
-  if out_hex:
-    return base.BytesToHex(b)
-  if out_b64:
-    return base.BytesToEncoded(b)
-  return b.decode('utf-8', errors='replace')
 
-def _maybe_password_key(password: str | None) -> aes.AESKey | None:
+class _StrBytesType(enum.Enum):
+  """Type of bytes encoded as string."""
+  RAW = 0
+  HEXADECIMAL = 1
+  BASE64 = 2
+  
+  @staticmethod
+  def FromFlags(is_hex: bool, is_base64: bool) -> _StrBytesType:
+    return (_StrBytesType.HEXADECIMAL if is_hex else
+            (_StrBytesType.BASE64 if is_base64 else _StrBytesType.RAW))
+
+
+def _BytesFromText(text: str, tp: _StrBytesType) -> bytes:
+  """Parse bytes as hex, base64, or raw."""
+  match tp:
+    case _StrBytesType.RAW:
+      return text.encode('utf-8')
+    case _StrBytesType.HEXADECIMAL:
+      return base.HexToBytes(text)
+    case _StrBytesType.BASE64:
+      return base.EncodedToBytes(text)
+    case _:
+      raise base.InputError(f'Invalid type: {tp!r}')
+
+
+def _BytesToText(b: bytes, tp: _StrBytesType) -> str:
+  """Output bytes as hex, base64, or raw."""
+  match tp:
+    case _StrBytesType.RAW:
+      return b.decode('utf-8', errors='replace')
+    case _StrBytesType.HEXADECIMAL:
+      return base.BytesToHex(b)
+    case _StrBytesType.BASE64:
+      return base.BytesToEncoded(b)
+    case _:
+      raise base.InputError(f'Invalid type: {tp!r}')
+
+
+def _MaybePasswordKey(password: str | None) -> aes.AESKey | None:
+  """Generate a key if there is a password."""
   return aes.AESKey.FromStaticPassword(password) if password else None
 
-def _save_obj(obj: Any, path: str, password: str | None) -> None:
-  key = _maybe_password_key(password)
+
+def _SaveObj(obj: Any, path: str, password: str | None) -> None:
+  """Save object."""
+  key = _MaybePasswordKey(password)
   blob = base.Serialize(obj, file_path=path, key=key)
   logging.info('saved object: %s (%s)', path, base.HumanizedBytes(len(blob)))
 
-def _load_obj(path: str, password: str | None) -> Any:
-  key = _maybe_password_key(password)
+def _LoadObj(path: str, password: str | None) -> Any:
+  """Load object."""
+  key = _MaybePasswordKey(password)
   return base.DeSerialize(file_path=path, key=key)
 
-def _print_lines(lines: Iterable[str]) -> None:
+
+def _PrintLines(lines: Iterable[str]) -> None:
+  """Print lines."""
   for line in lines:
     print(line)
 
 
-# ---------------- main CLI ----------------
+def _flag_names(a: argparse.Action) -> list[str]:
+  # Positional args have empty 'option_strings'; otherwise use them (e.g., ['-v','--verbose'])
+  return a.option_strings if a.option_strings else ([a.metavar or a.dest] if a.nargs != 0 else [a.dest])
 
 
+def _action_is_subparser(a: argparse.Action) -> bool:
+  return isinstance(a, argparse._SubParsersAction)  # type: ignore[attr-defined]
 
 
-def build_parser() -> argparse.ArgumentParser:
+def _format_default(a: argparse.Action) -> str:
+  if a.default is argparse.SUPPRESS:
+    return ''
+  if isinstance(a.default, bool):
+    return ' (default: on)' if a.default else ''
+  if a.default in (None, '', 0, False):
+    return ''
+  return f' (default: {a.default})'
+
+
+def _format_choices(a: argparse.Action) -> str:
+  return f' choices: {list(a.choices)}' if getattr(a, 'choices', None) else ''
+
+
+def _format_type(a: argparse.Action) -> str:
+  t = getattr(a, 'type', None)
+  if t is None:
+    return ''
+  # Show clean type names (int, str, float); for callables, just say 'custom'
+  return f' type: {t.__name__ if hasattr(t, "__name__") else "custom"}'
+
+
+def _format_nargs(a: argparse.Action) -> str:
+  return f' nargs: {a.nargs}' if getattr(a, 'nargs', None) not in (None, 0) else ''
+
+
+def _rows_for_actions(actions: Sequence[argparse.Action]) -> list[tuple[str, str]]:
+  rows: list[tuple[str, str]] = []
+  for a in actions:
+    if _action_is_subparser(a):
+      continue
+    # skip the built-in help action; it’s implied
+    if getattr(a, 'help', '') == argparse.SUPPRESS or isinstance(a, argparse._HelpAction):  # type: ignore[attr-defined]
+      continue
+    flags = ', '.join(_flag_names(a))
+    meta = ''.join((_format_type(a), _format_nargs(a), _format_choices(a), _format_default(a))).strip()
+    desc = (a.help or '').strip()
+    if meta:
+      desc = f'{desc} [{meta}]' if desc else f'[{meta}]'
+    rows.append((flags, desc))
+  return rows
+
+
+def _md_table(rows: Sequence[tuple[str, str]], headers: tuple[str, str] = ('Option/Arg', 'Description')) -> str:
+  if not rows:
+    return ''
+  out = ['| ' + headers[0] + ' | ' + headers[1] + ' |', '|---|---|']
+  for left, right in rows:
+    out.append(f'| `{left}` | {right} |')
+  return '\n'.join(out)
+
+
+def _walk_subcommands(parser: argparse.ArgumentParser, path: list[str] | None = None) -> list[tuple[list[str], argparse.ArgumentParser, Optional[argparse._SubParsersAction]]]:  # type: ignore[name-defined]
+  path = path or []
+  items: list[tuple[list[str], argparse.ArgumentParser, Optional[argparse._SubParsersAction]]] = []
+  sub_action: Optional[argparse._SubParsersAction] = None  # type: ignore[name-defined]
+  for a in parser._actions:  # type: ignore[attr-defined]
+    if _action_is_subparser(a):
+      sub_action = a  # type: ignore[assignment]
+      for name, sp in a.choices.items():  # type: ignore[union-attr]
+        items.append((path + [name], sp, a))
+        items.extend(_walk_subcommands(sp, path + [name]))
+  return items
+
+
+def generate_cli_markdown() -> str:
+  """Return a Markdown doc section that reflects the current _BuildParser() tree."""
+  parser = _BuildParser()
+  prog = parser.prog or 'transcrypto.py'
+  lines: list[str] = []
+
+  # Header + global flags
+  lines.append('## Command-Line Interface\n')
+  lines.append(f'`{prog}` exposes cryptographic primitives, number theory tools, key management, and utilities.\n')
+  lines.append('Invoke with:\n')
+  lines.append('```bash')
+  lines.append(f'poetry run {prog} <command> [sub-command] [options...]')
+  lines.append('```\n')
+
+  # Global options table
+  global_rows = _rows_for_actions(parser._actions)  # type: ignore[attr-defined]
+  if global_rows:
+    lines.append('### Global Options\n')
+    lines.append(_md_table(global_rows))
+    lines.append('')
+
+  # Top-level commands summary
+  lines.append('### Commands\n')
+  # Find top-level subparsers to list available commands
+  top_subs = [a for a in parser._actions if _action_is_subparser(a)]  # type: ignore[attr-defined]
+  for a in top_subs:
+    for name, sp in a.choices.items():  # type: ignore[union-attr]
+      help_text = (sp.description or sp.format_usage().splitlines()[0]).strip()
+      short = (sp.help if hasattr(sp, 'help') else '') or ''
+      lines.append(f'- `{name}` — {short or help_text}')
+  lines.append('')
+
+  # Detailed sections per (sub)command
+  for path, subp, parent_action in _walk_subcommands(parser):
+    header = ' '.join(path)
+    lines.append(f'#### `{header}`')
+    # Usage block
+    usage = subp.format_usage().replace('usage: ', '').strip()
+    lines.append('\n```bash')
+    lines.append(f'poetry run {prog} {usage}')
+    lines.append('```\n')
+
+    # Description
+    desc = (subp.description or subp.format_help().splitlines()[0]).strip()
+    if desc:
+      lines.append(desc + '\n')
+
+    # Options/args table
+    rows = _rows_for_actions(subp._actions)  # type: ignore[attr-defined]
+    if rows:
+      lines.append(_md_table(rows))
+      lines.append('')
+
+  return '\n'.join(lines)
+
+
+def _BuildParser() -> argparse.ArgumentParser:
   """Construct the CLI argument parser (kept in sync with the docs)."""
   parser: argparse.ArgumentParser = argparse.ArgumentParser(
       prog='transcrypto.py',
@@ -395,262 +552,18 @@ def build_parser() -> argparse.ArgumentParser:
   p_sss_verify.add_argument('share', type=str, help='One share as k:v (e.g., 7:9999).')
   p_sss_verify.add_argument('--key', type=str, required=True, help='Path to private SSS key (.priv).')
   p_sss_verify.add_argument('--protect', type=str, default='', help='Password to decrypt key file if needed.')
+  
+  # ---------------- Markdown Generation ----------------
+  doc = sub.add_parser('doc', help='Documentation utilities')
+  docsub = doc.add_subparsers(dest='doc_command')
+  doc_md = docsub.add_parser('md', help='Emit Markdown for the CLI (auto-synced)')
 
   return parser
 
 
-
-
-
-
 def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,too-many-locals
   """Main entry point."""
-  parser = build_parser()
-  args: argparse.Namespace = parser.parse_args(argv)
-  
-  # parser: argparse.ArgumentParser = argparse.ArgumentParser(prog='transcrypto.py')
-  # sub = parser.add_subparsers(dest='command')
-
-  # # ---- primality / primes ----
-  # prime = sub.add_parser('isprime', help='Primality test (Miller–Rabin with safe defaults)')
-  # prime.add_argument('n', type=str, help='Integer to test (dec/0x..../0b....)')
-
-  # mr = sub.add_parser('mr', help='Miller–Rabin with custom witnesses')
-  # mr.add_argument('n', type=str, help='Integer to test')
-  # mr.add_argument('-w', '--witness', action='append', default=[], help='Witness (repeatable)')
-
-  # rprime = sub.add_parser('randomprime', help='Generate a random prime of N bits')
-  # rprime.add_argument('bits', type=int, help='Bit length ≥ 11')
-
-  # pg = sub.add_parser('primegen', help='Stream primes ≥ start (prints a few unless unlimited)')
-  # pg.add_argument('start', type=str, help='Start from this integer (inclusive)')
-  # pg.add_argument('-c', '--count', type=int, default=10, help='How many to print (default: 10; use 0 for unlimited)')
-
-  # mers = sub.add_parser('mersenne', help='Iterate Mersenne primes (k, M=2^k-1, perfect-number?)')
-  # mers.add_argument('-k', '--min-k', type=int, default=0, help='Start exponent k (default 0)')
-  # mers.add_argument('-C', '--cutoff-k', type=int, default=10000, help='Stop when k > this (default 10000)')
-
-  # # ---- integer / modular math ----
-  # gcd = sub.add_parser('gcd', help='Greatest Common Divisor')
-  # gcd.add_argument('a', type=str)
-  # gcd.add_argument('b', type=str)
-
-  # xgcd = sub.add_parser('xgcd', help='Extended GCD → (g, x, y) where ax + by = g')
-  # xgcd.add_argument('a', type=str)
-  # xgcd.add_argument('b', type=str)
-
-  # mod = sub.add_parser('mod', help='Modular arithmetic helpers')
-  # modsub = mod.add_subparsers(dest='mod_command')
-  # mi = modsub.add_parser('inv', help='Modular inverse: a^(-1) mod m')
-  # mi.add_argument('a', type=str)
-  # mi.add_argument('m', type=str)
-  # md = modsub.add_parser('div', help='Modular division: solve z·y ≡ x (mod m)')
-  # md.add_argument('x', type=str)
-  # md.add_argument('y', type=str)
-  # md.add_argument('m', type=str)
-  # me = modsub.add_parser('exp', help='Modular exponentiation: a^e mod m')
-  # me.add_argument('a', type=str)
-  # me.add_argument('e', type=str)
-  # me.add_argument('m', type=str)
-  # mp = modsub.add_parser('poly', help='Evaluate polynomial (coeffs constant-term first) modulo m')
-  # mp.add_argument('t', type=str, help='Evaluation point')
-  # mp.add_argument('m', type=str, help='Modulus')
-  # mp.add_argument('coeff', nargs='+', help='Coefficients c0 c1 c2 ...')
-  # ml = modsub.add_parser('lagrange', help='Lagrange interpolation over modulus')
-  # ml.add_argument('x', type=str, help='Point to evaluate')
-  # ml.add_argument('m', type=str, help='Modulus')
-  # ml.add_argument('pt', nargs='+', help='Points as k:v (e.g., 2:4 5:3 7:1)')
-  # crt = modsub.add_parser('crt', help='CRT pair: x ≡ a1 (mod m1), x ≡ a2 (mod m2)')
-  # crt.add_argument('a1', type=str)
-  # crt.add_argument('m1', type=str)
-  # crt.add_argument('a2', type=str)
-  # crt.add_argument('m2', type=str)
-
-  # # ---- randomness & hashing ----
-  # rnd = sub.add_parser('rand', help='Crypto-random generators')
-  # rndsub = rnd.add_subparsers(dest='rand_command')
-  # rbits = rndsub.add_parser('bits', help='Random integer with exact bit length')
-  # rbits.add_argument('bits', type=int)
-  # rint = rndsub.add_parser('int', help='Uniform random integer in [min, max]')
-  # rint.add_argument('min', type=str)
-  # rint.add_argument('max', type=str)
-  # rbytes = rndsub.add_parser('bytes', help='Random bytes')
-  # rbytes.add_argument('n', type=int)
-
-  # h = sub.add_parser('hash', help='Hashing (SHA-256 / SHA-512 / file)')
-  # hsub = h.add_subparsers(dest='hash_command')
-  # h256 = hsub.add_parser('sha256', help='SHA-256 of input')
-  # h256.add_argument('data', type=str)
-  # h256.add_argument('--hex', action='store_true', help='Input is hex')
-  # h256.add_argument('--b64', action='store_true', help='Input is base64url')
-  # h256.add_argument('--out-hex', action='store_true', help='Print as hex (default)')
-  # h256.add_argument('--out-b64', action='store_true', help='Print as base64url')
-  # h512 = hsub.add_parser('sha512', help='SHA-512 of input')
-  # h512.add_argument('data', type=str)
-  # h512.add_argument('--hex', action='store_true')
-  # h512.add_argument('--b64', action='store_true')
-  # h512.add_argument('--out-hex', action='store_true')
-  # h512.add_argument('--out-b64', action='store_true')
-  # hf = hsub.add_parser('file', help='Hash file (streamed)')
-  # hf.add_argument('path', type=str)
-  # hf.add_argument('--digest', choices=['sha256', 'sha512'], default='sha256')
-  # hf.add_argument('--out-hex', action='store_true')
-  # hf.add_argument('--out-b64', action='store_true')
-
-  # # ---- AES (GCM default, ECB helper) ----
-  # aesc = sub.add_parser('aes', help='AES-256 operations')
-  # aessub = aesc.add_subparsers(dest='aes_command')
-
-  # ak = aessub.add_parser('key', help='Make/load key')
-  # aksub = ak.add_subparsers(dest='aes_key_command')
-  # akpass = aksub.add_parser('frompass', help='Derive key from password')
-  # akpass.add_argument('password', type=str)
-  # akpass.add_argument('--print-b64', action='store_true', help='Print derived key (base64url)')
-  # akpass.add_argument('--out', type=str, default='', help='Save key object to path (optionally encrypted)')
-  # akpass.add_argument('--protect', type=str, default='', help='Password to encrypt the saved key file')
-
-  # ae = aessub.add_parser('encrypt', help='Encrypt bytes with AES-256-GCM (IV||ct||tag)')
-  # ae.add_argument('plaintext', type=str)
-  # ae.add_argument('-k', '--key-b64', type=str, default='', help='Key as base64url (32 bytes)')
-  # ae.add_argument('-p', '--key-path', type=str, default='', help='Path to serialized AESKey')
-  # ae.add_argument('-a', '--aad', type=str, default='', help='Associated data (optional)')
-  # ae.add_argument('--in-hex', action='store_true', help='Plaintext is hex')
-  # ae.add_argument('--in-b64', action='store_true', help='Plaintext is base64url')
-  # ae.add_argument('--out-hex', action='store_true', help='Output as hex')
-  # ae.add_argument('--out-b64', action='store_true', help='Output as base64url')
-  # ae.add_argument('--protect', type=str, default='', help='Password to decrypt key file')
-
-  # ad = aessub.add_parser('decrypt', help='Decrypt AES-256-GCM blob (IV||ct||tag)')
-  # ad.add_argument('ciphertext', type=str)
-  # ad.add_argument('-k', '--key-b64', type=str, default='')
-  # ad.add_argument('-p', '--key-path', type=str, default='')
-  # ad.add_argument('-a', '--aad', type=str, default='')
-  # ad.add_argument('--in-hex', action='store_true', help='Ciphertext is hex')
-  # ad.add_argument('--in-b64', action='store_true', help='Ciphertext is base64url')
-  # ad.add_argument('--out-hex', action='store_true')
-  # ad.add_argument('--out-b64', action='store_true')
-  # ad.add_argument('--protect', type=str, default='')
-
-  # ecb = aessub.add_parser('ecb', help='AES-ECB (unsafe; fixed 16-byte blocks)')
-  # ecbsub = ecb.add_subparsers(dest='aes_ecb_command')
-  # ecbe = ecbsub.add_parser('encrypthex', help='Encrypt a 16-byte block provided as hex')
-  # ecbe.add_argument('key_b64', type=str)
-  # ecbe.add_argument('block_hex', type=str)
-  # ecbd = ecbsub.add_parser('decrypthex', help='Decrypt a 16-byte hex block')
-  # ecbd.add_argument('key_b64', type=str)
-  # ecbd.add_argument('block_hex', type=str)
-
-  # # ---- RSA ----
-  # rsac = sub.add_parser('rsa', help='Raw RSA over integers (no OAEP/PSS)')
-  # rsasub = rsac.add_subparsers(dest='rsa_command')
-
-  # rsan = rsasub.add_parser('new', help='Generate RSA private key')
-  # rsan.add_argument('bits', type=int, help='Modulus size (e.g., 2048)')
-  # rsan.add_argument('--out', type=str, default='', help='Path to save private key (Serialize)')
-  # rsan.add_argument('--protect', type=str, default='', help='Password to encrypt saved key file')
-
-  # rsae = rsasub.add_parser('encrypt', help='Encrypt integer message with public key')
-  # rsae.add_argument('message', type=str)
-  # rsae.add_argument('--key', type=str, required=True, help='Path to RSA private/public key')
-  # rsae.add_argument('--protect', type=str, default='')
-
-  # rsad = rsasub.add_parser('decrypt', help='Decrypt integer ciphertext with private key')
-  # rsad.add_argument('ciphertext', type=str)
-  # rsad.add_argument('--key', type=str, required=True)
-  # rsad.add_argument('--protect', type=str, default='')
-
-  # rsas = rsasub.add_parser('sign', help='Sign integer message with private key')
-  # rsas.add_argument('message', type=str)
-  # rsas.add_argument('--key', type=str, required=True)
-  # rsas.add_argument('--protect', type=str, default='')
-
-  # rsav = rsasub.add_parser('verify', help='Verify signature (message, sig) with public key')
-  # rsav.add_argument('message', type=str)
-  # rsav.add_argument('signature', type=str)
-  # rsav.add_argument('--key', type=str, required=True)
-  # rsav.add_argument('--protect', type=str, default='')
-
-  # # ---- ElGamal ----
-  # eg = sub.add_parser('elgamal', help='Raw El-Gamal over prime field (no padding)')
-  # egsub = eg.add_subparsers(dest='eg_command')
-  # egshared = egsub.add_parser('shared', help='Generate shared (p, g)')
-  # egshared.add_argument('bits', type=int)
-  # egshared.add_argument('--out', type=str, required=True)
-  # egshared.add_argument('--protect', type=str, default='')
-  # egnew = egsub.add_parser('new', help='Generate individual private key given shared')
-  # egnew.add_argument('--shared', type=str, required=True)
-  # egnew.add_argument('--out', type=str, required=True)
-  # egnew.add_argument('--protect', type=str, default='')
-  # egencrypt = egsub.add_parser('encrypt', help='Encrypt integer with public key')
-  # egencrypt.add_argument('message', type=str)
-  # egencrypt.add_argument('--key', type=str, required=True)
-  # egencrypt.add_argument('--protect', type=str, default='')
-  # egdecrypt = egsub.add_parser('decrypt', help='Decrypt ciphertext tuple (c1,c2)')
-  # egdecrypt.add_argument('c1', type=str)
-  # egdecrypt.add_argument('c2', type=str)
-  # egdecrypt.add_argument('--key', type=str, required=True)
-  # egdecrypt.add_argument('--protect', type=str, default='')
-  # egsign = egsub.add_parser('sign', help='Sign integer with private key')
-  # egsign.add_argument('message', type=str)
-  # egsign.add_argument('--key', type=str, required=True)
-  # egsign.add_argument('--protect', type=str, default='')
-  # egverify = egsub.add_parser('verify', help='Verify El-Gamal signature (s1,s2)')
-  # egverify.add_argument('message', type=str)
-  # egverify.add_argument('s1', type=str)
-  # egverify.add_argument('s2', type=str)
-  # egverify.add_argument('--key', type=str, required=True)
-  # egverify.add_argument('--protect', type=str, default='')
-
-  # # ---- DSA ----
-  # dsac = sub.add_parser('dsa', help='Raw DSA over (p,q,g); integer messages < q')
-  # dsasub = dsac.add_subparsers(dest='dsa_command')
-  # dsashared = dsasub.add_parser('shared', help='Generate DSA shared params (p,q,g)')
-  # dsashared.add_argument('p_bits', type=int)
-  # dsashared.add_argument('q_bits', type=int)
-  # dsashared.add_argument('--out', type=str, required=True)
-  # dsashared.add_argument('--protect', type=str, default='')
-  # dsanew = dsasub.add_parser('new', help='Generate DSA private key given shared')
-  # dsanew.add_argument('--shared', type=str, required=True)
-  # dsanew.add_argument('--out', type=str, required=True)
-  # dsanew.add_argument('--protect', type=str, default='')
-  # dsasign = dsasub.add_parser('sign', help='Sign integer m (1 ≤ m < q)')
-  # dsasign.add_argument('message', type=str)
-  # dsasign.add_argument('--key', type=str, required=True)
-  # dsasign.add_argument('--protect', type=str, default='')
-  # dsaver = dsasub.add_parser('verify', help='Verify DSA signature (s1,s2)')
-  # dsaver.add_argument('message', type=str)
-  # dsaver.add_argument('s1', type=str)
-  # dsaver.add_argument('s2', type=str)
-  # dsaver.add_argument('--key', type=str, required=True)
-  # dsaver.add_argument('--protect', type=str, default='')
-
-  # # ---- Shamir Secret Sharing ----
-  # sh = sub.add_parser('sss', help='Shamir Shared Secret (info-theoretic; unauthenticated)')
-  # shsub = sh.add_subparsers(dest='sss_command')
-  # shnew = shsub.add_parser('new', help='Generate parameters (minimum, prime modulus, coefficients)')
-  # shnew.add_argument('minimum', type=int)
-  # shnew.add_argument('bits', type=int)
-  # shnew.add_argument('--out', type=str, required=True)
-  # shnew.add_argument('--protect', type=str, default='')
-  # shshares = shsub.add_parser('shares', help='Issue N shares for a secret')
-  # shshares.add_argument('secret', type=str)
-  # shshares.add_argument('count', type=int)
-  # shshares.add_argument('--key', type=str, required=True, help='Private SSS key file')
-  # shshares.add_argument('--protect', type=str, default='')
-  # shrec = shsub.add_parser('recover', help='Recover secret from shares')
-  # shrec.add_argument('shares', nargs='+', help='Shares as key:value (k:v)')
-  # shrec.add_argument('--key', type=str, required=True, help='Public SSS key file')
-  # shrec.add_argument('--protect', type=str, default='')
-  # shverify = shsub.add_parser('verify', help='Verify a share against a secret using private params')
-  # shverify.add_argument('secret', type=str)
-  # shverify.add_argument('share', type=str, help='key:value')
-  # shverify.add_argument('--key', type=str, required=True)
-  # shverify.add_argument('--protect', type=str, default='')
-
-  # # ---- global flags ----
-  # parser.add_argument('-v', '--verbose', action='count', default=0,
-                      # help='Increase verbosity (use -v, -vv, -vvv, -vvvv for ERR/WARN/INFO/DEBUG)')
-
+  parser = _BuildParser()
   args: argparse.Namespace = parser.parse_args(argv)
   levels: list[int] = [logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]
   logging.basicConfig(level=levels[min(args.verbose, len(levels) - 1)], format=getattr(base, 'LOG_FORMAT', '%(levelname)s:%(message)s'))  # type: ignore
@@ -660,16 +573,16 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
   match command:
     # -------- primes ----------
     case 'isprime':
-      n = _parse_int(args.n)
+      n = _ParseInt(args.n)
       print(modmath.IsPrime(n))
     case 'mr':
-      n = _parse_int(args.n)
-      wit = set(_parse_int_list(args.witness)) if args.witness else None
+      n = _ParseInt(args.n)
+      wit = set(_ParseIntList(args.witness)) if args.witness else None
       print(modmath.MillerRabinIsPrime(n, witnesses=wit))
     case 'randomprime':
       print(modmath.NBitRandomPrime(args.bits))
     case 'primegen':
-      start = _parse_int(args.start)
+      start = _ParseInt(args.start)
       count = args.count
       i = 0
       for p in modmath.PrimeGenerator(start):
@@ -685,36 +598,36 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
 
     # -------- integer / modular ----------
     case 'gcd':
-      a, b = _parse_int(args.a), _parse_int(args.b)
+      a, b = _ParseInt(args.a), _ParseInt(args.b)
       print(base.GCD(a, b))
     case 'xgcd':
-      a, b = _parse_int(args.a), _parse_int(args.b)
+      a, b = _ParseInt(args.a), _ParseInt(args.b)
       print(base.ExtendedGCD(a, b))
     case 'mod':
       mod_command = args.mod_command.lower().strip() if args.mod_command else ''
       match mod_command:
         case 'inv':
-          a, m = _parse_int(args.a), _parse_int(args.m)
+          a, m = _ParseInt(args.a), _ParseInt(args.m)
           print(modmath.ModInv(a, m))
         case 'div':
-          x, y, m = _parse_int(args.x), _parse_int(args.y), _parse_int(args.m)
+          x, y, m = _ParseInt(args.x), _ParseInt(args.y), _ParseInt(args.m)
           print(modmath.ModDiv(x, y, m))
         case 'exp':
-          a, e, m = _parse_int(args.a), _parse_int(args.e), _parse_int(args.m)
+          a, e, m = _ParseInt(args.a), _ParseInt(args.e), _ParseInt(args.m)
           print(modmath.ModExp(a, e, m))
         case 'poly':
-          t, m = _parse_int(args.t), _parse_int(args.m)
-          coeffs = _parse_int_list(args.coeff)
+          t, m = _ParseInt(args.t), _ParseInt(args.m)
+          coeffs = _ParseIntList(args.coeff)
           print(modmath.ModPolynomial(t, coeffs, m))
         case 'lagrange':
-          x, m = _parse_int(args.x), _parse_int(args.m)
+          x, m = _ParseInt(args.x), _ParseInt(args.m)
           pts: dict[int, int] = {}
           for kv in args.pt:
             k_s, v_s = kv.split(':', 1)
-            pts[_parse_int(k_s)] = _parse_int(v_s)
+            pts[_ParseInt(k_s)] = _ParseInt(v_s)
           print(modmath.ModLagrangeInterpolate(x, pts, m))
         case 'crt':
-          a1, m1, a2, m2 = _parse_int(args.a1), _parse_int(args.m1), _parse_int(args.a2), _parse_int(args.m2)
+          a1, m1, a2, m2 = _ParseInt(args.a1), _ParseInt(args.m1), _ParseInt(args.a2), _ParseInt(args.m2)
           print(modmath.CRTPair(a1, m1, a2, m2))
         case _:
           raise NotImplementedError()
@@ -726,7 +639,7 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
         case 'bits':
           print(base.RandBits(args.bits))
         case 'int':
-          print(base.RandInt(_parse_int(args.min), _parse_int(args.max)))
+          print(base.RandInt(_ParseInt(args.min), _ParseInt(args.max)))
         case 'bytes':
           print(base.BytesToHex(base.RandBytes(args.n)))
         case _:
@@ -735,16 +648,16 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
       hcmd = args.hash_command.lower().strip() if args.hash_command else ''
       match hcmd:
         case 'sha256':
-          b = _bytes_from_text(args.data, args.hex, args.b64)
+          b = _BytesFromText(args.data, _StrBytesType.FromFlags(args.hex, args.b64))
           digest = base.Hash256(b)
-          print(_bytes_to_text(digest, args.out_hex or not args.out_b64, args.out_b64))
+          print(_BytesToText(digest, _StrBytesType.FromFlags(args.out_hex, args.out_b64)))
         case 'sha512':
-          b = _bytes_from_text(args.data, args.hex, args.b64)
+          b = _BytesFromText(args.data, _StrBytesType.FromFlags(args.hex, args.b64))
           digest = base.Hash512(b)
-          print(_bytes_to_text(digest, args.out_hex or not args.out_b64, args.out_b64))
+          print(_BytesToText(digest, _StrBytesType.FromFlags(args.out_hex, args.out_b64)))
         case 'file':
           digest = base.FileHash(args.path, digest=args.digest)
-          print(_bytes_to_text(digest, args.out_hex or not args.out_b64, args.out_b64))
+          print(_BytesToText(digest, _StrBytesType.FromFlags(args.out_hex, args.out_b64)))
         case _:
           raise NotImplementedError()
 
@@ -760,31 +673,31 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
               if args.print_b64:
                 print(key.encoded)
               if args.out:
-                _save_obj(key, args.out, args.protect or None)
+                _SaveObj(key, args.out, args.protect or None)
             case _:
               raise NotImplementedError()
         case 'encrypt':
           if args.key_b64:
             key = aes.AESKey(key256=base.EncodedToBytes(args.key_b64))
           elif args.key_path:
-            key = _load_obj(args.key_path, args.protect or None)
+            key = _LoadObj(args.key_path, args.protect or None)
           else:
             raise base.InputError('provide --key-b64 or --key-path')
           aad = args.aad.encode('utf-8') if args.aad else None
-          pt = _bytes_from_text(args.plaintext, args.in_hex, args.in_b64)
+          pt = _BytesFromText(args.plaintext, _StrBytesType.FromFlags(args.in_hex, args.in_b64))
           ct = key.Encrypt(pt, associated_data=aad)
-          print(_bytes_to_text(ct, args.out_hex or not args.out_b64, args.out_b64))
+          print(_BytesToText(ct, _StrBytesType.FromFlags(args.out_hex, args.out_b64)))
         case 'decrypt':
           if args.key_b64:
             key = aes.AESKey(key256=base.EncodedToBytes(args.key_b64))
           elif args.key_path:
-            key = _load_obj(args.key_path, args.protect or None)
+            key = _LoadObj(args.key_path, args.protect or None)
           else:
             raise base.InputError('provide --key-b64 or --key-path')
           aad = args.aad.encode('utf-8') if args.aad else None
-          ct = _bytes_from_text(args.ciphertext, args.in_hex, args.in_b64)
+          ct = _BytesFromText(args.ciphertext, _StrBytesType.FromFlags(args.in_hex, args.in_b64))
           pt = key.Decrypt(ct, associated_data=aad)
-          print(_bytes_to_text(pt, args.out_hex, args.out_b64))
+          print(_BytesToText(pt, _StrBytesType.FromFlags(args.out_hex, args.out_b64)))
         case 'ecb':
           ecmd = args.aes_ecb_command.lower().strip() if args.aes_ecb_command else ''
           match ecmd:
@@ -808,28 +721,28 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
         case 'new':
           priv = rsa.RSAPrivateKey.New(args.bits)
           if args.out:
-            _save_obj(priv, args.out, args.protect or None)
+            _SaveObj(priv, args.out, args.protect or None)
           pub = rsa.RSAPublicKey.Copy(priv)
           print(f'n={priv.public_modulus}  bits={priv.public_modulus.bit_length()}')
           print(f'e={pub.public_exponent}')
         case 'encrypt':
-          key_obj = _load_obj(args.key, args.protect or None)
+          key_obj = _LoadObj(args.key, args.protect or None)
           pub = rsa.RSAPublicKey.Copy(key_obj)
-          m = _parse_int(args.message)
+          m = _ParseInt(args.message)
           print(pub.Encrypt(m))
         case 'decrypt':
-          priv = _load_obj(args.key, args.protect or None)
-          c = _parse_int(args.ciphertext)
+          priv = _LoadObj(args.key, args.protect or None)
+          c = _ParseInt(args.ciphertext)
           print(priv.Decrypt(c))
         case 'sign':
-          priv = _load_obj(args.key, args.protect or None)
-          m = _parse_int(args.message)
+          priv = _LoadObj(args.key, args.protect or None)
+          m = _ParseInt(args.message)
           print(priv.Sign(m))
         case 'verify':
-          key_obj = _load_obj(args.key, args.protect or None)
+          key_obj = _LoadObj(args.key, args.protect or None)
           pub = rsa.RSAPublicKey.Copy(key_obj)
-          m = _parse_int(args.message)
-          sig = _parse_int(args.signature)
+          m = _ParseInt(args.message)
+          sig = _ParseInt(args.signature)
           print(pub.VerifySignature(m, sig))
         case _:
           raise NotImplementedError()
@@ -840,33 +753,33 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
       match ecmd:
         case 'shared':
           shared = elgamal.ElGamalSharedPublicKey.New(args.bits)
-          _save_obj(shared, args.out, args.protect or None)
+          _SaveObj(shared, args.out, args.protect or None)
           print('shared parameters saved')
         case 'new':
-          shared = _load_obj(args.shared, args.protect or None)
+          shared = _LoadObj(args.shared, args.protect or None)
           priv = elgamal.ElGamalPrivateKey.New(shared)
-          _save_obj(priv, args.out, args.protect or None)
+          _SaveObj(priv, args.out, args.protect or None)
           print('elgamal key saved')
         case 'encrypt':
-          key_obj = _load_obj(args.key, args.protect or None)
+          key_obj = _LoadObj(args.key, args.protect or None)
           pub = elgamal.ElGamalPublicKey.Copy(key_obj)
-          m = _parse_int(args.message)
+          m = _ParseInt(args.message)
           c = pub.Encrypt(m)
           print(f'{c[0]} {c[1]}')
         case 'decrypt':
-          priv = _load_obj(args.key, args.protect or None)
-          c1, c2 = _parse_int(args.c1), _parse_int(args.c2)
+          priv = _LoadObj(args.key, args.protect or None)
+          c1, c2 = _ParseInt(args.c1), _ParseInt(args.c2)
           print(priv.Decrypt((c1, c2)))
         case 'sign':
-          priv = _load_obj(args.key, args.protect or None)
-          m = _parse_int(args.message)
+          priv = _LoadObj(args.key, args.protect or None)
+          m = _ParseInt(args.message)
           s = priv.Sign(m)
           print(f'{s[0]} {s[1]}')
         case 'verify':
-          key_obj = _load_obj(args.key, args.protect or None)
+          key_obj = _LoadObj(args.key, args.protect or None)
           pub = elgamal.ElGamalPublicKey.Copy(key_obj)
-          m = _parse_int(args.message)
-          s = (_parse_int(args.s1), _parse_int(args.s2))
+          m = _ParseInt(args.message)
+          s = (_ParseInt(args.s1), _ParseInt(args.s2))
           print(pub.VerifySignature(m, s))
         case _:
           raise NotImplementedError()
@@ -877,23 +790,23 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
       match dcmd:
         case 'shared':
           shared = dsa.DSASharedPublicKey.New(args.p_bits, args.q_bits)
-          _save_obj(shared, args.out, args.protect or None)
+          _SaveObj(shared, args.out, args.protect or None)
           print('dsa shared parameters saved')
         case 'new':
-          shared = _load_obj(args.shared, args.protect or None)
+          shared = _LoadObj(args.shared, args.protect or None)
           priv = dsa.DSAPrivateKey.New(shared)
-          _save_obj(priv, args.out, args.protect or None)
+          _SaveObj(priv, args.out, args.protect or None)
           print('dsa key saved')
         case 'sign':
-          priv = _load_obj(args.key, args.protect or None)
-          m = _parse_int(args.message) % priv.prime_seed
+          priv = _LoadObj(args.key, args.protect or None)
+          m = _ParseInt(args.message) % priv.prime_seed
           s = priv.Sign(m)
           print(f'{s[0]} {s[1]}')
         case 'verify':
-          key_obj = _load_obj(args.key, args.protect or None)
+          key_obj = _LoadObj(args.key, args.protect or None)
           pub = dsa.DSAPublicKey.Copy(key_obj)
-          m = _parse_int(args.message) % pub.prime_seed
-          s = (_parse_int(args.s1), _parse_int(args.s2))
+          m = _ParseInt(args.message) % pub.prime_seed
+          s = (_ParseInt(args.s1), _ParseInt(args.s2))
           print(pub.VerifySignature(m, s))
         case _:
           raise NotImplementedError()
@@ -905,31 +818,40 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
         case 'new':
           priv = sss.ShamirSharedSecretPrivate.New(minimum_shares=args.minimum, bit_length=args.bits)
           pub = sss.ShamirSharedSecretPublic.Copy(priv)
-          _save_obj(priv, args.out + '.priv', args.protect or None)
-          _save_obj(pub, args.out + '.pub', args.protect or None)
+          _SaveObj(priv, args.out + '.priv', args.protect or None)
+          _SaveObj(pub, args.out + '.pub', args.protect or None)
           print('sss private/public saved')
         case 'shares':
-          priv = _load_obj(args.key, args.protect or None)
-          secret = _parse_int(args.secret)
+          priv = _LoadObj(args.key, args.protect or None)
+          secret = _ParseInt(args.secret)
           for sh in priv.Shares(secret, max_shares=args.count):
             print(f'{sh.share_key}:{sh.share_value}')
         case 'recover':
-          pub = _load_obj(args.key, args.protect or None)
+          pub = _LoadObj(args.key, args.protect or None)
           subset = []
           for kv in args.shares:
             k_s, v_s = kv.split(':', 1)
             subset.append(sss.ShamirSharePrivate(
               minimum=pub.minimum, modulus=pub.modulus,
-              share_key=_parse_int(k_s), share_value=_parse_int(v_s)))
+              share_key=_ParseInt(k_s), share_value=_ParseInt(v_s)))
           print(pub.RecoverSecret(subset))
         case 'verify':
-          priv = _load_obj(args.key, args.protect or None)
-          secret = _parse_int(args.secret)
+          priv = _LoadObj(args.key, args.protect or None)
+          secret = _ParseInt(args.secret)
           k_s, v_s = args.share.split(':', 1)
           share = sss.ShamirSharePrivate(
             minimum=priv.minimum, modulus=priv.modulus,
-            share_key=_parse_int(k_s), share_value=_parse_int(v_s))
+            share_key=_ParseInt(k_s), share_value=_ParseInt(v_s))
           print(priv.VerifyShare(secret, share))
+        case _:
+          raise NotImplementedError()
+
+    # -------- Documentation ----------
+    case 'doc':
+      doc_command = args.doc_command.lower().strip() if getattr(args, 'doc_command', '') else ''
+      match doc_command:
+        case 'md':
+          print(generate_cli_markdown())
         case _:
           raise NotImplementedError()
 
