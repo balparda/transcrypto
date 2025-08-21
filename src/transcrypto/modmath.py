@@ -6,7 +6,7 @@
 
 import math
 # import pdb
-from typing import Generator, Optional, Reversible
+from typing import Generator, Reversible
 
 from . import base
 
@@ -271,10 +271,7 @@ def ModLagrangeInterpolate(x: int, points: dict[int, int], m: int, /) -> int:
   return result
 
 
-def FermatIsPrime(
-    n: int, /, *,
-    safety: int = 10,
-    witnesses: Optional[set[int]] = None) -> bool:
+def FermatIsPrime(n: int, /, *, safety: int = 10, witnesses: set[int] | None = None) -> bool:
   """Primality test of `n` by Fermat's algo (n > 0). DO NOT RELY!
 
   Will execute Fermat's algo for non-trivial `n` (n > 3 and odd).
@@ -397,9 +394,7 @@ def _MillerRabinSR(n: int, /) -> tuple[int, int]:
   return (s, r)
 
 
-def MillerRabinIsPrime(
-    n: int, /, *,
-    witnesses: Optional[set[int]] = None) -> bool:
+def MillerRabinIsPrime(n: int, /, *, witnesses: set[int] | None = None) -> bool:
   """Primality test of `n` by Miller-Rabin's algo (n > 0).
 
   Will execute Miller-Rabin's algo for non-trivial `n` (n > 3 and odd).
@@ -491,7 +486,7 @@ def PrimeGenerator(start: int, /) -> Generator[int, None, None]:
 
 def NBitRandomPrime(n_bits: int, /) -> int:
   """Generates a random prime with (guaranteed) `n_bits` size (i.e., first bit == 1).
-  
+
   The fact that the first bit will be 1 means the entropy is ~ (n_bits-1) and
   because of this we only allow for a byte or more prime bits generated. This drawback
   is negligible for the large primes a crypto library will work with, in practice.

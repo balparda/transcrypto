@@ -26,16 +26,16 @@ def test_DSA_keys_creation(
     prime: mock.MagicMock, randint: mock.MagicMock, randbits: mock.MagicMock) -> None:
   """Test."""
   with pytest.raises(base.InputError, match='invalid q_bits length'):
-    dsa.DSASharedPublicKey.New(22, 10)
+    dsa.DSASharedPublicKey.NewShared(22, 10)
   with pytest.raises(base.InputError, match='invalid p_bits length'):
-    dsa.DSASharedPublicKey.New(21, 11)
+    dsa.DSASharedPublicKey.NewShared(21, 11)
   with pytest.raises(base.InputError, match='invalid q_bit length'):
     dsa.DSAPrivateKey.New(
         dsa.DSASharedPublicKey(prime_modulus=23, prime_seed=11, group_base=8))
   prime.side_effect = [1097, 1097]
   randint.side_effect = [3819, 3619, 3819, 3819]
   randbits.side_effect = [2498, 2508153, 807, 10, 10, 2508153, 10]
-  group: dsa.DSASharedPublicKey = dsa.DSASharedPublicKey.New(22, 11)
+  group: dsa.DSASharedPublicKey = dsa.DSASharedPublicKey.NewShared(22, 11)
   assert group == dsa.DSASharedPublicKey(
       prime_modulus=3971141, prime_seed=1097, group_base=2508153)
   private: dsa.DSAPrivateKey = dsa.DSAPrivateKey.New(group)
@@ -46,8 +46,8 @@ def test_DSA_keys_creation(
     mp.setattr(dsa, '_MAX_KEY_GENERATION_FAILURES', 2)
     with pytest.raises(base.CryptoError, match='failed primes generation'):
       dsa.NBitRandomDSAPrimes(22, 11)
-    with mock.patch('src.transcrypto.modmath.ModExp', autospec=True) as modexp:
-      modexp.return_value = 1144026
+    with mock.patch('src.transcrypto.modmath.ModExp', autospec=True) as mod_exp:
+      mod_exp.return_value = 1144026
       with pytest.raises(base.CryptoError, match='failed key generation'):
         dsa.DSAPrivateKey.New(group)
   assert private._MakeEphemeralKey() == (10, 768)
@@ -66,16 +66,16 @@ def test_DSA_keys_creation(
         (3971141, 1097, 2508153, 1144026, 807, 10, 603, (387, 618)),  # another individual of the same group, first cypher is equal!
         # same thing again, but with larger numbers:
         (13778194025705455991, 2373232541, 6520293953707700537, 10027622456776030168, 615448826,
-         10, 2055930860, (1621446112, 1167266683)), # one individual, message==10
+         10, 2055930860, (1621446112, 1167266683)),  # one individual, message==10
         (13778194025705455991, 2373232541, 6520293953707700537, 10027622456776030168, 615448826,
-         11, 2055930860, (1621446112, 596280744)),  # same ephemeral different message, first cypher is equal!
+         11, 2055930860, (1621446112, 596280744)),   # same ephemeral different message, first cypher is equal!
         (13778194025705455991, 2373232541, 6520293953707700537, 10027622456776030168, 615448826,
          10, 1972759958, (1552560713, 1687943019)),  # different ephemeral same message, all changes
         (13778194025705455991, 2373232541, 6520293953707700537, 13541469208505301060, 426107211,
          10, 2055930860, (1621446112, 1461014680)),  # another individual of the same group, first cypher is equal!
     ])
 @mock.patch('src.transcrypto.dsa.DSAPublicKey._MakeEphemeralKey', autospec=True)
-def test_DSA(
+def test_DSA(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     make_ephemeral: mock.MagicMock, prime_modulus: int, prime_seed: int, group_base: int,
     individual_base: int, decrypt_exp: int, message: int, ephemeral: int,
     expected_signed: tuple[int, int]) -> None:

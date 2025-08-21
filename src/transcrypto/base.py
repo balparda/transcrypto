@@ -34,10 +34,10 @@ BytesToHex: Callable[[bytes], str] = lambda b: b.hex()
 BytesToInt: Callable[[bytes], int] = lambda b: int.from_bytes(b, 'big', signed=False)
 BytesToEncoded: Callable[[bytes], str] = lambda b: base64.urlsafe_b64encode(b).decode('ascii')
 
-HexToBytes: Callable[[str], bytes] = lambda h: bytes.fromhex(h)
+HexToBytes: Callable[[str], bytes] = bytes.fromhex
 IntToBytes: Callable[[int], bytes] = lambda i: i.to_bytes(
     (i.bit_length() + 7) // 8, 'big', signed=False)
-EncodedToBytes: Callable[[bytes], str] = lambda e: base64.urlsafe_b64decode(e.encode('ascii'))
+EncodedToBytes: Callable[[str], bytes] = lambda e: base64.urlsafe_b64decode(e.encode('ascii'))
 
 PadBytesTo: Callable[[bytes, int], bytes] = lambda b, i: b.rjust((i + 7) // 8, b'\x00')
 
@@ -232,9 +232,9 @@ def HumanizedSeconds(inp_secs: int | float, /) -> str:  # pylint: disable=too-ma
   return f'{(inp_secs / (24 * 60 * 60)):0.2f} d'
 
 
-def RandBits(n_bits: int) -> int:
+def RandBits(n_bits: int, /) -> int:
   """Crypto-random integer with guaranteed `n_bits` size (i.e., first bit == 1).
-  
+
   The fact that the first bit will be 1 means the entropy is ~ (n_bits-1) and
   because of this we only allow for a byte or more bits generated. This drawback
   is negligible for the large integers a crypto library will work with, in practice.
@@ -258,7 +258,7 @@ def RandBits(n_bits: int) -> int:
   return n
 
 
-def RandInt(min_int: int, max_int: int) -> int:
+def RandInt(min_int: int, max_int: int, /) -> int:
   """Crypto-random integer uniform over [min_int, max_int].
 
   Args:
@@ -281,7 +281,7 @@ def RandInt(min_int: int, max_int: int) -> int:
   return n
 
 
-def RandShuffle[T: Any](seq: MutableSequence[T]) -> None:
+def RandShuffle[T: Any](seq: MutableSequence[T], /) -> None:
   """In-place Crypto-random shuffle order for `seq` mutable sequence.
 
   Args:
@@ -299,7 +299,7 @@ def RandShuffle[T: Any](seq: MutableSequence[T]) -> None:
     seq[i], seq[j] = seq[j], seq[i]
 
 
-def RandBytes(n_bytes: int) -> bytes:
+def RandBytes(n_bytes: int, /) -> bytes:
   """Crypto-random `n_bytes` bytes. Just plain good quality random bytes.
 
   Args:
@@ -416,7 +416,7 @@ def FileHash(full_path: str, /, *, digest: str = 'sha256') -> bytes:
   """SHA-256 hex hash of file on disk. Always a length of 32 bytes (if default digest=='sha256').
 
   Args:
-    full_path (str): Path to exisiting file on disk
+    full_path (str): Path to existing file on disk
     digest (str, optional): Hash method to use, default is 'sha256'
 
   Returns:
@@ -443,7 +443,7 @@ class Timer:
   """An execution timing class that can be used as both a context manager and a decorator.
 
   Examples:
-  
+
     # As a context manager
     with Timer('Block timing'):
       time.sleep(1.2)
@@ -452,7 +452,7 @@ class Timer:
     @Timer('Function timing')
     def slow_function():
       time.sleep(0.8)
-      
+
     # As a regular object
     tm = Timer('Inline timing')
     tm.Start()
@@ -524,8 +524,8 @@ class Timer:
       print(message)
 
   def __exit__(
-      self, exc_type: type[BaseException] | None,
-      exc_val: BaseException | None, exc_tb: Any) -> None:
+      self, unused_exc_type: type[BaseException] | None,
+      unused_exc_val: BaseException | None, exc_tb: Any) -> None:
     """Stop the timer when exiting the context, emit logging.info and optionally print elapsed time.
 
     Args:
@@ -548,11 +548,11 @@ class Timer:
     """
 
     @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
+    def _Wrapper(*args: Any, **kwargs: Any) -> Any:
       with self.__class__(self.label, emit_log=self.emit_log, emit_print=self.emit_print):
         return func(*args, **kwargs)
 
-    return wrapper
+    return _Wrapper  # type:ignore
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
@@ -618,16 +618,16 @@ def Serialize(
     python_obj: Any, /, *, file_path: str | None = None,
     compress: int | None = 3, key: SymmetricCrypto | None = None) -> bytes:
   """Serialize a Python object into a BLOB, optionally compress / encrypt / save to disk.
-  
+
   Data path is:
-  
+
     `obj` => pickle => (compress) => (encrypt) => (save to `file_path`) => return
-    
+
   At every step of the data path the data will be measured, in bytes.
   Every data conversion will be timed. The measurements/times will be logged (once).
-  
+
   Compression levels / speed can be controlled by `compress`. Use this as reference:
-  
+
   | Level    | Speed       | Compression ratio                 | Typical use case                        |
   | -------- | ------------| --------------------------------- | --------------------------------------- |
   | –5 to –1 | Fastest     | Poor (better than no compression) | Real-time or very latency-sensitive     |
@@ -647,7 +647,7 @@ def Serialize(
   Returns:
     bytes: serialized binary data corresponding to obj + (compression) + (encryption)
   """
-  messages = []
+  messages: list[str] = []
   with Timer('Serialization complete', emit_log=False) as tm_all:
     # pickle
     with Timer('PICKLE', emit_log=False) as tm_pickle:
@@ -680,11 +680,11 @@ def DeSerialize(
     *, data: bytes | None = None, file_path: str | None = None,
     key: SymmetricCrypto | None = None) -> Any:
   """Loads (de-serializes) a BLOB back to a Python object, optionally decrypting / decompressing.
-  
+
   Data path is:
-  
+
     `data` or `file_path` => (decrypt) => (decompress) => unpickle => return object
-    
+
   At every step of the data path the data will be measured, in bytes.
   Every data conversion will be timed. The measurements/times will be logged (once).
   Compression versus no compression will be automatically detected.
@@ -712,7 +712,7 @@ def DeSerialize(
     raise InputError('invalid data: too small')
   # start the pipeline
   obj: bytes = data if data else b''
-  messages = [f'DATA: {HumanizedBytes(len(obj))}'] if data else []
+  messages: list[str] = [f'DATA: {HumanizedBytes(len(obj))}'] if data else []
   with Timer('De-Serialization complete', emit_log=False) as tm_all:
     # optionally load from disk
     if file_path:

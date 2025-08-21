@@ -20,7 +20,7 @@
     "--indent-string='  '",
     "--method-naming-style=PascalCase",
     "--function-naming-style=PascalCase",
-    "--disable=line-too-long,too-many-lines,logging-fstring-interpolation"
+    "--disable=line-too-long,too-many-lines,logging-fstring-interpolation,logging-not-lazy"
   ],
 
   // flake8
@@ -35,7 +35,13 @@
     "Adleman",
     "Algoritmos",
     "Bézout",
+    "caplog",
+    "capsys",
     "Criptografia",
+    "decryptor",
+    "elgamal",
+    "encryptor",
+    "Gamal",
     "Mersenne",
     "Métodos",
     "modmath",
@@ -43,8 +49,10 @@
     "Primality",
     "pypi",
     "pyright",
+    "Rijndael",
     "Rivest",
     "Shamir",
-    "transcrypto"
+    "transcrypto",
+    "UNSTARTED"
   ]
 }

@@ -12,8 +12,10 @@ import itertools
 import logging
 import math
 # import pdb
+import pathlib
 import sys
 import tempfile
+from typing import Any
 
 import pytest
 
@@ -42,9 +44,9 @@ def test_bytes_conversions() -> None:
   assert padded == b'\x00\x00\x00\x00\x00xyz'
   assert base.BytesToHex(padded) == '000000000078797a'
   assert base.BytesToInt(padded) == 7895418
-  assert base.BytesToEncoded(padded) == 'AAAAAAB4eXo='
+  assert base.BytesToEncoded(padded) == 'AAAAAAB4eXo='  # cspell:disable-line
   assert base.HexToBytes('000000000078797a') == padded
-  assert base.EncodedToBytes('AAAAAAB4eXo=') == padded
+  assert base.EncodedToBytes('AAAAAAB4eXo=') == padded  # cspell:disable-line
 
 
 @pytest.mark.parametrize('value, message', [
@@ -195,10 +197,10 @@ def test_RandInt() -> None:
 def test_RandInt_uniform_small_range() -> None:
   """Test."""
   N: int = 30000
-  counts = collections.Counter(base.RandInt(10, 20) for _ in range(N))
+  counts: collections.Counter[int] = collections.Counter(base.RandInt(10, 20) for _ in range(N))
   # each should be close to N/11
   for c in counts.values():
-    assert abs(c - N/11) < 0.1 * N/11  # chance of failure of 1 in 10 million
+    assert abs(c - N / 11) < 0.1 * N / 11  # chance of failure of 1 in 10 million
 
 
 def test_RandShuffle() -> None:
@@ -214,10 +216,10 @@ def test_RandShuffle() -> None:
     assert seq != seq_copy  # chance of failure in any of 10 tests is 1 in 10**156
 
 
-def test_RandShuffle_preserves_multiset() -> None:
+def test_RandShuffle_preserves_multi_set() -> None:
   """Test."""
   seq: list[int] = [1, 2, 2, 3, 4]
-  before = collections.Counter(seq)
+  before: collections.Counter[int] = collections.Counter(seq)
   base.RandShuffle(seq)
   assert collections.Counter(seq) == before
   assert len(seq) == 5
@@ -225,20 +227,22 @@ def test_RandShuffle_preserves_multiset() -> None:
 
 def test_RandShuffle_n2_visits_both_orders() -> None:
   """Test."""
-  seq: list[int] = [1, 2]
-  seen: set[int] = set()
+  seq: list[int] = [1, 2, 3]
+  seen: set[tuple[int, ...]] = set()
   for _ in range(200):
     s: list[int] = seq[:]  # copy
     base.RandShuffle(s)
     seen.add(tuple(s))
-  assert seen == {(1, 2), (2, 1)}  # chance of failure is 1 in 10**60
+  assert seen == {
+      (1, 2, 3), (3, 2, 1), (2, 3, 1),
+      (2, 1, 3), (1, 3, 2), (3, 1, 2)}  # chance of failure is 1 in 10**40
 
 
 def test_RandShuffle_small_n_uniformity() -> None:
   """Test."""
   base_list: list[int] = [1, 2, 3]
-  perms: list[int] = list(itertools.permutations(base_list))
-  counts: dict[int, int] = {p: 0 for p in perms}
+  perms: list[tuple[int, ...]] = list(itertools.permutations(base_list))
+  counts: dict[tuple[int, ...], int] = {p: 0 for p in perms}
   N: int = 6000
   for _ in range(N):
     s: list[int] = base_list[:]
@@ -246,7 +250,7 @@ def test_RandShuffle_small_n_uniformity() -> None:
     counts[tuple(s)] += 1
   # each of 6 perms should be close to N/6
   for c in counts.values():
-    assert abs(c - N/6) < 0.2 * (N/6)  # chance of failure in any of 6 deviates is 1 in 10**11
+    assert abs(c - N / 6) < 0.2 * (N / 6)  # chance of failure in any of 6 deviates is 1 in 10**11
 
 
 def test_RandBytes() -> None:
@@ -261,12 +265,12 @@ def test_RandBytes() -> None:
 def test_RandBits_RandInt_RandShuffle_parallel_smoke() -> None:
   """Test."""
   with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
-    xs = list(ex.map(lambda _: base.RandBits(256), range(200)))
-    ys = list(ex.map(lambda _: base.RandInt(0, 1000), range(200)))
-    zs = list(ex.map(lambda _: base.RandBytes(32), range(200)))
-    seq = list(range(50))
+    xs: list[int] = list(ex.map(lambda _: base.RandBits(256), range(200)))     # type:ignore
+    ys: list[int] = list(ex.map(lambda _: base.RandInt(0, 1000), range(200)))  # type:ignore
+    zs: list[bytes] = list(ex.map(lambda _: base.RandBytes(32), range(200)))   # type:ignore
+    seq: list[int] = list(range(50))
     # shuffle some independent copies
-    list(ex.map(lambda _: base.RandShuffle(seq[:]), range(50)))
+    list(ex.map(lambda _: base.RandShuffle(seq[:]), range(50)))  # type:ignore
   assert len(set(xs)) == len(xs)
   assert all(0 <= y <= 1000 for y in ys)  # chance of failure in any of 200 draws is 1 in 10**73
   assert len(set(zs)) == len(zs)
@@ -342,7 +346,7 @@ def test_NegativeZero() -> None:
         id='abc'),
 
     pytest.param(
-        'abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq',
+        'abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq',  # cspell:disable-line
         '248d6a61d20638b8 e5c026930c3e6039 a33ce45964ff2167 f6ecedd419db06c1',
         '204a8fc6dda82f0a 0ced7beb8e08a416 57c16ef468b228a8 279be331a703c335'
         '96fd15c13b1b07f9 aa1d3bea57789ca0 31ad85c7a71dd703 54ec631238ca3445',
@@ -399,7 +403,7 @@ def test_FileHash_missing_file() -> None:
     base.FileHash('/path/to/surely/not/exist-123')
 
 
-def _mock_perf(monkeypatch, values):
+def _mock_perf(monkeypatch: pytest.MonkeyPatch, values: list[float]) -> None:
   """Install a perf_counter that yields from `values`."""
   it = iter(values)
   monkeypatch.setattr(base.time, 'perf_counter', lambda: next(it))
@@ -411,7 +415,7 @@ def test_Timer_str_unstarted() -> None:
   assert str(t) == 'T: <UNSTARTED>'
 
 
-def test_Timer_str_partial(monkeypatch) -> None:
+def test_Timer_str_partial(monkeypatch: pytest.MonkeyPatch) -> None:
   """Test."""
   # Start at 100.00; __str__ calls perf_counter again (100.12) → delta 0.12 s
   _mock_perf(monkeypatch, [100.00, 100.12])
@@ -420,7 +424,7 @@ def test_Timer_str_partial(monkeypatch) -> None:
   assert str(t) == 'P: <PARTIAL> 120.000 ms'
 
 
-def test_Timer_start_twice_forbidden(monkeypatch) -> None:
+def test_Timer_start_twice_forbidden(monkeypatch: pytest.MonkeyPatch) -> None:
   """Test."""
   _mock_perf(monkeypatch, [1.0])
   t = base.Timer('X')
@@ -436,7 +440,8 @@ def test_Timer_stop_unstarted_forbidden() -> None:
     t.Stop()
 
 
-def test_Timer_stop_twice_forbidden(monkeypatch, caplog) -> None:
+def test_Timer_stop_twice_forbidden(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
   """Test."""
   # Start=1.0, Stop=2.5  → elapsed=1.5
   _mock_perf(monkeypatch, [1.0, 2.5])
@@ -454,7 +459,9 @@ def test_Timer_stop_twice_forbidden(monkeypatch, caplog) -> None:
   assert msgs == ['X: 1.50 s']
 
 
-def test_Timer_context_manager_logs_and_optionally_prints(monkeypatch, caplog, capsys) -> None:
+def test_Timer_context_manager_logs_and_optionally_prints(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture,
+    capsys: pytest.CaptureFixture[str]) -> None:
   """Test."""
   # Enter=10.00, Exit=10.25 → 0.25 s
   _mock_perf(monkeypatch, [10.00, 10.25])
@@ -462,78 +469,79 @@ def test_Timer_context_manager_logs_and_optionally_prints(monkeypatch, caplog, c
   with base.Timer('CTX', emit_print=True):
     pass
   # Logged
-  msgs = [rec.getMessage() for rec in caplog.records]
+  msgs: list[str] = [rec.getMessage() for rec in caplog.records]
   assert msgs == ['CTX: 250.000 ms']
   # Printed (because emit_print=True in __exit__)
   out = capsys.readouterr().out.strip()
   assert out == 'CTX: 250.000 ms'
 
 
-def test_Timer_context_manager_exception_still_times_and_logs(monkeypatch, caplog) -> None:
+def test_Timer_context_manager_exception_still_times_and_logs(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
   """Test."""
   # Enter=5.0, Exit=5.3 → 0.3 s even if exception occurs
   _mock_perf(monkeypatch, [5.0, 5.3])
   caplog.set_level(logging.INFO)
 
-  class Boom(Exception): ...
-
-  with pytest.raises(Boom):
+  with pytest.raises(base.Error):
     with base.Timer('ERR'):
-      raise Boom('boom')
+      raise base.Error('boom')
   # Stop was called; message logged
   msgs = [rec.getMessage() for rec in caplog.records]
   assert msgs == ['ERR: 300.000 ms']
 
 
-def test_Timer_decorator_logs(monkeypatch, caplog) -> None:
+def test_Timer_decorator_logs(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
   """Test."""
   # Start=1.00, Stop=1.40 → 0.40 s
   _mock_perf(monkeypatch, [1.00, 1.40])
   caplog.set_level(logging.INFO)
 
   @base.Timer('DEC')
-  def _f(a, b):
+  def _f(a: int, b: int) -> int:
     return a + b
 
   assert _f(2, 3) == 5
-  msgs = [rec.getMessage() for rec in caplog.records]
+  msgs: list[str] = [rec.getMessage() for rec in caplog.records]
   assert msgs == ['DEC: 400.000 ms']
 
 
-def test_Timer_decorator_emit_print_true_prints_and_logs(monkeypatch, caplog, capsys) -> None:
+def test_Timer_decorator_emit_print_true_prints_and_logs(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture,
+    capsys: pytest.CaptureFixture[str]) -> None:
   """Test."""
   # Start=2.00, Stop=2.01 → 0.01 s
   _mock_perf(monkeypatch, [2.00, 2.01])
   caplog.set_level(logging.INFO)
 
   @base.Timer('PRINT', emit_print=True)
-  def _g():
+  def _g() -> str:
     return 'ok'
 
   assert _g() == 'ok'
   # Logs (Stop) and prints (in __exit__)
-  msgs = [rec.getMessage() for rec in caplog.records]
+  msgs: list[str] = [rec.getMessage() for rec in caplog.records]
   assert msgs == ['PRINT: 10.000 ms']
-  out = capsys.readouterr().out.strip()
+  out: str = capsys.readouterr().out.strip()
   assert out == 'PRINT: 10.000 ms'
 
 
-def test_Timer_decorator_exception_propagates_and_logs(monkeypatch, caplog) -> None:
+def test_Timer_decorator_exception_propagates_and_logs(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
   """Test."""
   # Start=3.0, Stop=3.2 → 0.2 s even when raising
   _mock_perf(monkeypatch, [3.0, 3.2])
   caplog.set_level(logging.INFO)
 
-  class Oops(Exception): ...
+  @base.Timer('ERR')
+  def _h() -> None:
+    raise base.Error('nope')
 
-  @base.Timer('DECERR')
-  def _h():
-    raise Oops('nope')
-
-  with pytest.raises(Oops, match='nope'):
+  with pytest.raises(base.Error, match='nope'):
     _h()
-  msgs = [rec.getMessage() for rec in caplog.records]
-  assert msgs == ['DECERR: 200.000 ms']
+  msgs: list[str] = [rec.getMessage() for rec in caplog.records]
+  assert msgs == ['ERR: 200.000 ms']
 
 
 def test_Timer_label_validation() -> None:
@@ -545,87 +553,92 @@ def test_Timer_label_validation() -> None:
 class _ToyCipher(base.SymmetricCrypto):
   """Tiny reversible "cipher" for tests. Format: b'X' + secret + aad + plaintext."""
 
-  def __init__(self, secret: bytes):
+  def __init__(self, secret: bytes) -> None:
     """Constructor."""
-    self._secret = secret
+    self._secret: bytes = secret
 
   def Encrypt(self, plaintext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
     """Toy encrypt."""
-    aad = associated_data or b''
+    aad: bytes = associated_data or b''
     return b'X' + self._secret + aad + plaintext
 
   def Decrypt(self, ciphertext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
     """Toy decrypt."""
-    aad = associated_data or b''
-    prefix = b'X' + self._secret + aad
+    aad: bytes = associated_data or b''
+    prefix: bytes = b'X' + self._secret + aad
     if not ciphertext.startswith(prefix):
       raise base.CryptoError('decryption failed: bad key or aad')
     return ciphertext[len(prefix):]
 
 
 @pytest.fixture
-def sample_obj():
+def sample_obj() -> dict[str, Any]:
   """Sample object fixture."""
   # moderately nested object to exercise pickle well
   return {
-    'nums': list(range(50)),
-    'nested': {'a': 1, 'b': b'bytes', 'c': None},
-    'text': 'zstd 🍰 compression test',
+      'nums': list(range(50)),
+      'nested': {'a': 1, 'b': b'bytes', 'c': None},
+      'text': 'zstd 🍰 compression test',
   }
 
 
-def test_serialize_deserialize_no_compress_no_encrypt(sample_obj):
+def test_serialize_deserialize_no_compress_no_encrypt(
+    sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
   """Test."""
-  blob = base.Serialize(sample_obj, compress=None)
+  blob: bytes = base.Serialize(sample_obj, compress=None)
   # should NOT look like zstd: DeSerialize should skip decompression path
   obj2 = base.DeSerialize(data=blob)
   assert obj2 == sample_obj
 
 
-def test_serialize_deserialize_with_compress_negative_clamped(sample_obj):
+def test_serialize_deserialize_with_compress_negative_clamped(
+    sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
   """Test."""
   # request a very fast negative level; function clamps to >= -22 then compresses
-  blob = base.Serialize(sample_obj, compress=-100)  # expect clamp to -22 internally
+  blob: bytes = base.Serialize(sample_obj, compress=-100)  # expect clamp to -22 internally
   # Verify magic-detected zstd path and successful round-trip
   obj2 = base.DeSerialize(data=blob)
   assert obj2 == sample_obj
 
 
-def test_serialize_deserialize_with_compress_high_clamped(sample_obj):
+def test_serialize_deserialize_with_compress_high_clamped(
+    sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
   """Test."""
   # request above max; function clamps to 22
-  blob = base.Serialize(sample_obj, compress=99)
+  blob: bytes = base.Serialize(sample_obj, compress=99)
   obj2 = base.DeSerialize(data=blob)
   assert obj2 == sample_obj
 
 
-def test_serialize_deserialize_with_encrypt_ok(sample_obj):
+def test_serialize_deserialize_with_encrypt_ok(
+    sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
   """Test."""
   key = _ToyCipher(b'secret1')
-  blob = base.Serialize(sample_obj, compress=3, key=key)
+  blob: bytes = base.Serialize(sample_obj, compress=3, key=key)
   # must supply same key (and same AAD inside implementation)
   obj2 = base.DeSerialize(data=blob, key=key)
   assert obj2 == sample_obj
 
 
-def test_serialize_save_and_load_from_file(tmp_path, sample_obj):
+def test_serialize_save_and_load_from_file(
+    tmp_path: pathlib.Path, sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
   """Test."""
-  p = tmp_path / 'payload.bin'
-  blob = base.Serialize(sample_obj, compress=3, file_path=str(p))
+  p: pathlib.Path = tmp_path / 'payload.bin'
+  blob: bytes = base.Serialize(sample_obj, compress=3, file_path=str(p))
   assert p.exists() and p.stat().st_size == len(blob)
   obj2 = base.DeSerialize(file_path=str(p))
   assert obj2 == sample_obj
 
 
-def test_deserialize_exclusivity_both_args(tmp_path):
+def test_deserialize_exclusivity_both_args(tmp_path: pathlib.Path) -> None:
   """Test."""
-  p = tmp_path / 'x.bin'
+  p: pathlib.Path = tmp_path / 'x.bin'
   p.write_bytes(b'data')
   with pytest.raises(base.InputError, match='you must provide only one of either'):
     base.DeSerialize(data=b'data', file_path=str(p))
 
 
-def test_deserialize_invalid_calls():
+def test_deserialize_invalid_calls() -> None:
   """Test."""
   with pytest.raises(base.InputError, match='you must provide only one of either'):
     base.DeSerialize()
@@ -635,19 +648,21 @@ def test_deserialize_invalid_calls():
     base.DeSerialize(data=b'\x00\x01\x02')
 
 
-def test_deserialize_wrong_key_raises(sample_obj):
+def test_deserialize_wrong_key_raises(
+    sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
   """Test."""
   key_ok = _ToyCipher(b'k1')
   key_bad = _ToyCipher(b'k2')
-  blob = base.Serialize(sample_obj, compress=3, key=key_ok)
+  blob: bytes = base.Serialize(sample_obj, compress=3, key=key_ok)
   with pytest.raises(base.CryptoError):
     base.DeSerialize(data=blob, key=key_bad)
 
 
-def test_deserialize_corrupted_zstd_raises(sample_obj):
+def test_deserialize_corrupted_zstd_raises(
+    sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
   """Test."""
   # create a valid zstd-compressed blob
-  blob = base.Serialize(sample_obj, compress=3)
+  blob: bytes = base.Serialize(sample_obj, compress=3)
   # corrupt a byte beyond the first 4 (to keep magic intact)
   mutable = bytearray(blob)
   if len(mutable) <= 10:
@@ -659,10 +674,11 @@ def test_deserialize_corrupted_zstd_raises(sample_obj):
     base.DeSerialize(data=corrupted)
 
 
-def test_deserialize_no_compression_detected_branch(sample_obj):
+def test_deserialize_no_compression_detected_branch(
+    sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
   """Test."""
   # Craft a blob that is NOT zstd: disable compression
-  blob = base.Serialize(sample_obj, compress=None)
+  blob: bytes = base.Serialize(sample_obj, compress=None)
   # This exercises the "(no compression detected)" branch
   obj2 = base.DeSerialize(data=blob)
   assert obj2 == sample_obj

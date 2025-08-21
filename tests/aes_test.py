@@ -31,11 +31,11 @@ def test_AESKey() -> None:
   with pytest.raises(base.InputError, match='empty passwords not allowed'):
     aes.AESKey.FromStaticPassword(' ')
   # password hash --- the FromStaticPassword() costs ~1 second CPU time!
-  key = aes.AESKey.FromStaticPassword('daniel')
-  assert key.encoded == '6gWMOO735KhgFFL1aekVdqm130scXWUT3cLWHmlg07Q='
+  key: aes.AESKey = aes.AESKey.FromStaticPassword('daniel')
+  assert key.encoded == '6gWMOO735KhgFFL1aekVdqm130scXWUT3cLWHmlg07Q='  # cspell:disable-line
 
 
-@pytest.mark.parametrize('key, pth, ct1, ct101', [
+@pytest.mark.parametrize('s_key, pth, ct1, ct101', [
 
     # values copied from Appendix B, page 16+ of:
     # <https://csrc.nist.gov/csrc/media/projects/cryptographic-algorithm-validation-program/documents/aes/aesavs.pdf>
@@ -102,11 +102,11 @@ def test_AESKey() -> None:
         id='p0-5'),
 
 ])
-def test_ECBEncoder(key: str, pth: str, ct1: str, ct101: str) -> None:
+def test_ECBEncoder(s_key: str, pth: str, ct1: str, ct101: str) -> None:
   """Test."""
   # create based on key and test first encryption
-  key = aes.AESKey(key256=base.HexToBytes(key))
-  encoder = key.ECBEncoder()
+  key = aes.AESKey(key256=base.HexToBytes(s_key))
+  encoder: aes.AESKey.ECBEncoderClass = key.ECBEncoder()
   pt: bytes = base.HexToBytes(pth)
   ct: bytes = encoder.Encrypt(pt)
   assert base.BytesToHex(ct) == ct1
@@ -131,7 +131,7 @@ def test_ECBEncoder(key: str, pth: str, ct1: str, ct101: str) -> None:
     encoder.Decrypt(ct, associated_data=b'123')
 
 
-@pytest.mark.parametrize('key, pt, aad, ct1', [
+@pytest.mark.parametrize('s_key, pt, aad, ct1', [
 
     pytest.param(
         '0000000000000000000000000000000000000000000000000000000000000000',
@@ -140,7 +140,7 @@ def test_ECBEncoder(key: str, pth: str, ct1: str, ct101: str) -> None:
 
     pytest.param(
         '0000000000000000000000000000000000000000000000000000000000000001',
-        b'', b'', 'I2oZ71hoQLKtVIsNWDZu_LJFIDNkt_y3czbcZMQETjA=',
+        b'', b'', 'I2oZ71hoQLKtVIsNWDZu_LJFIDNkt_y3czbcZMQETjA=',  # cspell:disable-line
         id='k0-2'),
 
     pytest.param(
@@ -150,7 +150,7 @@ def test_ECBEncoder(key: str, pth: str, ct1: str, ct101: str) -> None:
 
     pytest.param(
         '0000000000000000000000000000000000000000000000000000000000000000',
-        b'', b'x', 'I2oZ71hoQLKtVIsNWDZu_BBZcmenlnrpBm877qw1UqM=',
+        b'', b'x', 'I2oZ71hoQLKtVIsNWDZu_BBZcmenlnrpBm877qw1UqM=',  # cspell:disable-line
         id='k0-4'),
 
     pytest.param(
@@ -170,17 +170,17 @@ def test_ECBEncoder(key: str, pth: str, ct1: str, ct101: str) -> None:
 
     pytest.param(
         'b43d08a447ac8609baadae4ff12918b9f68fc1653f1269222f123981ded7a92f',
-        b'abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhi012345678901234567890', b'',
+        b'abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhi012345678901234567890', b'',  # cspell:disable-line
         'I2oZ71hoQLKtVIsNWDZu_Dg_p-b-a9fqCnMXyvE3R5bh4DjMz9bgaZuV0-LBb37bhiEvOwvN101VVW5TAy'
         'VpV_jt5rCkcN4ULPGQBrcmoT7SeuCEMrxKlDsZPe8wi2CNmK_Bb7eikT_RAzwK2oOt',
         id='b43-large-1'),
 
     pytest.param(
         'b43d08a447ac8609baadae4ff12918b9f68fc1653f1269222f123981ded7a92f',
-        b'abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhi012345678901234567890',
-        b'abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq',
+        b'abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhi012345678901234567890',  # cspell:disable-line
+        b'abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq',  # cspell:disable-line
         'I2oZ71hoQLKtVIsNWDZu_Dg_p-b-a9fqCnMXyvE3R5bh4DjMz9bgaZuV0-LBb37bhiEvOwvN101VVW5TAy'
-        'VpV_jt5rCkcN4ULPGQBrcmoT7SeuCEMrxKlDsZPe8wi2DpxUmrTHIhozsmav3Dp4Q-',
+        'VpV_jt5rCkcN4ULPGQBrcmoT7SeuCEMrxKlDsZPe8wi2DpxUmrTHIhozsmav3Dp4Q-',  # cspell:disable-line
         id='b43-large-2'),
 
     pytest.param(
@@ -197,7 +197,7 @@ def test_ECBEncoder(key: str, pth: str, ct1: str, ct101: str) -> None:
         'CnVTVN-fQpVq1o0dE23J-an9M4tIV8uP9y5w1NtUyvMR1Pv-ir7DXQVnF-lwl6c5_XDly3CaedqldLWkgw'
         'a2YPvpI95vjBdBRl_FKQGE_Q641HsyV_4u0TdZPAZBDMYMArFeS8rA0nVGcLHcYzSq5H73pD_duVkOewb8'
         'P7qm0Y4BQtAibEHzCCaHczkuKHg4i2Uw3k6UPCeJRQbuHgT-6QFRygTV9HayA_EG_viIIsjCQWUvpYDKgn'
-        'a1fxtS7HRMinJWLTCmrzoSS5ZPcu7R5KwQb1tmp58VMlkqCvEXSinDLLVHIkXr2GQqmaXdDwV4_A7uTPED'
+        'a1fxtS7HRMinJWLTCmrzoSS5ZPcu7R5KwQb1tmp58VMlkqCvEXSinDLLVHIkXr2GQqmaXdDwV4_A7uTPED'  # cspell:disable-line
         '6FKYW8gO8xLVKcfrJNSCBa-rmQ0yXRhL6_hQDv-F-MJnfW5gacbaQlc5GhDmq7bCJsE7j66Hk9EejrBYqm'
         'DzNuU7f1HcwGetsfla7Pfb_LaMRa0pYXvkUQ8aksNCnaya49nrB0OHZH2-lEDcRAzbeuMY3EIPVk5mO2ep'
         'CHm4nUqnCZYmNpQBaXHOUPu6iGsOPHoC6MUSJi4p7QvElcQsIojxGTuiE7fKp0fsrxOon0ZT3A8K0CmBhJ'
@@ -208,32 +208,32 @@ def test_ECBEncoder(key: str, pth: str, ct1: str, ct101: str) -> None:
     pytest.param(
         'b43d08a447ac8609baadae4ff12918b9f68fc1653f1269222f123981ded7a92f',
         b'x' * 1000, b'a' * 1000,
-        'I2oZ71hoQLKtVIsNWDZu_CElvPrjdcj6EGgL1-8oV4f6_CXS0Mbxe4eIzf3RfmzImz8wKxrfxFlLSn5CET'
-        'Z9Quf996K3ZMsCPODYT_1t7XOcNaDFevUA33dUc6Bwyig4LD6W7h0mo4vYzyuQpC8qadgbTCNABcLoMAVB'
-        '6JAJPpDoyryiiWe_fUzfAzkXJts0T9XHvccraDCJcm3bzjHJTsfLHsF7lSfoCHhy3TZVCtNyLNYodzO6n2'
-        'bKOMiMdgJSbJ7d0OqjUfHvsmO8DBuDvS2jstZW9sYtQpuhce-GT6XQ8POMjIj8nYfI8T6oLM7LewqmMvHj'
-        'cV3f7VB0ypmJV7D9ZgTs4f6wkmk-Yc2Le7k1785VOxgzycS9DsMVusw-FAcqYi3oY6agsCagaU3BDbpQxi'
-        'HkVVYmUEeS_ASAcsh7DT-hdJ7KqNalyves75ioSGOOH2DJndx5Pt3LwliIXWhEn7gzFzVFUP6bJZSUZkAq'
-        '2KrxxNv7x-aiYq0HomJ4mHvHFbsYHpL5q0UIRCejZVFd7aFcea9IhrRSlH_OmKNhmYbVs-Hyu4f1TBP_lS'
-        'a6lIMJJtZaZxu17gteLk9gACXOA_MzkTjgT4wcLIs4cvu8-vp0PHPa14vPb__rfwRUl4aSzUSIlxolwClt'
-        'tAnkVU5iQ8vCnVIpapOoFA7HJDDfRHwkbtv2MQWiSyZu8htnzE-hWe4nrMNtA-2GlpmvYjIrmwC9d3Z-qM'
-        'qGmZA-K00tfHIVqXI9pxRfrHsbo8MCgTRiX6B7jhhrOKc_yDiabOLXqzhYsBN2f3vrsx2BuILUilbCu70D'
-        'EIL7t6Z39TQOAffJcdhlgAoN-UovuJbe87Hq8oyujfDjEueqpL8oue0hWb2BkfV7Ynh5N9L15PkULPxUZX'
-        'yxZju-ct_Gd7vRJDLnGydqhBPyQUlclUMVNj-1WwUBmlRF5Ya30J5GVjA_1prQBB5K7p0evfWaGlWhplv7'
-        'ORGwXtzhuNhZsQsgut7Cs5FzLbTzXlS4DYrDmwnnp200bwBVh-_eXSId34kU6V6Ed3-41T_B0YEOS0AHyZ'
-        'LkZb22tuHRsP1qmNBBhhpLMc2lKerfWmnFTapjXLgBJysvW4hTczfVM1vmSRYsCbgh8_vRxngPsykcW5yh'
-        'ZfL9nUk52tkcHxjvpuqbgaMkRcGd7HXL33-wIyZQHiJ7BFRWUYghUsteDuymo_SB3XZRKjRlALC5Jg76P3'
-        'wIfJvOduZzZ-08s6FSyQOlLuPIr5Fo0VpEg4rGxruA1cE-sd2EfdhoWykf4Dztyq-30D0Ep0xruHRlQQD-'
-        'nl5n8T8p_dGBAVcuFwKPxkWTFbNXI0BFUcNCUTPBU1e-8fO3Rv242f2Y6wTLOUNF',
+        'I2oZ71hoQLKtVIsNWDZu_CElvPrjdcj6EGgL1-8oV4f6_CXS0Mbxe4eIzf3RfmzImz8wKxrfxFlLSn5CET'  # cspell:disable-line
+        'Z9Quf996K3ZMsCPODYT_1t7XOcNaDFevUA33dUc6Bwyig4LD6W7h0mo4vYzyuQpC8qadgbTCNABcLoMAVB'  # cspell:disable-line
+        '6JAJPpDoyryiiWe_fUzfAzkXJts0T9XHvccraDCJcm3bzjHJTsfLHsF7lSfoCHhy3TZVCtNyLNYodzO6n2'  # cspell:disable-line
+        'bKOMiMdgJSbJ7d0OqjUfHvsmO8DBuDvS2jstZW9sYtQpuhce-GT6XQ8POMjIj8nYfI8T6oLM7LewqmMvHj'  # cspell:disable-line
+        'cV3f7VB0ypmJV7D9ZgTs4f6wkmk-Yc2Le7k1785VOxgzycS9DsMVusw-FAcqYi3oY6agsCagaU3BDbpQxi'  # cspell:disable-line
+        'HkVVYmUEeS_ASAcsh7DT-hdJ7KqNalyves75ioSGOOH2DJndx5Pt3LwliIXWhEn7gzFzVFUP6bJZSUZkAq'  # cspell:disable-line
+        '2KrxxNv7x-aiYq0HomJ4mHvHFbsYHpL5q0UIRCejZVFd7aFcea9IhrRSlH_OmKNhmYbVs-Hyu4f1TBP_lS'  # cspell:disable-line
+        'a6lIMJJtZaZxu17gteLk9gACXOA_MzkTjgT4wcLIs4cvu8-vp0PHPa14vPb__rfwRUl4aSzUSIlxolwClt'  # cspell:disable-line
+        'tAnkVU5iQ8vCnVIpapOoFA7HJDDfRHwkbtv2MQWiSyZu8htnzE-hWe4nrMNtA-2GlpmvYjIrmwC9d3Z-qM'  # cspell:disable-line
+        'qGmZA-K00tfHIVqXI9pxRfrHsbo8MCgTRiX6B7jhhrOKc_yDiabOLXqzhYsBN2f3vrsx2BuILUilbCu70D'  # cspell:disable-line
+        'EIL7t6Z39TQOAffJcdhlgAoN-UovuJbe87Hq8oyujfDjEueqpL8oue0hWb2BkfV7Ynh5N9L15PkULPxUZX'  # cspell:disable-line
+        'yxZju-ct_Gd7vRJDLnGydqhBPyQUlclUMVNj-1WwUBmlRF5Ya30J5GVjA_1prQBB5K7p0evfWaGlWhplv7'  # cspell:disable-line
+        'ORGwXtzhuNhZsQsgut7Cs5FzLbTzXlS4DYrDmwnnp200bwBVh-_eXSId34kU6V6Ed3-41T_B0YEOS0AHyZ'  # cspell:disable-line
+        'LkZb22tuHRsP1qmNBBhhpLMc2lKerfWmnFTapjXLgBJysvW4hTczfVM1vmSRYsCbgh8_vRxngPsykcW5yh'  # cspell:disable-line
+        'ZfL9nUk52tkcHxjvpuqbgaMkRcGd7HXL33-wIyZQHiJ7BFRWUYghUsteDuymo_SB3XZRKjRlALC5Jg76P3'  # cspell:disable-line
+        'wIfJvOduZzZ-08s6FSyQOlLuPIr5Fo0VpEg4rGxruA1cE-sd2EfdhoWykf4Dztyq-30D0Ep0xruHRlQQD-'  # cspell:disable-line
+        'nl5n8T8p_dGBAVcuFwKPxkWTFbNXI0BFUcNCUTPBU1e-8fO3Rv242f2Y6wTLOUNF',                   # cspell:disable-line
         id='b43-huge'),
 
 ])
 @mock.patch('src.transcrypto.base.RandBytes', autospec=True)
-def test_GCMEncoder(rand_bytes: mock.MagicMock, key: str, pt: bytes, aad: bytes, ct1: str) -> None:
+def test_GCMEncoder(rand_bytes: mock.MagicMock, s_key: str, pt: bytes, aad: bytes, ct1: str) -> None:
   """Test."""
   rand_bytes.return_value = base.HexToBytes('236a19ef586840b2ad548b0d58366efc')
   # create based on key and test basics
-  key = aes.AESKey(key256=base.HexToBytes(key))
+  key = aes.AESKey(key256=base.HexToBytes(s_key))
   ct: bytes = key.Encrypt(pt, associated_data=aad)
   assert base.BytesToEncoded(ct) == ct1
   assert key.Decrypt(ct, associated_data=aad) == pt
@@ -256,11 +256,11 @@ def test_GCMEncoder(rand_bytes: mock.MagicMock, key: str, pt: bytes, aad: bytes,
     key.Decrypt(bytes(bad_ct), associated_data=aad)
   if len(ct) > 2:
     with pytest.raises(base.CryptoError, match='failed decryption'):
-      bad_ct: bytearray = bytearray(ct)
+      bad_ct = bytearray(ct)
       bad_ct[18] ^= 0x01  # flip a bit in the ciphertext part
       key.Decrypt(bytes(bad_ct), associated_data=aad)
   with pytest.raises(base.CryptoError, match='failed decryption'):
-    bad_ct: bytearray = bytearray(ct)
+    bad_ct = bytearray(ct)
     bad_ct[-2] ^= 0x01  # flip a bit in the tag part
     key.Decrypt(bytes(bad_ct), associated_data=aad)
   # check calls

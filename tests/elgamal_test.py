@@ -24,13 +24,13 @@ __version__: str = elgamal.__version__  # tests inherit version from module
 def test_ElGamal_keys_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
   """Test."""
   with pytest.raises(base.InputError, match='invalid bit length'):
-    elgamal.ElGamalSharedPublicKey.New(10)
+    elgamal.ElGamalSharedPublicKey.NewShared(10)
   with pytest.raises(base.InputError, match='invalid bit length'):
     elgamal.ElGamalPrivateKey.New(
         elgamal.ElGamalSharedPublicKey(prime_modulus=37, group_base=8))
   prime.side_effect = [1783]
   randbits.side_effect = [146, 146, 409, 1546, 1546, 146, 148, 149]  # ModExp(146, 1546, 1783) == 2
-  group: elgamal.ElGamalSharedPublicKey = elgamal.ElGamalSharedPublicKey.New(11)
+  group: elgamal.ElGamalSharedPublicKey = elgamal.ElGamalSharedPublicKey.NewShared(11)
   assert group == elgamal.ElGamalSharedPublicKey(prime_modulus=1783, group_base=146)
   private: elgamal.ElGamalPrivateKey = elgamal.ElGamalPrivateKey.New(group)
   assert private == elgamal.ElGamalPrivateKey(
@@ -55,19 +55,19 @@ def test_ElGamal_keys_creation(prime: mock.MagicMock, randbits: mock.MagicMock) 
         # same thing again, but with larger numbers:
         (10683855263626377773, 4237160757485021964, 6347817109416065590, 7297922440270344179,
          10, 40297678502457365, (8344081885661343574, 396610340005941186),
-         (8344081885661343574, 10066062009891327152)), # one individual, message==10
+         (8344081885661343574, 10066062009891327152)),  # one individual, message==10
         (10683855263626377773, 4237160757485021964, 6347817109416065590, 7297922440270344179,
          11, 40297678502457365, (8344081885661343574, 8983355584907637523),
-         (8344081885661343574, 4776610262917878445)),  # same ephemeral different message, first cypher is equal!
+         (8344081885661343574, 4776610262917878445)),   # same ephemeral different message, first cypher is equal!
         (10683855263626377773, 4237160757485021964, 6347817109416065590, 7297922440270344179,
          10, 3984973770771867757, (4280206384080240986, 8684137473143402536),
-         (4280206384080240986, 6323003457038402128)),  # different ephemeral same message, all changes
+         (4280206384080240986, 6323003457038402128)),   # different ephemeral same message, all changes
         (10683855263626377773, 4237160757485021964, 4502163680704027637, 8909246682740758948,
          10, 40297678502457365, (8344081885661343574, 9614389933915395270),
-         (8344081885661343574, 4646135738472651478)),  # another individual of the same group, first cypher is equal!
+         (8344081885661343574, 4646135738472651478)),   # another individual of the same group, first cypher is equal!
     ])
 @mock.patch('src.transcrypto.elgamal.ElGamalPublicKey._MakeEphemeralKey', autospec=True)
-def test_ElGamal(
+def test_ElGamal(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     make_ephemeral: mock.MagicMock, prime_modulus: int, group_base: int, individual_base: int,
     decrypt_exp: int, message: int, ephemeral: int, expected_cypher: tuple[int, int],
     expected_signed: tuple[int, int]) -> None:

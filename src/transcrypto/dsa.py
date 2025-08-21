@@ -6,7 +6,7 @@
 
 <https://en.wikipedia.org/wiki/Digital_Signature_Algorithm>
 
-BEWARE: For now, this implemantation is raw DSA, no padding, no hash!
+BEWARE: For now, this implementation is raw DSA, no padding, no hash!
 In the future we will design a proper DSA+Hash implementation.
 """
 
@@ -77,7 +77,7 @@ def NBitRandomDSAPrimes(p_bits: int, q_bits: int, /) -> tuple[int, int, int]:
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class DSASharedPublicKey(base.CryptoKey):
   """DSA shared public key. This key can be shared by a group.
-  
+
   BEWARE: This is raw DSA, no padding, no hash!
 
   Attributes:
@@ -108,7 +108,7 @@ class DSASharedPublicKey(base.CryptoKey):
       raise base.InputError(f'invalid group_base: {self}')
 
   @classmethod
-  def New(cls, p_bits: int, q_bits: int, /) -> Self:
+  def NewShared(cls, p_bits: int, q_bits: int, /) -> Self:
     """Make a new shared public key of `bit_length` bits.
 
     Args:
@@ -135,7 +135,7 @@ class DSASharedPublicKey(base.CryptoKey):
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class DSAPublicKey(DSASharedPublicKey):
   """DSA public key. This is an individual public key.
-  
+
   BEWARE: This is raw DSA, no padding, no hash!
 
   Attributes:
@@ -210,7 +210,7 @@ class DSAPublicKey(DSASharedPublicKey):
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class DSAPrivateKey(DSAPublicKey):
   """DSA private key.
-  
+
   BEWARE: This is raw DSA, no padding, no hash!
 
   Attributes:

@@ -56,7 +56,7 @@ class ShamirSharedSecretPublic(base.CryptoKey):
 
     Args:
       shares (Collection[ShamirSharePrivate]): shares to use to recover the secret
-      force_recover (bool, optional): if True will try to recover
+      force_recover (bool, optional): if True will try to recover (default: False)
 
     Returns:
       the integer secret if all shares are correct and in the correct number; if there are

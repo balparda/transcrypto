@@ -38,7 +38,7 @@ __version_tuple__: tuple[int, ...] = base.__version_tuple__
 
 # these fixed salt/iterations are for password->key generation only; NEVER use them to
 # build a database of passwords because it would not be safe; NEVER change them or the
-# keys will change and previous databases/encryptions will become inconsisten/unreadable!
+# keys will change and previous databases/encryptions will become inconsistent/unreadable!
 _PASSWORD_SALT_256: bytes = base.HexToBytes(
     '63b56fe9260ed3ff752a86a3414e4358e4d8e3e31b9dbc16e11ec19809e2f3c0')  # fixed random salt: do NOT ever change!
 _PASSWORD_ITERATIONS = 2025103  # fixed iterations, purposefully huge: do NOT ever change!
@@ -121,13 +121,14 @@ class AESKey(base.CryptoKey, base.SymmetricCrypto):
       Args:
         key256 (AESKey): key
       """
-      self._cipher = ciphers.Cipher(algorithms.AES256(key256.key256), modes.ECB())
+      self._cipher: ciphers.Cipher[modes.ECB] = ciphers.Cipher(
+          algorithms.AES256(key256.key256), modes.ECB())
       assert self._cipher.algorithm.key_size == 256, 'should never happen: AES256+ECB should have 256 bits key'
-      assert self._cipher.algorithm.block_size == 128, 'should never happen: AES256+ECB should have 128 bits block'
+      assert self._cipher.algorithm.block_size == 128, 'should never happen: AES256+ECB should have 128 bits block'  # type:ignore
 
     def Encrypt(self, plaintext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
       """Encrypt a 128 bits block (16 bytes) `plaintext` and return `ciphertext` of 128 bits.
-      
+
       Please DO **NOT** use this for regular cryptography.
 
       Args:
@@ -149,7 +150,7 @@ class AESKey(base.CryptoKey, base.SymmetricCrypto):
 
     def Decrypt(self, ciphertext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
       """Decrypt a 128 bits block (16 bytes) `ciphertext` and return original 128 bits `plaintext`.
-      
+
       Please DO **NOT** use this for regular cryptography.
 
       Args:
@@ -183,7 +184,7 @@ class AESKey(base.CryptoKey, base.SymmetricCrypto):
 
   def Encrypt(self, plaintext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
     """Encrypt `plaintext` and return `ciphertext` with AES-256 + GCM algorithm.
-    
+
     <https://en.wikipedia.org/wiki/Galois/Counter_Mode>
     <https://cryptography.io/en/latest/hazmat/primitives/symmetric-encryption/#cryptography.hazmat.primitives.ciphers.modes.GCM>
 
@@ -202,21 +203,22 @@ class AESKey(base.CryptoKey, base.SymmetricCrypto):
       CryptoError: internal crypto failures
     """
     iv: bytes = base.RandBytes(16)
-    cipher = ciphers.Cipher(algorithms.AES256(self.key256), modes.GCM(iv))
+    cipher: ciphers.Cipher[modes.GCM] = ciphers.Cipher(
+        algorithms.AES256(self.key256), modes.GCM(iv))
     assert cipher.algorithm.key_size == 256, 'should never happen: AES256+GCM should have 256 bits key'
-    assert cipher.algorithm.block_size == 128, 'should never happen: AES256+GCM should have 128 bits block'
+    assert cipher.algorithm.block_size == 128, 'should never happen: AES256+GCM should have 128 bits block'  # type:ignore
     encryptor: ciphers.CipherContext = cipher.encryptor()
     if associated_data:
-      encryptor.authenticate_additional_data(associated_data)
+      encryptor.authenticate_additional_data(associated_data)  # type:ignore
     ciphertext: bytes = encryptor.update(plaintext) + encryptor.finalize()  # GCM doesn't need padding
-    tag: bytes = encryptor.tag
+    tag: bytes = encryptor.tag  # type:ignore
     assert len(iv) == 16, 'should never happen: AES256+GCM should have 128 bits IV/nonce'
     assert len(tag) == 16, 'should never happen: AES256+GCM should have 128 bits tag'
     return iv + ciphertext + tag
 
   def Decrypt(self, ciphertext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
     """Decrypt `ciphertext` and return the original `plaintext` with AES-256 + GCM algorithm.
-    
+
     <https://en.wikipedia.org/wiki/Galois/Counter_Mode>
     <https://cryptography.io/en/latest/hazmat/primitives/symmetric-encryption/#cryptography.hazmat.primitives.ciphers.modes.GCM>
 
@@ -237,7 +239,7 @@ class AESKey(base.CryptoKey, base.SymmetricCrypto):
     decryptor: ciphers.CipherContext = ciphers.Cipher(
         algorithms.AES256(self.key256), modes.GCM(iv, tag)).decryptor()
     if associated_data:
-      decryptor.authenticate_additional_data(associated_data)
+      decryptor.authenticate_additional_data(associated_data)  # type:ignore
     try:
       return decryptor.update(ciphertext[16:-16]) + decryptor.finalize()
     except crypt_exceptions.InvalidTag as err:

@@ -61,7 +61,7 @@ class ElGamalSharedPublicKey(base.CryptoKey):
       raise base.InputError(f'invalid group_base: {self}')
 
   @classmethod
-  def New(cls, bit_length: int, /) -> Self:
+  def NewShared(cls, bit_length: int, /) -> Self:
     """Make a new shared public key of `bit_length` bits.
 
     Args:
@@ -188,7 +188,7 @@ class ElGamalPublicKey(ElGamalSharedPublicKey):
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class ElGamalPrivateKey(ElGamalPublicKey):
   """El-Gamal private key.
-  
+
   BEWARE: This is raw El-Gamal, no padding! This is **NOT** DSA!
 
   Attributes:

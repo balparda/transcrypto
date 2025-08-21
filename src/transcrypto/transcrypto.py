@@ -58,7 +58,7 @@ class _StrBytesType(enum.Enum):
   RAW = 0
   HEXADECIMAL = 1
   BASE64 = 2
-  
+
   @staticmethod
   def FromFlags(is_hex: bool, is_base64: bool) -> _StrBytesType:
     return (_StrBytesType.HEXADECIMAL if is_hex else
@@ -552,7 +552,7 @@ def _BuildParser() -> argparse.ArgumentParser:
   p_sss_verify.add_argument('share', type=str, help='One share as k:v (e.g., 7:9999).')
   p_sss_verify.add_argument('--key', type=str, required=True, help='Path to private SSS key (.priv).')
   p_sss_verify.add_argument('--protect', type=str, default='', help='Password to decrypt key file if needed.')
-  
+
   # ---------------- Markdown Generation ----------------
   doc = sub.add_parser('doc', help='Documentation utilities')
   docsub = doc.add_subparsers(dest='doc_command')

@@ -189,7 +189,7 @@ class RSAObfuscationPair(RSAPublicKey):
 
     Returns:
       RSAObfuscationPair object ready for use
-      
+
     Raises:
       CryptoError: failed generation
     """
