@@ -1,26 +1,121 @@
 # TransCrypto
 
-- [TransCrypto](#transcrypto)
-  - [License](#license)
-  - [Use](#use)
-    - [Install](#install)
-    - [Base Library](#base-library)
-      - [Computing the Greatest Common Divisor](#computing-the-greatest-common-divisor)
-      - [Fast Modular Arithmetic](#fast-modular-arithmetic)
-      - [Modular Polynomials \& Lagrange Interpolation](#modular-polynomials--lagrange-interpolation)
-      - [Primality testing \& Prime generators, Mersenne primes](#primality-testing--prime-generators-mersenne-primes)
-      - [RSA (Rivest-Shamir-Adleman) Public Cryptography](#rsa-rivest-shamir-adleman-public-cryptography)
-      - [SSS (Shamir Shared Secret)](#sss-shamir-shared-secret)
-  - [Development Instructions](#development-instructions)
-    - [Setup](#setup)
-    - [Updating Dependencies](#updating-dependencies)
-    - [Creating a New Version](#creating-a-new-version)
-
 Basic crypto primitives, not intended for actual use, but as a companion to "Criptografia, Métodos e Algoritmos".
 
 Started in July/2025, by Daniel Balparda. Since version 1.0.2 it is PyPI package:
 
 <https://pypi.org/project/transcrypto/>
+
+- [TransCrypto](#transcrypto)
+  - [License](#license)
+  - [Use](#use)
+  - [Install](#install)
+  - [Command-Line Interface](#command-line-interface)
+  - [Command-Line Interface](#command-line-interface-1)
+    - [Global Options](#global-options)
+    - [Commands](#commands)
+      - [`isprime`](#isprime)
+      - [`mr`](#mr)
+      - [`randomprime`](#randomprime)
+      - [`primegen`](#primegen)
+      - [`mersenne`](#mersenne)
+      - [`gcd`](#gcd)
+      - [`xgcd`](#xgcd)
+      - [`mod`](#mod)
+      - [`mod inv`](#mod-inv)
+      - [`mod div`](#mod-div)
+      - [`mod exp`](#mod-exp)
+      - [`mod poly`](#mod-poly)
+      - [`mod lagrange`](#mod-lagrange)
+      - [`mod crt`](#mod-crt)
+      - [`rand`](#rand)
+      - [`rand bits`](#rand-bits)
+      - [`rand int`](#rand-int)
+      - [`rand bytes`](#rand-bytes)
+      - [`hash`](#hash)
+      - [`hash sha256`](#hash-sha256)
+      - [`hash sha512`](#hash-sha512)
+      - [`hash file`](#hash-file)
+      - [`aes`](#aes)
+      - [`aes key`](#aes-key)
+      - [`aes key frompass`](#aes-key-frompass)
+      - [`aes encrypt`](#aes-encrypt)
+      - [`aes decrypt`](#aes-decrypt)
+      - [`aes ecb`](#aes-ecb)
+      - [`aes ecb encrypthex`](#aes-ecb-encrypthex)
+      - [`aes ecb decrypthex`](#aes-ecb-decrypthex)
+      - [`rsa`](#rsa)
+      - [`rsa new`](#rsa-new)
+      - [`rsa encrypt`](#rsa-encrypt)
+      - [`rsa decrypt`](#rsa-decrypt)
+      - [`rsa sign`](#rsa-sign)
+      - [`rsa verify`](#rsa-verify)
+      - [`elgamal`](#elgamal)
+      - [`elgamal shared`](#elgamal-shared)
+      - [`elgamal new`](#elgamal-new)
+      - [`elgamal encrypt`](#elgamal-encrypt)
+      - [`elgamal decrypt`](#elgamal-decrypt)
+      - [`elgamal sign`](#elgamal-sign)
+      - [`elgamal verify`](#elgamal-verify)
+      - [`dsa`](#dsa)
+      - [`dsa shared`](#dsa-shared)
+      - [`dsa new`](#dsa-new)
+      - [`dsa sign`](#dsa-sign)
+      - [`dsa verify`](#dsa-verify)
+      - [`sss`](#sss)
+      - [`sss new`](#sss-new)
+      - [`sss shares`](#sss-shares)
+      - [`sss recover`](#sss-recover)
+      - [`sss verify`](#sss-verify)
+      - [`doc`](#doc)
+      - [`doc md`](#doc-md)
+    - [1. Cryptographically Secure Randomness](#1-cryptographically-secure-randomness)
+      - [`random bytes`](#random-bytes)
+      - [`random int`](#random-int)
+    - [2. Primality and Modular Math](#2-primality-and-modular-math)
+      - [`isprime`](#isprime-1)
+      - [`crt`](#crt)
+    - [3. RSA Cryptography](#3-rsa-cryptography)
+      - [`rsa new`](#rsa-new-1)
+      - [`rsa encrypt`](#rsa-encrypt-1)
+      - [`rsa decrypt`](#rsa-decrypt-1)
+    - [4. AES Cryptography](#4-aes-cryptography)
+      - [`aes genkey`](#aes-genkey)
+      - [`aes encrypt`](#aes-encrypt-1)
+      - [`aes decrypt`](#aes-decrypt-1)
+      - [`aes ecb-encrypt`](#aes-ecb-encrypt)
+      - [`aes ecb-decrypt`](#aes-ecb-decrypt)
+    - [5. Hashing](#5-hashing)
+      - [`hash sha256`](#hash-sha256-1)
+      - [`hash sha512`](#hash-sha512-1)
+      - [`hash file`](#hash-file-1)
+    - [6. Shamir’s Secret Sharing](#6-shamirs-secret-sharing)
+      - [`sss split`](#sss-split)
+      - [`sss combine`](#sss-combine)
+    - [7. Timer Utility](#7-timer-utility)
+    - [Base Library](#base-library)
+      - [Humanized Sizes (IEC binary)](#humanized-sizes-iec-binary)
+      - [Humanized Decimal Quantities (SI)](#humanized-decimal-quantities-si)
+      - [Humanized Durations](#humanized-durations)
+      - [Cryptographically Secure Randomness](#cryptographically-secure-randomness)
+      - [Computing the Greatest Common Divisor](#computing-the-greatest-common-divisor)
+      - [Cryptographic Hashing](#cryptographic-hashing)
+      - [Execution Timing](#execution-timing)
+      - [Symmetric Encryption Interface](#symmetric-encryption-interface)
+      - [Serialization Pipeline](#serialization-pipeline)
+      - [AES-256 Symmetric Encryption](#aes-256-symmetric-encryption)
+      - [Fast Modular Arithmetic](#fast-modular-arithmetic)
+      - [Chinese Remainder Theorem (CRT) – Pair](#chinese-remainder-theorem-crt--pair)
+      - [Modular Polynomials \& Lagrange Interpolation](#modular-polynomials--lagrange-interpolation)
+      - [Primality testing \& Prime generators, Mersenne primes](#primality-testing--prime-generators-mersenne-primes)
+      - [RSA (Rivest-Shamir-Adleman) Public Cryptography](#rsa-rivest-shamir-adleman-public-cryptography)
+      - [El-Gamal Public-Key Cryptography](#el-gamal-public-key-cryptography)
+      - [DSA (Digital Signature Algorithm)](#dsa-digital-signature-algorithm)
+      - [SSS (Shamir Shared Secret)](#sss-shamir-shared-secret)
+  - [Appendix: Development Instructions](#appendix-development-instructions)
+    - [Setup](#setup)
+    - [Updating Dependencies](#updating-dependencies)
+    - [Creating a New Version](#creating-a-new-version)
 
 ## License
 
@@ -70,9 +165,9 @@ Run via:
 poetry run transcrypto <command> [sub-command] [options...]
 ```
 
-
 <!-- (auto-generated; do not edit between START/END) -->
 <!-- INCLUDE:CLI.md START -->
+
 ## Command-Line Interface
 
 `transcrypto.py` exposes cryptographic primitives, number theory tools, key management, and utilities.
@@ -839,8 +934,6 @@ usage: transcrypto.py doc [-h] {md} ...
 ```bash
 poetry run transcrypto.py transcrypto.py doc md [-h]
 ```
-
-usage: transcrypto.py doc md [-h]
 <!-- INCLUDE:CLI.md END -->
 <!-- (auto-generated; do not edit between START/END) -->
 
@@ -859,11 +952,11 @@ Generates `N` cryptographically secure random bytes from `base.RandBytes()`.
 
 **Arguments**:
 
-* `N` (`int`): Number of bytes to generate, `N ≥ 1`.
+- `N` (`int`): Number of bytes to generate, `N ≥ 1`.
 
 **Output**:
 
-* Hexadecimal string representing the random bytes (2·`N` hex characters).
+- Hexadecimal string representing the random bytes (2·`N` hex characters).
 
 **Example**:
 
@@ -884,11 +977,11 @@ Generates a cryptographically secure random integer from `base.RandInt()`.
 
 **Arguments**:
 
-* `BITS` (`int`): Bit length of integer to generate, `BITS ≥ 1`.
+- `BITS` (`int`): Bit length of integer to generate, `BITS ≥ 1`.
 
 **Output**:
 
-* Decimal integer in `[0, 2**BITS)`.
+- Decimal integer in `[0, 2**BITS)`.
 
 **Example**:
 
@@ -911,11 +1004,11 @@ Checks primality using `modmath.IsPrime()`.
 
 **Arguments**:
 
-* `N` (`int`): Number to test, `N ≥ 0`.
+- `N` (`int`): Number to test, `N ≥ 0`.
 
 **Output**:
 
-* `"prime"` if `N` is prime, `"composite"` otherwise.
+- `"prime"` if `N` is prime, `"composite"` otherwise.
 
 **Example**:
 
@@ -936,14 +1029,14 @@ Solves a **Chinese Remainder Theorem** pair using `modmath.CRTPair()`.
 
 **Arguments**:
 
-* `A1` (`int`): Residue for first congruence.
-* `M1` (`int`): Modulus 1, `M1 ≥ 2`.
-* `A2` (`int`): Residue for second congruence.
-* `M2` (`int`): Modulus 2, `M2 ≥ 2`, `gcd(M1, M2) == 1`.
+- `A1` (`int`): Residue for first congruence.
+- `M1` (`int`): Modulus 1, `M1 ≥ 2`.
+- `A2` (`int`): Residue for second congruence.
+- `M2` (`int`): Modulus 2, `M2 ≥ 2`, `gcd(M1, M2) == 1`.
 
 **Output**:
 
-* The unique solution `x` in `[0, M1*M2)`.
+- The unique solution `x` in `[0, M1*M2)`.
 
 **Example**:
 
@@ -966,12 +1059,12 @@ Generates an RSA keypair with given bit length using `rsa.RSAKey()`.
 
 **Arguments**:
 
-* `BITS` (`int`): Key size in bits, typically 2048 or 4096.
+- `BITS` (`int`): Key size in bits, typically 2048 or 4096.
 
 **Output**:
 
-* PEM-encoded private key.
-* PEM-encoded public key.
+- PEM-encoded private key.
+- PEM-encoded public key.
 
 **Example**:
 
@@ -992,12 +1085,12 @@ Encrypts data with RSA public key using OAEP padding.
 
 **Arguments**:
 
-* `PUBKEY` (`str`): PEM-encoded public key string or file path.
-* `PLAINTEXT` (`str`): Plaintext string to encrypt.
+- `PUBKEY` (`str`): PEM-encoded public key string or file path.
+- `PLAINTEXT` (`str`): Plaintext string to encrypt.
 
 **Output**:
 
-* Hexadecimal ciphertext.
+- Hexadecimal ciphertext.
 
 ---
 
@@ -1011,12 +1104,12 @@ Decrypts RSA ciphertext with private key.
 
 **Arguments**:
 
-* `PRIVKEY` (`str`): PEM-encoded private key string or file path.
-* `CIPHERTEXT_HEX` (`str`): Hexadecimal-encoded ciphertext.
+- `PRIVKEY` (`str`): PEM-encoded private key string or file path.
+- `CIPHERTEXT_HEX` (`str`): Hexadecimal-encoded ciphertext.
 
 **Output**:
 
-* Original plaintext string.
+- Original plaintext string.
 
 ---
 
@@ -1032,11 +1125,11 @@ Derives a 256-bit AES key from a static password using `AESKey.FromStaticPasswor
 
 **Arguments**:
 
-* `PASSWORD` (`str`): Non-empty password string (leading/trailing spaces ignored).
+- `PASSWORD` (`str`): Non-empty password string (leading/trailing spaces ignored).
 
 **Output**:
 
-* URL-safe Base64-encoded AES key.
+- URL-safe Base64-encoded AES key.
 
 ---
 
@@ -1050,13 +1143,13 @@ Encrypts data using AES-256-GCM.
 
 **Arguments**:
 
-* `KEY` (`str`): URL-safe Base64-encoded AES key.
-* `PLAINTEXT` (`str`): Plaintext to encrypt.
-* `-a`, `--aad` (`str`, optional): Additional authenticated data.
+- `KEY` (`str`): URL-safe Base64-encoded AES key.
+- `PLAINTEXT` (`str`): Plaintext to encrypt.
+- `-a`, `--aad` (`str`, optional): Additional authenticated data.
 
 **Output**:
 
-* Hexadecimal ciphertext including IV and tag.
+- Hexadecimal ciphertext including IV and tag.
 
 ---
 
@@ -1070,13 +1163,13 @@ Decrypts AES-256-GCM ciphertext.
 
 **Arguments**:
 
-* `KEY` (`str`): URL-safe Base64-encoded AES key.
-* `CIPHERTEXT_HEX` (`str`): Hexadecimal ciphertext including IV and tag.
-* `-a`, `--aad` (`str`, optional): Additional authenticated data.
+- `KEY` (`str`): URL-safe Base64-encoded AES key.
+- `CIPHERTEXT_HEX` (`str`): Hexadecimal ciphertext including IV and tag.
+- `-a`, `--aad` (`str`, optional): Additional authenticated data.
 
 **Output**:
 
-* Original plaintext string.
+- Original plaintext string.
 
 ---
 
@@ -1090,12 +1183,12 @@ Encrypts a single 16-byte block using AES-256-ECB.
 
 **Arguments**:
 
-* `KEY` (`str`): URL-safe Base64-encoded AES key.
-* `PLAINTEXT_HEX` (`str`): 32 hex characters (16 bytes).
+- `KEY` (`str`): URL-safe Base64-encoded AES key.
+- `PLAINTEXT_HEX` (`str`): 32 hex characters (16 bytes).
 
 **Output**:
 
-* 32-character hex ciphertext.
+- 32-character hex ciphertext.
 
 ---
 
@@ -1109,12 +1202,12 @@ Decrypts a single 16-byte block using AES-256-ECB.
 
 **Arguments**:
 
-* `KEY` (`str`): URL-safe Base64-encoded AES key.
-* `CIPHERTEXT_HEX` (`str`): 32 hex characters (16 bytes).
+- `KEY` (`str`): URL-safe Base64-encoded AES key.
+- `CIPHERTEXT_HEX` (`str`): 32 hex characters (16 bytes).
 
 **Output**:
 
-* 32-character hex plaintext.
+- 32-character hex plaintext.
 
 ---
 
@@ -1130,11 +1223,11 @@ SHA-256 digest of given data.
 
 **Arguments**:
 
-* `DATA` (`str`): Input string; if starts with `0x` or matches hex length, treated as hex.
+- `DATA` (`str`): Input string; if starts with `0x` or matches hex length, treated as hex.
 
 **Output**:
 
-* 64-character hex digest.
+- 64-character hex digest.
 
 ---
 
@@ -1148,11 +1241,11 @@ SHA-512 digest of given data.
 
 **Arguments**:
 
-* `DATA` (`str`): As above.
+- `DATA` (`str`): As above.
 
 **Output**:
 
-* 128-character hex digest.
+- 128-character hex digest.
 
 ---
 
@@ -1166,12 +1259,12 @@ Computes file digest.
 
 **Arguments**:
 
-* `PATH` (`str`): Path to existing file.
-* `-d`, `--digest` (`str`): `sha256` (default) or `sha512`.
+- `PATH` (`str`): Path to existing file.
+- `-d`, `--digest` (`str`): `sha256` (default) or `sha512`.
 
 **Output**:
 
-* Hex digest of file contents.
+- Hex digest of file contents.
 
 ---
 
@@ -1187,13 +1280,13 @@ Splits a secret into N shares with threshold K.
 
 **Arguments**:
 
-* `SECRET_HEX` (`str`): Hex-encoded secret.
-* `K` (`int`): Threshold, `2 ≤ K ≤ N`.
-* `N` (`int`): Total number of shares.
+- `SECRET_HEX` (`str`): Hex-encoded secret.
+- `K` (`int`): Threshold, `2 ≤ K ≤ N`.
+- `N` (`int`): Total number of shares.
 
 **Output**:
 
-* List of share strings.
+- List of share strings.
 
 ---
 
@@ -1207,11 +1300,11 @@ Reconstructs the secret from K shares.
 
 **Arguments**:
 
-* `SHAREn` (`str`): Share strings.
+- `SHAREn` (`str`): Share strings.
 
 **Output**:
 
-* Original secret in hex.
+- Original secret in hex.
 
 ---
 
@@ -1225,11 +1318,11 @@ Sleeps for the given number of seconds, measuring elapsed time using `base.Timer
 
 **Arguments**:
 
-* `SECONDS` (`float`): Duration to wait.
+- `SECONDS` (`float`): Duration to wait.
 
 **Output**:
 
-* Elapsed time in seconds.
+- Elapsed time in seconds.
 
 ---
 
@@ -1259,8 +1352,8 @@ utils.HumanizedBytes(5 * 1024**3)         # '5.00 GiB'
 
 Converts raw byte counts to binary-prefixed strings (`B`, `KiB`, `MiB`, `GiB`, `TiB`, `PiB`, `EiB`). Values under 1024 bytes are returned as integers with `B`; larger values use two decimals.
 
-* standard: 1 KiB = 1024 B, 1 MiB = 1024 KiB, …
-* errors: negative inputs raise `InputError`
+- standard: 1 KiB = 1024 B, 1 MiB = 1024 KiB, …
+- errors: negative inputs raise `InputError`
 
 #### Humanized Decimal Quantities (SI)
 
@@ -1280,8 +1373,8 @@ utils.HumanizedDecimal(7.2e12, 'B/s')     # '7.20 TB/s'
 
 Scales by powers of 1000 using SI prefixes (`k`, `M`, `G`, `T`, `P`, `E`). For values `<1000`, integers are shown as-is; small floats show four decimals. For scaled values, two decimals are used and the unit (if provided) is attached without a space (e.g., `kHz`).
 
-* unit handling: `unit` is stripped; `<1000` values include a space before the unit (`'950 Hz'`)
-* errors: negative or non-finite inputs raise `InputError`
+- unit handling: `unit` is stripped; `<1000` values include a space before the unit (`'950 Hz'`)
+- errors: negative or non-finite inputs raise `InputError`
 
 #### Humanized Durations
 
@@ -1296,21 +1389,21 @@ utils.HumanizedSeconds(172800)            # '2.00 d'
 
 Chooses an appropriate time unit based on magnitude and formats with fixed precision:
 
-* `< 1 ms`: microseconds with three decimals (`µs`)
+- `< 1 ms`: microseconds with three decimals (`µs`)
 
-* `< 1 s`: milliseconds with three decimals (`ms`)
+- `< 1 s`: milliseconds with three decimals (`ms`)
 
-* `< 60 s`: seconds with two decimals (`s`)
+- `< 60 s`: seconds with two decimals (`s`)
 
-* `< 60 min`: minutes with two decimals (`min`)
+- `< 60 min`: minutes with two decimals (`min`)
 
-* `< 24 h`: hours with two decimals (`h`)
+- `< 24 h`: hours with two decimals (`h`)
 
-* `≥ 24 h`: days with two decimals (`d`)
+- `≥ 24 h`: days with two decimals (`d`)
 
-* special case: `0 → '0.00 s'`
+- special case: `0 → '0.00 s'`
 
-* errors: negative or non-finite inputs raise `InputError`
+- errors: negative or non-finite inputs raise `InputError`
 
 
 
@@ -1335,7 +1428,7 @@ assert r.bit_length() == 256
 
 Produces a crypto-secure random integer with exactly `n_bits` bits (`≥ 8`). The most significant bit is guaranteed to be `1`, so entropy is \~`n_bits−1` — negligible for large crypto sizes.
 
-* errors: `n_bits < 8` → `InputError`
+- errors: `n_bits < 8` → `InputError`
 
 ---
 
@@ -1349,8 +1442,8 @@ assert 10 <= n <= 20
 
 Returns a crypto-secure integer uniformly distributed over the closed interval `[min_int, max_int]`.
 
-* constraints: `min_int ≥ 0` and `< max_int`
-* errors: invalid bounds → `InputError`
+- constraints: `min_int ≥ 0` and `< max_int`
+- errors: invalid bounds → `InputError`
 
 ---
 
@@ -1364,8 +1457,8 @@ print(deck)   # securely shuffled order
 
 Performs an in-place Fisher–Yates shuffle using `secrets.randbelow`. Suitable for sensitive data ordering.
 
-* constraints: sequence length ≥ 2
-* errors: shorter sequences → `InputError`
+- constraints: sequence length ≥ 2
+- errors: shorter sequences → `InputError`
 
 ---
 
@@ -1379,8 +1472,8 @@ assert len(b) == 32
 
 Generates `n_bytes` of high-quality crypto-secure random data.
 
-* constraints: `n_bytes ≥ 1`
-* errors: smaller values → `InputError`
+- constraints: `n_bytes ≥ 1`
+- errors: smaller values → `InputError`
 
 
 
@@ -1460,11 +1553,11 @@ fh2 = base.FileHash('/path/to/file', digest='sha512')
 
 Hashes a file from disk in streaming mode. By default uses SHA-256; `digest='sha512'` switches to SHA-512.
 
-* constraints:
+- constraints:
 
-  * `digest` must be `'sha256'` or `'sha512'`
-  * `full_path` must exist
-* errors: invalid digest or missing file → `InputError`
+  - `digest` must be `'sha256'` or `'sha512'`
+  - `full_path` must exist
+- errors: invalid digest or missing file → `InputError`
 
 
 
@@ -1520,17 +1613,17 @@ Manual control over `Start()` and `Stop()` for precise measurement of custom int
 
 **Key points**
 
-* **Label**: required, shown in output; empty labels raise `InputError`
-* **Output**:
+- **Label**: required, shown in output; empty labels raise `InputError`
+- **Output**:
 
-  * `emit_log=True` → `logging.info()` (default)
-  * `emit_print=True` → direct `print()`
-  * Both can be enabled
-* **Format**: elapsed time is shown using `HumanizedSeconds()`
-* **Safety**:
+  - `emit_log=True` → `logging.info()` (default)
+  - `emit_print=True` → direct `print()`
+  - Both can be enabled
+- **Format**: elapsed time is shown using `HumanizedSeconds()`
+- **Safety**:
 
-  * Cannot start an already started timer
-  * Cannot stop an unstarted or already stopped timer
+  - Cannot start an already started timer
+  - Cannot stop an unstarted or already stopped timer
     (raises `Error`)
 
 
@@ -1541,8 +1634,8 @@ Manual control over `Start()` and `Stop()` for precise measurement of custom int
 
 `SymmetricCrypto` is an abstract base class that defines the **byte-in / byte-out** contract for symmetric ciphers.
 
-* **Metadata handling** — if the algorithm uses a `nonce` or `tag`, the implementation must handle it internally (e.g., append it to ciphertext).
-* **AEAD modes** — if supported, `associated_data` must be authenticated; otherwise, a non-`None` value should raise `InputError`.
+- **Metadata handling** — if the algorithm uses a `nonce` or `tag`, the implementation must handle it internally (e.g., append it to ciphertext).
+- **AEAD modes** — if supported, `associated_data` must be authenticated; otherwise, a non-`None` value should raise `InputError`.
 
 ```py
 class MyAES(base.SymmetricCrypto):
@@ -1589,9 +1682,9 @@ obj → pickle → (compress) → (encrypt) → (save)
 
 At each stage:
 
-* Data size is measured using `HumanizedBytes`
-* Duration is timed with `Timer`
-* Results are logged once at the end
+- Data size is measured using `HumanizedBytes`
+- Duration is timed with `Timer`
+- Results are logged once at the end
 
 **Compression levels**
 `compress` uses Zstandard; see table in docstring for speed/ratio trade-offs.
@@ -1619,14 +1712,14 @@ Deserialization path:
 data/file → (decrypt) → (decompress if Zstd) → unpickle
 ```
 
-* Compression is auto-detected via Zstandard magic numbers.
-* All steps are timed/logged like in `Serialize`.
+- Compression is auto-detected via Zstandard magic numbers.
+- All steps are timed/logged like in `Serialize`.
 
 **Constraints & errors**:
 
-* Exactly one of `data` or `file_path` must be provided.
-* `file_path` must exist; `data` must be at least 4 bytes.
-* Wrong key or corrupted data can raise `CryptoError`.
+- Exactly one of `data` or `file_path` must be provided.
+- `file_path` must exist; `data` must be at least 4 bytes.
+- Wrong key or corrupted data can raise `CryptoError`.
 
 
 
@@ -1653,11 +1746,11 @@ key = aes.AESKey.FromStaticPassword('correct horse battery staple')
 print(key.encoded)  # URL-safe Base64
 ```
 
-* **Length**: `key256` must be exactly 32 bytes
-* `FromStaticPassword()`:
+- **Length**: `key256` must be exactly 32 bytes
+- `FromStaticPassword()`:
 
-  * Uses PBKDF2-HMAC-SHA256 with **fixed** salt and \~2 million iterations
-  * Designed for **interactive** password entry, **not** for password databases
+  - Uses PBKDF2-HMAC-SHA256 with **fixed** salt and \~2 million iterations
+  - Designed for **interactive** password entry, **not** for password databases
 
 ---
 
@@ -1675,14 +1768,14 @@ pt = key.Decrypt(ct, associated_data=aad)
 assert pt == data
 ```
 
-* **Security**:
+- **Security**:
 
-  * Random 128-bit IV (`iv`) per encryption
-  * Authenticated tag (128-bit) ensures integrity
-  * Optional `associated_data` is authenticated but not encrypted
-* **Errors**:
+  - Random 128-bit IV (`iv`) per encryption
+  - Authenticated tag (128-bit) ensures integrity
+  - Optional `associated_data` is authenticated but not encrypted
+- **Errors**:
 
-  * Tag mismatch or wrong key → `CryptoError`
+  - Tag mismatch or wrong key → `CryptoError`
 
 ---
 
@@ -1701,19 +1794,19 @@ assert pt_block == block
 hex_ct = ecb.EncryptHex('00112233445566778899aabbccddeeff')
 ```
 
-* **ECB mode**:
+- **ECB mode**:
 
-  * 16-byte plaintext ↔ 16-byte ciphertext
-  * No padding, no IV, no integrity — **do not use for general encryption**
-  * `associated_data` not supported
+  - 16-byte plaintext ↔ 16-byte ciphertext
+  - No padding, no IV, no integrity — **do not use for general encryption**
+  - `associated_data` not supported
 
 ---
 
 **Key points**
 
-* **GCM mode** is secure for general use; ECB mode is for special low-level operations
-* **Static password derivation** is intentionally slow to resist brute force
-* All sizes and parameters are validated with `InputError` on misuse
+- **GCM mode** is secure for general use; ECB mode is for special low-level operations
+- **Static password derivation** is intentionally slow to resist brute force
+- All sizes and parameters are validated with `InputError` on misuse
 
 
 
@@ -1766,14 +1859,14 @@ x ≡ a2 (mod m2)
 0 ≤ x < m1 * m2
 ```
 
-* **Requirements**:
+- **Requirements**:
 
-  * `m1 ≥ 2`, `m2 ≥ 2`, `m1 != m2`
-  * `gcd(m1, m2) == 1` (co-prime)
-* **Errors**:
+  - `m1 ≥ 2`, `m2 ≥ 2`, `m1 != m2`
+  - `gcd(m1, m2) == 1` (co-prime)
+- **Errors**:
 
-  * invalid modulus values → `InputError`
-  * non co-prime moduli → `ModularDivideError`
+  - invalid modulus values → `InputError`
+  - non co-prime moduli → `ModularDivideError`
 
 ---
 
@@ -1890,9 +1983,9 @@ print(shared.prime_modulus)
 print(shared.group_base)
 ```
 
-* `prime_modulus`: large prime `p ≥ 7`
-* `group_base`: integer `3 ≤ g < p`
-* Used to derive individual public/private keys.
+- `prime_modulus`: large prime `p ≥ 7`
+- `group_base`: integer `3 ≤ g < p`
+- Used to derive individual public/private keys.
 
 ---
 
@@ -1914,9 +2007,9 @@ sig = priv.Sign(msg)
 assert pub.VerifySignature(msg, sig)
 ```
 
-* `Encrypt(message)` → `(c1, c2)`, both in `[2, p-1]`
-* `VerifySignature(message, signature)` → `True` or `False`
-* `Copy()` extracts public portion from a private key
+- `Encrypt(message)` → `(c1, c2)`, both in `[2, p-1]`
+- `VerifySignature(message, signature)` → `True` or `False`
+- `Copy()` extracts public portion from a private key
 
 ---
 
@@ -1934,29 +2027,29 @@ sig = priv.Sign(msg)
 assert pub.VerifySignature(msg, sig)
 ```
 
-* `decrypt_exp`: secret exponent `3 ≤ e < p`
-* `Decrypt((c1, c2))` recovers `m`
-* `Sign(m)` returns `(s1, s2)`; both satisfy the modulus constraints
+- `decrypt_exp`: secret exponent `3 ≤ e < p`
+- `Decrypt((c1, c2))` recovers `m`
+- `Sign(m)` returns `(s1, s2)`; both satisfy the modulus constraints
 
 ---
 
 **Key Points**
 
-* **Security parameters**:
+- **Security parameters**:
 
-  * Recommended `prime_modulus` bit length ≥ 2048 for real security
-  * Random values from `base.RandBits`
-* **Ephemeral keys**:
+  - Recommended `prime_modulus` bit length ≥ 2048 for real security
+  - Random values from `base.RandBits`
+- **Ephemeral keys**:
 
-  * Fresh per encryption/signature
-  * Must satisfy `gcd(k, p-1) == 1`
-* **Errors**:
+  - Fresh per encryption/signature
+  - Must satisfy `gcd(k, p-1) == 1`
+- **Errors**:
 
-  * Bad ranges → `InputError`
-  * Invalid math relationships → `CryptoError`
-* **Group sharing**:
+  - Bad ranges → `InputError`
+  - Invalid math relationships → `CryptoError`
+- **Group sharing**:
 
-  * Multiple parties can share `(p, g)` but have different `(individual_base, decrypt_exp)`
+  - Multiple parties can share `(p, g)` but have different `(individual_base, decrypt_exp)`
 
 
 
@@ -1977,7 +2070,7 @@ print(shared.prime_modulus)  # p
 print(shared.prime_seed)     # q  (q | p-1)
 print(shared.group_base)     # g
 
-# ➋ Individual keypair
+# ➋ Individual key pair
 priv = dsa.DSAPrivateKey.New(shared)
 pub  = dsa.DSAPublicKey.Copy(priv)
 
@@ -1987,19 +2080,19 @@ sig = priv.Sign(msg)
 assert pub.VerifySignature(msg, sig)
 ```
 
-* ranges:
+- ranges:
 
-  * `1 ≤ message < q`
-  * signatures: `(s1, s2)` with `2 ≤ s1, s2 < q`
-* errors:
+  - `1 ≤ message < q`
+  - signatures: `(s1, s2)` with `2 ≤ s1, s2 < q`
+- errors:
 
-  * invalid ranges → `InputError`
-  * inconsistent parameters → `CryptoError`
+  - invalid ranges → `InputError`
+  - inconsistent parameters → `CryptoError`
 
 **Security notes**
 
-* Choose **large** parameters (e.g., `p ≥ 2048 bits`, `q ≥ 224 bits`) for non-toy settings.
-* In practice, compute `m = int.from_bytes(Hash(message), 'big') % q` before calling `Sign(m)`.
+- Choose **large** parameters (e.g., `p ≥ 2048 bits`, `q ≥ 224 bits`) for non-toy settings.
+- In practice, compute `m = int.from_bytes(Hash(message), 'big') % q` before calling `Sign(m)`.
 
 ---
 

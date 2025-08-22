@@ -1,3 +1,4 @@
+
 ## Command-Line Interface
 
 `transcrypto.py` exposes cryptographic primitives, number theory tools, key management, and utilities.
@@ -764,6 +765,3 @@ usage: transcrypto.py doc [-h] {md} ...
 ```bash
 poetry run transcrypto.py transcrypto.py doc md [-h]
 ```
-
-usage: transcrypto.py doc md [-h]
-

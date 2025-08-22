@@ -11,6 +11,6 @@ from typeguard import install_import_hook
 
 
 @pytest.hookimpl(tryfirst=True)               # cspell:disable-line
-def pytest_configure(unused_config) -> None:  # type:ignore
+def pytest_configure(config) -> None:  # type:ignore  # pylint: disable=unused-argument
   """Configure pytest to use typeguard for type checking."""
   install_import_hook('src.transcrypto')
