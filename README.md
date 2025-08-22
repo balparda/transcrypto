@@ -1055,7 +1055,7 @@ poetry run transcrypto.py crt 2 3 3 5
 poetry run transcrypto.py rsa new BITS
 ```
 
-Generates an RSA keypair with given bit length using `rsa.RSAKey()`.
+Generates an RSA key pair with given bit length using `rsa.RSAKey()`.
 
 **Arguments**:
 
@@ -1687,7 +1687,7 @@ At each stage:
 - Results are logged once at the end
 
 **Compression levels**
-`compress` uses Zstandard; see table in docstring for speed/ratio trade-offs.
+`compress` uses `zstandard`; see table in docstring for speed/ratio trade-offs.
 
 **Errors** — invalid compression level is clamped to range; other input errors raise `InputError`.
 

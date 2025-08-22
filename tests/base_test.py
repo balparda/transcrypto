@@ -6,6 +6,8 @@
 # pyright: reportPrivateUsage=false
 """base.py unittest."""
 
+from __future__ import annotations
+
 import collections
 import concurrent.futures
 import itertools

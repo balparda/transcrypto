@@ -4,6 +4,8 @@
 #
 """Balparda's TransCrypto modular math library."""
 
+from __future__ import annotations
+
 import math
 # import pdb
 from typing import Generator, Reversible

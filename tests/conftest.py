@@ -6,6 +6,8 @@
 # pyright: reportPrivateUsage=false
 """pytest configurations."""
 
+from __future__ import annotations
+
 import pytest
 from typeguard import install_import_hook
 

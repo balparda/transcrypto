@@ -6,6 +6,8 @@
 # pyright: reportPrivateUsage=false
 """modmath.py unittest."""
 
+from __future__ import annotations
+
 # import pdb
 import sys
 from unittest import mock

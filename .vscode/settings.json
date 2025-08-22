@@ -50,6 +50,7 @@
     "frompass",
     "Gamal",
     "genkey",
+    "HMAC",
     "isprime",
     "levelname",
     "Mersenne",
@@ -68,7 +69,10 @@
     "Shamir",
     "transcrypto",
     "unitless",
+    "unpickle",
     "UNSTARTED",
-    "xgcd"
+    "xgcd",
+    "Zstandard",
+    "Zstd"
   ]
 }

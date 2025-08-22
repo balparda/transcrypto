@@ -6,6 +6,8 @@
 # pyright: reportPrivateUsage=false
 """transcrypto.py unittest."""
 
+from __future__ import annotations
+
 # import pdb
 import sys
 
