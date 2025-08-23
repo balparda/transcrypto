@@ -154,6 +154,7 @@ def test_Humanized_fail() -> None:
     base.HumanizedSeconds(math.inf)
 
 
+@pytest.mark.stochastic
 def test_RandBits() -> None:
   """Test."""
   with pytest.raises(base.InputError, match='n_bits must be ≥ 8'):
@@ -168,6 +169,7 @@ def test_RandBits() -> None:
   assert len(gn) == 20  # has a chance of 1 in 10**3008 to fail
 
 
+@pytest.mark.stochastic
 def test_RandBits_bit_length_and_bias() -> None:
   """Test."""
   for n_bits in (8, 17, 64, 4096):
@@ -180,6 +182,7 @@ def test_RandBits_bit_length_and_bias() -> None:
       assert 0.45 <= p <= 0.55  # has a chance of 1 in 10**8 to fail
 
 
+@pytest.mark.stochastic
 def test_RandInt() -> None:
   """Test."""
   with pytest.raises(base.InputError, match='min_int must be ≥ 0, and < max_int'):
@@ -196,6 +199,7 @@ def test_RandInt() -> None:
   assert len(gn) == 11  # chance of failure of 1 in 17.26 million
 
 
+@pytest.mark.stochastic
 def test_RandInt_uniform_small_range() -> None:
   """Test."""
   N: int = 30000
@@ -205,6 +209,7 @@ def test_RandInt_uniform_small_range() -> None:
     assert abs(c - N / 11) < 0.1 * N / 11  # chance of failure of 1 in 10 million
 
 
+@pytest.mark.stochastic
 def test_RandShuffle() -> None:
   """Test."""
   with pytest.raises(base.InputError, match='seq must have 2 or more elements'):
@@ -218,6 +223,7 @@ def test_RandShuffle() -> None:
     assert seq != seq_copy  # chance of failure in any of 10 tests is 1 in 10**156
 
 
+@pytest.mark.stochastic
 def test_RandShuffle_preserves_multi_set() -> None:
   """Test."""
   seq: list[int] = [1, 2, 2, 3, 4]
@@ -227,6 +233,7 @@ def test_RandShuffle_preserves_multi_set() -> None:
   assert len(seq) == 5
 
 
+@pytest.mark.stochastic
 def test_RandShuffle_n2_visits_both_orders() -> None:
   """Test."""
   seq: list[int] = [1, 2, 3]
@@ -240,6 +247,7 @@ def test_RandShuffle_n2_visits_both_orders() -> None:
       (2, 1, 3), (1, 3, 2), (3, 1, 2)}  # chance of failure is 1 in 10**40
 
 
+@pytest.mark.stochastic
 def test_RandShuffle_small_n_uniformity() -> None:
   """Test."""
   base_list: list[int] = [1, 2, 3]
@@ -255,6 +263,7 @@ def test_RandShuffle_small_n_uniformity() -> None:
     assert abs(c - N / 6) < 0.2 * (N / 6)  # chance of failure in any of 6 deviates is 1 in 10**11
 
 
+@pytest.mark.stochastic
 def test_RandBytes() -> None:
   """Test."""
   with pytest.raises(base.InputError, match='n_bytes must be ≥ 1'):
@@ -264,6 +273,7 @@ def test_RandBytes() -> None:
   assert len(set(base.RandBytes(32) for _ in range(100))) == 100  # chance of failure is 1 in 10**74
 
 
+@pytest.mark.stochastic
 def test_RandBits_RandInt_RandShuffle_parallel_smoke() -> None:
   """Test."""
   with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:

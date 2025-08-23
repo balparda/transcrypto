@@ -59,10 +59,15 @@ class _StrBytesType(enum.Enum):
   BASE64 = 2
 
   @staticmethod
-  def FromFlags(is_hex: bool, is_base64: bool) -> _StrBytesType:
+  def FromFlags(is_hex: bool, is_base64: bool, is_bin: bool) -> _StrBytesType:
     """Use flags to determine the type."""
-    return (_StrBytesType.HEXADECIMAL if is_hex else
-            (_StrBytesType.BASE64 if is_base64 else _StrBytesType.RAW))
+    if sum((is_hex, is_base64, is_bin)) > 1:
+      raise base.InputError('Only one of --hex, --b64, --bin can be set, if any.')
+    if is_bin:
+      return _StrBytesType.RAW
+    if is_base64:
+      return _StrBytesType.BASE64
+    return _StrBytesType.HEXADECIMAL  # default
 
 
 def _BytesFromText(text: str, tp: _StrBytesType) -> bytes:
@@ -74,8 +79,6 @@ def _BytesFromText(text: str, tp: _StrBytesType) -> bytes:
       return base.HexToBytes(text)
     case _StrBytesType.BASE64:
       return base.EncodedToBytes(text)
-    case _:
-      raise base.InputError(f'Invalid type: {tp!r}')
 
 
 def _BytesToText(b: bytes, tp: _StrBytesType) -> str:
@@ -87,8 +90,6 @@ def _BytesToText(b: bytes, tp: _StrBytesType) -> str:
       return base.BytesToHex(b)
     case _StrBytesType.BASE64:
       return base.BytesToEncoded(b)
-    case _:
-      raise base.InputError(f'Invalid type: {tp!r}')
 
 
 def _MaybePasswordKey(password: str | None) -> aes.AESKey | None:
@@ -109,12 +110,6 @@ def _LoadObj(path: str, password: str | None) -> Any:
   return base.DeSerialize(file_path=path, key=key)
 
 
-# def _PrintLines(lines: Iterable[str]) -> None:
-#   """Print lines."""
-#   for line in lines:
-#     print(line)
-
-
 def _FlagNames(a: argparse.Action) -> list[str]:
   # Positional args have empty 'option_strings'; otherwise use them (e.g., ['-v','--verbose'])
   if a.option_strings:
@@ -131,7 +126,7 @@ def _FlagNames(a: argparse.Action) -> list[str]:
 
 
 def _ActionIsSubparser(a: argparse.Action) -> bool:
-  return isinstance(a, argparse._SubParsersAction)  # type: ignore[attr-defined]
+  return isinstance(a, argparse._SubParsersAction)  # type: ignore[attr-defined]  # pylint: disable=protected-access
 
 
 def _FormatDefault(a: argparse.Action) -> str:
@@ -145,7 +140,7 @@ def _FormatDefault(a: argparse.Action) -> str:
 
 
 def _FormatChoices(a: argparse.Action) -> str:
-  return f' choices: {list(a.choices)}' if getattr(a, 'choices', None) else ''
+  return f' choices: {list(a.choices)}' if getattr(a, 'choices', None) else ''  # type:ignore
 
 
 def _FormatType(a: argparse.Action) -> str:
@@ -166,7 +161,7 @@ def _RowsForActions(actions: Sequence[argparse.Action]) -> list[tuple[str, str]]
     if _ActionIsSubparser(a):
       continue
     # skip the built-in help action; it’s implied
-    if getattr(a, 'help', '') == argparse.SUPPRESS or isinstance(a, argparse._HelpAction):  # type: ignore[attr-defined]
+    if getattr(a, 'help', '') == argparse.SUPPRESS or isinstance(a, argparse._HelpAction):  # type: ignore[attr-defined]  # pylint: disable=protected-access
       continue
     flags: str = ', '.join(_FlagNames(a))
     meta: str = ''.join(
@@ -191,79 +186,90 @@ def _MarkdownTable(
 
 def _WalkSubcommands(
     parser: argparse.ArgumentParser, path: list[str] | None = None) -> list[
-    tuple[list[str], argparse.ArgumentParser, argparse._SubParsersAction | None]]:  # type: ignore[name-defined]
+    tuple[list[str], argparse.ArgumentParser, Any]]:
   path = path or []
-  items: list[tuple[list[str], argparse.ArgumentParser, argparse._SubParsersAction | None]] = []
-  sub_action: argparse._SubParsersAction | None = None  # type: ignore[name-defined]
-  for a in parser._actions:  # type: ignore[attr-defined]
-    if _ActionIsSubparser(a):
-      sub_action = a  # type: ignore[assignment]
-      for name, sp in a.choices.items():
-        items.append((path + [name], sp, a))
-        items.extend(_WalkSubcommands(sp, path + [name]))
+  items: list[tuple[list[str], argparse.ArgumentParser, Any]] = []
+  # sub_action = None
+  name: str
+  sp: argparse.ArgumentParser
+  for action in parser._actions:  # type: ignore[attr-defined]  # pylint: disable=protected-access
+    if _ActionIsSubparser(action):
+      # sub_action = a  # type: ignore[assignment]
+      for name, sp in action.choices.items():              # type:ignore
+        items.append((path + [name], sp, action))          # type:ignore
+        items.extend(_WalkSubcommands(sp, path + [name]))  # type:ignore
   return items
+
+
+def _HelpText(sub_parser: argparse.ArgumentParser, parent_sub_action: Any) -> str:
+  if parent_sub_action is not None:
+    for choice_action in parent_sub_action._choices_actions:  # type: ignore  # pylint: disable=protected-access
+      if choice_action.dest == sub_parser.prog.split()[-1]:
+        return choice_action.help or ''
+  return ''
 
 
 def _GenerateCLIMarkdown() -> str:  # pylint: disable=too-many-locals
   """Return a Markdown doc section that reflects the current _BuildParser() tree."""
   parser: argparse.ArgumentParser = _BuildParser()
-  prog: str = parser.prog or 'transcrypto.py'
+  assert parser.prog == 'transcrypto.py', 'should never happen: module name changed?'
+  prog: str = 'transcrypto'  # no '.py' needed because poetry run has an alias
   lines: list[str] = ['']
-
   # Header + global flags
   lines.append('## Command-Line Interface\n')
   lines.append(
-      f'`{prog}` exposes cryptographic primitives, '
-      'number theory tools, key management, and utilities.\n')
+      f'`{prog}` is a command-line utility that provides access to all core functionality '
+      'described in this documentation. It serves as a convenient wrapper over the Python APIs, '
+      'enabling **cryptographic operations**, **number theory functions**, **secure randomness '
+      'generation**, **hashing**, and other utilities without writing code.\n')
   lines.append('Invoke with:\n')
   lines.append('```bash')
   lines.append(f'poetry run {prog} <command> [sub-command] [options...]')
   lines.append('```\n')
-
   # Global options table
-  global_rows: list[tuple[str, str]] = _RowsForActions(parser._actions)  # type: ignore[attr-defined]
+  global_rows: list[tuple[str, str]] = _RowsForActions(parser._actions)  # type: ignore[attr-defined]  # pylint: disable=protected-access
   if global_rows:
     lines.append('### Global Options\n')
     lines.append(_MarkdownTable(global_rows))
     lines.append('')
-
   # Top-level commands summary
   lines.append('### Commands\n')
   # Find top-level subparsers to list available commands
-  top_subs: list[argparse.Action] = [a for a in parser._actions if _ActionIsSubparser(a)]  # type: ignore[attr-defined]
+  top_subs: list[argparse.Action] = [a for a in parser._actions if _ActionIsSubparser(a)]  # type: ignore[attr-defined]  # pylint: disable=protected-access
   for action in top_subs:
     for name, sp in action.choices.items():  # type: ignore[union-attr]
-      help_text: str = (sp.description or sp.format_usage().splitlines()[0]).strip()
-      short: str = (sp.help if hasattr(sp, 'help') else '') or ''
-      lines.append(f'- `{name}` — {short or help_text}')
+      help_text: str = (sp.description or sp.format_usage().splitlines()[0]).strip()  # type:ignore
+      short: str = (sp.help if hasattr(sp, 'help') else '') or ''                     # type:ignore
+      help_text = short or help_text                                                  # type:ignore
+      help_text = help_text.replace('usage: ', '').replace('transcrypto.py ', '').strip()  # type:ignore
+      lines.append(f'- **`{name}`** — `poetry run {prog} {help_text}`')
   lines.append('')
-
   # Detailed sections per (sub)command
-  for path, sub_parser, _ in _WalkSubcommands(parser):
+  for path, sub_parser, parent_sub_action in _WalkSubcommands(parser):
     header: str = ' '.join(path)
     lines.append(f'#### `{header}`')
     # Usage block
+    help_text = _HelpText(sub_parser, parent_sub_action)
+    if help_text:
+      lines.append(f'\n{help_text}')
     usage: str = sub_parser.format_usage().replace('usage: ', '').strip()
+    if usage.startswith('transcrypto.py '):
+      usage = usage[len('transcrypto.py '):]
     lines.append('\n```bash')
     lines.append(f'poetry run {prog} {usage}')
     lines.append('```\n')
-
-    # Description
-    desc: str = (sub_parser.description or sub_parser.format_help().splitlines()[0]).strip()
-    if desc:
-      lines.append(desc + '\n')
-
     # Options/args table
-    rows: list[tuple[str, str]] = _RowsForActions(sub_parser._actions)  # type: ignore[attr-defined]
+    rows: list[tuple[str, str]] = _RowsForActions(sub_parser._actions)  # type: ignore[attr-defined]  # pylint: disable=protected-access
     if rows:
       lines.append(_MarkdownTable(rows))
       lines.append('')
-
-  return '\n'.join(lines[:-1])[:-1]  # remove last empty line
+  # join all lines as the markdown string
+  return '\n'.join(lines)
 
 
 def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-statements,too-many-locals
   """Construct the CLI argument parser (kept in sync with the docs)."""
+  # ========================= main parser ==========================================================
   parser: argparse.ArgumentParser = argparse.ArgumentParser(
       prog='transcrypto.py',
       description=('transcrypto: CLI for number theory, hashing, '
@@ -278,38 +284,49 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
           '  poetry run transcrypto.py sss new 3 128 --out /tmp/sss\n'
       ),
       formatter_class=argparse.RawTextHelpFormatter)
-
   sub = parser.add_subparsers(dest='command')
 
-  # ---------------- global flags ----------------
+  # ========================= global flags =========================================================
+  # -v/-vv/-vvv/-vvvv for ERROR/WARN/INFO/DEBUG
   parser.add_argument(
       '-v', '--verbose', action='count', default=0,
       help='Increase verbosity (use -v/-vv/-vvv/-vvvv for ERROR/WARN/INFO/DEBUG)')
+  # --hex/--b64/--bin for input mode (default hex)
+  in_grp = parser.add_mutually_exclusive_group()
+  in_grp.add_argument('--hex', action='store_true', help='Treat inputs as hex string (default).')
+  in_grp.add_argument('--b64', action='store_true', help='Treat inputs as base64url.')
+  in_grp.add_argument('--bin', action='store_true', help='Treat inputs as binary (bytes).')
+  # --out-hex/--out-b64/--out-bin for output mode (default hex)
+  out_grp = parser.add_mutually_exclusive_group()
+  out_grp.add_argument('--out-hex', action='store_true', help='Outputs as hex (default).')
+  out_grp.add_argument('--out-b64', action='store_true', help='Outputs as base64url.')
+  out_grp.add_argument('--out-bin', action='store_true', help='Outputs as binary (bytes).')
 
-  # ---------------- primes ----------------
+  # ========================= primes ===============================================================
+  # Primality test with safe defaults
   p_isprime: argparse.ArgumentParser = sub.add_parser(
       'isprime', help='Primality test with safe defaults (modmath.IsPrime)')
   p_isprime.add_argument(
       'n', type=str, help='Integer to test (supports 0x.., 0b.., 0o.., underscores).')
-
+  # Miller-Rabin with custom witnesses
   p_mr: argparse.ArgumentParser = sub.add_parser(
       'mr', help='Miller-Rabin primality with optional custom witnesses')
   p_mr.add_argument('n', type=str, help='Integer to test.')
   p_mr.add_argument(
       '-w', '--witness', action='append', default=[],
       help='Add a witness (repeatable). Example: -w 2 -w 7 -w 61')
-
+  # Random prime with given bit length
   p_r_prime: argparse.ArgumentParser = sub.add_parser(
       'randomprime', help='Generate a random prime with given bit length')
   p_r_prime.add_argument('bits', type=int, help='Bit length (≥ 11).')
-
+  # Primes generator
   p_pg: argparse.ArgumentParser = sub.add_parser(
       'primegen', help='Stream primes ≥ start (prints a limited count by default)')
   p_pg.add_argument('start', type=str, help='Starting integer (inclusive).')
   p_pg.add_argument(
       '-c', '--count', type=int, default=10,
       help='How many to print (default: 10; 0 = unlimited).')
-
+  # Mersenne primes generator
   p_mersenne: argparse.ArgumentParser = sub.add_parser(
       'mersenne', help='Iterate Mersenne primes (k, M=2^k-1, perfect?)')
   p_mersenne.add_argument(
@@ -317,47 +334,48 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_mersenne.add_argument(
       '-C', '--cutoff-k', type=int, default=10000, help='Stop once k > cutoff (default 10000).')
 
-  # ---------------- integer / modular math ----------------
+  # ========================= integer / modular math ===============================================
+  # GCD
   p_gcd: argparse.ArgumentParser = sub.add_parser('gcd', help='Greatest Common Divisor')
   p_gcd.add_argument('a', type=str)
   p_gcd.add_argument('b', type=str)
-
+  # Extended GCD
   p_xgcd: argparse.ArgumentParser = sub.add_parser(
       'xgcd', help='Extended GCD → (g, x, y) where ax + by = g')
   p_xgcd.add_argument('a', type=str)
   p_xgcd.add_argument('b', type=str)
-
+  # Modular math group
   p_mod: argparse.ArgumentParser = sub.add_parser('mod', help='Modular arithmetic helpers')
   mod_sub = p_mod.add_subparsers(dest='mod_command')
-
+  # Modular inverse
   p_mi: argparse.ArgumentParser = mod_sub.add_parser('inv', help='Modular inverse: a^(-1) mod m')
   p_mi.add_argument('a', type=str)
   p_mi.add_argument('m', type=str)
-
+  # Modular division
   p_md: argparse.ArgumentParser = mod_sub.add_parser(
       'div', help='Modular division: find z s.t. z·y ≡ x (mod m)')
   p_md.add_argument('x', type=str)
   p_md.add_argument('y', type=str)
   p_md.add_argument('m', type=str)
-
+  # Modular exponentiation
   p_me: argparse.ArgumentParser = mod_sub.add_parser(
       'exp', help='Modular exponentiation: a^e mod m')
   p_me.add_argument('a', type=str)
   p_me.add_argument('e', type=str)
   p_me.add_argument('m', type=str)
-
+  # Polynomial evaluation mod m
   p_mp: argparse.ArgumentParser = mod_sub.add_parser(
       'poly', help='Evaluate polynomial modulo m (c0 c1 c2 ... at t)')
   p_mp.add_argument('t', type=str, help='Evaluation point t.')
   p_mp.add_argument('m', type=str, help='Modulus m.')
   p_mp.add_argument('coeff', nargs='+', help='Coefficients (constant-term first).')
-
+  # Lagrange interpolation mod m
   p_ml: argparse.ArgumentParser = mod_sub.add_parser(
       'lagrange', help='Lagrange interpolation over modulus')
   p_ml.add_argument('x', type=str, help='Point to evaluate at.')
   p_ml.add_argument('m', type=str, help='Modulus m.')
   p_ml.add_argument('pt', nargs='+', help='Points as k:v (e.g., 2:4 5:3 7:1).')
-
+  # Chinese Remainder Theorem for 2 equations
   p_crt: argparse.ArgumentParser = mod_sub.add_parser(
       'crt', help='CRT pair: solve x ≡ a1 (mod m1), x ≡ a2 (mod m2)')
   p_crt.add_argument('a1', type=str)
@@ -365,58 +383,50 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_crt.add_argument('a2', type=str)
   p_crt.add_argument('m2', type=str)
 
-  # ---------------- randomness & hashing ----------------
+  # ========================= randomness & hashing =================================================
+  # Cryptographically secure randomness
   p_rand: argparse.ArgumentParser = sub.add_parser(
       'rand', help='Cryptographically secure randomness')
   rsub = p_rand.add_subparsers(dest='rand_command')
-
+  # Random bits
   p_rand_bits: argparse.ArgumentParser = rsub.add_parser(
       'bits', help='Random integer with exact bit length (MSB may be 1)')
   p_rand_bits.add_argument('bits', type=int, help='Number of bits ≥ 8 for base.RandBits.')
-
+  # Random integer in [min, max]
   p_rand_int: argparse.ArgumentParser = rsub.add_parser(
       'int', help='Uniform random integer in [min, max], inclusive')
   p_rand_int.add_argument('min', type=str, help='Minimum (≥ 0).')
   p_rand_int.add_argument('max', type=str, help='Maximum (> min).')
-
+  # Random bytes
   p_rand_bytes: argparse.ArgumentParser = rsub.add_parser(
       'bytes', help='Random bytes from the OS CSPRNG')
   p_rand_bytes.add_argument('n', type=int, help='Number of bytes ≥ 1.')
-
+  # Hashing group
   p_hash: argparse.ArgumentParser = sub.add_parser(
       'hash', help='Hashing (SHA-256 / SHA-512 / file)')
   hash_sub = p_hash.add_subparsers(dest='hash_command')
-
+  # SHA-256
   p_h256: argparse.ArgumentParser = hash_sub.add_parser('sha256', help='SHA-256 of input data')
   p_h256.add_argument('data', type=str, help='Input text (raw; or use --hex/--b64).')
-  p_h256.add_argument('--hex', action='store_true', help='Treat input as hex string.')
-  p_h256.add_argument('--b64', action='store_true', help='Treat input as base64url.')
-  p_h256.add_argument('--out-hex', action='store_true', help='Output digest as hex (default).')
-  p_h256.add_argument('--out-b64', action='store_true', help='Output digest as base64url.')
-
+  # SHA-512
   p_h512 = hash_sub.add_parser('sha512', help='SHA-512 of input data')
   p_h512.add_argument('data', type=str, help='Input text (raw; or use --hex/--b64).')
-  p_h512.add_argument('--hex', action='store_true', help='Treat input as hex string.')
-  p_h512.add_argument('--b64', action='store_true', help='Treat input as base64url.')
-  p_h512.add_argument('--out-hex', action='store_true', help='Output digest as hex (default).')
-  p_h512.add_argument('--out-b64', action='store_true', help='Output digest as base64url.')
-
+  # Hash file contents (streamed)
   p_hf: argparse.ArgumentParser = hash_sub.add_parser('file', help='Hash file contents (streamed)')
   p_hf.add_argument('path', type=str, help='Path to file.')
   p_hf.add_argument('--digest', choices=['sha256', 'sha512'], default='sha256',
                     help='Digest (default: sha256).')
-  p_hf.add_argument('--out-hex', action='store_true', help='Output digest as hex (default).')
-  p_hf.add_argument('--out-b64', action='store_true', help='Output digest as base64url.')
 
-  # ---------------- AES (GCM + ECB helper) ----------------
+  # ========================= AES (GCM + ECB helper) ===============================================
+  # AES group
   p_aes: argparse.ArgumentParser = sub.add_parser(
       'aes', help='AES-256 operations (GCM/ECB) and key derivation')
   aes_sub = p_aes.add_subparsers(dest='aes_command')
-
+  # AES key management
   p_aes_key: argparse.ArgumentParser = aes_sub.add_parser(
       'key', help='Create/derive/store AES keys')
   aes_key_sub = p_aes_key.add_subparsers(dest='aes_key_command')
-
+  # Derive key from password
   p_aes_key_pass: argparse.ArgumentParser = aes_key_sub.add_parser(
       'frompass', help='Derive key from a password (PBKDF2-HMAC-SHA256)')
   p_aes_key_pass.add_argument(
@@ -426,7 +436,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_aes_key_pass.add_argument('--out', type=str, default='', help='Save serialized AESKey to path.')
   p_aes_key_pass.add_argument(
       '--protect', type=str, default='', help='Password to encrypt the saved key file (Serialize).')
-
+  # AES-256-GCM encrypt
   p_aes_enc: argparse.ArgumentParser = aes_sub.add_parser(
       'encrypt', help='AES-256-GCM: encrypt (outputs IV||ct||tag)')
   p_aes_enc.add_argument('plaintext', type=str, help='Input data (raw; or use --in-hex/--in-b64).')
@@ -435,14 +445,9 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_aes_enc.add_argument(
       '-p', '--key-path', type=str, default='', help='Path to serialized AESKey.')
   p_aes_enc.add_argument('-a', '--aad', type=str, default='', help='Associated data (optional).')
-  p_aes_enc.add_argument('--in-hex', action='store_true', help='Treat plaintext as hex.')
-  p_aes_enc.add_argument('--in-b64', action='store_true', help='Treat plaintext as base64url.')
-  p_aes_enc.add_argument(
-      '--out-hex', action='store_true', help='Output ciphertext as hex (default).')
-  p_aes_enc.add_argument('--out-b64', action='store_true', help='Output ciphertext as base64url.')
   p_aes_enc.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if using --key-path.')
-
+  # AES-256-GCM decrypt
   p_aes_dec: argparse.ArgumentParser = aes_sub.add_parser(
       'decrypt', help='AES-256-GCM: decrypt IV||ct||tag')
   p_aes_dec.add_argument('ciphertext', type=str, help='Input blob (use --in-hex/--in-b64).')
@@ -451,38 +456,39 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_aes_dec.add_argument(
       '-p', '--key-path', type=str, default='', help='Path to serialized AESKey.')
   p_aes_dec.add_argument('-a', '--aad', type=str, default='', help='Associated data (must match).')
-  p_aes_dec.add_argument('--in-hex', action='store_true', help='Treat ciphertext as hex.')
-  p_aes_dec.add_argument('--in-b64', action='store_true', help='Treat ciphertext as base64url.')
-  p_aes_dec.add_argument('--out-hex', action='store_true', help='Output plaintext as hex.')
-  p_aes_dec.add_argument('--out-b64', action='store_true', help='Output plaintext as base64url.')
   p_aes_dec.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if using --key-path.')
-
+  # AES-ECB
   p_aes_ecb: argparse.ArgumentParser = aes_sub.add_parser(
       'ecb', help='AES-ECB (unsafe; fixed 16-byte blocks only)')
+  p_aes_ecb.add_argument(
+      '-k', '--key-b64', type=str, default='', help='Key as base64url (32 bytes).')
+  p_aes_ecb.add_argument(
+      '-p', '--key-path', type=str, default='', help='Path to serialized AESKey.')
+  p_aes_ecb.add_argument(
+      '--protect', type=str, default='', help='Password to decrypt key file if using --key-path.')
   aes_ecb_sub = p_aes_ecb.add_subparsers(dest='aes_ecb_command')
-
+  # AES-ECB encrypt 16-byte hex block
   p_aes_ecb_e: argparse.ArgumentParser = aes_ecb_sub.add_parser(
       'encrypthex', help='Encrypt 16-byte hex block with AES-ECB')
-  p_aes_ecb_e.add_argument('key_b64', type=str, help='Key as base64url (32 bytes).')
   p_aes_ecb_e.add_argument('block_hex', type=str, help='Plaintext block as 32 hex chars.')
-
+  # AES-ECB decrypt 16-byte hex block
   p_aes_scb_d: argparse.ArgumentParser = aes_ecb_sub.add_parser(
       'decrypthex', help='Decrypt 16-byte hex block with AES-ECB')
-  p_aes_scb_d.add_argument('key_b64', type=str, help='Key as base64url (32 bytes).')
   p_aes_scb_d.add_argument('block_hex', type=str, help='Ciphertext block as 32 hex chars.')
 
-  # ---------------- RSA ----------------
+  # ========================= RSA ==================================================================
+  # RSA group
   p_rsa: argparse.ArgumentParser = sub.add_parser('rsa', help='Raw RSA over integers (no OAEP/PSS)')
   rsa_sub = p_rsa.add_subparsers(dest='rsa_command')
-
+  # Generate new RSA private key
   p_rsa_new: argparse.ArgumentParser = rsa_sub.add_parser('new', help='Generate RSA private key')
   p_rsa_new.add_argument('bits', type=int, help='Modulus size in bits (e.g., 2048).')
   p_rsa_new.add_argument(
       '--out', type=str, default='', help='Save private key to path (Serialize).')
   p_rsa_new.add_argument(
       '--protect', type=str, default='', help='Password to encrypt saved key file.')
-
+  # Encrypt integer with public key
   p_rsa_enc: argparse.ArgumentParser = rsa_sub.add_parser(
       'encrypt', help='Encrypt integer with public key')
   p_rsa_enc.add_argument('message', type=str, help='Integer message (e.g., "12345" or "0x...").')
@@ -490,21 +496,21 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
       '--key', type=str, required=True, help='Path to private/public key (Serialize).')
   p_rsa_enc.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if needed.')
-
+  # Decrypt integer ciphertext with private key
   p_rsa_dec: argparse.ArgumentParser = rsa_sub.add_parser(
       'decrypt', help='Decrypt integer ciphertext with private key')
   p_rsa_dec.add_argument('ciphertext', type=str, help='Integer ciphertext.')
   p_rsa_dec.add_argument('--key', type=str, required=True, help='Path to private key (Serialize).')
   p_rsa_dec.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if needed.')
-
+  # Sign integer message with private key
   p_rsa_sig: argparse.ArgumentParser = rsa_sub.add_parser(
       'sign', help='Sign integer message with private key')
   p_rsa_sig.add_argument('message', type=str, help='Integer message.')
   p_rsa_sig.add_argument('--key', type=str, required=True, help='Path to private key (Serialize).')
   p_rsa_sig.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if needed.')
-
+  # Verify integer signature with public key
   p_rsa_ver: argparse.ArgumentParser = rsa_sub.add_parser(
       'verify', help='Verify integer signature with public key')
   p_rsa_ver.add_argument('message', type=str, help='Integer message.')
@@ -514,31 +520,32 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_rsa_ver.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if needed.')
 
-  # ---------------- ElGamal ----------------
+  # ========================= ElGamal ==============================================================
+  # ElGamal group
   p_eg: argparse.ArgumentParser = sub.add_parser('elgamal', help='Raw El-Gamal (no padding)')
   eg_sub = p_eg.add_subparsers(dest='eg_command')
-
+  # Generate shared (p,g) params
   p_eg_shared: argparse.ArgumentParser = eg_sub.add_parser(
       'shared', help='Generate shared parameters (p, g)')
   p_eg_shared.add_argument('bits', type=int, help='Bit length for prime modulus p.')
   p_eg_shared.add_argument('--out', type=str, required=True, help='Save shared key to path.')
   p_eg_shared.add_argument(
       '--protect', type=str, default='', help='Password to encrypt saved key file.')
-
+  # Generate individual private key from shared (p,g)
   p_eg_new: argparse.ArgumentParser = eg_sub.add_parser(
       'new', help='Generate individual private key from shared')
   p_eg_new.add_argument('--shared', type=str, required=True, help='Path to shared (p,g).')
   p_eg_new.add_argument('--out', type=str, required=True, help='Save private key to path.')
   p_eg_new.add_argument(
       '--protect', type=str, default='', help='Password to encrypt saved key file.')
-
+  # Encrypt integer with public key
   p_eg_enc: argparse.ArgumentParser = eg_sub.add_parser(
       'encrypt', help='Encrypt integer with public key')
   p_eg_enc.add_argument('message', type=str, help='Integer message 1 ≤ m < p.')
   p_eg_enc.add_argument('--key', type=str, required=True, help='Path to private/public key.')
   p_eg_enc.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if needed.')
-
+  # Decrypt El-Gamal ciphertext tuple (c1,c2)
   p_eg_dec: argparse.ArgumentParser = eg_sub.add_parser(
       'decrypt', help='Decrypt El-Gamal ciphertext tuple (c1,c2)')
   p_eg_dec.add_argument('c1', type=str)
@@ -546,14 +553,14 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_eg_dec.add_argument('--key', type=str, required=True, help='Path to private key.')
   p_eg_dec.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if needed.')
-
+  # Sign integer message with private key
   p_eg_sig: argparse.ArgumentParser = eg_sub.add_parser(
       'sign', help='Sign integer message with private key')
   p_eg_sig.add_argument('message', type=str)
   p_eg_sig.add_argument('--key', type=str, required=True, help='Path to private key.')
   p_eg_sig.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if needed.')
-
+  # Verify El-Gamal signature (s1,s2)
   p_eg_ver: argparse.ArgumentParser = eg_sub.add_parser(
       'verify', help='Verify El-Gamal signature (s1,s2)')
   p_eg_ver.add_argument('message', type=str)
@@ -563,11 +570,12 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_eg_ver.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if needed.')
 
-  # ---------------- DSA ----------------
+  # ========================= DSA ==================================================================
+  # DSA group
   p_dsa: argparse.ArgumentParser = sub.add_parser(
       'dsa', help='Raw DSA (no hash, integer messages < q)')
   dsa_sub = p_dsa.add_subparsers(dest='dsa_command')
-
+  # Generate shared (p,q,g) params
   p_dsa_shared: argparse.ArgumentParser = dsa_sub.add_parser(
       'shared', help='Generate (p,q,g) with q | p-1')
   p_dsa_shared.add_argument('p_bits', type=int, help='Bit length of p (≥ q_bits + 11).')
@@ -575,21 +583,21 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_dsa_shared.add_argument('--out', type=str, required=True, help='Save shared params to path.')
   p_dsa_shared.add_argument(
       '--protect', type=str, default='', help='Password to encrypt saved key file.')
-
+  # Generate individual private key from shared (p,q,g)
   p_dsa_new: argparse.ArgumentParser = dsa_sub.add_parser(
       'new', help='Generate DSA private key from shared')
   p_dsa_new.add_argument('--shared', type=str, required=True, help='Path to shared (p,q,g).')
   p_dsa_new.add_argument('--out', type=str, required=True, help='Save private key to path.')
   p_dsa_new.add_argument(
       '--protect', type=str, default='', help='Password to encrypt saved key file.')
-
+  # Sign integer m with private key
   p_dsa_sign: argparse.ArgumentParser = dsa_sub.add_parser(
       'sign', help='Sign integer m (1 ≤ m < q)')
   p_dsa_sign.add_argument('message', type=str)
   p_dsa_sign.add_argument('--key', type=str, required=True, help='Path to private key.')
   p_dsa_sign.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if needed.')
-
+  # Verify DSA signature (s1,s2)
   p_dsa_verify: argparse.ArgumentParser = dsa_sub.add_parser(
       'verify', help='Verify DSA signature (s1,s2)')
   p_dsa_verify.add_argument('message', type=str)
@@ -599,11 +607,12 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_dsa_verify.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if needed.')
 
-  # ---------------- Shamir Secret Sharing ----------------
+  # ========================= Shamir Secret Sharing ================================================
+  # SSS group
   p_sss: argparse.ArgumentParser = sub.add_parser(
       'sss', help='Shamir Shared Secret (unauthenticated)')
   sss_sub = p_sss.add_subparsers(dest='sss_command')
-
+  # Generate new SSS params (t, prime, coefficients)
   p_sss_new: argparse.ArgumentParser = sss_sub.add_parser(
       'new', help='Generate SSS params (minimum, prime, coefficients)')
   p_sss_new.add_argument('minimum', type=int, help='Threshold t (≥ 2).')
@@ -611,7 +620,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_sss_new.add_argument('--out', type=str, required=True,
                          help='Base path; will save ".priv" and ".pub".')
   p_sss_new.add_argument('--protect', type=str, default='', help='Password to encrypt saved files.')
-
+  # Issue N shares for a secret
   p_sss_shares: argparse.ArgumentParser = sss_sub.add_parser(
       'shares', help='Issue N shares for a secret (private params)')
   p_sss_shares.add_argument('secret', type=str, help='Secret as integer (supports 0x..).')
@@ -620,7 +629,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
       '--key', type=str, required=True, help='Path to private SSS key (.priv).')
   p_sss_shares.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if needed.')
-
+  # Recover secret from shares
   p_sss_recover: argparse.ArgumentParser = sss_sub.add_parser(
       'recover', help='Recover secret from shares (public params)')
   p_sss_recover.add_argument('shares', nargs='+', help='Shares as k:v (e.g., 2:123 5:456 ...).')
@@ -628,7 +637,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
       '--key', type=str, required=True, help='Path to public SSS key (.pub).')
   p_sss_recover.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if needed.')
-
+  # Verify a share against a secret
   p_sss_verify: argparse.ArgumentParser = sss_sub.add_parser(
       'verify', help='Verify a share against a secret (private params)')
   p_sss_verify.add_argument('secret', type=str, help='Secret as integer (supports 0x..).')
@@ -638,7 +647,8 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_sss_verify.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if needed.')
 
-  # ---------------- Markdown Generation ----------------
+  # ========================= Markdown Generation ==================================================
+  # Documentation generation
   doc: argparse.ArgumentParser = sub.add_parser('doc', help='Documentation utilities')
   doc_sub = doc.add_subparsers(dest='doc_command')
   doc_sub.add_parser('md', help='Emit Markdown for the CLI (auto-synced)')
@@ -649,15 +659,18 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
 
 def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,too-many-locals,too-many-branches,too-many-statements
   """Main entry point."""
+  # build the parser and parse args
   parser: argparse.ArgumentParser = _BuildParser()
   args: argparse.Namespace = parser.parse_args(argv)
+  # take care of global options
   levels: list[int] = [logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]
   logging.basicConfig(
       level=levels[min(args.verbose, len(levels) - 1)],  # type: ignore
       format=getattr(base, 'LOG_FORMAT', '%(levelname)s:%(message)s'))
   logging.captureWarnings(True)
+  in_format: _StrBytesType = _StrBytesType.FromFlags(args.hex, args.b64, args.bin)
+  out_format: _StrBytesType = _StrBytesType.FromFlags(args.out_hex, args.out_b64, args.out_bin)
 
-  command: str = args.command.lower().strip() if args.command else ''
   a: int
   b: int
   c: int
@@ -670,6 +683,8 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
   bt: bytes
   pt: bytes
   ct: bytes
+
+  command: str = args.command.lower().strip() if args.command else ''
   match command:
     # -------- primes ----------
     case 'isprime':
@@ -751,16 +766,16 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
       hash_cmd: str = args.hash_command.lower().strip() if args.hash_command else ''
       match hash_cmd:
         case 'sha256':
-          bt = _BytesFromText(args.data, _StrBytesType.FromFlags(args.hex, args.b64))
+          bt = _BytesFromText(args.data, in_format)
           digest: bytes = base.Hash256(bt)
-          print(_BytesToText(digest, _StrBytesType.FromFlags(args.out_hex, args.out_b64)))
+          print(_BytesToText(digest, out_format))
         case 'sha512':
-          bt = _BytesFromText(args.data, _StrBytesType.FromFlags(args.hex, args.b64))
+          bt = _BytesFromText(args.data, in_format)
           digest = base.Hash512(bt)
-          print(_BytesToText(digest, _StrBytesType.FromFlags(args.out_hex, args.out_b64)))
+          print(_BytesToText(digest, out_format))
         case 'file':
           digest = base.FileHash(args.path, digest=args.digest)
-          print(_BytesToText(digest, _StrBytesType.FromFlags(args.out_hex, args.out_b64)))
+          print(_BytesToText(digest, out_format))
         case _:
           raise NotImplementedError()
 
@@ -787,9 +802,9 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
           else:
             raise base.InputError('provide --key-b64 or --key-path')
           aad: bytes | None = args.aad.encode('utf-8') if args.aad else None
-          pt = _BytesFromText(args.plaintext, _StrBytesType.FromFlags(args.in_hex, args.in_b64))
+          pt = _BytesFromText(args.plaintext, in_format)
           ct = aes_key.Encrypt(pt, associated_data=aad)
-          print(_BytesToText(ct, _StrBytesType.FromFlags(args.out_hex, args.out_b64)))
+          print(_BytesToText(ct, out_format))
         case 'decrypt':
           if args.key_b64:
             aes_key = aes.AESKey(key256=base.EncodedToBytes(args.key_b64))
@@ -798,18 +813,22 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
           else:
             raise base.InputError('provide --key-b64 or --key-path')
           aad = args.aad.encode('utf-8') if args.aad else None
-          ct = _BytesFromText(args.ciphertext, _StrBytesType.FromFlags(args.in_hex, args.in_b64))
+          ct = _BytesFromText(args.ciphertext, in_format)
           pt = aes_key.Decrypt(ct, associated_data=aad)
-          print(_BytesToText(pt, _StrBytesType.FromFlags(args.out_hex, args.out_b64)))
+          print(_BytesToText(pt, out_format))
         case 'ecb':
           ecb_cmd: str = args.aes_ecb_command.lower().strip() if args.aes_ecb_command else ''
+          if args.key_b64:
+            aes_key = aes.AESKey(key256=base.EncodedToBytes(args.key_b64))
+          elif args.key_path:
+            aes_key = _LoadObj(args.key_path, args.protect or None)
+          else:
+            raise base.InputError('provide --key-b64 or --key-path')
           match ecb_cmd:
             case 'encrypthex':
-              aes_key = aes.AESKey(key256=base.EncodedToBytes(args.key_b64))
               ecb: aes.AESKey.ECBEncoderClass = aes_key.ECBEncoder()
               print(ecb.EncryptHex(args.block_hex))
             case 'decrypthex':
-              aes_key = aes.AESKey(key256=base.EncodedToBytes(args.key_b64))
               ecb = aes_key.ECBEncoder()
               print(ecb.DecryptHex(args.block_hex))
             case _:
@@ -896,7 +915,7 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
           print('dsa shared parameters saved')
         case 'new':
           dsa_priv: dsa.DSAPrivateKey = dsa.DSAPrivateKey.New(
-              _LoadObj(args.dsa_shared, args.protect or None))
+              _LoadObj(args.shared, args.protect or None))
           _SaveObj(dsa_priv, args.out, args.protect or None)
           print('dsa key saved')
         case 'sign':

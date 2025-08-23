@@ -21,6 +21,7 @@ __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = base.__version__  # tests inherit version from module
 
 
+@pytest.mark.slow
 def test_AESKey() -> None:
   """Test."""
   # constants that might break everything

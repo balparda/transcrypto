@@ -64,3 +64,9 @@ transcrypto = "transcrypto.transcrypto:main"
 
 [pytest]
 pythonpath = ["src"]
+
+[tool.pytest.ini_options]
+markers = [
+  "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+  "stochastic: marks tests as capable of failing even if unlikely (deselect with '-m \"not stochastic\"')"
+]

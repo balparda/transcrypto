@@ -71,6 +71,7 @@
     "unitless",
     "unpickle",
     "UNSTARTED",
+    "urandom",
     "xgcd",
     "Zstandard",
     "Zstd"
