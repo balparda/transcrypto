@@ -2337,3 +2337,15 @@ If you changed the CLI interface at all run:
 poetry run transcrypto doc md > CLI.md
 ./tools/inject_md_includes.py
 ```
+
+You can find the 10 top slowest tests by running:
+
+```sh
+poetry run pytest -vvv -q --durations=10
+```
+
+You can search for flaky tests by running all tests 100 times:
+
+```sh
+poetry run pytest --flake-finder --flake-runs=100
+```

@@ -170,6 +170,7 @@ def test_RandBits() -> None:
 
 
 @pytest.mark.stochastic
+@pytest.mark.slow
 def test_RandBits_bit_length_and_bias() -> None:
   """Test."""
   for n_bits in (8, 17, 64, 4096):
@@ -200,6 +201,7 @@ def test_RandInt() -> None:
 
 
 @pytest.mark.stochastic
+@pytest.mark.slow
 def test_RandInt_uniform_small_range() -> None:
   """Test."""
   N: int = 30000

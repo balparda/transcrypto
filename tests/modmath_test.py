@@ -45,6 +45,7 @@ def test_ModInv(x: int, m: int, y: int) -> None:
   assert (x * y) % m == 1  # check the inverse!
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize('m', [
     19,
     277,
@@ -361,6 +362,7 @@ def test_MillerRabinIsPrime_MillerRabinWitnesses_MillerRabinSR_invalid() -> None
       modmath._MillerRabinSR(n)
 
 
+@pytest.mark.slow
 def test_PrimeGenerator() -> None:
   """Test."""
   with pytest.raises(base.InputError, match='negative number'):
@@ -369,7 +371,7 @@ def test_PrimeGenerator() -> None:
     if i >= 60:
       break
     assert n == modmath._FIRST_60_PRIMES_SORTED[i]
-  g = modmath.PrimeGenerator(2 ** 100)
+  g: modmath.Generator[int, None, None] = modmath.PrimeGenerator(2 ** 100)
   assert next(g) == 2 ** 100 + 277
   assert next(g) == 2 ** 100 + 331
 
@@ -384,6 +386,7 @@ def test_NBitRandomPrime(mock_bits: mock.MagicMock) -> None:
   assert mock_bits.call_args_list == [mock.call(8), mock.call(8)]
 
 
+@pytest.mark.slow
 def test_MersennePrimesGenerator() -> None:
   """Test."""
   mersenne: list[int] = []

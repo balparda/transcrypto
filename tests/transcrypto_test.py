@@ -210,6 +210,7 @@ def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None: 
   assert out == plaintext
 
 
+@pytest.mark.slow
 def test_rsa_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None:
   """Test RSA key gen, encrypt/decrypt, sign/verify via CLI."""
   priv_path: pathlib.Path = tmp_path / 'rsa.priv'
@@ -288,6 +289,7 @@ def test_dsa_sign_verify(tmp_path: pathlib.Path) -> None:
   assert code == 0 and ok == 'True'
 
 
+@pytest.mark.slow
 def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
   """Test Shamir's Secret Sharing new, shares, recover, verify via CLI."""
   base_path: pathlib.Path = tmp_path / 'sss'
