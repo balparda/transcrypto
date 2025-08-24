@@ -185,7 +185,7 @@ def ModExp(x: int, y: int, m: int, /) -> int:
 
 
 def ModPolynomial(x: int, polynomial: Reversible[int], m: int, /) -> int:
-  """Evaluates polynomial `poly` (coefficient iterable) at `x` modulus `m`.
+  """Evaluates `polynomial` (coefficients iterable) at `x` modulus `m`.
 
   Evaluate a polynomial at `x` under a modulus `m` using Horner's rule. Horner rewrites:
       a_0 + a_1 x + a_2 x^2 + … + a_n x^n
@@ -315,7 +315,7 @@ def FermatIsPrime(n: int, /, *, safety: int = 10, witnesses: set[int] | None = N
   # we have our witnesses: do the actual Fermat algo
   for w in sorted(witnesses):
     if not 2 <= w <= (n - 2):
-      raise base.InputError(f'out of bounds witness: 2 <= {w=} <= {n - 2}')
+      raise base.InputError(f'out of bounds witness: 2 ≤ {w=} ≤ {n - 2}')
     if ModExp(w, n - 1, n) != 1:
       # number is proved to be composite
       return False
@@ -371,7 +371,7 @@ def _MillerRabinWitnesses(n: int, /) -> set[int]:  # pylint: disable=too-many-re
 def _MillerRabinSR(n: int, /) -> tuple[int, int]:
   """Generates (s, r) where (2 ** s) * r == (n - 1) hold true, for odd n > 5.
 
-  It should be always true that: s >= 1 and r >= 1 and r is odd.
+  It should be always true that: s ≥ 1 and r ≥ 1 and r is odd.
 
   Args:
     n (int): odd number, n ≥ 5
@@ -426,7 +426,7 @@ def MillerRabinIsPrime(n: int, /, *, witnesses: set[int] | None = None) -> bool:
   y: int
   for w in sorted(witnesses if witnesses else _MillerRabinWitnesses(n)):
     if not 2 <= w <= (n - 2):
-      raise base.InputError(f'out of bounds witness: 2 <= {w=} <= {n - 2}')
+      raise base.InputError(f'out of bounds witness: 2 ≤ {w=} ≤ {n - 2}')
     x: int = ModExp(w, r, n)
     if x not in n_limits:
       for _ in range(s):  # s >= 1 so will execute at least once

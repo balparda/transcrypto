@@ -210,9 +210,12 @@ def _HelpText(sub_parser: argparse.ArgumentParser, parent_sub_action: Any) -> st
 
 
 def _GenerateCLIMarkdown() -> str:  # pylint: disable=too-many-locals
-  """Return a Markdown doc section that reflects the current _BuildParser() tree."""
+  """Return a Markdown doc section that reflects the current _BuildParser() tree.
+
+  Will treat epilog strings as examples, splitting on '$$' to get multiple examples.
+  """
   parser: argparse.ArgumentParser = _BuildParser()
-  assert parser.prog == 'transcrypto.py', 'should never happen: module name changed?'
+  assert parser.prog == 'poetry run transcrypto', 'should never happen: module name changed?'
   prog: str = 'transcrypto'  # no '.py' needed because poetry run has an alias
   lines: list[str] = ['']
   # Header + global flags
@@ -233,7 +236,7 @@ def _GenerateCLIMarkdown() -> str:  # pylint: disable=too-many-locals
     lines.append(_MarkdownTable(global_rows))
     lines.append('')
   # Top-level commands summary
-  lines.append('### Commands\n')
+  lines.append('### Top-Level Commands\n')
   # Find top-level subparsers to list available commands
   top_subs: list[argparse.Action] = [a for a in parser._actions if _ActionIsSubparser(a)]  # type: ignore[attr-defined]  # pylint: disable=protected-access
   for action in top_subs:
@@ -241,28 +244,36 @@ def _GenerateCLIMarkdown() -> str:  # pylint: disable=too-many-locals
       help_text: str = (sp.description or sp.format_usage().splitlines()[0]).strip()  # type:ignore
       short: str = (sp.help if hasattr(sp, 'help') else '') or ''                     # type:ignore
       help_text = short or help_text                                                  # type:ignore
-      help_text = help_text.replace('usage: ', '').replace('transcrypto.py ', '').strip()  # type:ignore
-      lines.append(f'- **`{name}`** — `poetry run {prog} {help_text}`')
+      help_text = help_text.replace('usage: ', '').strip()  # type:ignore
+      lines.append(f'- **`{name}`** — `{help_text}`')
   lines.append('')
   # Detailed sections per (sub)command
   for path, sub_parser, parent_sub_action in _WalkSubcommands(parser):
+    if len(path) == 1:
+      lines.append('---\n')  # horizontal rule between top-level commands
     header: str = ' '.join(path)
-    lines.append(f'#### `{header}`')
+    lines.append(f'###{"" if len(path) == 1 else "#"} `{header}`')  # (header level 3 or 4)
     # Usage block
     help_text = _HelpText(sub_parser, parent_sub_action)
     if help_text:
       lines.append(f'\n{help_text}')
     usage: str = sub_parser.format_usage().replace('usage: ', '').strip()
-    if usage.startswith('transcrypto.py '):
-      usage = usage[len('transcrypto.py '):]
     lines.append('\n```bash')
-    lines.append(f'poetry run {prog} {usage}')
+    lines.append(str(usage))
     lines.append('```\n')
     # Options/args table
     rows: list[tuple[str, str]] = _RowsForActions(sub_parser._actions)  # type: ignore[attr-defined]  # pylint: disable=protected-access
     if rows:
       lines.append(_MarkdownTable(rows))
       lines.append('')
+    # Examples (if any) - stored in epilog argument
+    epilog: str = sub_parser.epilog.strip() if sub_parser.epilog else ''
+    if epilog:
+      lines.append('**Example:**\n')
+      lines.append('```bash')
+      for epilog_line in epilog.split('$$'):
+        lines.append(f'$ poetry run {prog} {epilog_line.strip()}')
+      lines.append('```\n')
   # join all lines as the markdown string
   return '\n'.join(lines)
 
@@ -271,17 +282,17 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   """Construct the CLI argument parser (kept in sync with the docs)."""
   # ========================= main parser ==========================================================
   parser: argparse.ArgumentParser = argparse.ArgumentParser(
-      prog='transcrypto.py',
+      prog='poetry run transcrypto',
       description=('transcrypto: CLI for number theory, hashing, '
                    'AES, RSA, ElGamal, DSA, SSS, and utilities.'),
       epilog=(
           'Examples:\n'
-          '  poetry run transcrypto.py isprime 428568761\n'
-          '  poetry run transcrypto.py rsa new 2048 --out rsa.priv --protect hunter2\n'
-          '  poetry run transcrypto.py aes key frompass "correct horse" --print-b64\n'
-          '  poetry run transcrypto.py aes encrypt "secret" -k "<b64key>" -a "aad" --out-b64\n'
-          '  poetry run transcrypto.py mod inv 17 97\n'
-          '  poetry run transcrypto.py sss new 3 128 --out /tmp/sss\n'
+          '  poetry run transcrypto isprime 428568761\n'
+          '  poetry run transcrypto rsa new 2048 --out rsa.priv --protect hunter2\n'
+          '  poetry run transcrypto aes key frompass "correct horse" --print-b64\n'
+          '  poetry run transcrypto aes encrypt "secret" -k "<b64key>" -a "aad" --out-b64\n'
+          '  poetry run transcrypto mod inv 17 97\n'
+          '  poetry run transcrypto sss new 3 128 --out /tmp/sss\n'
       ),
       formatter_class=argparse.RawTextHelpFormatter)
   sub = parser.add_subparsers(dest='command')
@@ -302,115 +313,180 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   out_grp.add_argument('--out-b64', action='store_true', help='Outputs as base64url')
   out_grp.add_argument('--out-bin', action='store_true', help='Outputs as binary (bytes)')
 
+  # ========================= randomness ===========================================================
+
+  # Cryptographically secure randomness
+  p_rand: argparse.ArgumentParser = sub.add_parser(
+      'random', help='Cryptographically secure randomness, from the OS CSPRNG.')
+  rsub = p_rand.add_subparsers(dest='rand_command')
+
+  # Random bits
+  p_rand_bits: argparse.ArgumentParser = rsub.add_parser(
+      'bits',
+      help='Random integer with exact bit length = `bits` (MSB will be 1).',
+      epilog='random bits 16\n36650')
+  p_rand_bits.add_argument('bits', type=int, help='Number of bits, ≥ 8')
+
+  # Random integer in [min, max]
+  p_rand_int: argparse.ArgumentParser = rsub.add_parser(
+      'int',
+      help='Uniform random integer in `[min, max]` range, inclusive.',
+      epilog='random int 1000 2000\n1628')
+  p_rand_int.add_argument('min', type=str, help='Minimum, ≥ 0')
+  p_rand_int.add_argument('max', type=str, help='Maximum, > `min`')
+
+  # Random bytes
+  p_rand_bytes: argparse.ArgumentParser = rsub.add_parser(
+      'bytes',
+      help='Generates `n` cryptographically secure random bytes.',
+      epilog='random bytes 32\n6c6f1f88cb93c4323285a2224373d6e59c72a9c2b82e20d1c376df4ffbe9507f')
+  p_rand_bytes.add_argument('n', type=int, help='Number of bytes, ≥ 1')
+
+  # Random prime with given bit length
+  p_rand_prime: argparse.ArgumentParser = rsub.add_parser(
+      'prime',
+      help='Generate a random prime with exact bit length = `bits` (MSB will be 1).',
+      epilog='random prime 32\n2365910551')
+  p_rand_prime.add_argument('bits', type=int, help='Bit length, ≥ 11')
+
   # ========================= primes ===============================================================
+
   # Primality test with safe defaults
   p_isprime: argparse.ArgumentParser = sub.add_parser(
-      'isprime', help='Primality test with safe defaults (modmath.IsPrime).')
+      'isprime',
+      help='Primality test with safe defaults, useful for any integer size.',
+      epilog='isprime 2305843009213693951\nTrue $$ isprime 2305843009213693953\nFalse')
   p_isprime.add_argument(
-      'n', type=str, help='Integer to test (supports 0x.., 0b.., 0o.., underscores)')
-  # Miller-Rabin with custom witnesses
-  p_mr: argparse.ArgumentParser = sub.add_parser(
-      'mr', help='Miller-Rabin primality with optional custom witnesses.')
-  p_mr.add_argument('n', type=str, help='Integer to test')
-  p_mr.add_argument(
-      '-w', '--witness', action='append', default=[],
-      help='Add a witness (repeatable). Example: -w 2 -w 7 -w 61')
-  # Random prime with given bit length
-  p_r_prime: argparse.ArgumentParser = sub.add_parser(
-      'randomprime', help='Generate a random prime with given bit length.')
-  p_r_prime.add_argument('bits', type=int, help='Bit length (≥ 11)')
+      'n', type=str, help='Integer to test, ≥ 1')
+
   # Primes generator
   p_pg: argparse.ArgumentParser = sub.add_parser(
-      'primegen', help='Stream primes ≥ start (prints a limited count by default).')
+      'primegen',
+      help='Generate (stream) primes ≥ `start` (prints a limited `count` by default).',
+      epilog='primegen 100 -c 3\n101\n103\n107')
   p_pg.add_argument('start', type=str, help='Starting integer (inclusive)')
   p_pg.add_argument(
-      '-c', '--count', type=int, default=10,
-      help='How many to print (default: 10; 0 = unlimited)')
+      '-c', '--count', type=int, default=10, help='How many to print (0 = unlimited)')
+
   # Mersenne primes generator
   p_mersenne: argparse.ArgumentParser = sub.add_parser(
-      'mersenne', help='Iterate Mersenne primes (k, M=2^k-1, perfect?).')
+      'mersenne',
+      help=('Generate (stream) Mersenne prime exponents `k`, also outputting `2^k-1` '
+            '(the Mersenne prime, `M`) and `M×2^(k-1)` (the associated perfect number), '
+            'starting at `min-k` and stopping once `k` > `cutoff-k`.'),
+      epilog=('mersenne -k 0 -C 15\nk=2  M=3  perfect=6\nk=3  M=7  perfect=28\n'
+              'k=5  M=31  perfect=496\nk=7  M=127  perfect=8128\n'
+              'k=13  M=8191  perfect=33550336\nk=17  M=131071  perfect=8589869056'))
   p_mersenne.add_argument(
-      '-k', '--min-k', type=int, default=0, help='Starting exponent k (default 0)')
+      '-k', '--min-k', type=int, default=1, help='Starting exponent `k`, ≥ 1')
   p_mersenne.add_argument(
-      '-C', '--cutoff-k', type=int, default=10000, help='Stop once k > cutoff (default 10000)')
+      '-C', '--cutoff-k', type=int, default=10000, help='Stop once `k` > `cutoff-k`')
 
   # ========================= integer / modular math ===============================================
+
   # GCD
-  p_gcd: argparse.ArgumentParser = sub.add_parser('gcd', help='Greatest Common Divisor.')
-  p_gcd.add_argument('a', type=str)
-  p_gcd.add_argument('b', type=str)
+  p_gcd: argparse.ArgumentParser = sub.add_parser(
+      'gcd',
+      help='Greatest Common Divisor (GCD) of integers `a` and `b`.',
+      epilog='gcd 462 1071\n21 $$ gcd 0 5\n5 $$ gcd 127 13\n1')
+  p_gcd.add_argument('a', type=str, help='Integer, ≥ 0')
+  p_gcd.add_argument('b', type=str, help='Integer, ≥ 0 (can\'t be both zero)')
+
   # Extended GCD
   p_xgcd: argparse.ArgumentParser = sub.add_parser(
-      'xgcd', help='Extended GCD → (g, x, y) where ax + by = g.')
-  p_xgcd.add_argument('a', type=str)
-  p_xgcd.add_argument('b', type=str)
+      'xgcd',
+      help=('Extended Greatest Common Divisor (x-GCD) of integers `a` and `b`, '
+            'will return `(g, x, y)` where `a×x+b×y==g`.'),
+      epilog='xgcd 462 1071\n(21, 7, -3) $$ gcd 0 5\n(5, 0, 1) $$ xgcd 127 13\n(1, 4, -39)')
+  p_xgcd.add_argument('a', type=str, help='Integer, ≥ 0')
+  p_xgcd.add_argument('b', type=str, help='Integer, ≥ 0 (can\'t be both zero)')
+
   # Modular math group
   p_mod: argparse.ArgumentParser = sub.add_parser('mod', help='Modular arithmetic helpers.')
   mod_sub = p_mod.add_subparsers(dest='mod_command')
+
   # Modular inverse
-  p_mi: argparse.ArgumentParser = mod_sub.add_parser('inv', help='Modular inverse: a^(-1) mod m.')
-  p_mi.add_argument('a', type=str)
-  p_mi.add_argument('m', type=str, help='Modulus m')
+  p_mi: argparse.ArgumentParser = mod_sub.add_parser(
+      'inv',
+      help=('Modular inverse: find integer 0≤`i`<`m` such that `a×i ≡ 1 (mod m)`. '
+            'Will only work if `gcd(a,m)==1`, else will fail with a message.'),
+      epilog=('mod inv 127 13\n4 $$ mod inv 17 3120\n2753  $$ '
+              'mod inv 462 1071\n<<INVALID>> no modular inverse exists (ModularDivideError)'))
+  p_mi.add_argument('a', type=str, help='Integer to invert')
+  p_mi.add_argument('m', type=str, help='Modulus `m`, ≥ 2')
+
   # Modular division
   p_md: argparse.ArgumentParser = mod_sub.add_parser(
-      'div', help='Modular division: find z s.t. z×y ≡ x (mod m).')
-  p_md.add_argument('x', type=str)
-  p_md.add_argument('y', type=str)
-  p_md.add_argument('m', type=str, help='Modulus m')
+      'div',
+      help=('Modular division: find integer 0≤`z`<`m` such that `z×y ≡ x (mod m)`. '
+            'Will only work if `gcd(y,m)==1` and `y!=0`, else will fail with a message.'),
+      epilog=('mod div 6 127 13\n11 $$ '
+              'mod div 6 0 13\n<<INVALID>> no modular inverse exists (ModularDivideError)'))
+  p_md.add_argument('x', type=str, help='Integer')
+  p_md.add_argument('y', type=str, help='Integer, cannot be zero')
+  p_md.add_argument('m', type=str, help='Modulus `m`, ≥ 2')
+
   # Modular exponentiation
   p_me: argparse.ArgumentParser = mod_sub.add_parser(
-      'exp', help='Modular exponentiation: a^e mod m.')
-  p_me.add_argument('a', type=str)
-  p_me.add_argument('e', type=str)
-  p_me.add_argument('m', type=str, help='Modulus m')
+      'exp',
+      help='Modular exponentiation: `a^e mod m`. Efficient, can handle huge values.',
+      epilog='mod exp 438 234 127\n32 $$ mod exp 438 234 89854\n60622')
+  p_me.add_argument('a', type=str, help='Integer')
+  p_me.add_argument('e', type=str, help='Integer, ≥ 0')
+  p_me.add_argument('m', type=str, help='Modulus `m`, ≥ 2')
+
   # Polynomial evaluation mod m
   p_mp: argparse.ArgumentParser = mod_sub.add_parser(
-      'poly', help='Evaluate polynomial modulo m (c0 c1 c2 ... at t).')
-  p_mp.add_argument('t', type=str, help='Evaluation point t')
-  p_mp.add_argument('m', type=str, help='Modulus m')
-  p_mp.add_argument('coeff', nargs='+', help='Coefficients (constant-term first)')
+      'poly',
+      help=('Efficiently evaluate polynomial with `coeff` coefficients at point `x` modulo `m` '
+            '(`c₀+c₁×x+c₂×x²+…+cₙ×xⁿ mod m`).'),
+      epilog=('mod poly 12 17 10 20 30\n14  # (10+20×12+30×12² ≡ 14 (mod 17)) $$ '
+              'mod poly 10 97 3 0 0 1 1\n42  # (3+1×10³+1×10⁴ ≡ 42 (mod 97))'))
+  p_mp.add_argument('x', type=str, help='Evaluation point `x`')
+  p_mp.add_argument('m', type=str, help='Modulus `m`, ≥ 2')
+  p_mp.add_argument(
+      'coeff', nargs='+', help='Coefficients (constant-term first: `c₀+c₁×x+c₂×x²+…+cₙ×xⁿ`)')
+
   # Lagrange interpolation mod m
   p_ml: argparse.ArgumentParser = mod_sub.add_parser(
-      'lagrange', help='Lagrange interpolation over modulus.')
-  p_ml.add_argument('x', type=str, help='Point to evaluate at')
-  p_ml.add_argument('m', type=str, help='Modulus m')
-  p_ml.add_argument('pt', nargs='+', help='Points as k:v (e.g., 2:4 5:3 7:1)')
+      'lagrange',
+      help=('Lagrange interpolation over modulus `m`: find the `f(x)` solution for the '
+            'given `x` and `zₙ:f(zₙ)` points `pt`. The modulus `m` must be a prime.'),
+      epilog=('mod lagrange 5 13 2:4 6:3 7:1\n3  # passes through (2,4), (6,3), (7,1) $$ '
+              'mod lagrange 11 97 1:1 2:4 3:9 4:16 5:25\n24  '
+              '# passes through (1,1), (2,4), (3,9), (4,16), (5,25)'))
+  p_ml.add_argument('x', type=str, help='Evaluation point `x`')
+  p_ml.add_argument('m', type=str, help='Modulus `m`, ≥ 2')
+  p_ml.add_argument(
+      'pt', nargs='+', help='Points `zₙ:f(zₙ)` as `key:value` pairs (e.g., `2:4 5:3 7:1`)')
+
   # Chinese Remainder Theorem for 2 equations
   p_crt: argparse.ArgumentParser = mod_sub.add_parser(
-      'crt', help='CRT pair: solve x ≡ a1 (mod m1), x ≡ a2 (mod m2).')
-  p_crt.add_argument('a1', type=str)
-  p_crt.add_argument('m1', type=str, help='Modulus m1')
-  p_crt.add_argument('a2', type=str)
-  p_crt.add_argument('m2', type=str, help='Modulus m2')
+      'crt',
+      help=('Solves Chinese Remainder Theorem (CRT) Pair: finds the unique integer 0≤`x`<`(m1×m2)` '
+            'satisfying both `x ≡ a1 (mod m1)` and `x ≡ a2 (mod m2)`, if `gcd(m1,m2)==1`.'),
+      epilog=('mod crt 6 7 127 13\n62 $$ mod crt 12 56 17 19\n796 $$ '
+              'mod crt 6 7 462 1071\n<<INVALID>> moduli m1/m2 not co-prime (ModularDivideError)'))
+  p_crt.add_argument('a1', type=str, help='Integer residue for first congruence')
+  p_crt.add_argument('m1', type=str, help='Modulus `m1`, ≥ 2 and `gcd(m1,m2)==1`')
+  p_crt.add_argument('a2', type=str, help='Integer residue for second congruence')
+  p_crt.add_argument('m2', type=str, help='Modulus `m2`, ≥ 2 and `gcd(m1,m2)==1`')
 
-  # ========================= randomness & hashing =================================================
-  # Cryptographically secure randomness
-  p_rand: argparse.ArgumentParser = sub.add_parser(
-      'rand', help='Cryptographically secure randomness.')
-  rsub = p_rand.add_subparsers(dest='rand_command')
-  # Random bits
-  p_rand_bits: argparse.ArgumentParser = rsub.add_parser(
-      'bits', help='Random integer with exact bit length (MSB may be 1).')
-  p_rand_bits.add_argument('bits', type=int, help='Number of bits ≥ 8 for base.RandBits')
-  # Random integer in [min, max]
-  p_rand_int: argparse.ArgumentParser = rsub.add_parser(
-      'int', help='Uniform random integer in [min, max], inclusive.')
-  p_rand_int.add_argument('min', type=str, help='Minimum (≥ 0)')
-  p_rand_int.add_argument('max', type=str, help='Maximum (> min)')
-  # Random bytes
-  p_rand_bytes: argparse.ArgumentParser = rsub.add_parser(
-      'bytes', help='Random bytes from the OS CSPRNG.')
-  p_rand_bytes.add_argument('n', type=int, help='Number of bytes ≥ 1')
+  # ========================= hashing ==============================================================
+
   # Hashing group
   p_hash: argparse.ArgumentParser = sub.add_parser(
       'hash', help='Hashing (SHA-256 / SHA-512 / file).')
   hash_sub = p_hash.add_subparsers(dest='hash_command')
+
   # SHA-256
   p_h256: argparse.ArgumentParser = hash_sub.add_parser('sha256', help='SHA-256 of input data.')
   p_h256.add_argument('data', type=str, help='Input text (raw; or use --hex/--b64)')
+
   # SHA-512
   p_h512 = hash_sub.add_parser('sha512', help='SHA-512 of input data.')
   p_h512.add_argument('data', type=str, help='Input text (raw; or use --hex/--b64)')
+
   # Hash file contents (streamed)
   p_hf: argparse.ArgumentParser = hash_sub.add_parser('file', help='Hash file contents (streamed).')
   p_hf.add_argument('path', type=str, help='Path to file')
@@ -418,14 +494,17 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
                     help='Digest (default: sha256)')
 
   # ========================= AES (GCM + ECB helper) ===============================================
+
   # AES group
   p_aes: argparse.ArgumentParser = sub.add_parser(
       'aes', help='AES-256 operations (GCM/ECB) and key derivation.')
   aes_sub = p_aes.add_subparsers(dest='aes_command')
+
   # AES key management
   p_aes_key: argparse.ArgumentParser = aes_sub.add_parser(
       'key', help='Create/derive/store AES keys.')
   aes_key_sub = p_aes_key.add_subparsers(dest='aes_key_command')
+
   # Derive key from password
   p_aes_key_pass: argparse.ArgumentParser = aes_key_sub.add_parser(
       'frompass', help='Derive key from a password (PBKDF2-HMAC-SHA256).')
@@ -436,6 +515,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_aes_key_pass.add_argument('--out', type=str, default='', help='Save serialized AESKey to path')
   p_aes_key_pass.add_argument(
       '--protect', type=str, default='', help='Password to encrypt the saved key file (Serialize)')
+
   # AES-256-GCM encrypt
   p_aes_enc: argparse.ArgumentParser = aes_sub.add_parser(
       'encrypt', help='AES-256-GCM: encrypt (outputs IV||ct||tag).')
@@ -447,6 +527,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_aes_enc.add_argument('-a', '--aad', type=str, default='', help='Associated data (optional)')
   p_aes_enc.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if using --key-path')
+
   # AES-256-GCM decrypt
   p_aes_dec: argparse.ArgumentParser = aes_sub.add_parser(
       'decrypt', help='AES-256-GCM: decrypt IV||ct||tag.')
@@ -458,6 +539,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_aes_dec.add_argument('-a', '--aad', type=str, default='', help='Associated data (must match)')
   p_aes_dec.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if using --key-path')
+
   # AES-ECB
   p_aes_ecb: argparse.ArgumentParser = aes_sub.add_parser(
       'ecb', help='AES-ECB (unsafe; fixed 16-byte blocks only).')
@@ -468,19 +550,23 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_aes_ecb.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if using --key-path')
   aes_ecb_sub = p_aes_ecb.add_subparsers(dest='aes_ecb_command')
+
   # AES-ECB encrypt 16-byte hex block
   p_aes_ecb_e: argparse.ArgumentParser = aes_ecb_sub.add_parser(
       'encrypthex', help='Encrypt 16-byte hex block with AES-ECB.')
   p_aes_ecb_e.add_argument('block_hex', type=str, help='Plaintext block as 32 hex chars')
+
   # AES-ECB decrypt 16-byte hex block
   p_aes_scb_d: argparse.ArgumentParser = aes_ecb_sub.add_parser(
       'decrypthex', help='Decrypt 16-byte hex block with AES-ECB.')
   p_aes_scb_d.add_argument('block_hex', type=str, help='Ciphertext block as 32 hex chars')
 
   # ========================= RSA ==================================================================
+
   # RSA group
   p_rsa: argparse.ArgumentParser = sub.add_parser('rsa', help='Raw RSA over integers (no OAEP/PSS).')
   rsa_sub = p_rsa.add_subparsers(dest='rsa_command')
+
   # Generate new RSA private key
   p_rsa_new: argparse.ArgumentParser = rsa_sub.add_parser('new', help='Generate RSA private key.')
   p_rsa_new.add_argument('bits', type=int, help='Modulus size in bits (e.g., 2048)')
@@ -488,6 +574,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
       '--out', type=str, default='', help='Save private key to path (Serialize)')
   p_rsa_new.add_argument(
       '--protect', type=str, default='', help='Password to encrypt saved key file')
+
   # Encrypt integer with public key
   p_rsa_enc: argparse.ArgumentParser = rsa_sub.add_parser(
       'encrypt', help='Encrypt integer with public key.')
@@ -496,6 +583,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
       '--key', type=str, required=True, help='Path to private/public key (Serialize)')
   p_rsa_enc.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if needed')
+
   # Decrypt integer ciphertext with private key
   p_rsa_dec: argparse.ArgumentParser = rsa_sub.add_parser(
       'decrypt', help='Decrypt integer ciphertext with private key.')
@@ -503,6 +591,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_rsa_dec.add_argument('--key', type=str, required=True, help='Path to private key (Serialize)')
   p_rsa_dec.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if needed')
+
   # Sign integer message with private key
   p_rsa_sig: argparse.ArgumentParser = rsa_sub.add_parser(
       'sign', help='Sign integer message with private key.')
@@ -510,6 +599,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_rsa_sig.add_argument('--key', type=str, required=True, help='Path to private key (Serialize)')
   p_rsa_sig.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if needed')
+
   # Verify integer signature with public key
   p_rsa_ver: argparse.ArgumentParser = rsa_sub.add_parser(
       'verify', help='Verify integer signature with public key.')
@@ -521,9 +611,11 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
       '--protect', type=str, default='', help='Password to decrypt key file if needed')
 
   # ========================= ElGamal ==============================================================
+
   # ElGamal group
   p_eg: argparse.ArgumentParser = sub.add_parser('elgamal', help='Raw El-Gamal (no padding).')
   eg_sub = p_eg.add_subparsers(dest='eg_command')
+
   # Generate shared (p,g) params
   p_eg_shared: argparse.ArgumentParser = eg_sub.add_parser(
       'shared', help='Generate shared parameters (p, g).')
@@ -531,6 +623,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_eg_shared.add_argument('--out', type=str, required=True, help='Save shared key to path')
   p_eg_shared.add_argument(
       '--protect', type=str, default='', help='Password to encrypt saved key file')
+
   # Generate individual private key from shared (p,g)
   p_eg_new: argparse.ArgumentParser = eg_sub.add_parser(
       'new', help='Generate individual private key from shared.')
@@ -538,6 +631,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_eg_new.add_argument('--out', type=str, required=True, help='Save private key to path')
   p_eg_new.add_argument(
       '--protect', type=str, default='', help='Password to encrypt saved key file')
+
   # Encrypt integer with public key
   p_eg_enc: argparse.ArgumentParser = eg_sub.add_parser(
       'encrypt', help='Encrypt integer with public key.')
@@ -545,6 +639,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_eg_enc.add_argument('--key', type=str, required=True, help='Path to private/public key')
   p_eg_enc.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if needed')
+
   # Decrypt El-Gamal ciphertext tuple (c1,c2)
   p_eg_dec: argparse.ArgumentParser = eg_sub.add_parser(
       'decrypt', help='Decrypt El-Gamal ciphertext tuple (c1,c2).')
@@ -553,6 +648,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_eg_dec.add_argument('--key', type=str, required=True, help='Path to private key')
   p_eg_dec.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if needed')
+
   # Sign integer message with private key
   p_eg_sig: argparse.ArgumentParser = eg_sub.add_parser(
       'sign', help='Sign integer message with private key.')
@@ -560,6 +656,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_eg_sig.add_argument('--key', type=str, required=True, help='Path to private key')
   p_eg_sig.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if needed')
+
   # Verify El-Gamal signature (s1,s2)
   p_eg_ver: argparse.ArgumentParser = eg_sub.add_parser(
       'verify', help='Verify El-Gamal signature (s1,s2).')
@@ -571,10 +668,12 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
       '--protect', type=str, default='', help='Password to decrypt key file if needed')
 
   # ========================= DSA ==================================================================
+
   # DSA group
   p_dsa: argparse.ArgumentParser = sub.add_parser(
       'dsa', help='Raw DSA (no hash, integer messages < q).')
   dsa_sub = p_dsa.add_subparsers(dest='dsa_command')
+
   # Generate shared (p,q,g) params
   p_dsa_shared: argparse.ArgumentParser = dsa_sub.add_parser(
       'shared', help='Generate (p,q,g) with q | p-1.')
@@ -583,6 +682,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_dsa_shared.add_argument('--out', type=str, required=True, help='Save shared params to path')
   p_dsa_shared.add_argument(
       '--protect', type=str, default='', help='Password to encrypt saved key file')
+
   # Generate individual private key from shared (p,q,g)
   p_dsa_new: argparse.ArgumentParser = dsa_sub.add_parser(
       'new', help='Generate DSA private key from shared.')
@@ -590,6 +690,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_dsa_new.add_argument('--out', type=str, required=True, help='Save private key to path')
   p_dsa_new.add_argument(
       '--protect', type=str, default='', help='Password to encrypt saved key file')
+
   # Sign integer m with private key
   p_dsa_sign: argparse.ArgumentParser = dsa_sub.add_parser(
       'sign', help='Sign integer m (1 ≤ m < q).')
@@ -597,6 +698,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_dsa_sign.add_argument('--key', type=str, required=True, help='Path to private key')
   p_dsa_sign.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if needed')
+
   # Verify DSA signature (s1,s2)
   p_dsa_verify: argparse.ArgumentParser = dsa_sub.add_parser(
       'verify', help='Verify DSA signature (s1,s2).')
@@ -608,10 +710,12 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
       '--protect', type=str, default='', help='Password to decrypt key file if needed')
 
   # ========================= Shamir Secret Sharing ================================================
+
   # SSS group
   p_sss: argparse.ArgumentParser = sub.add_parser(
       'sss', help='Shamir Shared Secret (unauthenticated).')
   sss_sub = p_sss.add_subparsers(dest='sss_command')
+
   # Generate new SSS params (t, prime, coefficients)
   p_sss_new: argparse.ArgumentParser = sss_sub.add_parser(
       'new', help='Generate SSS params (minimum, prime, coefficients).')
@@ -620,6 +724,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_sss_new.add_argument('--out', type=str, required=True,
                          help='Base path; will save ".priv" and ".pub"')
   p_sss_new.add_argument('--protect', type=str, default='', help='Password to encrypt saved files')
+
   # Issue N shares for a secret
   p_sss_shares: argparse.ArgumentParser = sss_sub.add_parser(
       'shares', help='Issue N shares for a secret (private params).')
@@ -629,6 +734,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
       '--key', type=str, required=True, help='Path to private SSS key (.priv)')
   p_sss_shares.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if needed')
+
   # Recover secret from shares
   p_sss_recover: argparse.ArgumentParser = sss_sub.add_parser(
       'recover', help='Recover secret from shares (public params).')
@@ -637,6 +743,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
       '--key', type=str, required=True, help='Path to public SSS key (.pub)')
   p_sss_recover.add_argument(
       '--protect', type=str, default='', help='Password to decrypt key file if needed')
+
   # Verify a share against a secret
   p_sss_verify: argparse.ArgumentParser = sss_sub.add_parser(
       'verify', help='Verify a share against a secret (private params).')
@@ -648,6 +755,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
       '--protect', type=str, default='', help='Password to decrypt key file if needed')
 
   # ========================= Markdown Generation ==================================================
+
   # Documentation generation
   doc: argparse.ArgumentParser = sub.add_parser('doc', help='Documentation utilities.')
   doc_sub = doc.add_subparsers(dest='doc_command')
@@ -677,7 +785,6 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
   e: int
   m: int
   n: int
-  t: int
   x: int
   y: int
   bt: bytes
@@ -690,12 +797,6 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
     case 'isprime':
       n = _ParseInt(args.n)
       print(modmath.IsPrime(n))
-    case 'mr':
-      n = _ParseInt(args.n)
-      wit: set[int] | None = set(_ParseIntList(args.witness)) if args.witness else None
-      print(modmath.MillerRabinIsPrime(n, witnesses=wit))
-    case 'randomprime':
-      print(modmath.NBitRandomPrime(args.bits))
     case 'primegen':
       start: int = _ParseInt(args.start)
       count: int = args.count
@@ -723,17 +824,23 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
       match mod_command:
         case 'inv':
           a, m = _ParseInt(args.a), _ParseInt(args.m)
-          print(modmath.ModInv(a, m))
+          try:
+            print(modmath.ModInv(a, m))
+          except modmath.ModularDivideError:
+            print('<<INVALID>> no modular inverse exists (ModularDivideError)')
         case 'div':
           x, y, m = _ParseInt(args.x), _ParseInt(args.y), _ParseInt(args.m)
-          print(modmath.ModDiv(x, y, m))
+          try:
+            print(modmath.ModDiv(x, y, m))
+          except modmath.ModularDivideError:
+            print('<<INVALID>> no modular inverse exists (ModularDivideError)')
         case 'exp':
           a, e, m = _ParseInt(args.a), _ParseInt(args.e), _ParseInt(args.m)
           print(modmath.ModExp(a, e, m))
         case 'poly':
-          t, m = _ParseInt(args.t), _ParseInt(args.m)
+          x, m = _ParseInt(args.x), _ParseInt(args.m)
           coeffs: list[int] = _ParseIntList(args.coeff)
-          print(modmath.ModPolynomial(t, coeffs, m))
+          print(modmath.ModPolynomial(x, coeffs, m))
         case 'lagrange':
           x, m = _ParseInt(args.x), _ParseInt(args.m)
           pts: dict[int, int] = {}
@@ -746,12 +853,15 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
         case 'crt':
           crt_tuple: tuple[int, int, int, int] = (
               _ParseInt(args.a1), _ParseInt(args.m1), _ParseInt(args.a2), _ParseInt(args.m2))
-          print(modmath.CRTPair(*crt_tuple))
+          try:
+            print(modmath.CRTPair(*crt_tuple))
+          except modmath.ModularDivideError:
+            print('<<INVALID>> moduli m1/m2 not co-prime (ModularDivideError)')
         case _:
           raise NotImplementedError()
 
     # -------- randomness / hashing ----------
-    case 'rand':
+    case 'random':
       rand_cmd: str = args.rand_command.lower().strip() if args.rand_command else ''
       match rand_cmd:
         case 'bits':
@@ -760,6 +870,8 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
           print(base.RandInt(_ParseInt(args.min), _ParseInt(args.max)))
         case 'bytes':
           print(base.BytesToHex(base.RandBytes(args.n)))
+        case 'prime':
+          print(modmath.NBitRandomPrime(args.bits))
         case _:
           raise NotImplementedError()
     case 'hash':

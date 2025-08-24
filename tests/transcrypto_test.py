@@ -40,10 +40,8 @@ def _RunCLI(argv: list[str]) -> tuple[int, str]:
     'argv, expected',
     [
         # --- primality ---
-        (['isprime', '17'], 'True'),
-        (['isprime', '18'], 'False'),
-        (['mr', '37', '-w', '2', '-w', '7'], 'True'),
-        (['mr', '21', '-w', '2', '-w', '7'], 'False'),
+        (['isprime', '2305843009213693951'], 'True'),
+        (['isprime', '2305843009213693953'], 'False'),
 
         # --- gcd / xgcd ---
         (['gcd', '462', '1071'], '21'),
@@ -51,11 +49,17 @@ def _RunCLI(argv: list[str]) -> tuple[int, str]:
 
         # --- modular arithmetic ---
         (['mod', 'inv', '3', '11'], '4'),          # 3^-1 mod 11 = 4
+        (['mod', 'inv', '3', '9'],
+         '<<INVALID>> no modular inverse exists (ModularDivideError)'),
         (['mod', 'div', '0o12', '4', '13'], '9'),  # z*4 ≡ 10 (mod 13) → z = 9
+        (['mod', 'div', '4', '0', '13'],
+         '<<INVALID>> no modular inverse exists (ModularDivideError)'),
         (['mod', 'exp', '3', '20', '97'], '91'),   # 3^20 mod 97 = 91 (precomputed)
         (['mod', 'poly', '127', '19937', '10', '30', '20', '12', '31'], '12928'),
         (['mod', 'lagrange', '9', '5', '1:1', '3:3'], '4'),
         (['mod', 'crt', '0b10', '3', '3', '5'], '8'),
+        (['mod', 'crt', '2', '3', '3', '15'],
+         '<<INVALID>> moduli m1/m2 not co-prime (ModularDivideError)'),
 
         # --- prime generation (deterministic with -c) ---
         (['primegen', '10', '-c', '5'], textwrap.dedent('''\
@@ -118,33 +122,33 @@ def test_cli_doc_md_has_header() -> None:
 
 
 def test_rand_bits_properties() -> None:
-  """Test rand bits CLI command output properties."""
-  code, out = _RunCLI(['rand', 'bits', '16'])
+  """Test random bits CLI command output properties."""
+  code, out = _RunCLI(['random', 'bits', '16'])
   assert code == 0
   n = int(out)
   assert 1 << 15 <= n < (1 << 16)  # exact bit length 16, msb=1
 
 
 def test_rand_int_properties() -> None:
-  """Test rand int CLI command output properties."""
-  code, out = _RunCLI(['rand', 'int', '5', '9'])
+  """Test random int CLI command output properties."""
+  code, out = _RunCLI(['random', 'int', '5', '9'])
   assert code == 0
   n = int(out)
   assert 5 <= n <= 9
 
 
 def test_rand_bytes_shape() -> None:
-  """Test rand bytes CLI command output shape."""
-  code, out = _RunCLI(['rand', 'bytes', '4'])
+  """Test random bytes CLI command output shape."""
+  code, out = _RunCLI(['random', 'bytes', '4'])
   assert code == 0
   # CLI prints hex for rand bytes
   assert re.fullmatch(r'[0-9a-f]{8}', out) is not None
 
 
 @pytest.mark.parametrize('bits', [11, 32, 64])
-def test_randomprime_properties(bits: int) -> None:
+def test_random_prime_properties(bits: int) -> None:
   """Test randomprime CLI command output properties."""
-  code, out = _RunCLI(['randomprime', str(bits)])
+  code, out = _RunCLI(['random', 'prime', str(bits)])
   assert code == 0
   p = int(out)
   # exact bit-size guarantee and primality
@@ -319,7 +323,7 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
         ['dsa'],
         ['sss'],
         ['doc'],
-        ['rand'],
+        ['random'],
         ['hash'],
         ['rsa'],
     ],

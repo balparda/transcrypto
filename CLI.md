@@ -21,17 +21,15 @@ poetry run transcrypto <command> [sub-command] [options...]
 | `--out-b64` | Outputs as base64url |
 | `--out-bin` | Outputs as binary (bytes) |
 
-### Commands
+### Top-Level Commands
 
+- **`random`** — `poetry run transcrypto random [-h] {bits,int,bytes,prime} ...`
 - **`isprime`** — `poetry run transcrypto isprime [-h] n`
-- **`mr`** — `poetry run transcrypto mr [-h] [-w WITNESS] n`
-- **`randomprime`** — `poetry run transcrypto randomprime [-h] bits`
 - **`primegen`** — `poetry run transcrypto primegen [-h] [-c COUNT] start`
 - **`mersenne`** — `poetry run transcrypto mersenne [-h] [-k MIN_K] [-C CUTOFF_K]`
 - **`gcd`** — `poetry run transcrypto gcd [-h] a b`
 - **`xgcd`** — `poetry run transcrypto xgcd [-h] a b`
 - **`mod`** — `poetry run transcrypto mod [-h] {inv,div,exp,poly,lagrange,crt} ...`
-- **`rand`** — `poetry run transcrypto rand [-h] {bits,int,bytes} ...`
 - **`hash`** — `poetry run transcrypto hash [-h] {sha256,sha512,file} ...`
 - **`aes`** — `poetry run transcrypto aes [-h] {key,encrypt,decrypt,ecb} ...`
 - **`rsa`** — `poetry run transcrypto rsa [-h] {new,encrypt,decrypt,sign,verify} ...`
@@ -40,9 +38,98 @@ poetry run transcrypto <command> [sub-command] [options...]
 - **`sss`** — `poetry run transcrypto sss [-h] {new,shares,recover,verify} ...`
 - **`doc`** — `poetry run transcrypto doc [-h] {md} ...`
 
-#### `isprime`
+---
 
-Primality test with safe defaults (modmath.IsPrime).
+### `random`
+
+Cryptographically secure randomness, from the OS CSPRNG.
+
+```bash
+poetry run transcrypto random [-h] {bits,int,bytes,prime} ...
+```
+
+#### `random bits`
+
+Random integer with exact bit length = `bits` (MSB will be 1).
+
+```bash
+poetry run transcrypto random bits [-h] bits
+```
+
+| Option/Arg | Description |
+|---|---|
+| `bits` | Number of bits, ≥ 8 [type: int] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto random bits 16
+36650
+```
+
+#### `random int`
+
+Uniform random integer in `[min, max]` range, inclusive.
+
+```bash
+poetry run transcrypto random int [-h] min max
+```
+
+| Option/Arg | Description |
+|---|---|
+| `min` | Minimum, ≥ 0 [type: str] |
+| `max` | Maximum, > `min` [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto random int 1000 2000
+1628
+```
+
+#### `random bytes`
+
+Generates `n` cryptographically secure random bytes.
+
+```bash
+poetry run transcrypto random bytes [-h] n
+```
+
+| Option/Arg | Description |
+|---|---|
+| `n` | Number of bytes, ≥ 1 [type: int] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto random bytes 32
+6c6f1f88cb93c4323285a2224373d6e59c72a9c2b82e20d1c376df4ffbe9507f
+```
+
+#### `random prime`
+
+Generate a random prime with exact bit length = `bits` (MSB will be 1).
+
+```bash
+poetry run transcrypto random prime [-h] bits
+```
+
+| Option/Arg | Description |
+|---|---|
+| `bits` | Bit length, ≥ 11 [type: int] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto random prime 32
+2365910551
+```
+
+---
+
+### `isprime`
+
+Primality test with safe defaults, useful for any integer size.
 
 ```bash
 poetry run transcrypto isprime [-h] n
@@ -50,36 +137,22 @@ poetry run transcrypto isprime [-h] n
 
 | Option/Arg | Description |
 |---|---|
-| `n` | Integer to test (supports 0x.., 0b.., 0o.., underscores) [type: str] |
+| `n` | Integer to test, ≥ 1 [type: str] |
 
-#### `mr`
-
-Miller-Rabin primality with optional custom witnesses.
+**Example:**
 
 ```bash
-poetry run transcrypto mr [-h] [-w WITNESS] n
+$ poetry run transcrypto isprime 2305843009213693951
+True
+$ poetry run transcrypto isprime 2305843009213693953
+False
 ```
 
-| Option/Arg | Description |
-|---|---|
-| `n` | Integer to test [type: str] |
-| `-w, --witness` | Add a witness (repeatable). Example: -w 2 -w 7 -w 61 [(default: [])] |
+---
 
-#### `randomprime`
+### `primegen`
 
-Generate a random prime with given bit length.
-
-```bash
-poetry run transcrypto randomprime [-h] bits
-```
-
-| Option/Arg | Description |
-|---|---|
-| `bits` | Bit length (≥ 11) [type: int] |
-
-#### `primegen`
-
-Stream primes ≥ start (prints a limited count by default).
+Generate (stream) primes ≥ `start` (prints a limited `count` by default).
 
 ```bash
 poetry run transcrypto primegen [-h] [-c COUNT] start
@@ -88,11 +161,22 @@ poetry run transcrypto primegen [-h] [-c COUNT] start
 | Option/Arg | Description |
 |---|---|
 | `start` | Starting integer (inclusive) [type: str] |
-| `-c, --count` | How many to print (default: 10; 0 = unlimited) [type: int (default: 10)] |
+| `-c, --count` | How many to print (0 = unlimited) [type: int (default: 10)] |
 
-#### `mersenne`
+**Example:**
 
-Iterate Mersenne primes (k, M=2^k-1, perfect?).
+```bash
+$ poetry run transcrypto primegen 100 -c 3
+101
+103
+107
+```
+
+---
+
+### `mersenne`
+
+Generate (stream) Mersenne prime exponents `k`, also outputting `2^k-1` (the Mersenne prime, `M`) and `M×2^(k-1)` (the associated perfect number), starting at `min-k` and stopping once `k` > `cutoff-k`.
 
 ```bash
 poetry run transcrypto mersenne [-h] [-k MIN_K] [-C CUTOFF_K]
@@ -100,12 +184,26 @@ poetry run transcrypto mersenne [-h] [-k MIN_K] [-C CUTOFF_K]
 
 | Option/Arg | Description |
 |---|---|
-| `-k, --min-k` | Starting exponent k (default 0) [type: int] |
-| `-C, --cutoff-k` | Stop once k > cutoff (default 10000) [type: int (default: 10000)] |
+| `-k, --min-k` | Starting exponent `k`, ≥ 1 [type: int (default: 1)] |
+| `-C, --cutoff-k` | Stop once `k` > `cutoff-k` [type: int (default: 10000)] |
 
-#### `gcd`
+**Example:**
 
-Greatest Common Divisor.
+```bash
+$ poetry run transcrypto mersenne -k 0 -C 15
+k=2  M=3  perfect=6
+k=3  M=7  perfect=28
+k=5  M=31  perfect=496
+k=7  M=127  perfect=8128
+k=13  M=8191  perfect=33550336
+k=17  M=131071  perfect=8589869056
+```
+
+---
+
+### `gcd`
+
+Greatest Common Divisor (GCD) of integers `a` and `b`.
 
 ```bash
 poetry run transcrypto gcd [-h] a b
@@ -113,12 +211,25 @@ poetry run transcrypto gcd [-h] a b
 
 | Option/Arg | Description |
 |---|---|
-| `a` | [type: str] |
-| `b` | [type: str] |
+| `a` | Integer, ≥ 0 [type: str] |
+| `b` | Integer, ≥ 0 (can't be both zero) [type: str] |
 
-#### `xgcd`
+**Example:**
 
-Extended GCD → (g, x, y) where ax + by = g.
+```bash
+$ poetry run transcrypto gcd 462 1071
+21
+$ poetry run transcrypto gcd 0 5
+5
+$ poetry run transcrypto gcd 127 13
+1
+```
+
+---
+
+### `xgcd`
+
+Extended Greatest Common Divisor (x-GCD) of integers `a` and `b`, will return `(g, x, y)` where `a×x+b×y==g`.
 
 ```bash
 poetry run transcrypto xgcd [-h] a b
@@ -126,10 +237,23 @@ poetry run transcrypto xgcd [-h] a b
 
 | Option/Arg | Description |
 |---|---|
-| `a` | [type: str] |
-| `b` | [type: str] |
+| `a` | Integer, ≥ 0 [type: str] |
+| `b` | Integer, ≥ 0 (can't be both zero) [type: str] |
 
-#### `mod`
+**Example:**
+
+```bash
+$ poetry run transcrypto xgcd 462 1071
+(21, 7, -3)
+$ poetry run transcrypto gcd 0 5
+(5, 0, 1)
+$ poetry run transcrypto xgcd 127 13
+(1, 4, -39)
+```
+
+---
+
+### `mod`
 
 Modular arithmetic helpers.
 
@@ -139,7 +263,7 @@ poetry run transcrypto mod [-h] {inv,div,exp,poly,lagrange,crt} ...
 
 #### `mod inv`
 
-Modular inverse: a^(-1) mod m.
+Modular inverse: find integer 0≤`i`<`m` such that `a×i ≡ 1 (mod m)`. Will only work if `gcd(a,m)==1`, else will fail with a message.
 
 ```bash
 poetry run transcrypto mod inv [-h] a m
@@ -147,12 +271,23 @@ poetry run transcrypto mod inv [-h] a m
 
 | Option/Arg | Description |
 |---|---|
-| `a` | [type: str] |
-| `m` | Modulus m [type: str] |
+| `a` | Integer to invert [type: str] |
+| `m` | Modulus `m`, ≥ 2 [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto mod inv 127 13
+4
+$ poetry run transcrypto mod inv 17 3120
+2753
+$ poetry run transcrypto mod inv 462 1071
+<<INVALID>> no modular inverse exists (ModularDivideError)
+```
 
 #### `mod div`
 
-Modular division: find z s.t. z×y ≡ x (mod m).
+Modular division: find integer 0≤`z`<`m` such that `z×y ≡ x (mod m)`. Will only work if `gcd(y,m)==1` and `y!=0`, else will fail with a message.
 
 ```bash
 poetry run transcrypto mod div [-h] x y m
@@ -160,13 +295,22 @@ poetry run transcrypto mod div [-h] x y m
 
 | Option/Arg | Description |
 |---|---|
-| `x` | [type: str] |
-| `y` | [type: str] |
-| `m` | Modulus m [type: str] |
+| `x` | Integer [type: str] |
+| `y` | Integer, cannot be zero [type: str] |
+| `m` | Modulus `m`, ≥ 2 [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto mod div 6 127 13
+11
+$ poetry run transcrypto mod div 6 0 13
+<<INVALID>> no modular inverse exists (ModularDivideError)
+```
 
 #### `mod exp`
 
-Modular exponentiation: a^e mod m.
+Modular exponentiation: `a^e mod m`. Efficient, can handle huge values.
 
 ```bash
 poetry run transcrypto mod exp [-h] a e m
@@ -174,27 +318,45 @@ poetry run transcrypto mod exp [-h] a e m
 
 | Option/Arg | Description |
 |---|---|
-| `a` | [type: str] |
-| `e` | [type: str] |
-| `m` | Modulus m [type: str] |
+| `a` | Integer [type: str] |
+| `e` | Integer, ≥ 0 [type: str] |
+| `m` | Modulus `m`, ≥ 2 [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto mod exp 438 234 127
+32
+$ poetry run transcrypto mod exp 438 234 89854
+60622
+```
 
 #### `mod poly`
 
-Evaluate polynomial modulo m (c0 c1 c2 ... at t).
+Efficiently evaluate polynomial with `coeff` coefficients at point `x` modulo `m` (`c₀+c₁×x+c₂×x²+…+cₙ×xⁿ mod m`).
 
 ```bash
-poetry run transcrypto mod poly [-h] t m coeff [coeff ...]
+poetry run transcrypto mod poly [-h] x m coeff [coeff ...]
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `t` | Evaluation point t [type: str] |
-| `m` | Modulus m [type: str] |
-| `coeff` | Coefficients (constant-term first) [nargs: +] |
+| `x` | Evaluation point `x` [type: str] |
+| `m` | Modulus `m`, ≥ 2 [type: str] |
+| `coeff` | Coefficients (constant-term first: `c₀+c₁×x+c₂×x²+…+cₙ×xⁿ`) [nargs: +] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto mod poly 12 17 10 20 30
+14  # (10+20×12+30×12² ≡ 14 (mod 17))
+$ poetry run transcrypto mod poly 10 97 3 0 0 1 1
+42  # (3+1×10³+1×10⁴ ≡ 42 (mod 97))
+```
 
 #### `mod lagrange`
 
-Lagrange interpolation over modulus.
+Lagrange interpolation over modulus `m`: find the `f(x)` solution for the given `x` and `zₙ:f(zₙ)` points `pt`. The modulus `m` must be a prime.
 
 ```bash
 poetry run transcrypto mod lagrange [-h] x m pt [pt ...]
@@ -202,13 +364,22 @@ poetry run transcrypto mod lagrange [-h] x m pt [pt ...]
 
 | Option/Arg | Description |
 |---|---|
-| `x` | Point to evaluate at [type: str] |
-| `m` | Modulus m [type: str] |
-| `pt` | Points as k:v (e.g., 2:4 5:3 7:1) [nargs: +] |
+| `x` | Evaluation point `x` [type: str] |
+| `m` | Modulus `m`, ≥ 2 [type: str] |
+| `pt` | Points `zₙ:f(zₙ)` as `key:value` pairs (e.g., `2:4 5:3 7:1`) [nargs: +] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto mod lagrange 5 13 2:4 6:3 7:1
+3  # passes through (2,4), (6,3), (7,1)
+$ poetry run transcrypto mod lagrange 11 97 1:1 2:4 3:9 4:16 5:25
+24  # passes through (1,1), (2,4), (3,9), (4,16), (5,25)
+```
 
 #### `mod crt`
 
-CRT pair: solve x ≡ a1 (mod m1), x ≡ a2 (mod m2).
+Solves Chinese Remainder Theorem (CRT) Pair: finds the unique integer 0≤`x`<`(m1×m2)` satisfying both `x ≡ a1 (mod m1)` and `x ≡ a2 (mod m2)`, if `gcd(m1,m2)==1`.
 
 ```bash
 poetry run transcrypto mod crt [-h] a1 m1 a2 m2
@@ -216,57 +387,25 @@ poetry run transcrypto mod crt [-h] a1 m1 a2 m2
 
 | Option/Arg | Description |
 |---|---|
-| `a1` | [type: str] |
-| `m1` | Modulus m1 [type: str] |
-| `a2` | [type: str] |
-| `m2` | Modulus m2 [type: str] |
+| `a1` | Integer residue for first congruence [type: str] |
+| `m1` | Modulus `m1`, ≥ 2 and `gcd(m1,m2)==1` [type: str] |
+| `a2` | Integer residue for second congruence [type: str] |
+| `m2` | Modulus `m2`, ≥ 2 and `gcd(m1,m2)==1` [type: str] |
 
-#### `rand`
-
-Cryptographically secure randomness.
+**Example:**
 
 ```bash
-poetry run transcrypto rand [-h] {bits,int,bytes} ...
+$ poetry run transcrypto mod crt 6 7 127 13
+62
+$ poetry run transcrypto mod crt 12 56 17 19
+796
+$ poetry run transcrypto mod crt 6 7 462 1071
+<<INVALID>> moduli m1/m2 not co-prime (ModularDivideError)
 ```
 
-#### `rand bits`
+---
 
-Random integer with exact bit length (MSB may be 1).
-
-```bash
-poetry run transcrypto rand bits [-h] bits
-```
-
-| Option/Arg | Description |
-|---|---|
-| `bits` | Number of bits ≥ 8 for base.RandBits [type: int] |
-
-#### `rand int`
-
-Uniform random integer in [min, max], inclusive.
-
-```bash
-poetry run transcrypto rand int [-h] min max
-```
-
-| Option/Arg | Description |
-|---|---|
-| `min` | Minimum (≥ 0) [type: str] |
-| `max` | Maximum (> min) [type: str] |
-
-#### `rand bytes`
-
-Random bytes from the OS CSPRNG.
-
-```bash
-poetry run transcrypto rand bytes [-h] n
-```
-
-| Option/Arg | Description |
-|---|---|
-| `n` | Number of bytes ≥ 1 [type: int] |
-
-#### `hash`
+### `hash`
 
 Hashing (SHA-256 / SHA-512 / file).
 
@@ -311,7 +450,9 @@ poetry run transcrypto hash file [-h] [--digest {sha256,sha512}] path
 | `path` | Path to file [type: str] |
 | `--digest` | Digest (default: sha256) [choices: ['sha256', 'sha512'] (default: sha256)] |
 
-#### `aes`
+---
+
+### `aes`
 
 AES-256 operations (GCM/ECB) and key derivation.
 
@@ -333,8 +474,8 @@ Derive key from a password (PBKDF2-HMAC-SHA256).
 
 ```bash
 poetry run transcrypto aes key frompass [-h] [--print-b64] [--out OUT]
-                                       [--protect PROTECT]
-                                       password
+                                               [--protect PROTECT]
+                                               password
 ```
 
 | Option/Arg | Description |
@@ -349,9 +490,9 @@ poetry run transcrypto aes key frompass [-h] [--print-b64] [--out OUT]
 AES-256-GCM: encrypt (outputs IV||ct||tag).
 
 ```bash
-poetry run transcrypto aes encrypt [-h] [-k KEY_B64] [-p KEY_PATH] [-a AAD]
-                                  [--protect PROTECT]
-                                  plaintext
+poetry run transcrypto aes encrypt [-h] [-k KEY_B64] [-p KEY_PATH]
+                                          [-a AAD] [--protect PROTECT]
+                                          plaintext
 ```
 
 | Option/Arg | Description |
@@ -367,9 +508,9 @@ poetry run transcrypto aes encrypt [-h] [-k KEY_B64] [-p KEY_PATH] [-a AAD]
 AES-256-GCM: decrypt IV||ct||tag.
 
 ```bash
-poetry run transcrypto aes decrypt [-h] [-k KEY_B64] [-p KEY_PATH] [-a AAD]
-                                  [--protect PROTECT]
-                                  ciphertext
+poetry run transcrypto aes decrypt [-h] [-k KEY_B64] [-p KEY_PATH]
+                                          [-a AAD] [--protect PROTECT]
+                                          ciphertext
 ```
 
 | Option/Arg | Description |
@@ -386,8 +527,8 @@ AES-ECB (unsafe; fixed 16-byte blocks only).
 
 ```bash
 poetry run transcrypto aes ecb [-h] [-k KEY_B64] [-p KEY_PATH]
-                              [--protect PROTECT]
-                              {encrypthex,decrypthex} ...
+                                      [--protect PROTECT]
+                                      {encrypthex,decrypthex} ...
 ```
 
 | Option/Arg | Description |
@@ -420,7 +561,9 @@ poetry run transcrypto aes ecb decrypthex [-h] block_hex
 |---|---|
 | `block_hex` | Ciphertext block as 32 hex chars [type: str] |
 
-#### `rsa`
+---
+
+### `rsa`
 
 Raw RSA over integers (no OAEP/PSS).
 
@@ -433,7 +576,8 @@ poetry run transcrypto rsa [-h] {new,encrypt,decrypt,sign,verify} ...
 Generate RSA private key.
 
 ```bash
-poetry run transcrypto rsa new [-h] [--out OUT] [--protect PROTECT] bits
+poetry run transcrypto rsa new [-h] [--out OUT] [--protect PROTECT]
+                                      bits
 ```
 
 | Option/Arg | Description |
@@ -447,7 +591,8 @@ poetry run transcrypto rsa new [-h] [--out OUT] [--protect PROTECT] bits
 Encrypt integer with public key.
 
 ```bash
-poetry run transcrypto rsa encrypt [-h] --key KEY [--protect PROTECT] message
+poetry run transcrypto rsa encrypt [-h] --key KEY [--protect PROTECT]
+                                          message
 ```
 
 | Option/Arg | Description |
@@ -462,7 +607,7 @@ Decrypt integer ciphertext with private key.
 
 ```bash
 poetry run transcrypto rsa decrypt [-h] --key KEY [--protect PROTECT]
-                                  ciphertext
+                                          ciphertext
 ```
 
 | Option/Arg | Description |
@@ -476,7 +621,8 @@ poetry run transcrypto rsa decrypt [-h] --key KEY [--protect PROTECT]
 Sign integer message with private key.
 
 ```bash
-poetry run transcrypto rsa sign [-h] --key KEY [--protect PROTECT] message
+poetry run transcrypto rsa sign [-h] --key KEY [--protect PROTECT]
+                                       message
 ```
 
 | Option/Arg | Description |
@@ -491,7 +637,7 @@ Verify integer signature with public key.
 
 ```bash
 poetry run transcrypto rsa verify [-h] --key KEY [--protect PROTECT]
-                                 message signature
+                                         message signature
 ```
 
 | Option/Arg | Description |
@@ -501,13 +647,15 @@ poetry run transcrypto rsa verify [-h] --key KEY [--protect PROTECT]
 | `--key` | Path to private/public key (Serialize) [type: str] |
 | `--protect` | Password to decrypt key file if needed [type: str] |
 
-#### `elgamal`
+---
+
+### `elgamal`
 
 Raw El-Gamal (no padding).
 
 ```bash
 poetry run transcrypto elgamal [-h]
-                              {shared,new,encrypt,decrypt,sign,verify} ...
+                                      {shared,new,encrypt,decrypt,sign,verify} ...
 ```
 
 #### `elgamal shared`
@@ -515,7 +663,9 @@ poetry run transcrypto elgamal [-h]
 Generate shared parameters (p, g).
 
 ```bash
-poetry run transcrypto elgamal shared [-h] --out OUT [--protect PROTECT] bits
+poetry run transcrypto elgamal shared [-h] --out OUT
+                                             [--protect PROTECT]
+                                             bits
 ```
 
 | Option/Arg | Description |
@@ -530,7 +680,7 @@ Generate individual private key from shared.
 
 ```bash
 poetry run transcrypto elgamal new [-h] --shared SHARED --out OUT
-                                  [--protect PROTECT]
+                                          [--protect PROTECT]
 ```
 
 | Option/Arg | Description |
@@ -544,8 +694,9 @@ poetry run transcrypto elgamal new [-h] --shared SHARED --out OUT
 Encrypt integer with public key.
 
 ```bash
-poetry run transcrypto elgamal encrypt [-h] --key KEY [--protect PROTECT]
-                                      message
+poetry run transcrypto elgamal encrypt [-h] --key KEY
+                                              [--protect PROTECT]
+                                              message
 ```
 
 | Option/Arg | Description |
@@ -559,7 +710,9 @@ poetry run transcrypto elgamal encrypt [-h] --key KEY [--protect PROTECT]
 Decrypt El-Gamal ciphertext tuple (c1,c2).
 
 ```bash
-poetry run transcrypto elgamal decrypt [-h] --key KEY [--protect PROTECT] c1 c2
+poetry run transcrypto elgamal decrypt [-h] --key KEY
+                                              [--protect PROTECT]
+                                              c1 c2
 ```
 
 | Option/Arg | Description |
@@ -574,7 +727,8 @@ poetry run transcrypto elgamal decrypt [-h] --key KEY [--protect PROTECT] c1 c2
 Sign integer message with private key.
 
 ```bash
-poetry run transcrypto elgamal sign [-h] --key KEY [--protect PROTECT] message
+poetry run transcrypto elgamal sign [-h] --key KEY [--protect PROTECT]
+                                           message
 ```
 
 | Option/Arg | Description |
@@ -588,8 +742,9 @@ poetry run transcrypto elgamal sign [-h] --key KEY [--protect PROTECT] message
 Verify El-Gamal signature (s1,s2).
 
 ```bash
-poetry run transcrypto elgamal verify [-h] --key KEY [--protect PROTECT]
-                                     message s1 s2
+poetry run transcrypto elgamal verify [-h] --key KEY
+                                             [--protect PROTECT]
+                                             message s1 s2
 ```
 
 | Option/Arg | Description |
@@ -600,7 +755,9 @@ poetry run transcrypto elgamal verify [-h] --key KEY [--protect PROTECT]
 | `--key` | Path to private/public key [type: str] |
 | `--protect` | Password to decrypt key file if needed [type: str] |
 
-#### `dsa`
+---
+
+### `dsa`
 
 Raw DSA (no hash, integer messages < q).
 
@@ -614,7 +771,7 @@ Generate (p,q,g) with q | p-1.
 
 ```bash
 poetry run transcrypto dsa shared [-h] --out OUT [--protect PROTECT]
-                                 p_bits q_bits
+                                         p_bits q_bits
 ```
 
 | Option/Arg | Description |
@@ -630,7 +787,7 @@ Generate DSA private key from shared.
 
 ```bash
 poetry run transcrypto dsa new [-h] --shared SHARED --out OUT
-                              [--protect PROTECT]
+                                      [--protect PROTECT]
 ```
 
 | Option/Arg | Description |
@@ -644,7 +801,8 @@ poetry run transcrypto dsa new [-h] --shared SHARED --out OUT
 Sign integer m (1 ≤ m < q).
 
 ```bash
-poetry run transcrypto dsa sign [-h] --key KEY [--protect PROTECT] message
+poetry run transcrypto dsa sign [-h] --key KEY [--protect PROTECT]
+                                       message
 ```
 
 | Option/Arg | Description |
@@ -659,7 +817,7 @@ Verify DSA signature (s1,s2).
 
 ```bash
 poetry run transcrypto dsa verify [-h] --key KEY [--protect PROTECT]
-                                 message s1 s2
+                                         message s1 s2
 ```
 
 | Option/Arg | Description |
@@ -670,7 +828,9 @@ poetry run transcrypto dsa verify [-h] --key KEY [--protect PROTECT]
 | `--key` | Path to private/public key [type: str] |
 | `--protect` | Password to decrypt key file if needed [type: str] |
 
-#### `sss`
+---
+
+### `sss`
 
 Shamir Shared Secret (unauthenticated).
 
@@ -683,7 +843,8 @@ poetry run transcrypto sss [-h] {new,shares,recover,verify} ...
 Generate SSS params (minimum, prime, coefficients).
 
 ```bash
-poetry run transcrypto sss new [-h] --out OUT [--protect PROTECT] minimum bits
+poetry run transcrypto sss new [-h] --out OUT [--protect PROTECT]
+                                      minimum bits
 ```
 
 | Option/Arg | Description |
@@ -699,7 +860,7 @@ Issue N shares for a secret (private params).
 
 ```bash
 poetry run transcrypto sss shares [-h] --key KEY [--protect PROTECT]
-                                 secret count
+                                         secret count
 ```
 
 | Option/Arg | Description |
@@ -715,7 +876,7 @@ Recover secret from shares (public params).
 
 ```bash
 poetry run transcrypto sss recover [-h] --key KEY [--protect PROTECT]
-                                  shares [shares ...]
+                                          shares [shares ...]
 ```
 
 | Option/Arg | Description |
@@ -730,7 +891,7 @@ Verify a share against a secret (private params).
 
 ```bash
 poetry run transcrypto sss verify [-h] --key KEY [--protect PROTECT]
-                                 secret share
+                                         secret share
 ```
 
 | Option/Arg | Description |
@@ -740,7 +901,9 @@ poetry run transcrypto sss verify [-h] --key KEY [--protect PROTECT]
 | `--key` | Path to private SSS key (.priv) [type: str] |
 | `--protect` | Password to decrypt key file if needed [type: str] |
 
-#### `doc`
+---
+
+### `doc`
 
 Documentation utilities.
 
