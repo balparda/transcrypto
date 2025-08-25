@@ -47,6 +47,7 @@ class ElGamalSharedPublicKey(base.CryptoKey):
 
   prime_modulus: int
   group_base: int
+  # TODO: add __str__/__repr__() that displays object info in a human-friendly way (base64?)
 
   def __post_init__(self) -> None:
     """Check data.
@@ -94,6 +95,7 @@ class ElGamalPublicKey(ElGamalSharedPublicKey):
   """
 
   individual_base: int
+  # TODO: add __str__/__repr__() that displays object info in a human-friendly way (base64?)
 
   def __post_init__(self) -> None:
     """Check data.
@@ -196,6 +198,7 @@ class ElGamalPrivateKey(ElGamalPublicKey):
   """
 
   decrypt_exp: int
+  # TODO: add __str__/__repr__() that displays object info in a human-friendly way (base64?)
 
   def __post_init__(self) -> None:
     """Check data.

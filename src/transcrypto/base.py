@@ -19,7 +19,7 @@ import pickle
 # import pdb
 import secrets
 import time
-from typing import Any, Callable, MutableSequence, TypeVar
+from typing import Any, Callable, MutableSequence, Self, TypeVar
 
 import zstandard
 
@@ -232,6 +232,122 @@ def HumanizedSeconds(inp_secs: int | float, /) -> str:  # pylint: disable=too-ma
   return f'{(inp_secs / (24 * 60 * 60)):0.2f} d'
 
 
+class Timer:
+  """An execution timing class that can be used as both a context manager and a decorator.
+
+  Examples:
+
+    # As a context manager
+    with Timer('Block timing'):
+      time.sleep(1.2)
+
+    # As a decorator
+    @Timer('Function timing')
+    def slow_function():
+      time.sleep(0.8)
+
+    # As a regular object
+    tm = Timer('Inline timing')
+    tm.Start()
+    time.sleep(0.1)
+    tm.Stop()
+    print(tm)
+
+  Attributes:
+    label (str): Timer label
+    emit_print (bool): If True will print() the timer, else will logging.info() the timer
+    start (float | None): Start time
+    end (float | None): End time
+    elapsed (float | None): Time delta
+  """
+
+  def __init__(
+      self, label: str = 'Elapsed time', /, *,
+      emit_log: bool = True, emit_print: bool = False) -> None:
+    """Initialize the Timer.
+
+    Args:
+      label (str, optional): A description or name for the timed block or function
+      emit_log (bool, optional): Emit a log message when finished; default is True
+      emit_print (bool, optional): Emit a print() message when finished; default is False
+
+    Raises:
+      InputError: empty label
+    """
+    self.emit_log: bool = emit_log
+    self.emit_print: bool = emit_print
+    self.label: str = label.strip()
+    if not self.label:
+      raise InputError('Empty label')
+    self.start: float | None = None
+    self.end: float | None = None
+    self.elapsed: float | None = None
+
+  def __str__(self) -> str:
+    """Current timer value."""
+    if self.start is None:
+      return f'{self.label}: <UNSTARTED>'
+    if self.end is None or self.elapsed is None:
+      return f'{self.label}: <PARTIAL> {HumanizedSeconds(time.perf_counter() - self.start)}'
+    return f'{self.label}: {HumanizedSeconds(self.elapsed)}'
+
+  def Start(self) -> None:
+    """Start the timer."""
+    if self.start is not None:
+      raise Error('Re-starting timer is forbidden')
+    self.start = time.perf_counter()
+
+  def __enter__(self) -> Timer:
+    """Start the timer when entering the context."""
+    self.Start()
+    return self
+
+  def Stop(self) -> None:
+    """Stop the timer and emit logging.info with timer message."""
+    if self.start is None:
+      raise Error('Stopping an unstarted timer')
+    if self.end is not None or self.elapsed is not None:
+      raise Error('Re-stopping timer is forbidden')
+    self.end = time.perf_counter()
+    self.elapsed = self.end - self.start
+    message: str = str(self)
+    if self.emit_log:
+      logging.info(message)
+    if self.emit_print:
+      print(message)
+
+  def __exit__(
+      self, unused_exc_type: type[BaseException] | None,
+      unused_exc_val: BaseException | None, exc_tb: Any) -> None:
+    """Stop the timer when exiting the context, emit logging.info and optionally print elapsed time.
+
+    Args:
+      exc_type (type | None): Exception type, if any.
+      exc_val (BaseException | None): Exception value, if any.
+      exc_tb (Any): Traceback object, if any.
+    """
+    self.Stop()
+
+  _F = TypeVar('_F', bound=Callable[..., Any])
+
+  def __call__(self, func: Timer._F) -> Timer._F:
+    """Allow the Timer to be used as a decorator.
+
+    Args:
+      func: The function to time.
+
+    Returns:
+      The wrapped function with timing behavior.
+    """
+
+    @functools.wraps(func)
+    def _Wrapper(*args: Any, **kwargs: Any) -> Any:
+      with self.__class__(self.label, emit_log=self.emit_log, emit_print=self.emit_print):
+        return func(*args, **kwargs)
+
+    return _Wrapper  # type:ignore
+
+
 def RandBits(n_bits: int, /) -> int:
   """Crypto-random integer with guaranteed `n_bits` size (i.e., first bit == 1).
 
@@ -440,128 +556,123 @@ def FileHash(full_path: str, /, *, digest: str = 'sha256') -> bytes:
     return hashlib.file_digest(file_obj, digest).digest()
 
 
-class Timer:
-  """An execution timing class that can be used as both a context manager and a decorator.
-
-  Examples:
-
-    # As a context manager
-    with Timer('Block timing'):
-      time.sleep(1.2)
-
-    # As a decorator
-    @Timer('Function timing')
-    def slow_function():
-      time.sleep(0.8)
-
-    # As a regular object
-    tm = Timer('Inline timing')
-    tm.Start()
-    time.sleep(0.1)
-    tm.Stop()
-    print(tm)
-
-  Attributes:
-    label (str): Timer label
-    emit_print (bool): If True will print() the timer, else will logging.info() the timer
-    start (float | None): Start time
-    end (float | None): End time
-    elapsed (float | None): Time delta
-  """
-
-  def __init__(
-      self, label: str = 'Elapsed time', /, *,
-      emit_log: bool = True, emit_print: bool = False) -> None:
-    """Initialize the Timer.
-
-    Args:
-      label (str, optional): A description or name for the timed block or function
-      emit_log (bool, optional): Emit a log message when finished; default is True
-      emit_print (bool, optional): Emit a print() message when finished; default is False
-
-    Raises:
-      InputError: empty label
-    """
-    self.emit_log: bool = emit_log
-    self.emit_print: bool = emit_print
-    self.label: str = label.strip()
-    if not self.label:
-      raise InputError('Empty label')
-    self.start: float | None = None
-    self.end: float | None = None
-    self.elapsed: float | None = None
-
-  def __str__(self) -> str:
-    """Current timer value."""
-    if self.start is None:
-      return f'{self.label}: <UNSTARTED>'
-    if self.end is None or self.elapsed is None:
-      return f'{self.label}: <PARTIAL> {HumanizedSeconds(time.perf_counter() - self.start)}'
-    return f'{self.label}: {HumanizedSeconds(self.elapsed)}'
-
-  def Start(self) -> None:
-    """Start the timer."""
-    if self.start is not None:
-      raise Error('Re-starting timer is forbidden')
-    self.start = time.perf_counter()
-
-  def __enter__(self) -> Timer:
-    """Start the timer when entering the context."""
-    self.Start()
-    return self
-
-  def Stop(self) -> None:
-    """Stop the timer and emit logging.info with timer message."""
-    if self.start is None:
-      raise Error('Stopping an unstarted timer')
-    if self.end is not None or self.elapsed is not None:
-      raise Error('Re-stopping timer is forbidden')
-    self.end = time.perf_counter()
-    self.elapsed = self.end - self.start
-    message: str = str(self)
-    if self.emit_log:
-      logging.info(message)
-    if self.emit_print:
-      print(message)
-
-  def __exit__(
-      self, unused_exc_type: type[BaseException] | None,
-      unused_exc_val: BaseException | None, exc_tb: Any) -> None:
-    """Stop the timer when exiting the context, emit logging.info and optionally print elapsed time.
-
-    Args:
-      exc_type (type | None): Exception type, if any.
-      exc_val (BaseException | None): Exception value, if any.
-      exc_tb (Any): Traceback object, if any.
-    """
-    self.Stop()
-
-  _F = TypeVar('_F', bound=Callable[..., Any])
-
-  def __call__(self, func: Timer._F) -> Timer._F:
-    """Allow the Timer to be used as a decorator.
-
-    Args:
-      func: The function to time.
-
-    Returns:
-      The wrapped function with timing behavior.
-    """
-
-    @functools.wraps(func)
-    def _Wrapper(*args: Any, **kwargs: Any) -> Any:
-      with self.__class__(self.label, emit_log=self.emit_log, emit_print=self.emit_print):
-        return func(*args, **kwargs)
-
-    return _Wrapper  # type:ignore
-
-
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class CryptoKey:
   """A cryptographic key."""
 
   def __post_init__(self) -> None:
     """Check data."""
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class PublicBid(CryptoKey):
+  """Public commitment to a (cryptographically secure) bid that can be revealed/validated later.
+
+  Bid is computed as: public_hash = Hash512(public_key || private_key || secret_bid)
+
+  Everything is bytes. The public part is (public_key, public_hash) and the private
+  part is (private_key, secret_bid). The whole computation can be checked later.
+
+  Attributes:
+    public_key (bytes): 512-bits random value
+    public_hash (bytes): SHA-512 hash of (public_key || private_key || secret_bid)
+  """
+
+  public_key: bytes
+  public_hash: bytes
+  # TODO: add to docs; add to CLI
+  # TODO: add __str__() that displays object info in a human-friendly way
+
+  def __post_init__(self) -> None:
+    """Check data.
+
+    Raises:
+      InputError: invalid inputs
+    """
+    super(PublicBid, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
+    if len(self.public_key) != 64 or len(self.public_hash) != 64:
+      raise InputError(f'invalid public_key or public_hash: {self}')
+
+  def VerifyBid(self, private_key: bytes, secret: bytes, /) -> bool:
+    """Verify a bid. True if OK; False if failed verification.
+
+    Args:
+      private_key (bytes): 512-bits private key
+      secret (bytes): Any number of bytes (≥1) to bid on (e.g., UTF-8 encoded string)
+
+    Returns:
+      True if bid is valid, False otherwise
+
+    Raises:
+      InputError: invalid inputs
+    """
+    try:
+      # creating the PrivateBid object will validate everything; InputError we allow to propagate
+      PrivateBid(
+          public_key=self.public_key, public_hash=self.public_hash,
+          private_key=private_key, secret_bid=secret)
+      return True  # if we got here, all is good
+    except CryptoError:
+      return False  # bid does not match the public commitment
+
+  @classmethod
+  def Copy(cls, other: PublicBid, /) -> Self:
+    """Initialize a public bid by taking the public parts of a public/private bid."""
+    return cls(public_key=other.public_key, public_hash=other.public_hash)
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class PrivateBid(PublicBid):
+  """Private bid that can be revealed and validated against a public commitment (see PublicBid).
+
+  Attributes:
+    private_key (bytes): 512-bits random value
+    secret_bid (bytes): Any number of bytes (≥1) to bid on (e.g., UTF-8 encoded string)
+  """
+
+  private_key: bytes
+  secret_bid: bytes
+  # TODO: add to docs; add to CLI
+  # TODO: add __str__() that displays object info in a human-friendly way
+
+  def __post_init__(self) -> None:
+    """Check data.
+
+    Raises:
+      InputError: invalid inputs
+      CryptoError: bid does not match the public commitment
+    """
+    super(PrivateBid, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
+    if len(self.private_key) != 64 or len(self.secret_bid) < 1:
+      raise InputError(f'invalid private_key or secret_bid: {self}')
+    if self.public_hash != Hash512(self.public_key + self.private_key + self.secret_bid):
+      raise CryptoError(f'inconsistent bid: {self}')
+
+  @classmethod
+  def New(cls, secret: bytes, /) -> Self:
+    """Make the `secret` into a new bid.
+
+    Args:
+      secret (bytes): Any number of bytes (≥1) to bid on (e.g., UTF-8 encoded string)
+
+    Returns:
+      PrivateBid object ready for use (use PublicBid.Copy() to get the public part)
+
+    Raises:
+      InputError: invalid inputs
+    """
+    # test inputs
+    if len(secret) < 1:
+      raise InputError(f'invalid secret length: {len(secret)}')
+    # generate random values
+    public_key: bytes = RandBytes(64)   # 512 bits
+    private_key: bytes = RandBytes(64)  # 512 bits
+    # build object
+    return cls(
+        public_key=public_key,
+        public_hash=Hash512(public_key + private_key + secret),
+        private_key=private_key,
+        secret_bid=secret)
 
 
 class SymmetricCrypto(abc.ABC):
@@ -631,12 +742,12 @@ def Serialize(
 
   | Level    | Speed       | Compression ratio                 | Typical use case                        |
   | -------- | ------------| --------------------------------- | --------------------------------------- |
-  | –5 to –1 | Fastest     | Poor (better than no compression) | Real-time or very latency-sensitive     |
-  | 0–3      | Very fast   | Good ratio                        | Default CLI choice, safe baseline       |
-  | 4–6      | Moderate    | Better ratio                      | Good compromise for general persistence |
-  | 7–10     | Slower      | Marginally better ratio           | Only if storage space is precious       |
-  | 11–15    | Much slower | Slight gains                      | Large archives, not for runtime use     |
-  | 16–22    | Very slow   | Tiny gains                        | Archival-only, multi-GB datasets        |
+  | -5 to -1 | Fastest     | Poor (better than no compression) | Real-time or very latency-sensitive     |
+  | 0…3      | Very fast   | Good ratio                        | Default CLI choice, safe baseline       |
+  | 4…6      | Moderate    | Better ratio                      | Good compromise for general persistence |
+  | 7…10     | Slower      | Marginally better ratio           | Only if storage space is precious       |
+  | 11…15    | Much slower | Slight gains                      | Large archives, not for runtime use     |
+  | 16…22    | Very slow   | Tiny gains                        | Archival-only, multi-GB datasets        |
 
   Args:
     python_obj (Any): serializable Python object

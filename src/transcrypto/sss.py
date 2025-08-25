@@ -37,6 +37,7 @@ class ShamirSharedSecretPublic(base.CryptoKey):
 
   minimum: int
   modulus: int
+  # TODO: add __str__/__repr__() that displays object info in a human-friendly way (base64?)
 
   def __post_init__(self) -> None:
     """Check data.
@@ -109,6 +110,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
   """
 
   polynomial: list[int]
+  # TODO: add __str__/__repr__() that displays object info in a human-friendly way (base64?)
 
   def __post_init__(self) -> None:
     """Check data.
@@ -245,6 +247,7 @@ class ShamirSharePrivate(ShamirSharedSecretPublic):
 
   share_key: int
   share_value: int
+  # TODO: add __str__/__repr__() that displays object info in a human-friendly way (base64?)
 
   def __post_init__(self) -> None:
     """Check data.

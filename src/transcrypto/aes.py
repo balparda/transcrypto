@@ -55,6 +55,7 @@ class AESKey(base.CryptoKey, base.SymmetricCrypto):
   """
 
   key256: bytes
+  # TODO: add __str__() that displays object info in a human-friendly way
 
   def __post_init__(self) -> None:
     """Check data.

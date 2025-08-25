@@ -45,6 +45,7 @@ class RSAPublicKey(base.CryptoKey):
 
   public_modulus: int
   encrypt_exp: int
+  # TODO: add __str__/__repr__() that displays object info in a human-friendly way (base64?)
 
   def __post_init__(self) -> None:
     """Check data.
@@ -116,6 +117,7 @@ class RSAObfuscationPair(RSAPublicKey):
 
   random_key: int
   key_inverse: int
+  # TODO: add __str__/__repr__() that displays object info in a human-friendly way (base64?)
 
   def __post_init__(self) -> None:
     """Check data.
@@ -240,6 +242,7 @@ class RSAPrivateKey(RSAPublicKey):
   remainder_p: int
   remainder_q: int
   q_inverse_p: int
+  # TODO: add __str__/__repr__() that displays object info in a human-friendly way (base64?)
 
   def __post_init__(self) -> None:
     """Check data.

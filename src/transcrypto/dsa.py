@@ -89,6 +89,7 @@ class DSASharedPublicKey(base.CryptoKey):
   prime_modulus: int
   prime_seed: int
   group_base: int
+  # TODO: add __str__/__repr__() that displays object info in a human-friendly way (base64?)
 
   def __post_init__(self) -> None:
     """Check data.
@@ -143,6 +144,7 @@ class DSAPublicKey(DSASharedPublicKey):
   """
 
   individual_base: int
+  # TODO: add __str__/__repr__() that displays object info in a human-friendly way (base64?)
 
   def __post_init__(self) -> None:
     """Check data.
@@ -218,6 +220,7 @@ class DSAPrivateKey(DSAPublicKey):
   """
 
   decrypt_exp: int
+  # TODO: add __str__/__repr__() that displays object info in a human-friendly way (base64?)
 
   def __post_init__(self) -> None:
     """Check data.

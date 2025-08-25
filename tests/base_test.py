@@ -18,6 +18,7 @@ import pathlib
 import sys
 import tempfile
 from typing import Any
+from unittest import mock
 
 import pytest
 
@@ -152,6 +153,153 @@ def test_Humanized_fail() -> None:
     base.HumanizedDecimal(math.inf)
   with pytest.raises(base.InputError, match='input should be >=0'):
     base.HumanizedSeconds(math.inf)
+
+
+def _mock_perf(monkeypatch: pytest.MonkeyPatch, values: list[float]) -> None:
+  """Install a perf_counter that yields from `values`."""
+  it = iter(values)
+  monkeypatch.setattr(base.time, 'perf_counter', lambda: next(it))
+
+
+def test_Timer_str_unstarted() -> None:
+  """Test."""
+  t = base.Timer('T')
+  assert str(t) == 'T: <UNSTARTED>'
+
+
+def test_Timer_str_partial(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test."""
+  # Start at 100.00; __str__ calls perf_counter again (100.12) → delta 0.12 s
+  _mock_perf(monkeypatch, [100.00, 100.12])
+  t = base.Timer('P')
+  t.Start()
+  assert str(t) == 'P: <PARTIAL> 120.000 ms'
+
+
+def test_Timer_start_twice_forbidden(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test."""
+  _mock_perf(monkeypatch, [1.0])
+  t = base.Timer('X')
+  t.Start()
+  with pytest.raises(base.Error, match='Re-starting timer is forbidden'):
+    t.Start()
+
+
+def test_Timer_stop_unstarted_forbidden() -> None:
+  """Test."""
+  t = base.Timer('X')
+  with pytest.raises(base.Error, match='Stopping an unstarted timer'):
+    t.Stop()
+
+
+def test_Timer_stop_twice_forbidden(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+  """Test."""
+  # Start=1.0, Stop=2.5  → elapsed=1.5
+  _mock_perf(monkeypatch, [1.0, 2.5])
+  caplog.set_level(logging.INFO)
+  t = base.Timer('X')
+  t.Start()
+  t.Stop()
+  # A second Stop should error
+  with pytest.raises(base.Error, match='Re-stopping timer is forbidden'):
+    t.Stop()
+  # Final string reflects final (not partial)
+  assert str(t) == 'X: 1.50 s'
+  # Logged exactly once
+  msgs = [rec.getMessage() for rec in caplog.records]
+  assert msgs == ['X: 1.50 s']
+
+
+def test_Timer_context_manager_logs_and_optionally_prints(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture,
+    capsys: pytest.CaptureFixture[str]) -> None:
+  """Test."""
+  # Enter=10.00, Exit=10.25 → 0.25 s
+  _mock_perf(monkeypatch, [10.00, 10.25])
+  caplog.set_level(logging.INFO)
+  with base.Timer('CTX', emit_print=True):
+    pass
+  # Logged
+  msgs: list[str] = [rec.getMessage() for rec in caplog.records]
+  assert msgs == ['CTX: 250.000 ms']
+  # Printed (because emit_print=True in __exit__)
+  out = capsys.readouterr().out.strip()
+  assert out == 'CTX: 250.000 ms'
+
+
+def test_Timer_context_manager_exception_still_times_and_logs(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+  """Test."""
+  # Enter=5.0, Exit=5.3 → 0.3 s even if exception occurs
+  _mock_perf(monkeypatch, [5.0, 5.3])
+  caplog.set_level(logging.INFO)
+
+  with pytest.raises(base.Error):
+    with base.Timer('ERR'):
+      raise base.Error('boom')
+  # Stop was called; message logged
+  msgs = [rec.getMessage() for rec in caplog.records]
+  assert msgs == ['ERR: 300.000 ms']
+
+
+def test_Timer_decorator_logs(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+  """Test."""
+  # Start=1.00, Stop=1.40 → 0.40 s
+  _mock_perf(monkeypatch, [1.00, 1.40])
+  caplog.set_level(logging.INFO)
+
+  @base.Timer('DEC')
+  def _f(a: int, b: int) -> int:
+    return a + b
+
+  assert _f(2, 3) == 5
+  msgs: list[str] = [rec.getMessage() for rec in caplog.records]
+  assert msgs == ['DEC: 400.000 ms']
+
+
+def test_Timer_decorator_emit_print_true_prints_and_logs(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture,
+    capsys: pytest.CaptureFixture[str]) -> None:
+  """Test."""
+  # Start=2.00, Stop=2.01 → 0.01 s
+  _mock_perf(monkeypatch, [2.00, 2.01])
+  caplog.set_level(logging.INFO)
+
+  @base.Timer('PRINT', emit_print=True)
+  def _g() -> str:
+    return 'ok'
+
+  assert _g() == 'ok'
+  # Logs (Stop) and prints (in __exit__)
+  msgs: list[str] = [rec.getMessage() for rec in caplog.records]
+  assert msgs == ['PRINT: 10.000 ms']
+  out: str = capsys.readouterr().out.strip()
+  assert out == 'PRINT: 10.000 ms'
+
+
+def test_Timer_decorator_exception_propagates_and_logs(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+  """Test."""
+  # Start=3.0, Stop=3.2 → 0.2 s even when raising
+  _mock_perf(monkeypatch, [3.0, 3.2])
+  caplog.set_level(logging.INFO)
+
+  @base.Timer('ERR')
+  def _h() -> None:
+    raise base.Error('nope')
+
+  with pytest.raises(base.Error, match='nope'):
+    _h()
+  msgs: list[str] = [rec.getMessage() for rec in caplog.records]
+  assert msgs == ['ERR: 200.000 ms']
+
+
+def test_Timer_label_validation() -> None:
+  """Test."""
+  with pytest.raises(base.InputError, match='Empty label'):
+    base.Timer('   ')
 
 
 @pytest.mark.stochastic
@@ -417,151 +565,61 @@ def test_FileHash_missing_file() -> None:
     base.FileHash('/path/to/surely/not/exist-123')
 
 
-def _mock_perf(monkeypatch: pytest.MonkeyPatch, values: list[float]) -> None:
-  """Install a perf_counter that yields from `values`."""
-  it = iter(values)
-  monkeypatch.setattr(base.time, 'perf_counter', lambda: next(it))
-
-
-def test_Timer_str_unstarted() -> None:
+@pytest.mark.parametrize('secret, public_hash', [
+    (b'a',
+     '711f48ea38b803f8d2026846e7a8fb637879e818f60f768594bc91f061f23c00'
+     '4187183c2d8c81c3b67feb534e5cad90b3d9eae9488a525dd037eccac9512f2f'),
+    (b'secret',
+     'ab13b41fe50fef61483f2ce495ca5af1e173245811ef8610023d61b0d12d3f52'
+     'd9c1b92388fec771dc4601bc36c4ddffe713e64532c01eb8936e29e06d10f936'),
+    (b'longer secret value with spaces',
+     '5f25720c817a89c446e51ce56e64643aa5343cb1898904ea0e45b8ad5f4caabc'
+     'aba091fb7e122bfff8d8b54855fcaa27e0f962d98c8eebae3a7765393c0fdf6a'),
+])
+@mock.patch('src.transcrypto.base.RandBytes', autospec=True)
+def test_Bid_with_mock(randbytes: mock.MagicMock, secret: bytes, public_hash: str) -> None:
   """Test."""
-  t = base.Timer('T')
-  assert str(t) == 'T: <UNSTARTED>'
+  randbytes.side_effect = [b'x' * 64, b'y' * 64]
+  priv: base.PrivateBid = base.PrivateBid.New(secret)
+  pub: base.PublicBid = base.PublicBid.Copy(priv)
+  assert base.BytesToHex(pub.public_hash) == public_hash
+  assert pub.VerifyBid(b'y' * 64, secret)
+  assert not pub.VerifyBid(b'y' * 64, secret + b'x')
+  assert not pub.VerifyBid(b'z' * 64, secret)
+  assert randbytes.call_args_list == [mock.call(64), mock.call(64)]
 
 
-def test_Timer_str_partial(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.stochastic
+@pytest.mark.parametrize('secret', [
+    b'a',
+    b'secret',
+    b'longer secret value with spaces',
+])
+def test_Bid(secret: bytes) -> None:
   """Test."""
-  # Start at 100.00; __str__ calls perf_counter again (100.12) → delta 0.12 s
-  _mock_perf(monkeypatch, [100.00, 100.12])
-  t = base.Timer('P')
-  t.Start()
-  assert str(t) == 'P: <PARTIAL> 120.000 ms'
+  priv1: base.PrivateBid = base.PrivateBid.New(secret)
+  priv2: base.PrivateBid = base.PrivateBid.New(secret)
+  pub: base.PublicBid = base.PublicBid.Copy(priv1)
+  assert pub.VerifyBid(priv1.private_key, secret)
+  assert not pub.VerifyBid(priv1.private_key, secret + b'x')
+  assert not pub.VerifyBid(priv2.private_key, secret)
+  assert priv1.public_key != priv2.public_key  # this could fail with probability 1 in 2**512...
+  assert priv1.private_key != priv2.private_key
+  assert priv1.public_hash != priv2.public_hash
 
 
-def test_Timer_start_twice_forbidden(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_Bid_invalid() -> None:
   """Test."""
-  _mock_perf(monkeypatch, [1.0])
-  t = base.Timer('X')
-  t.Start()
-  with pytest.raises(base.Error, match='Re-starting timer is forbidden'):
-    t.Start()
-
-
-def test_Timer_stop_unstarted_forbidden() -> None:
-  """Test."""
-  t = base.Timer('X')
-  with pytest.raises(base.Error, match='Stopping an unstarted timer'):
-    t.Stop()
-
-
-def test_Timer_stop_twice_forbidden(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
-  """Test."""
-  # Start=1.0, Stop=2.5  → elapsed=1.5
-  _mock_perf(monkeypatch, [1.0, 2.5])
-  caplog.set_level(logging.INFO)
-  t = base.Timer('X')
-  t.Start()
-  t.Stop()
-  # A second Stop should error
-  with pytest.raises(base.Error, match='Re-stopping timer is forbidden'):
-    t.Stop()
-  # Final string reflects final (not partial)
-  assert str(t) == 'X: 1.50 s'
-  # Logged exactly once
-  msgs = [rec.getMessage() for rec in caplog.records]
-  assert msgs == ['X: 1.50 s']
-
-
-def test_Timer_context_manager_logs_and_optionally_prints(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture,
-    capsys: pytest.CaptureFixture[str]) -> None:
-  """Test."""
-  # Enter=10.00, Exit=10.25 → 0.25 s
-  _mock_perf(monkeypatch, [10.00, 10.25])
-  caplog.set_level(logging.INFO)
-  with base.Timer('CTX', emit_print=True):
-    pass
-  # Logged
-  msgs: list[str] = [rec.getMessage() for rec in caplog.records]
-  assert msgs == ['CTX: 250.000 ms']
-  # Printed (because emit_print=True in __exit__)
-  out = capsys.readouterr().out.strip()
-  assert out == 'CTX: 250.000 ms'
-
-
-def test_Timer_context_manager_exception_still_times_and_logs(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
-  """Test."""
-  # Enter=5.0, Exit=5.3 → 0.3 s even if exception occurs
-  _mock_perf(monkeypatch, [5.0, 5.3])
-  caplog.set_level(logging.INFO)
-
-  with pytest.raises(base.Error):
-    with base.Timer('ERR'):
-      raise base.Error('boom')
-  # Stop was called; message logged
-  msgs = [rec.getMessage() for rec in caplog.records]
-  assert msgs == ['ERR: 300.000 ms']
-
-
-def test_Timer_decorator_logs(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
-  """Test."""
-  # Start=1.00, Stop=1.40 → 0.40 s
-  _mock_perf(monkeypatch, [1.00, 1.40])
-  caplog.set_level(logging.INFO)
-
-  @base.Timer('DEC')
-  def _f(a: int, b: int) -> int:
-    return a + b
-
-  assert _f(2, 3) == 5
-  msgs: list[str] = [rec.getMessage() for rec in caplog.records]
-  assert msgs == ['DEC: 400.000 ms']
-
-
-def test_Timer_decorator_emit_print_true_prints_and_logs(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture,
-    capsys: pytest.CaptureFixture[str]) -> None:
-  """Test."""
-  # Start=2.00, Stop=2.01 → 0.01 s
-  _mock_perf(monkeypatch, [2.00, 2.01])
-  caplog.set_level(logging.INFO)
-
-  @base.Timer('PRINT', emit_print=True)
-  def _g() -> str:
-    return 'ok'
-
-  assert _g() == 'ok'
-  # Logs (Stop) and prints (in __exit__)
-  msgs: list[str] = [rec.getMessage() for rec in caplog.records]
-  assert msgs == ['PRINT: 10.000 ms']
-  out: str = capsys.readouterr().out.strip()
-  assert out == 'PRINT: 10.000 ms'
-
-
-def test_Timer_decorator_exception_propagates_and_logs(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
-  """Test."""
-  # Start=3.0, Stop=3.2 → 0.2 s even when raising
-  _mock_perf(monkeypatch, [3.0, 3.2])
-  caplog.set_level(logging.INFO)
-
-  @base.Timer('ERR')
-  def _h() -> None:
-    raise base.Error('nope')
-
-  with pytest.raises(base.Error, match='nope'):
-    _h()
-  msgs: list[str] = [rec.getMessage() for rec in caplog.records]
-  assert msgs == ['ERR: 200.000 ms']
-
-
-def test_Timer_label_validation() -> None:
-  """Test."""
-  with pytest.raises(base.InputError, match='Empty label'):
-    base.Timer('   ')
+  with pytest.raises(base.InputError, match='invalid public_key or public_hash'):
+    base.PublicBid(public_key=b'key', public_hash=b'hash')
+  with pytest.raises(base.InputError, match='invalid private_key or secret_bid'):
+    base.PrivateBid(
+        public_key=b'k' * 64, public_hash=b'h' * 64, private_key=b'priv', secret_bid=b'secret')
+  with pytest.raises(base.CryptoError, match='inconsistent bid'):
+    base.PrivateBid(
+        public_key=b'k' * 64, public_hash=b'h' * 64, private_key=b'p' * 64, secret_bid=b'secret')
+  with pytest.raises(base.InputError, match='invalid secret length'):
+    base.PrivateBid.New(b'')
 
 
 class _ToyCipher(base.SymmetricCrypto):
