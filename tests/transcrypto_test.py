@@ -166,7 +166,7 @@ def test_aes_key_print_b64_matches_library(tmp_path: pathlib.Path) -> None:
   assert out == 'DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es='  # cspell:disable-line
   priv_path: pathlib.Path = tmp_path / 'password.priv'
   code, out = _RunCLI(
-      ['aes', 'key', 'correct horse battery staple', '--out', str(priv_path)])
+      ['-p', str(priv_path), 'aes', 'key', 'correct horse battery staple', ])
   assert code == 0
   assert out == ''
   assert priv_path.exists()
@@ -203,13 +203,13 @@ def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None: 
   aad = 'assoc'
   # Encrypt: inputs as binary text, outputs default hex
   code, ct_hex = _RunCLI(
-      ['--bin', 'aes', 'encrypt', plaintext, '-p', str(aes_key_file), '-a', aad])
+      ['--bin', '-p', str(aes_key_file), 'aes', 'encrypt', plaintext, '-a', aad])
   assert code == 0
   assert re.fullmatch(r'[0-9a-f]+', ct_hex) is not None
   assert len(ct_hex) >= 32  # IV(16)+TAG(16)+ct → hex length ≥ 64; allow any ≥ minimal sanity
   # Decrypt: ciphertext hex in, ask for raw output so we can compare to original string
   code, out = _RunCLI(
-      ['--hex', '--out-bin', 'aes', 'decrypt', ct_hex, '-p', str(aes_key_file), '-a', aad])
+      ['--hex', '-p', str(aes_key_file), '--out-bin', 'aes', 'decrypt', ct_hex, '-a', aad])
   assert code == 0
   assert out == plaintext
 
@@ -219,7 +219,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None:
   """Test RSA key gen, encrypt/decrypt, sign/verify via CLI."""
   priv_path: pathlib.Path = tmp_path / 'rsa.priv'
   # Key gen (small for speed)
-  code, out = _RunCLI(['rsa', 'new', '512', '--out', str(priv_path)])
+  code, out = _RunCLI(['-p', str(priv_path), 'rsa', 'new', '512'])
   assert code == 0
   # Output: 2 lines, n=... bits=..., e=...
   lines: list[str] = out.splitlines()
@@ -229,19 +229,19 @@ def test_rsa_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None:
   assert priv_path.exists()
   # Encrypt/decrypt a small message
   msg = 12345
-  code, cipher = _RunCLI(['rsa', 'encrypt', str(msg), '--key', str(priv_path)])
+  code, cipher = _RunCLI(['-p', str(priv_path), 'rsa', 'encrypt', str(msg)])
   assert code == 0
   c = int(cipher)
   assert c > 0
-  code, plain = _RunCLI(['rsa', 'decrypt', str(c), '--key', str(priv_path)])
+  code, plain = _RunCLI(['-p', str(priv_path), 'rsa', 'decrypt', str(c)])
   assert code == 0
   assert int(plain) == msg
   # Sign/verify
-  code, sig = _RunCLI(['rsa', 'sign', str(msg), '--key', str(priv_path)])
+  code, sig = _RunCLI(['-p', str(priv_path), 'rsa', 'sign', str(msg)])
   assert code == 0
   s = int(sig)
   assert s > 0
-  code, ok = _RunCLI(['rsa', 'verify', str(msg), str(s), '--key', str(priv_path)])
+  code, ok = _RunCLI(['-p', str(priv_path), 'rsa', 'verify', str(msg), str(s)])
   assert code == 0
   assert ok == 'True'
 
@@ -251,27 +251,27 @@ def test_elgamal_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None
   shared_path: pathlib.Path = tmp_path / 'eg.shared'
   priv_path: pathlib.Path = tmp_path / 'eg.priv'
   # Shared params & private key
-  code, out = _RunCLI(['elgamal', 'shared', '64', '--out', str(shared_path)])
+  code, out = _RunCLI(['-p', str(shared_path), 'elgamal', 'shared', '64'])
   assert code == 0 and out == 'shared parameters saved'
   assert shared_path.exists()
   code, out = _RunCLI(
-      ['elgamal', 'new', '--shared', str(shared_path), '--out', str(priv_path)])
+      ['-p', str(shared_path), 'elgamal', 'new', '--out', str(priv_path)])
   assert code == 0 and out == 'elgamal key saved'
   assert priv_path.exists()
   # Encrypt/decrypt (public can be derived from private file)
   msg = 42
-  code, ct = _RunCLI(['elgamal', 'encrypt', str(msg), '--key', str(priv_path)])
+  code, ct = _RunCLI(['-p', str(priv_path), 'elgamal', 'encrypt', str(msg)])
   assert code == 0
   c1_s, c2_s = ct.split()
   c1, c2 = int(c1_s), int(c2_s)
-  code, plain = _RunCLI(['elgamal', 'decrypt', str(c1), str(c2), '--key', str(priv_path)])
+  code, plain = _RunCLI(['-p', str(priv_path), 'elgamal', 'decrypt', str(c1), str(c2)])
   assert code == 0
   assert int(plain) == msg
   # Sign/verify
-  code, sig = _RunCLI(['elgamal', 'sign', str(msg), '--key', str(priv_path)])
+  code, sig = _RunCLI(['-p', str(priv_path), 'elgamal', 'sign', str(msg)])
   assert code == 0
   s1_s, s2_s = sig.split()
-  code, ok = _RunCLI(['elgamal', 'verify', str(msg), s1_s, s2_s, '--key', str(priv_path)])
+  code, ok = _RunCLI(['-p', str(priv_path), 'elgamal', 'verify', str(msg), s1_s, s2_s])
   assert code == 0 and ok == 'True'
 
 
@@ -280,16 +280,16 @@ def test_dsa_sign_verify(tmp_path: pathlib.Path) -> None:
   shared_path: pathlib.Path = tmp_path / 'dsa.shared'
   priv_path: pathlib.Path = tmp_path / 'dsa.priv'
   # Small, but respect constraints: p_bits >= q_bits + 11, q_bits >= 11
-  code, out = _RunCLI(['dsa', 'shared', '64', '32', '--out', str(shared_path)])
+  code, out = _RunCLI(['-p', str(shared_path), 'dsa', 'shared', '64', '32'])
   assert code == 0 and out == 'dsa shared parameters saved'
   code, out = _RunCLI(
-      ['dsa', 'new', '--shared', str(shared_path), '--out', str(priv_path)])
+      ['-p', str(shared_path), 'dsa', 'new', '--out', str(priv_path)])
   assert code == 0 and out == 'dsa key saved'
   msg = 123456
-  code, sig = _RunCLI(['dsa', 'sign', str(msg), '--key', str(priv_path)])
+  code, sig = _RunCLI(['-p', str(priv_path), 'dsa', 'sign', str(msg)])
   assert code == 0
   s1_s, s2_s = sig.split()
-  code, ok = _RunCLI(['dsa', 'verify', str(msg), s1_s, s2_s, '--key', str(priv_path)])
+  code, ok = _RunCLI(['-p', str(priv_path), 'dsa', 'verify', str(msg), s1_s, s2_s])
   assert code == 0 and ok == 'True'
 
 
@@ -300,21 +300,27 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
   priv_path = pathlib.Path(str(base_path) + '.priv')
   pub_path = pathlib.Path(str(base_path) + '.pub')
   # Generate params
-  code, out = _RunCLI(['sss', 'new', '3', '128', '--out', str(base_path)])
+  code, out = _RunCLI(['-p', str(base_path), 'sss', 'new', '3', '128'])
   assert code == 0 and out == 'sss private/public saved'
   assert priv_path.exists() and pub_path.exists()
   # Issue 3 shares for a known secret
   secret_hex = '0xC0FFEE'
-  code, shares_out = _RunCLI(['sss', 'shares', secret_hex, '3', '--key', str(priv_path)])
+  code, shares_out = _RunCLI(
+      ['-p', str(priv_path), 'sss', 'shares', secret_hex, '3', '--out', str(base_path)])
   assert code == 0
   lines: list[str] = shares_out.splitlines()
   assert len(lines) == 3 and all(':' in ln for ln in lines)
+  for i in range(3):
+    share_path = pathlib.Path(f'{base_path}.share.{i + 1}')
+    assert share_path.exists()
+    assert lines[i].startswith(f'Share {i + 1} - ')
   # Recover with public key
-  code, recovered = _RunCLI(['sss', 'recover', *lines, '--key', str(pub_path)])
+  lines = [line.split(' - ')[1] for line in lines]
+  code, recovered = _RunCLI(['-p', str(pub_path), 'sss', 'recover', *lines])
   assert code == 0
   assert int(recovered) == int(secret_hex, 0)
   # Verify a share against the same secret with private key
-  code, ok = _RunCLI(['sss', 'verify', secret_hex, lines[0], '--key', str(priv_path)])
+  code, ok = _RunCLI(['-p', str(priv_path), 'sss', 'verify', secret_hex, lines[0]])
   assert code == 0 and ok == 'True'
 
 
@@ -480,10 +486,10 @@ def test_aes_ecb_encrypt_decrypt_with_key_path(tmp_path: pathlib.Path) -> None:
   base.Serialize(key, file_path=str(key_path))
   block_hex = '00112233445566778899aabbccddeeff'
   # Encrypt with --key-path
-  code, ct_hex = _RunCLI(['aes', 'ecb', '-p', str(key_path), 'encrypthex', block_hex])
+  code, ct_hex = _RunCLI(['-p', str(key_path), 'aes', 'ecb', 'encrypthex', block_hex])
   assert code == 0 and re.fullmatch(r'[0-9a-f]{32}', ct_hex)
   # Decrypt with --key-path
-  code, pt_hex = _RunCLI(['aes', 'ecb', '-p', str(key_path), 'decrypthex', ct_hex])
+  code, pt_hex = _RunCLI(['-p', str(key_path), 'aes', 'ecb', 'decrypthex', ct_hex])
   assert code == 0 and pt_hex == block_hex
 
 
@@ -493,7 +499,7 @@ def test_aes_ecb_notimplemented_when_missing_subcommand(tmp_path: pathlib.Path) 
   kp: pathlib.Path = tmp_path / 'k.bin'
   base.Serialize(key, file_path=str(kp))
   with pytest.raises(NotImplementedError):
-    transcrypto.main(['aes', 'ecb', '-p', str(kp)])
+    transcrypto.main(['-p', str(kp), 'aes', 'ecb'])
 
 
 @pytest.mark.filterwarnings(r'ignore:.*found in sys.modules.*:RuntimeWarning')

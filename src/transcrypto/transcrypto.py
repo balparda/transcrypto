@@ -302,16 +302,26 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   parser.add_argument(
       '-v', '--verbose', action='count', default=0,
       help='Increase verbosity (use -v/-vv/-vvv/-vvvv for ERROR/WARN/INFO/DEBUG)')
+
   # --hex/--b64/--bin for input mode (default hex)
   in_grp = parser.add_mutually_exclusive_group()
   in_grp.add_argument('--hex', action='store_true', help='Treat inputs as hex string (default)')
   in_grp.add_argument('--b64', action='store_true', help='Treat inputs as base64url')
   in_grp.add_argument('--bin', action='store_true', help='Treat inputs as binary (bytes)')
+
   # --out-hex/--out-b64/--out-bin for output mode (default hex)
   out_grp = parser.add_mutually_exclusive_group()
   out_grp.add_argument('--out-hex', action='store_true', help='Outputs as hex (default)')
   out_grp.add_argument('--out-b64', action='store_true', help='Outputs as base64url')
   out_grp.add_argument('--out-bin', action='store_true', help='Outputs as binary (bytes)')
+
+  # key loading/saving from/to file, with optional password; will only work with some commands
+  parser.add_argument(
+      '-p', '--key-path', type=str, default='',
+      help='File path to serialized key object, if key is needed for operation')
+  parser.add_argument(
+      '--protect', type=str, default='',
+      help='Password to encrypt/decrypt key file if using the `-p`/`--key-path` option')
 
   # ========================= randomness ===========================================================
 
@@ -527,12 +537,9 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
             'passwords databases (because of constant salt).'),
       epilog=('--out-b64 aes key "correct horse battery staple"\n'
               'DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= $$ '  # cspell:disable-line
-              'aes key "correct horse battery staple" --out keyfile.out --protect hunter\n$'))
+              '-p keyfile.out --protect hunter aes key "correct horse battery staple"\n$'))
   p_aes_key_pass.add_argument(
       'password', type=str, help='Password (leading/trailing spaces ignored)')
-  p_aes_key_pass.add_argument('--out', type=str, default='', help='Save serialized AESKey to path')
-  p_aes_key_pass.add_argument(
-      '--protect', type=str, default='', help='Password to encrypt the saved key file (Serialize)')
 
   # AES-256-GCM encrypt
   p_aes_enc: argparse.ArgumentParser = aes_sub.add_parser(
@@ -540,11 +547,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_aes_enc.add_argument('plaintext', type=str, help='Input data (raw; or use --in-hex/--in-b64)')
   p_aes_enc.add_argument(
       '-k', '--key-b64', type=str, default='', help='Key as base64url (32 bytes)')
-  p_aes_enc.add_argument(
-      '-p', '--key-path', type=str, default='', help='Path to serialized AESKey')
   p_aes_enc.add_argument('-a', '--aad', type=str, default='', help='Associated data (optional)')
-  p_aes_enc.add_argument(
-      '--protect', type=str, default='', help='Password to decrypt key file if using --key-path')
 
   # AES-256-GCM decrypt
   p_aes_dec: argparse.ArgumentParser = aes_sub.add_parser(
@@ -552,21 +555,13 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_aes_dec.add_argument('ciphertext', type=str, help='Input blob (use --in-hex/--in-b64)')
   p_aes_dec.add_argument(
       '-k', '--key-b64', type=str, default='', help='Key as base64url (32 bytes)')
-  p_aes_dec.add_argument(
-      '-p', '--key-path', type=str, default='', help='Path to serialized AESKey')
   p_aes_dec.add_argument('-a', '--aad', type=str, default='', help='Associated data (must match)')
-  p_aes_dec.add_argument(
-      '--protect', type=str, default='', help='Password to decrypt key file if using --key-path')
 
   # AES-ECB
   p_aes_ecb: argparse.ArgumentParser = aes_sub.add_parser(
       'ecb', help='AES-ECB (unsafe; fixed 16-byte blocks only).')
   p_aes_ecb.add_argument(
       '-k', '--key-b64', type=str, default='', help='Key as base64url (32 bytes)')
-  p_aes_ecb.add_argument(
-      '-p', '--key-path', type=str, default='', help='Path to serialized AESKey')
-  p_aes_ecb.add_argument(
-      '--protect', type=str, default='', help='Password to decrypt key file if using --key-path')
   aes_ecb_sub = p_aes_ecb.add_subparsers(dest='aes_ecb_command')
 
   # AES-ECB encrypt 16-byte hex block
@@ -588,45 +583,27 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   # Generate new RSA private key
   p_rsa_new: argparse.ArgumentParser = rsa_sub.add_parser('new', help='Generate RSA private key.')
   p_rsa_new.add_argument('bits', type=int, help='Modulus size in bits (e.g., 2048)')
-  p_rsa_new.add_argument(
-      '--out', type=str, default='', help='Save private key to path (Serialize)')
-  p_rsa_new.add_argument(
-      '--protect', type=str, default='', help='Password to encrypt saved key file')
 
   # Encrypt integer with public key
   p_rsa_enc: argparse.ArgumentParser = rsa_sub.add_parser(
       'encrypt', help='Encrypt integer with public key.')
   p_rsa_enc.add_argument('message', type=str, help='Integer message (e.g., "12345" or "0x...")')
-  p_rsa_enc.add_argument(
-      '--key', type=str, required=True, help='Path to private/public key (Serialize)')
-  p_rsa_enc.add_argument(
-      '--protect', type=str, default='', help='Password to decrypt key file if needed')
 
   # Decrypt integer ciphertext with private key
   p_rsa_dec: argparse.ArgumentParser = rsa_sub.add_parser(
       'decrypt', help='Decrypt integer ciphertext with private key.')
   p_rsa_dec.add_argument('ciphertext', type=str, help='Integer ciphertext')
-  p_rsa_dec.add_argument('--key', type=str, required=True, help='Path to private key (Serialize)')
-  p_rsa_dec.add_argument(
-      '--protect', type=str, default='', help='Password to decrypt key file if needed')
 
   # Sign integer message with private key
   p_rsa_sig: argparse.ArgumentParser = rsa_sub.add_parser(
       'sign', help='Sign integer message with private key.')
   p_rsa_sig.add_argument('message', type=str, help='Integer message')
-  p_rsa_sig.add_argument('--key', type=str, required=True, help='Path to private key (Serialize)')
-  p_rsa_sig.add_argument(
-      '--protect', type=str, default='', help='Password to decrypt key file if needed')
 
   # Verify integer signature with public key
   p_rsa_ver: argparse.ArgumentParser = rsa_sub.add_parser(
       'verify', help='Verify integer signature with public key.')
   p_rsa_ver.add_argument('message', type=str, help='Integer message')
   p_rsa_ver.add_argument('signature', type=str, help='Integer signature')
-  p_rsa_ver.add_argument(
-      '--key', type=str, required=True, help='Path to private/public key (Serialize)')
-  p_rsa_ver.add_argument(
-      '--protect', type=str, default='', help='Password to decrypt key file if needed')
 
   # ========================= ElGamal ==============================================================
 
@@ -638,42 +615,27 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_eg_shared: argparse.ArgumentParser = eg_sub.add_parser(
       'shared', help='Generate shared parameters (p, g).')
   p_eg_shared.add_argument('bits', type=int, help='Bit length for prime modulus p')
-  p_eg_shared.add_argument('--out', type=str, required=True, help='Save shared key to path')
-  p_eg_shared.add_argument(
-      '--protect', type=str, default='', help='Password to encrypt saved key file')
 
   # Generate individual private key from shared (p,g)
   p_eg_new: argparse.ArgumentParser = eg_sub.add_parser(
       'new', help='Generate individual private key from shared.')
-  p_eg_new.add_argument('--shared', type=str, required=True, help='Path to shared (p,g)')
   p_eg_new.add_argument('--out', type=str, required=True, help='Save private key to path')
-  p_eg_new.add_argument(
-      '--protect', type=str, default='', help='Password to encrypt saved key file')
 
   # Encrypt integer with public key
   p_eg_enc: argparse.ArgumentParser = eg_sub.add_parser(
       'encrypt', help='Encrypt integer with public key.')
   p_eg_enc.add_argument('message', type=str, help='Integer message 1 ≤ m < p')
-  p_eg_enc.add_argument('--key', type=str, required=True, help='Path to private/public key')
-  p_eg_enc.add_argument(
-      '--protect', type=str, default='', help='Password to decrypt key file if needed')
 
   # Decrypt El-Gamal ciphertext tuple (c1,c2)
   p_eg_dec: argparse.ArgumentParser = eg_sub.add_parser(
       'decrypt', help='Decrypt El-Gamal ciphertext tuple (c1,c2).')
   p_eg_dec.add_argument('c1', type=str)
   p_eg_dec.add_argument('c2', type=str)
-  p_eg_dec.add_argument('--key', type=str, required=True, help='Path to private key')
-  p_eg_dec.add_argument(
-      '--protect', type=str, default='', help='Password to decrypt key file if needed')
 
   # Sign integer message with private key
   p_eg_sig: argparse.ArgumentParser = eg_sub.add_parser(
       'sign', help='Sign integer message with private key.')
   p_eg_sig.add_argument('message', type=str)
-  p_eg_sig.add_argument('--key', type=str, required=True, help='Path to private key')
-  p_eg_sig.add_argument(
-      '--protect', type=str, default='', help='Password to decrypt key file if needed')
 
   # Verify El-Gamal signature (s1,s2)
   p_eg_ver: argparse.ArgumentParser = eg_sub.add_parser(
@@ -681,9 +643,6 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_eg_ver.add_argument('message', type=str)
   p_eg_ver.add_argument('s1', type=str)
   p_eg_ver.add_argument('s2', type=str)
-  p_eg_ver.add_argument('--key', type=str, required=True, help='Path to private/public key')
-  p_eg_ver.add_argument(
-      '--protect', type=str, default='', help='Password to decrypt key file if needed')
 
   # ========================= DSA ==================================================================
 
@@ -697,25 +656,16 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
       'shared', help='Generate (p,q,g) with q | p-1.')
   p_dsa_shared.add_argument('p_bits', type=int, help='Bit length of p (≥ q_bits + 11)')
   p_dsa_shared.add_argument('q_bits', type=int, help='Bit length of q (≥ 11)')
-  p_dsa_shared.add_argument('--out', type=str, required=True, help='Save shared params to path')
-  p_dsa_shared.add_argument(
-      '--protect', type=str, default='', help='Password to encrypt saved key file')
 
   # Generate individual private key from shared (p,q,g)
   p_dsa_new: argparse.ArgumentParser = dsa_sub.add_parser(
       'new', help='Generate DSA private key from shared.')
-  p_dsa_new.add_argument('--shared', type=str, required=True, help='Path to shared (p,q,g)')
   p_dsa_new.add_argument('--out', type=str, required=True, help='Save private key to path')
-  p_dsa_new.add_argument(
-      '--protect', type=str, default='', help='Password to encrypt saved key file')
 
   # Sign integer m with private key
   p_dsa_sign: argparse.ArgumentParser = dsa_sub.add_parser(
       'sign', help='Sign integer m (1 ≤ m < q).')
   p_dsa_sign.add_argument('message', type=str)
-  p_dsa_sign.add_argument('--key', type=str, required=True, help='Path to private key')
-  p_dsa_sign.add_argument(
-      '--protect', type=str, default='', help='Password to decrypt key file if needed')
 
   # Verify DSA signature (s1,s2)
   p_dsa_verify: argparse.ArgumentParser = dsa_sub.add_parser(
@@ -723,9 +673,6 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_dsa_verify.add_argument('message', type=str)
   p_dsa_verify.add_argument('s1', type=str)
   p_dsa_verify.add_argument('s2', type=str)
-  p_dsa_verify.add_argument('--key', type=str, required=True, help='Path to private/public key')
-  p_dsa_verify.add_argument(
-      '--protect', type=str, default='', help='Password to decrypt key file if needed')
 
   # ========================= Shamir Secret Sharing ================================================
 
@@ -739,38 +686,24 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
       'new', help='Generate SSS params (minimum, prime, coefficients).')
   p_sss_new.add_argument('minimum', type=int, help='Threshold t (≥ 2)')
   p_sss_new.add_argument('bits', type=int, help='Prime modulus bit length (≥ 128 for non-toy)')
-  p_sss_new.add_argument('--out', type=str, required=True,
-                         help='Base path; will save ".priv" and ".pub"')
-  p_sss_new.add_argument('--protect', type=str, default='', help='Password to encrypt saved files')
 
   # Issue N shares for a secret
   p_sss_shares: argparse.ArgumentParser = sss_sub.add_parser(
       'shares', help='Issue N shares for a secret (private params).')
   p_sss_shares.add_argument('secret', type=str, help='Secret as integer (supports 0x..)')
   p_sss_shares.add_argument('count', type=int, help='How many shares to produce')
-  p_sss_shares.add_argument(
-      '--key', type=str, required=True, help='Path to private SSS key (.priv)')
-  p_sss_shares.add_argument(
-      '--protect', type=str, default='', help='Password to decrypt key file if needed')
+  p_sss_shares.add_argument('--out', type=str, help='Save shares to path')
 
   # Recover secret from shares
   p_sss_recover: argparse.ArgumentParser = sss_sub.add_parser(
       'recover', help='Recover secret from shares (public params).')
   p_sss_recover.add_argument('shares', nargs='+', help='Shares as k:v (e.g., 2:123 5:456 ...)')
-  p_sss_recover.add_argument(
-      '--key', type=str, required=True, help='Path to public SSS key (.pub)')
-  p_sss_recover.add_argument(
-      '--protect', type=str, default='', help='Password to decrypt key file if needed')
 
   # Verify a share against a secret
   p_sss_verify: argparse.ArgumentParser = sss_sub.add_parser(
       'verify', help='Verify a share against a secret (private params).')
   p_sss_verify.add_argument('secret', type=str, help='Secret as integer (supports 0x..)')
   p_sss_verify.add_argument('share', type=str, help='One share as k:v (e.g., 7:9999)')
-  p_sss_verify.add_argument(
-      '--key', type=str, required=True, help='Path to private SSS key (.priv)')
-  p_sss_verify.add_argument(
-      '--protect', type=str, default='', help='Password to decrypt key file if needed')
 
   # ========================= Markdown Generation ==================================================
 
@@ -801,6 +734,7 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
   b: int
   c: int
   e: int
+  i: int
   m: int
   n: int
   x: int
@@ -915,8 +849,8 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
       match aes_cmd:
         case 'key':
           aes_key: aes.AESKey = aes.AESKey.FromStaticPassword(args.password)
-          if args.out:
-            _SaveObj(aes_key, args.out, args.protect or None)
+          if args.key_path:
+            _SaveObj(aes_key, args.key_path, args.protect or None)
           else:
             print(_BytesToText(aes_key.key256, out_format))
         case 'encrypt':
@@ -967,25 +901,25 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
       match rsa_cmd:
         case 'new':
           rsa_priv: rsa.RSAPrivateKey = rsa.RSAPrivateKey.New(args.bits)
-          if args.out:
-            _SaveObj(rsa_priv, args.out, args.protect or None)
+          if args.key_path:
+            _SaveObj(rsa_priv, args.key_path, args.protect or None)
           rsa_pub: rsa.RSAPublicKey = rsa.RSAPublicKey.Copy(rsa_priv)
           print(f'n={rsa_pub.public_modulus}  bits={rsa_pub.public_modulus.bit_length()}')
           print(f'e={rsa_pub.encrypt_exp}')
         case 'encrypt':
-          rsa_pub = rsa.RSAPublicKey.Copy(_LoadObj(args.key, args.protect or None))
+          rsa_pub = rsa.RSAPublicKey.Copy(_LoadObj(args.key_path, args.protect or None))
           m = _ParseInt(args.message)
           print(rsa_pub.Encrypt(m))
         case 'decrypt':
-          rsa_priv = _LoadObj(args.key, args.protect or None)
+          rsa_priv = _LoadObj(args.key_path, args.protect or None)
           c = _ParseInt(args.ciphertext)
           print(rsa_priv.Decrypt(c))
         case 'sign':
-          rsa_priv = _LoadObj(args.key, args.protect or None)
+          rsa_priv = _LoadObj(args.key_path, args.protect or None)
           m = _ParseInt(args.message)
           print(rsa_priv.Sign(m))
         case 'verify':
-          rsa_pub = rsa.RSAPublicKey.Copy(_LoadObj(args.key, args.protect or None))
+          rsa_pub = rsa.RSAPublicKey.Copy(_LoadObj(args.key_path, args.protect or None))
           m = _ParseInt(args.message)
           sig: int = _ParseInt(args.signature)
           print(rsa_pub.VerifySignature(m, sig))
@@ -999,30 +933,30 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
         case 'shared':
           shared_eg: elgamal.ElGamalSharedPublicKey = elgamal.ElGamalSharedPublicKey.NewShared(
               args.bits)
-          _SaveObj(shared_eg, args.out, args.protect or None)
+          _SaveObj(shared_eg, args.key_path, args.protect or None)
           print('shared parameters saved')
         case 'new':
-          shared_eg = _LoadObj(args.shared, args.protect or None)
+          shared_eg = _LoadObj(args.key_path, args.protect or None)
           eg_priv: elgamal.ElGamalPrivateKey = elgamal.ElGamalPrivateKey.New(shared_eg)
           _SaveObj(eg_priv, args.out, args.protect or None)
           print('elgamal key saved')
         case 'encrypt':
           pub_eg: elgamal.ElGamalPublicKey = elgamal.ElGamalPublicKey.Copy(
-              _LoadObj(args.key, args.protect or None))
+              _LoadObj(args.key_path, args.protect or None))
           m = _ParseInt(args.message)
           cc: tuple[int, int] = pub_eg.Encrypt(m)
           print(f'{cc[0]} {cc[1]}')
         case 'decrypt':
-          eg_priv = _LoadObj(args.key, args.protect or None)
+          eg_priv = _LoadObj(args.key_path, args.protect or None)
           cc = _ParseInt(args.c1), _ParseInt(args.c2)
           print(eg_priv.Decrypt(cc))
         case 'sign':
-          eg_priv = _LoadObj(args.key, args.protect or None)
+          eg_priv = _LoadObj(args.key_path, args.protect or None)
           m = _ParseInt(args.message)
           ss: tuple[int, int] = eg_priv.Sign(m)
           print(f'{ss[0]} {ss[1]}')
         case 'verify':
-          pub_eg = elgamal.ElGamalPublicKey.Copy(_LoadObj(args.key, args.protect or None))
+          pub_eg = elgamal.ElGamalPublicKey.Copy(_LoadObj(args.key_path, args.protect or None))
           m = _ParseInt(args.message)
           ss = (_ParseInt(args.s1), _ParseInt(args.s2))
           print(pub_eg.VerifySignature(m, ss))
@@ -1036,21 +970,21 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
         case 'shared':
           dsa_shared: dsa.DSASharedPublicKey = dsa.DSASharedPublicKey.NewShared(
               args.p_bits, args.q_bits)
-          _SaveObj(dsa_shared, args.out, args.protect or None)
+          _SaveObj(dsa_shared, args.key_path, args.protect or None)
           print('dsa shared parameters saved')
         case 'new':
           dsa_priv: dsa.DSAPrivateKey = dsa.DSAPrivateKey.New(
-              _LoadObj(args.shared, args.protect or None))
+              _LoadObj(args.key_path, args.protect or None))
           _SaveObj(dsa_priv, args.out, args.protect or None)
           print('dsa key saved')
         case 'sign':
-          dsa_priv = _LoadObj(args.key, args.protect or None)
+          dsa_priv = _LoadObj(args.key_path, args.protect or None)
           m = _ParseInt(args.message) % dsa_priv.prime_seed
           ss = dsa_priv.Sign(m)
           print(f'{ss[0]} {ss[1]}')
         case 'verify':
           dsa_pub: dsa.DSAPublicKey = dsa.DSAPublicKey.Copy(
-              _LoadObj(args.key, args.protect or None))
+              _LoadObj(args.key_path, args.protect or None))
           m = _ParseInt(args.message) % dsa_pub.prime_seed
           ss = (_ParseInt(args.s1), _ParseInt(args.s2))
           print(dsa_pub.VerifySignature(m, ss))
@@ -1065,16 +999,18 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
           sss_priv: sss.ShamirSharedSecretPrivate = sss.ShamirSharedSecretPrivate.New(
               args.minimum, args.bits)
           pub: sss.ShamirSharedSecretPublic = sss.ShamirSharedSecretPublic.Copy(sss_priv)
-          _SaveObj(sss_priv, args.out + '.priv', args.protect or None)
-          _SaveObj(pub, args.out + '.pub', args.protect or None)
+          _SaveObj(sss_priv, args.key_path + '.priv', args.protect or None)
+          _SaveObj(pub, args.key_path + '.pub', args.protect or None)
           print('sss private/public saved')
         case 'shares':
-          sss_priv = _LoadObj(args.key, args.protect or None)
+          sss_priv = _LoadObj(args.key_path, args.protect or None)
           secret: int = _ParseInt(args.secret)
-          for sh in sss_priv.Shares(secret, max_shares=args.count):
-            print(f'{sh.share_key}:{sh.share_value}')
+          for i, sh in enumerate(sss_priv.Shares(secret, max_shares=args.count)):
+            print(f'Share {i + 1} - {sh.share_key}:{sh.share_value}')
+            if args.out:
+              _SaveObj(sh, f'{args.out}.share.{i + 1}', args.protect or None)
         case 'recover':
-          pub = _LoadObj(args.key, args.protect or None)
+          pub = _LoadObj(args.key_path, args.protect or None)
           subset: list[sss.ShamirSharePrivate] = []
           for kv in args.shares:
             k_s, v_s = kv.split(':', 1)
@@ -1083,7 +1019,7 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
                 share_key=_ParseInt(k_s), share_value=_ParseInt(v_s)))
           print(pub.RecoverSecret(subset))
         case 'verify':
-          sss_priv = _LoadObj(args.key, args.protect or None)
+          sss_priv = _LoadObj(args.key_path, args.protect or None)
           secret = _ParseInt(args.secret)
           k_s, v_s = args.share.split(':', 1)
           share = sss.ShamirSharePrivate(

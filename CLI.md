@@ -20,6 +20,8 @@ poetry run transcrypto <command> [sub-command] [options...]
 | `--out-hex` | Outputs as hex (default) |
 | `--out-b64` | Outputs as base64url |
 | `--out-bin` | Outputs as binary (bytes) |
+| `-p, --key-path` | File path to serialized key object, if key is needed for operation [type: str] |
+| `--protect` | Password to encrypt/decrypt key file if using the `-p`/`--key-path` option [type: str] |
 
 ### Top-Level Commands
 
@@ -490,22 +492,19 @@ poetry run transcrypto aes [-h] {key,encrypt,decrypt,ecb} ...
 Derive key from a password (PBKDF2-HMAC-SHA256) with custom expensive salt and iterations. Very good/safe for simple password-to-key but not for passwords databases (because of constant salt).
 
 ```bash
-poetry run transcrypto aes key [-h] [--out OUT] [--protect PROTECT]
-                                      password
+poetry run transcrypto aes key [-h] password
 ```
 
 | Option/Arg | Description |
 |---|---|
 | `password` | Password (leading/trailing spaces ignored) [type: str] |
-| `--out` | Save serialized AESKey to path [type: str] |
-| `--protect` | Password to encrypt the saved key file (Serialize) [type: str] |
 
 **Example:**
 
 ```bash
 $ poetry run transcrypto --out-b64 aes key "correct horse battery staple"
 DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es=
-$ poetry run transcrypto aes key frompass "correct horse battery staple" --out keyfile.out --protect hunter
+$ poetry run transcrypto -p keyfile.out --protect hunter aes key "correct horse battery staple"
 $
 ```
 
@@ -514,26 +513,21 @@ $
 AES-256-GCM: encrypt (outputs IV||ct||tag).
 
 ```bash
-poetry run transcrypto aes encrypt [-h] [-k KEY_B64] [-p KEY_PATH]
-                                          [-a AAD] [--protect PROTECT]
-                                          plaintext
+poetry run transcrypto aes encrypt [-h] [-k KEY_B64] [-a AAD] plaintext
 ```
 
 | Option/Arg | Description |
 |---|---|
 | `plaintext` | Input data (raw; or use --in-hex/--in-b64) [type: str] |
 | `-k, --key-b64` | Key as base64url (32 bytes) [type: str] |
-| `-p, --key-path` | Path to serialized AESKey [type: str] |
 | `-a, --aad` | Associated data (optional) [type: str] |
-| `--protect` | Password to decrypt key file if using --key-path [type: str] |
 
 #### `aes decrypt`
 
 AES-256-GCM: decrypt IV||ct||tag.
 
 ```bash
-poetry run transcrypto aes decrypt [-h] [-k KEY_B64] [-p KEY_PATH]
-                                          [-a AAD] [--protect PROTECT]
+poetry run transcrypto aes decrypt [-h] [-k KEY_B64] [-a AAD]
                                           ciphertext
 ```
 
@@ -541,25 +535,20 @@ poetry run transcrypto aes decrypt [-h] [-k KEY_B64] [-p KEY_PATH]
 |---|---|
 | `ciphertext` | Input blob (use --in-hex/--in-b64) [type: str] |
 | `-k, --key-b64` | Key as base64url (32 bytes) [type: str] |
-| `-p, --key-path` | Path to serialized AESKey [type: str] |
 | `-a, --aad` | Associated data (must match) [type: str] |
-| `--protect` | Password to decrypt key file if using --key-path [type: str] |
 
 #### `aes ecb`
 
 AES-ECB (unsafe; fixed 16-byte blocks only).
 
 ```bash
-poetry run transcrypto aes ecb [-h] [-k KEY_B64] [-p KEY_PATH]
-                                      [--protect PROTECT]
+poetry run transcrypto aes ecb [-h] [-k KEY_B64]
                                       {encrypthex,decrypthex} ...
 ```
 
 | Option/Arg | Description |
 |---|---|
 | `-k, --key-b64` | Key as base64url (32 bytes) [type: str] |
-| `-p, --key-path` | Path to serialized AESKey [type: str] |
-| `--protect` | Password to decrypt key file if using --key-path [type: str] |
 
 #### `aes ecb encrypthex`
 
@@ -600,76 +589,61 @@ poetry run transcrypto rsa [-h] {new,encrypt,decrypt,sign,verify} ...
 Generate RSA private key.
 
 ```bash
-poetry run transcrypto rsa new [-h] [--out OUT] [--protect PROTECT]
-                                      bits
+poetry run transcrypto rsa new [-h] bits
 ```
 
 | Option/Arg | Description |
 |---|---|
 | `bits` | Modulus size in bits (e.g., 2048) [type: int] |
-| `--out` | Save private key to path (Serialize) [type: str] |
-| `--protect` | Password to encrypt saved key file [type: str] |
 
 #### `rsa encrypt`
 
 Encrypt integer with public key.
 
 ```bash
-poetry run transcrypto rsa encrypt [-h] --key KEY [--protect PROTECT]
-                                          message
+poetry run transcrypto rsa encrypt [-h] message
 ```
 
 | Option/Arg | Description |
 |---|---|
 | `message` | Integer message (e.g., "12345" or "0x...") [type: str] |
-| `--key` | Path to private/public key (Serialize) [type: str] |
-| `--protect` | Password to decrypt key file if needed [type: str] |
 
 #### `rsa decrypt`
 
 Decrypt integer ciphertext with private key.
 
 ```bash
-poetry run transcrypto rsa decrypt [-h] --key KEY [--protect PROTECT]
-                                          ciphertext
+poetry run transcrypto rsa decrypt [-h] ciphertext
 ```
 
 | Option/Arg | Description |
 |---|---|
 | `ciphertext` | Integer ciphertext [type: str] |
-| `--key` | Path to private key (Serialize) [type: str] |
-| `--protect` | Password to decrypt key file if needed [type: str] |
 
 #### `rsa sign`
 
 Sign integer message with private key.
 
 ```bash
-poetry run transcrypto rsa sign [-h] --key KEY [--protect PROTECT]
-                                       message
+poetry run transcrypto rsa sign [-h] message
 ```
 
 | Option/Arg | Description |
 |---|---|
 | `message` | Integer message [type: str] |
-| `--key` | Path to private key (Serialize) [type: str] |
-| `--protect` | Password to decrypt key file if needed [type: str] |
 
 #### `rsa verify`
 
 Verify integer signature with public key.
 
 ```bash
-poetry run transcrypto rsa verify [-h] --key KEY [--protect PROTECT]
-                                         message signature
+poetry run transcrypto rsa verify [-h] message signature
 ```
 
 | Option/Arg | Description |
 |---|---|
 | `message` | Integer message [type: str] |
 | `signature` | Integer signature [type: str] |
-| `--key` | Path to private/public key (Serialize) [type: str] |
-| `--protect` | Password to decrypt key file if needed [type: str] |
 
 ---
 
@@ -687,88 +661,68 @@ poetry run transcrypto elgamal [-h]
 Generate shared parameters (p, g).
 
 ```bash
-poetry run transcrypto elgamal shared [-h] --out OUT
-                                             [--protect PROTECT]
-                                             bits
+poetry run transcrypto elgamal shared [-h] bits
 ```
 
 | Option/Arg | Description |
 |---|---|
 | `bits` | Bit length for prime modulus p [type: int] |
-| `--out` | Save shared key to path [type: str] |
-| `--protect` | Password to encrypt saved key file [type: str] |
 
 #### `elgamal new`
 
 Generate individual private key from shared.
 
 ```bash
-poetry run transcrypto elgamal new [-h] --shared SHARED --out OUT
-                                          [--protect PROTECT]
+poetry run transcrypto elgamal new [-h] --out OUT
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `--shared` | Path to shared (p,g) [type: str] |
 | `--out` | Save private key to path [type: str] |
-| `--protect` | Password to encrypt saved key file [type: str] |
 
 #### `elgamal encrypt`
 
 Encrypt integer with public key.
 
 ```bash
-poetry run transcrypto elgamal encrypt [-h] --key KEY
-                                              [--protect PROTECT]
-                                              message
+poetry run transcrypto elgamal encrypt [-h] message
 ```
 
 | Option/Arg | Description |
 |---|---|
 | `message` | Integer message 1 ≤ m < p [type: str] |
-| `--key` | Path to private/public key [type: str] |
-| `--protect` | Password to decrypt key file if needed [type: str] |
 
 #### `elgamal decrypt`
 
 Decrypt El-Gamal ciphertext tuple (c1,c2).
 
 ```bash
-poetry run transcrypto elgamal decrypt [-h] --key KEY
-                                              [--protect PROTECT]
-                                              c1 c2
+poetry run transcrypto elgamal decrypt [-h] c1 c2
 ```
 
 | Option/Arg | Description |
 |---|---|
 | `c1` | [type: str] |
 | `c2` | [type: str] |
-| `--key` | Path to private key [type: str] |
-| `--protect` | Password to decrypt key file if needed [type: str] |
 
 #### `elgamal sign`
 
 Sign integer message with private key.
 
 ```bash
-poetry run transcrypto elgamal sign [-h] --key KEY [--protect PROTECT]
-                                           message
+poetry run transcrypto elgamal sign [-h] message
 ```
 
 | Option/Arg | Description |
 |---|---|
 | `message` | [type: str] |
-| `--key` | Path to private key [type: str] |
-| `--protect` | Password to decrypt key file if needed [type: str] |
 
 #### `elgamal verify`
 
 Verify El-Gamal signature (s1,s2).
 
 ```bash
-poetry run transcrypto elgamal verify [-h] --key KEY
-                                             [--protect PROTECT]
-                                             message s1 s2
+poetry run transcrypto elgamal verify [-h] message s1 s2
 ```
 
 | Option/Arg | Description |
@@ -776,8 +730,6 @@ poetry run transcrypto elgamal verify [-h] --key KEY
 | `message` | [type: str] |
 | `s1` | [type: str] |
 | `s2` | [type: str] |
-| `--key` | Path to private/public key [type: str] |
-| `--protect` | Password to decrypt key file if needed [type: str] |
 
 ---
 
@@ -794,54 +746,44 @@ poetry run transcrypto dsa [-h] {shared,new,sign,verify} ...
 Generate (p,q,g) with q | p-1.
 
 ```bash
-poetry run transcrypto dsa shared [-h] --out OUT [--protect PROTECT]
-                                         p_bits q_bits
+poetry run transcrypto dsa shared [-h] p_bits q_bits
 ```
 
 | Option/Arg | Description |
 |---|---|
 | `p_bits` | Bit length of p (≥ q_bits + 11) [type: int] |
 | `q_bits` | Bit length of q (≥ 11) [type: int] |
-| `--out` | Save shared params to path [type: str] |
-| `--protect` | Password to encrypt saved key file [type: str] |
 
 #### `dsa new`
 
 Generate DSA private key from shared.
 
 ```bash
-poetry run transcrypto dsa new [-h] --shared SHARED --out OUT
-                                      [--protect PROTECT]
+poetry run transcrypto dsa new [-h] --out OUT
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `--shared` | Path to shared (p,q,g) [type: str] |
 | `--out` | Save private key to path [type: str] |
-| `--protect` | Password to encrypt saved key file [type: str] |
 
 #### `dsa sign`
 
 Sign integer m (1 ≤ m < q).
 
 ```bash
-poetry run transcrypto dsa sign [-h] --key KEY [--protect PROTECT]
-                                       message
+poetry run transcrypto dsa sign [-h] message
 ```
 
 | Option/Arg | Description |
 |---|---|
 | `message` | [type: str] |
-| `--key` | Path to private key [type: str] |
-| `--protect` | Password to decrypt key file if needed [type: str] |
 
 #### `dsa verify`
 
 Verify DSA signature (s1,s2).
 
 ```bash
-poetry run transcrypto dsa verify [-h] --key KEY [--protect PROTECT]
-                                         message s1 s2
+poetry run transcrypto dsa verify [-h] message s1 s2
 ```
 
 | Option/Arg | Description |
@@ -849,8 +791,6 @@ poetry run transcrypto dsa verify [-h] --key KEY [--protect PROTECT]
 | `message` | [type: str] |
 | `s1` | [type: str] |
 | `s2` | [type: str] |
-| `--key` | Path to private/public key [type: str] |
-| `--protect` | Password to decrypt key file if needed [type: str] |
 
 ---
 
@@ -867,63 +807,52 @@ poetry run transcrypto sss [-h] {new,shares,recover,verify} ...
 Generate SSS params (minimum, prime, coefficients).
 
 ```bash
-poetry run transcrypto sss new [-h] --out OUT [--protect PROTECT]
-                                      minimum bits
+poetry run transcrypto sss new [-h] minimum bits
 ```
 
 | Option/Arg | Description |
 |---|---|
 | `minimum` | Threshold t (≥ 2) [type: int] |
 | `bits` | Prime modulus bit length (≥ 128 for non-toy) [type: int] |
-| `--out` | Base path; will save ".priv" and ".pub" [type: str] |
-| `--protect` | Password to encrypt saved files [type: str] |
 
 #### `sss shares`
 
 Issue N shares for a secret (private params).
 
 ```bash
-poetry run transcrypto sss shares [-h] --key KEY [--protect PROTECT]
-                                         secret count
+poetry run transcrypto sss shares [-h] [--out OUT] secret count
 ```
 
 | Option/Arg | Description |
 |---|---|
 | `secret` | Secret as integer (supports 0x..) [type: str] |
 | `count` | How many shares to produce [type: int] |
-| `--key` | Path to private SSS key (.priv) [type: str] |
-| `--protect` | Password to decrypt key file if needed [type: str] |
+| `--out` | Save shares to path [type: str] |
 
 #### `sss recover`
 
 Recover secret from shares (public params).
 
 ```bash
-poetry run transcrypto sss recover [-h] --key KEY [--protect PROTECT]
-                                          shares [shares ...]
+poetry run transcrypto sss recover [-h] shares [shares ...]
 ```
 
 | Option/Arg | Description |
 |---|---|
 | `shares` | Shares as k:v (e.g., 2:123 5:456 ...) [nargs: +] |
-| `--key` | Path to public SSS key (.pub) [type: str] |
-| `--protect` | Password to decrypt key file if needed [type: str] |
 
 #### `sss verify`
 
 Verify a share against a secret (private params).
 
 ```bash
-poetry run transcrypto sss verify [-h] --key KEY [--protect PROTECT]
-                                         secret share
+poetry run transcrypto sss verify [-h] secret share
 ```
 
 | Option/Arg | Description |
 |---|---|
 | `secret` | Secret as integer (supports 0x..) [type: str] |
 | `share` | One share as k:v (e.g., 7:9999) [type: str] |
-| `--key` | Path to private SSS key (.priv) [type: str] |
-| `--protect` | Password to decrypt key file if needed [type: str] |
 
 ---
 
