@@ -476,22 +476,41 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
 
   # Hashing group
   p_hash: argparse.ArgumentParser = sub.add_parser(
-      'hash', help='Hashing (SHA-256 / SHA-512 / file).')
+      'hash', help='Cryptographic Hashing (SHA-256 / SHA-512 / file).')
   hash_sub = p_hash.add_subparsers(dest='hash_command')
 
   # SHA-256
-  p_h256: argparse.ArgumentParser = hash_sub.add_parser('sha256', help='SHA-256 of input data.')
-  p_h256.add_argument('data', type=str, help='Input text (raw; or use --hex/--b64)')
+  p_h256: argparse.ArgumentParser = hash_sub.add_parser(
+      'sha256',
+      help='SHA-256 of input `data`.',
+      epilog=('--bin hash sha256 xyz\n'
+              '3608bca1e44ea6c4d268eb6db02260269892c0b42b86bbf1e77a6fa16c3c9282 $$'
+              '--b64 hash sha256 eHl6  # "xyz" in base-64\n'
+              '3608bca1e44ea6c4d268eb6db02260269892c0b42b86bbf1e77a6fa16c3c9282'))
+  p_h256.add_argument('data', type=str, help='Input data (raw text; or use --hex/--b64/--bin)')
 
   # SHA-512
-  p_h512 = hash_sub.add_parser('sha512', help='SHA-512 of input data.')
-  p_h512.add_argument('data', type=str, help='Input text (raw; or use --hex/--b64)')
+  p_h512 = hash_sub.add_parser(
+      'sha512',
+      help='SHA-512 of input `data`.',
+      epilog=('--bin hash sha256 xyz\n'
+              '4a3ed8147e37876adc8f76328e5abcc1b470e6acfc18efea0135f983604953a5'
+              '8e183c1a6086e91ba3e821d926f5fdeb37761c7ca0328a963f5e92870675b728 $$'
+              '--b64 hash sha256 eHl6  # "xyz" in base-64\n'
+              '4a3ed8147e37876adc8f76328e5abcc1b470e6acfc18efea0135f983604953a5'
+              '8e183c1a6086e91ba3e821d926f5fdeb37761c7ca0328a963f5e92870675b728'))
+  p_h512.add_argument('data', type=str, help='Input data (raw text; or use --hex/--b64/--bin)')
 
   # Hash file contents (streamed)
-  p_hf: argparse.ArgumentParser = hash_sub.add_parser('file', help='Hash file contents (streamed).')
-  p_hf.add_argument('path', type=str, help='Path to file')
+  p_hf: argparse.ArgumentParser = hash_sub.add_parser(
+      'file',
+      help='SHA-256/512 hash of file contents, defaulting to SHA-256.',
+      epilog=('hash file /etc/passwd --digest sha512\n'
+              '8966f5953e79f55dfe34d3dc5b160ac4a4a3f9cbd1c36695a54e28d77c7874df'
+              'f8595502f8a420608911b87d336d9e83c890f0e7ec11a76cb10b03e757f78aea'))
+  p_hf.add_argument('path', type=str, help='Path to existing file')
   p_hf.add_argument('--digest', choices=['sha256', 'sha512'], default='sha256',
-                    help='Digest (default: sha256)')
+                    help='Digest type, SHA-256 ("sha256") or SHA-512 ("sha512")')
 
   # ========================= AES (GCM + ECB helper) ===============================================
 
@@ -500,18 +519,17 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
       'aes', help='AES-256 operations (GCM/ECB) and key derivation.')
   aes_sub = p_aes.add_subparsers(dest='aes_command')
 
-  # AES key management
-  p_aes_key: argparse.ArgumentParser = aes_sub.add_parser(
-      'key', help='Create/derive/store AES keys.')
-  aes_key_sub = p_aes_key.add_subparsers(dest='aes_key_command')
-
   # Derive key from password
-  p_aes_key_pass: argparse.ArgumentParser = aes_key_sub.add_parser(
-      'frompass', help='Derive key from a password (PBKDF2-HMAC-SHA256).')
+  p_aes_key_pass: argparse.ArgumentParser = aes_sub.add_parser(
+      'key',
+      help=('Derive key from a password (PBKDF2-HMAC-SHA256) with custom expensive '
+            'salt and iterations. Very good/safe for simple password-to-key but not for '
+            'passwords databases (because of constant salt).'),
+      epilog=('--out-b64 aes key "correct horse battery staple"\n'
+              'DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= $$ '  # cspell:disable-line
+              'aes key "correct horse battery staple" --out keyfile.out --protect hunter\n$'))
   p_aes_key_pass.add_argument(
       'password', type=str, help='Password (leading/trailing spaces ignored)')
-  p_aes_key_pass.add_argument(
-      '--print-b64', action='store_true', help='Print derived key (base64url)')
   p_aes_key_pass.add_argument('--out', type=str, default='', help='Save serialized AESKey to path')
   p_aes_key_pass.add_argument(
       '--protect', type=str, default='', help='Password to encrypt the saved key file (Serialize)')
@@ -896,16 +914,11 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
       aes_cmd: str = args.aes_command.lower().strip() if args.aes_command else ''
       match aes_cmd:
         case 'key':
-          aes_key_cmd: str = args.aes_key_command.lower().strip() if args.aes_key_command else ''
-          match aes_key_cmd:
-            case 'frompass':
-              aes_key: aes.AESKey = aes.AESKey.FromStaticPassword(args.password)
-              if args.print_b64:
-                print(aes_key.encoded)
-              if args.out:
-                _SaveObj(aes_key, args.out, args.protect or None)
-            case _:
-              raise NotImplementedError()
+          aes_key: aes.AESKey = aes.AESKey.FromStaticPassword(args.password)
+          if args.out:
+            _SaveObj(aes_key, args.out, args.protect or None)
+          else:
+            print(_BytesToText(aes_key.key256, out_format))
         case 'encrypt':
           if args.key_b64:
             aes_key = aes.AESKey(key256=base.EncodedToBytes(args.key_b64))

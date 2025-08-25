@@ -157,14 +157,18 @@ def test_random_prime_properties(bits: int) -> None:
 
 
 @pytest.mark.slow
-def test_aes_key_frompass_print_b64_matches_library(tmp_path: pathlib.Path) -> None:
-  """Test AES key frompass CLI command output matches library."""
+def test_aes_key_print_b64_matches_library(tmp_path: pathlib.Path) -> None:
+  """Test AES key CLI command output matches library."""
   # CLI derives & prints b64; library derives for ground truth
+  code, out = _RunCLI(
+      ['--out-b64', 'aes', 'key', 'correct horse battery staple'])
+  assert code == 0
+  assert out == 'DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es='  # cspell:disable-line
   priv_path: pathlib.Path = tmp_path / 'password.priv'
   code, out = _RunCLI(
-      ['aes', 'key', 'frompass', 'correct horse', '--print-b64', '--out', str(priv_path)])
+      ['aes', 'key', 'correct horse battery staple', '--out', str(priv_path)])
   assert code == 0
-  assert out == '_JGT9LLANwER9NYmWAFv9PHgzuA58MoxPK2CA0CBuls='
+  assert out == ''
   assert priv_path.exists()
 
 
@@ -319,7 +323,6 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
     [
         ['mod'],
         ['aes'],
-        ['aes', 'key'],
         ['aes', 'ecb', '-k', 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8='],
         ['elgamal'],
         ['dsa'],
@@ -430,11 +433,11 @@ def test_aes_gcm_decrypt_wrong_aad_raises() -> None:
 
 
 def test_walk_subcommands_includes_deep_path() -> None:
-  """Ensure _WalkSubcommands traverses nested subparsers (e.g., aes key frompass)."""
+  """Ensure _WalkSubcommands traverses nested subparsers (e.g., aes ecb encrypthex)."""
   parser: argparse.ArgumentParser = transcrypto._BuildParser()
   paths: list[str] = [' '.join(p[0]) for p in transcrypto._WalkSubcommands(parser)]
   # A representative deep path present in your CLI
-  assert 'aes key frompass' in paths
+  assert 'aes ecb encrypthex' in paths
   assert transcrypto._HelpText(parser, None) == ''
 
 

@@ -63,11 +63,9 @@ typeguard = ">=4.4.4"
 [tool.poetry.scripts]
 transcrypto = "transcrypto.transcrypto:main"
 
-[pytest]
-pythonpath = ["src"]
-addopts = --strict-markers
-
 [tool.pytest.ini_options]
+pythonpath = ["src"]
+addopts = ["--strict-markers"]
 markers = [
   "slow: marks tests as slow (deselect with '-m \"not slow\"')",
   "stochastic: marks tests as capable of failing even if unlikely (deselect with '-m \"not stochastic\"')"

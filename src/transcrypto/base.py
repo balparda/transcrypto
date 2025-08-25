@@ -417,7 +417,7 @@ def FileHash(full_path: str, /, *, digest: str = 'sha256') -> bytes:
 
   Args:
     full_path (str): Path to existing file on disk
-    digest (str, optional): Hash method to use, default is 'sha256'
+    digest (str, optional): Hash method to use, accepts 'sha256' (default) or 'sha512'
 
   Returns:
     32 bytes (256 bits) of SHA-256 hash (if default digest=='sha256');
@@ -428,6 +428,7 @@ def FileHash(full_path: str, /, *, digest: str = 'sha256') -> bytes:
     InputError: file could not be found
   """
   # test inputs
+  digest = digest.lower().strip().replace('-', '')  # normalize so we can accept e.g. "SHA-256"
   if digest not in ('sha256', 'sha512'):
     raise InputError(f'unrecognized digest: {digest!r}')
   full_path = full_path.strip()

@@ -407,7 +407,7 @@ $ poetry run transcrypto mod crt 6 7 462 1071
 
 ### `hash`
 
-Hashing (SHA-256 / SHA-512 / file).
+Cryptographic Hashing (SHA-256 / SHA-512 / file).
 
 ```bash
 poetry run transcrypto hash [-h] {sha256,sha512,file} ...
@@ -415,7 +415,7 @@ poetry run transcrypto hash [-h] {sha256,sha512,file} ...
 
 #### `hash sha256`
 
-SHA-256 of input data.
+SHA-256 of input `data`.
 
 ```bash
 poetry run transcrypto hash sha256 [-h] data
@@ -423,11 +423,20 @@ poetry run transcrypto hash sha256 [-h] data
 
 | Option/Arg | Description |
 |---|---|
-| `data` | Input text (raw; or use --hex/--b64) [type: str] |
+| `data` | Input data (raw text; or use --hex/--b64/--bin) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --bin hash sha256 xyz
+3608bca1e44ea6c4d268eb6db02260269892c0b42b86bbf1e77a6fa16c3c9282
+$ poetry run transcrypto --b64 hash sha256 eHl6  # "xyz" in base-64
+3608bca1e44ea6c4d268eb6db02260269892c0b42b86bbf1e77a6fa16c3c9282
+```
 
 #### `hash sha512`
 
-SHA-512 of input data.
+SHA-512 of input `data`.
 
 ```bash
 poetry run transcrypto hash sha512 [-h] data
@@ -435,11 +444,20 @@ poetry run transcrypto hash sha512 [-h] data
 
 | Option/Arg | Description |
 |---|---|
-| `data` | Input text (raw; or use --hex/--b64) [type: str] |
+| `data` | Input data (raw text; or use --hex/--b64/--bin) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --bin hash sha256 xyz
+4a3ed8147e37876adc8f76328e5abcc1b470e6acfc18efea0135f983604953a58e183c1a6086e91ba3e821d926f5fdeb37761c7ca0328a963f5e92870675b728
+$ poetry run transcrypto --b64 hash sha256 eHl6  # "xyz" in base-64
+4a3ed8147e37876adc8f76328e5abcc1b470e6acfc18efea0135f983604953a58e183c1a6086e91ba3e821d926f5fdeb37761c7ca0328a963f5e92870675b728
+```
 
 #### `hash file`
 
-Hash file contents (streamed).
+SHA-256/512 hash of file contents, defaulting to SHA-256.
 
 ```bash
 poetry run transcrypto hash file [-h] [--digest {sha256,sha512}] path
@@ -447,8 +465,15 @@ poetry run transcrypto hash file [-h] [--digest {sha256,sha512}] path
 
 | Option/Arg | Description |
 |---|---|
-| `path` | Path to file [type: str] |
-| `--digest` | Digest (default: sha256) [choices: ['sha256', 'sha512'] (default: sha256)] |
+| `path` | Path to existing file [type: str] |
+| `--digest` | Digest type, SHA-256 ("sha256") or SHA-512 ("sha512") [choices: ['sha256', 'sha512'] (default: sha256)] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto hash file /etc/passwd --digest sha512
+8966f5953e79f55dfe34d3dc5b160ac4a4a3f9cbd1c36695a54e28d77c7874dff8595502f8a420608911b87d336d9e83c890f0e7ec11a76cb10b03e757f78aea
+```
 
 ---
 
@@ -462,28 +487,27 @@ poetry run transcrypto aes [-h] {key,encrypt,decrypt,ecb} ...
 
 #### `aes key`
 
-Create/derive/store AES keys.
+Derive key from a password (PBKDF2-HMAC-SHA256) with custom expensive salt and iterations. Very good/safe for simple password-to-key but not for passwords databases (because of constant salt).
 
 ```bash
-poetry run transcrypto aes key [-h] {frompass} ...
-```
-
-#### `aes key frompass`
-
-Derive key from a password (PBKDF2-HMAC-SHA256).
-
-```bash
-poetry run transcrypto aes key frompass [-h] [--print-b64] [--out OUT]
-                                               [--protect PROTECT]
-                                               password
+poetry run transcrypto aes key [-h] [--out OUT] [--protect PROTECT]
+                                      password
 ```
 
 | Option/Arg | Description |
 |---|---|
 | `password` | Password (leading/trailing spaces ignored) [type: str] |
-| `--print-b64` | Print derived key (base64url) |
 | `--out` | Save serialized AESKey to path [type: str] |
 | `--protect` | Password to encrypt the saved key file (Serialize) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --out-b64 aes key "correct horse battery staple"
+DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es=
+$ poetry run transcrypto aes key frompass "correct horse battery staple" --out keyfile.out --protect hunter
+$
+```
 
 #### `aes encrypt`
 
