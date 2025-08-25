@@ -161,7 +161,7 @@ def test_RandBits() -> None:
     base.RandBits(7)
   gn: set[int] = set()
   for _ in range(50):
-    gn.add(base.RandBits(8))
+    gn.add(base.RandBits(10))
   assert len(gn) > 30  # has a chance of 1 in 531,000 to fail
   gn = set()
   for _ in range(20):

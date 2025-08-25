@@ -65,6 +65,7 @@ transcrypto = "transcrypto.transcrypto:main"
 
 [pytest]
 pythonpath = ["src"]
+addopts = --strict-markers
 
 [tool.pytest.ini_options]
 markers = [
