@@ -187,12 +187,12 @@ def test_aes_ecb_encrypthex_decrypthex_roundtrip() -> None:
   key_b64: str = base.BytesToEncoded(key_bytes)
   block_hex = '00112233445566778899aabbccddeeff'
   # Encrypt (hex → hex)
-  code, ct_hex = _RunCLI(['aes', 'ecb', '-k', key_b64, 'encrypthex', block_hex])
+  code, ct_hex = _RunCLI(['--b64', 'aes', 'ecb', '-k', key_b64, 'encrypt', block_hex])
   assert code == 0
   assert re.fullmatch(r'[0-9a-f]{32}', block_hex)  # sanity of input
   assert re.fullmatch(r'[0-9a-f]{32}', ct_hex)     # 16-byte block
   # Decrypt back
-  code, pt_hex = _RunCLI(['aes', 'ecb', '-k', key_b64, 'decrypthex', ct_hex])
+  code, pt_hex = _RunCLI(['--b64', 'aes', 'ecb', '-k', key_b64, 'decrypt', ct_hex])
   assert code == 0
   assert pt_hex == block_hex
 
@@ -209,7 +209,8 @@ def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None: 
   assert len(ct_hex) >= 32  # IV(16)+TAG(16)+ct → hex length ≥ 64; allow any ≥ minimal sanity
   # Decrypt: ciphertext hex in, ask for raw output so we can compare to original string
   code, out = _RunCLI(
-      ['--hex', '-p', str(aes_key_file), '--out-bin', 'aes', 'decrypt', ct_hex, '-a', aad])
+      ['--hex', '-p', str(aes_key_file), '--out-bin', 'aes', 'decrypt',
+       ct_hex, '-a', base.BytesToHex(aad.encode('utf-8'))])
   assert code == 0
   assert out == plaintext
 
@@ -329,7 +330,7 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
     [
         ['mod'],
         ['aes'],
-        ['aes', 'ecb', '-k', 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8='],
+        ['--b64', 'aes', 'ecb', '-k', 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8='],
         ['elgamal'],
         ['dsa'],
         ['sss'],
@@ -412,17 +413,17 @@ def test_markdown_table_helper() -> None:
 
 
 def test_aes_crypt_requires_key() -> None:
-  """Hit the 'provide --key-b64 or --key-path' error in AES encrypt."""
-  with pytest.raises(base.InputError, match='provide --key-b64 or --key-path'):
+  """Hit the 'provide --key or --key-path' error in AES encrypt."""
+  with pytest.raises(base.InputError, match='provide --key or --key-path'):
     transcrypto.main(['--bin', 'aes', 'encrypt', 'msg'])
-  with pytest.raises(base.InputError, match='provide --key-b64 or --key-path'):
+  with pytest.raises(base.InputError, match='provide --key or --key-path'):
     transcrypto.main(['--bin', 'aes', 'decrypt', 'msg'])
 
 
 def test_aes_ecb_requires_key() -> None:
   """Hit the 'provide --key-b64 or --key-path' error in AES ecb."""
-  with pytest.raises(base.InputError, match='provide --key-b64 or --key-path'):
-    transcrypto.main(['aes', 'ecb', 'encrypthex', '00112233445566778899aabbccddeeff'])
+  with pytest.raises(base.InputError, match='provide --key or --key-path'):
+    transcrypto.main(['aes', 'ecb', 'encrypt', '00112233445566778899aabbccddeeff'])
 
 
 def test_aes_gcm_decrypt_wrong_aad_raises() -> None:
@@ -431,11 +432,14 @@ def test_aes_gcm_decrypt_wrong_aad_raises() -> None:
   key_bytes = bytes(range(32))
   key_b64: str = base.BytesToEncoded(key_bytes)
   # Encrypt with AAD='A'
-  code, ct_hex = _RunCLI(['--bin', 'aes', 'encrypt', 'hello', '-k', key_b64, '-a', 'A'])
+  code, ct_hex = _RunCLI(
+      ['--b64', '--out-hex', 'aes', 'encrypt', 'AAAAAAB4eXo=', '-k', key_b64, '-a', 'eHl6'])  # cspell:disable-line
   assert code == 0 and re.fullmatch(r'[0-9a-f]+', ct_hex)
   # Decrypt with WRONG AAD='B' → should raise CryptoError
   with pytest.raises(base.CryptoError):
-    transcrypto.main(['--hex', '--out-bin', 'aes', 'decrypt', ct_hex, '-k', key_b64, '-a', 'B'])
+    transcrypto.main(
+        ['--b64', 'aes', 'decrypt',
+         base.BytesToEncoded(base.HexToBytes(ct_hex)), '-k', key_b64, '-a', 'eHm6'])
 
 
 def test_walk_subcommands_includes_deep_path() -> None:
@@ -443,7 +447,7 @@ def test_walk_subcommands_includes_deep_path() -> None:
   parser: argparse.ArgumentParser = transcrypto._BuildParser()
   paths: list[str] = [' '.join(p[0]) for p in transcrypto._WalkSubcommands(parser)]
   # A representative deep path present in your CLI
-  assert 'aes ecb encrypthex' in paths
+  assert 'aes ecb encrypt' in paths
   assert transcrypto._HelpText(parser, None) == ''
 
 
@@ -486,10 +490,10 @@ def test_aes_ecb_encrypt_decrypt_with_key_path(tmp_path: pathlib.Path) -> None:
   base.Serialize(key, file_path=str(key_path))
   block_hex = '00112233445566778899aabbccddeeff'
   # Encrypt with --key-path
-  code, ct_hex = _RunCLI(['-p', str(key_path), 'aes', 'ecb', 'encrypthex', block_hex])
+  code, ct_hex = _RunCLI(['-p', str(key_path), 'aes', 'ecb', 'encrypt', block_hex])
   assert code == 0 and re.fullmatch(r'[0-9a-f]{32}', ct_hex)
   # Decrypt with --key-path
-  code, pt_hex = _RunCLI(['-p', str(key_path), 'aes', 'ecb', 'decrypthex', ct_hex])
+  code, pt_hex = _RunCLI(['-p', str(key_path), 'aes', 'ecb', 'decrypt', ct_hex])
   assert code == 0 and pt_hex == block_hex
 
 

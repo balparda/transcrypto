@@ -606,6 +606,7 @@ def test_Bid(secret: bytes) -> None:
   assert priv1.public_key != priv2.public_key  # this could fail with probability 1 in 2**512...
   assert priv1.private_key != priv2.private_key
   assert priv1.public_hash != priv2.public_hash
+  assert priv2.VerifyBid(priv2.private_key, secret)
 
 
 def test_Bid_invalid() -> None:

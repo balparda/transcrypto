@@ -543,36 +543,71 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
 
   # AES-256-GCM encrypt
   p_aes_enc: argparse.ArgumentParser = aes_sub.add_parser(
-      'encrypt', help='AES-256-GCM: encrypt (outputs IV||ct||tag).')
-  p_aes_enc.add_argument('plaintext', type=str, help='Input data (raw; or use --in-hex/--in-b64)')
+      'encrypt',
+      help=('AES-256-GCM: safely encrypt `plaintext` with `-k`/`--key` or with '
+            '`-p`/`--key-path` keyfile. All inputs are raw, or you '
+            'can use `--bin`/`--hex`/`--b64` flags. Attention: if you provide `-a`/`--aad` '
+            '(associated data, AAD), you will need to provide the same AAD when decrypting '
+            'and it is NOT included in the `ciphertext`/CT returned by this method!'),
+      epilog=('--b64 --out-b64 aes encrypt -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= '          # cspell:disable-line
+              'AAAAAAB4eXo=\nF2_ZLrUw5Y8oDnbTP5t5xCUWX8WtVILLD0teyUi_37_4KHeV-YowVA== $$ '            # cspell:disable-line
+              '--b64 --out-b64 aes encrypt -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= -a eHl6 '  # cspell:disable-line
+              'AAAAAAB4eXo=\nxOlAHPUPpeyZHId-f3VQ_QKKMxjIW0_FBo9WOfIBrzjn0VkVV6xTRA=='))              # cspell:disable-line
+  p_aes_enc.add_argument('plaintext', type=str, help='Input data to encrypt (PT)')
   p_aes_enc.add_argument(
-      '-k', '--key-b64', type=str, default='', help='Key as base64url (32 bytes)')
-  p_aes_enc.add_argument('-a', '--aad', type=str, default='', help='Associated data (optional)')
+      '-k', '--key', type=str, default='', help='Key if `-p`/`--key-path` wasn\'t used (32 bytes)')
+  p_aes_enc.add_argument(
+      '-a', '--aad', type=str, default='',
+      help='Associated data (optional; has to be separately sent to receiver/stored)')
 
   # AES-256-GCM decrypt
   p_aes_dec: argparse.ArgumentParser = aes_sub.add_parser(
-      'decrypt', help='AES-256-GCM: decrypt IV||ct||tag.')
-  p_aes_dec.add_argument('ciphertext', type=str, help='Input blob (use --in-hex/--in-b64)')
+      'decrypt',
+      help=('AES-256-GCM: safely decrypt `ciphertext` with `-k`/`--key` or with '
+            '`-p`/`--key-path` keyfile. All inputs are raw, or you '
+            'can use `--bin`/`--hex`/`--b64` flags. Attention: if you provided `-a`/`--aad` '
+            '(associated data, AAD) during encryption, you will need to provide the same AAD now!'),
+      epilog=('--b64 --out-b64 aes decrypt -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= '      # cspell:disable-line
+              'F2_ZLrUw5Y8oDnbTP5t5xCUWX8WtVILLD0teyUi_37_4KHeV-YowVA==\nAAAAAAB4eXo= $$ '        # cspell:disable-line
+              '--b64 --out-b64 aes decrypt -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= '      # cspell:disable-line
+              '-a eHl6 xOlAHPUPpeyZHId-f3VQ_QKKMxjIW0_FBo9WOfIBrzjn0VkVV6xTRA==\nAAAAAAB4eXo='))  # cspell:disable-line
+  p_aes_dec.add_argument('ciphertext', type=str, help='Input data to decrypt (CT)')
   p_aes_dec.add_argument(
-      '-k', '--key-b64', type=str, default='', help='Key as base64url (32 bytes)')
-  p_aes_dec.add_argument('-a', '--aad', type=str, default='', help='Associated data (must match)')
+      '-k', '--key', type=str, default='', help='Key if `-p`/`--key-path` wasn\'t used (32 bytes)')
+  p_aes_dec.add_argument(
+      '-a', '--aad', type=str, default='',
+      help='Associated data (optional; has to be exactly the same as used during encryption)')
 
   # AES-ECB
   p_aes_ecb: argparse.ArgumentParser = aes_sub.add_parser(
-      'ecb', help='AES-ECB (unsafe; fixed 16-byte blocks only).')
+      'ecb',
+      help=('AES-256-ECB: encrypt/decrypt 128 bit (16 bytes) hexadecimal blocks. UNSAFE, except '
+            'for specifically encrypting hash blocks which are very much expected to look random. '
+            'ECB mode will have the same output for the same input (no IV/nonce is used).'))
   p_aes_ecb.add_argument(
-      '-k', '--key-b64', type=str, default='', help='Key as base64url (32 bytes)')
+      '-k', '--key', type=str, default='',
+      help=('Key if `-p`/`--key-path` wasn\'t used (32 bytes; raw, or you '
+            'can use `--bin`/`--hex`/`--b64` flags)'))
   aes_ecb_sub = p_aes_ecb.add_subparsers(dest='aes_ecb_command')
 
   # AES-ECB encrypt 16-byte hex block
   p_aes_ecb_e: argparse.ArgumentParser = aes_ecb_sub.add_parser(
-      'encrypthex', help='Encrypt 16-byte hex block with AES-ECB.')
-  p_aes_ecb_e.add_argument('block_hex', type=str, help='Plaintext block as 32 hex chars')
+      'encrypt',
+      help=('AES-256-ECB: encrypt 16-bytes hex `plaintext` with `-k`/`--key` or with '
+            '`-p`/`--key-path` keyfile. UNSAFE, except for specifically encrypting hash blocks.'),
+      epilog=('--b64 aes ecb -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= encrypt '  # cspell:disable-line
+              '00112233445566778899aabbccddeeff\n54ec742ca3da7b752e527b74e3a798d7'))
+  p_aes_ecb_e.add_argument('plaintext', type=str, help='Plaintext block as 32 hex chars (16-bytes)')
 
   # AES-ECB decrypt 16-byte hex block
   p_aes_scb_d: argparse.ArgumentParser = aes_ecb_sub.add_parser(
-      'decrypthex', help='Decrypt 16-byte hex block with AES-ECB.')
-  p_aes_scb_d.add_argument('block_hex', type=str, help='Ciphertext block as 32 hex chars')
+      'decrypt',
+      help=('AES-256-ECB: decrypt 16-bytes hex `ciphertext` with `-k`/`--key` or with '
+            '`-p`/`--key-path` keyfile. UNSAFE, except for specifically encrypting hash blocks.'),
+      epilog=('--b64 aes ecb -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= decrypt '  # cspell:disable-line
+              '54ec742ca3da7b752e527b74e3a798d7\n00112233445566778899aabbccddeeff'))    # cspell:disable-line
+  p_aes_scb_d.add_argument(
+      'ciphertext', type=str, help='Ciphertext block as 32 hex chars (16-bytes)')
 
   # ========================= RSA ==================================================================
 
@@ -854,42 +889,42 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
           else:
             print(_BytesToText(aes_key.key256, out_format))
         case 'encrypt':
-          if args.key_b64:
-            aes_key = aes.AESKey(key256=base.EncodedToBytes(args.key_b64))
+          if args.key:
+            aes_key = aes.AESKey(key256=_BytesFromText(args.key, in_format))
           elif args.key_path:
             aes_key = _LoadObj(args.key_path, args.protect or None)
           else:
-            raise base.InputError('provide --key-b64 or --key-path')
-          aad: bytes | None = args.aad.encode('utf-8') if args.aad else None
+            raise base.InputError('provide --key or --key-path')
+          aad: bytes | None = _BytesFromText(args.aad, in_format) if args.aad else None
           pt = _BytesFromText(args.plaintext, in_format)
           ct = aes_key.Encrypt(pt, associated_data=aad)
           print(_BytesToText(ct, out_format))
         case 'decrypt':
-          if args.key_b64:
-            aes_key = aes.AESKey(key256=base.EncodedToBytes(args.key_b64))
+          if args.key:
+            aes_key = aes.AESKey(key256=_BytesFromText(args.key, in_format))
           elif args.key_path:
             aes_key = _LoadObj(args.key_path, args.protect or None)
           else:
-            raise base.InputError('provide --key-b64 or --key-path')
-          aad = args.aad.encode('utf-8') if args.aad else None
+            raise base.InputError('provide --key or --key-path')
+          aad = _BytesFromText(args.aad, in_format) if args.aad else None
           ct = _BytesFromText(args.ciphertext, in_format)
           pt = aes_key.Decrypt(ct, associated_data=aad)
           print(_BytesToText(pt, out_format))
         case 'ecb':
           ecb_cmd: str = args.aes_ecb_command.lower().strip() if args.aes_ecb_command else ''
-          if args.key_b64:
-            aes_key = aes.AESKey(key256=base.EncodedToBytes(args.key_b64))
+          if args.key:
+            aes_key = aes.AESKey(key256=_BytesFromText(args.key, in_format))
           elif args.key_path:
             aes_key = _LoadObj(args.key_path, args.protect or None)
           else:
-            raise base.InputError('provide --key-b64 or --key-path')
+            raise base.InputError('provide --key or --key-path')
           match ecb_cmd:
-            case 'encrypthex':
+            case 'encrypt':
               ecb: aes.AESKey.ECBEncoderClass = aes_key.ECBEncoder()
-              print(ecb.EncryptHex(args.block_hex))
-            case 'decrypthex':
+              print(ecb.EncryptHex(args.plaintext))
+            case 'decrypt':
               ecb = aes_key.ECBEncoder()
-              print(ecb.DecryptHex(args.block_hex))
+              print(ecb.DecryptHex(args.ciphertext))
             case _:
               raise NotImplementedError()
         case _:

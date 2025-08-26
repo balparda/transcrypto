@@ -36,12 +36,11 @@ Started in July/2025, by Daniel Balparda. Since version 1.0.2 it is PyPI package
       - [`hash file`](#hash-file)
     - [`aes`](#aes)
       - [`aes key`](#aes-key)
-      - [`aes key frompass`](#aes-key-frompass)
       - [`aes encrypt`](#aes-encrypt)
       - [`aes decrypt`](#aes-decrypt)
       - [`aes ecb`](#aes-ecb)
-      - [`aes ecb encrypthex`](#aes-ecb-encrypthex)
-      - [`aes ecb decrypthex`](#aes-ecb-decrypthex)
+      - [`aes ecb encrypt`](#aes-ecb-encrypt)
+      - [`aes ecb decrypt`](#aes-ecb-decrypt)
     - [`rsa`](#rsa)
       - [`rsa new`](#rsa-new)
       - [`rsa encrypt`](#rsa-encrypt)
@@ -71,12 +70,6 @@ Started in July/2025, by Daniel Balparda. Since version 1.0.2 it is PyPI package
       - [`rsa new`](#rsa-new-1)
       - [`rsa encrypt`](#rsa-encrypt-1)
       - [`rsa decrypt`](#rsa-decrypt-1)
-    - [4. AES Cryptography](#4-aes-cryptography)
-      - [`aes genkey`](#aes-genkey)
-      - [`aes encrypt`](#aes-encrypt-1)
-      - [`aes decrypt`](#aes-decrypt-1)
-      - [`aes ecb-encrypt`](#aes-ecb-encrypt)
-      - [`aes ecb-decrypt`](#aes-ecb-decrypt)
     - [5. Hashing](#5-hashing)
       - [`hash sha256`](#hash-sha256-1)
       - [`hash sha512`](#hash-sha512-1)
@@ -140,6 +133,8 @@ Known dependencies:
 
 - [zstandard](https://pypi.org/project/zstandard/) ([docs](https://python-zstandard.readthedocs.org/))
 - [cryptography](https://pypi.org/project/cryptography/) ([docs](https://cryptography.io/en/latest/))
+
+<!-- cspell:disable -->
 
 <!-- (auto-generated; do not edit between START/END) -->
 <!-- INCLUDE:CLI.md START -->
@@ -655,69 +650,99 @@ $
 
 #### `aes encrypt`
 
-AES-256-GCM: encrypt (outputs IV||ct||tag).
+AES-256-GCM: safely encrypt `plaintext` with `-k`/`--key` or with `-p`/`--key-path` keyfile. All inputs are raw, or you can use `--bin`/`--hex`/`--b64` flags. Attention: if you provide `-a`/`--aad` (associated data, AAD), you will need to provide the same AAD when decrypting and it is NOT included in the `ciphertext`/CT returned by this method!
 
 ```bash
-poetry run transcrypto aes encrypt [-h] [-k KEY_B64] [-a AAD] plaintext
+poetry run transcrypto aes encrypt [-h] [-k KEY] [-a AAD] plaintext
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `plaintext` | Input data (raw; or use --in-hex/--in-b64) [type: str] |
-| `-k, --key-b64` | Key as base64url (32 bytes) [type: str] |
-| `-a, --aad` | Associated data (optional) [type: str] |
+| `plaintext` | Input data to encrypt (PT) [type: str] |
+| `-k, --key` | Key if `-p`/`--key-path` wasn't used (32 bytes) [type: str] |
+| `-a, --aad` | Associated data (optional; has to be separately sent to receiver/stored) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --b64 --out-b64 aes encrypt -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= AAAAAAB4eXo=
+F2_ZLrUw5Y8oDnbTP5t5xCUWX8WtVILLD0teyUi_37_4KHeV-YowVA==
+$ poetry run transcrypto --b64 --out-b64 aes encrypt -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= -a eHl6 AAAAAAB4eXo=
+xOlAHPUPpeyZHId-f3VQ_QKKMxjIW0_FBo9WOfIBrzjn0VkVV6xTRA==
+```
 
 #### `aes decrypt`
 
-AES-256-GCM: decrypt IV||ct||tag.
+AES-256-GCM: safely decrypt `ciphertext` with `-k`/`--key` or with `-p`/`--key-path` keyfile. All inputs are raw, or you can use `--bin`/`--hex`/`--b64` flags. Attention: if you provided `-a`/`--aad` (associated data, AAD) during encryption, you will need to provide the same AAD now!
 
 ```bash
-poetry run transcrypto aes decrypt [-h] [-k KEY_B64] [-a AAD]
-                                          ciphertext
+poetry run transcrypto aes decrypt [-h] [-k KEY] [-a AAD] ciphertext
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `ciphertext` | Input blob (use --in-hex/--in-b64) [type: str] |
-| `-k, --key-b64` | Key as base64url (32 bytes) [type: str] |
-| `-a, --aad` | Associated data (must match) [type: str] |
+| `ciphertext` | Input data to decrypt (CT) [type: str] |
+| `-k, --key` | Key if `-p`/`--key-path` wasn't used (32 bytes) [type: str] |
+| `-a, --aad` | Associated data (optional; has to be exactly the same as used during encryption) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --b64 --out-b64 aes decrypt -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= F2_ZLrUw5Y8oDnbTP5t5xCUWX8WtVILLD0teyUi_37_4KHeV-YowVA==
+AAAAAAB4eXo=
+$ poetry run transcrypto --b64 --out-b64 aes decrypt -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= -a eHl6 xOlAHPUPpeyZHId-f3VQ_QKKMxjIW0_FBo9WOfIBrzjn0VkVV6xTRA==
+AAAAAAB4eXo=
+```
 
 #### `aes ecb`
 
-AES-ECB (unsafe; fixed 16-byte blocks only).
+AES-256-ECB: encrypt/decrypt 128 bit (16 bytes) hexadecimal blocks. UNSAFE, except for specifically encrypting hash blocks which are very much expected to look random. ECB mode will have the same output for the same input (no IV/nonce is used).
 
 ```bash
-poetry run transcrypto aes ecb [-h] [-k KEY_B64]
-                                      {encrypthex,decrypthex} ...
+poetry run transcrypto aes ecb [-h] [-k KEY] {encrypt,decrypt} ...
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `-k, --key-b64` | Key as base64url (32 bytes) [type: str] |
+| `-k, --key` | Key if `-p`/`--key-path` wasn't used (32 bytes; raw, or you can use `--bin`/`--hex`/`--b64` flags) [type: str] |
 
-#### `aes ecb encrypthex`
+#### `aes ecb encrypt`
 
-Encrypt 16-byte hex block with AES-ECB.
+AES-256-ECB: encrypt 16-bytes hex `plaintext` with `-k`/`--key` or with `-p`/`--key-path` keyfile. UNSAFE, except for specifically encrypting hash blocks.
 
 ```bash
-poetry run transcrypto aes ecb encrypthex [-h] block_hex
+poetry run transcrypto aes ecb encrypt [-h] plaintext
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `block_hex` | Plaintext block as 32 hex chars [type: str] |
+| `plaintext` | Plaintext block as 32 hex chars (16-bytes) [type: str] |
 
-#### `aes ecb decrypthex`
-
-Decrypt 16-byte hex block with AES-ECB.
+**Example:**
 
 ```bash
-poetry run transcrypto aes ecb decrypthex [-h] block_hex
+$ poetry run transcrypto --b64 aes ecb -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= encrypt 00112233445566778899aabbccddeeff
+54ec742ca3da7b752e527b74e3a798d7
+```
+
+#### `aes ecb decrypt`
+
+AES-256-ECB: decrypt 16-bytes hex `ciphertext` with `-k`/`--key` or with `-p`/`--key-path` keyfile. UNSAFE, except for specifically encrypting hash blocks.
+
+```bash
+poetry run transcrypto aes ecb decrypt [-h] ciphertext
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `block_hex` | Ciphertext block as 32 hex chars [type: str] |
+| `ciphertext` | Ciphertext block as 32 hex chars (16-bytes) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --b64 aes ecb -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= decrypt 54ec742ca3da7b752e527b74e3a798d7
+00112233445566778899aabbccddeeff
+```
 
 ---
 
@@ -1019,6 +1044,7 @@ poetry run transcrypto doc md [-h]
 <!-- INCLUDE:CLI.md END -->
 <!-- (auto-generated; do not edit between START/END) -->
 
+<!-- cspell:enable -->
 
 
 
@@ -1097,104 +1123,6 @@ Decrypts RSA ciphertext with private key.
 **Output**:
 
 - Original plaintext string.
-
----
-
-### 4. AES Cryptography
-
-#### `aes genkey`
-
-```bash
-poetry run transcrypto.py aes genkey PASSWORD
-```
-
-Derives a 256-bit AES key from a static password using `AESKey.FromStaticPassword()`.
-
-**Arguments**:
-
-- `PASSWORD` (`str`): Non-empty password string (leading/trailing spaces ignored).
-
-**Output**:
-
-- URL-safe Base64-encoded AES key.
-
----
-
-#### `aes encrypt`
-
-```bash
-poetry run transcrypto.py aes encrypt KEY PLAINTEXT [-a AAD]
-```
-
-Encrypts data using AES-256-GCM.
-
-**Arguments**:
-
-- `KEY` (`str`): URL-safe Base64-encoded AES key.
-- `PLAINTEXT` (`str`): Plaintext to encrypt.
-- `-a`, `--aad` (`str`, optional): Additional authenticated data.
-
-**Output**:
-
-- Hexadecimal ciphertext including IV and tag.
-
----
-
-#### `aes decrypt`
-
-```bash
-poetry run transcrypto.py aes decrypt KEY CIPHERTEXT_HEX [-a AAD]
-```
-
-Decrypts AES-256-GCM ciphertext.
-
-**Arguments**:
-
-- `KEY` (`str`): URL-safe Base64-encoded AES key.
-- `CIPHERTEXT_HEX` (`str`): Hexadecimal ciphertext including IV and tag.
-- `-a`, `--aad` (`str`, optional): Additional authenticated data.
-
-**Output**:
-
-- Original plaintext string.
-
----
-
-#### `aes ecb-encrypt`
-
-```bash
-poetry run transcrypto.py aes ecb-encrypt KEY PLAINTEXT_HEX
-```
-
-Encrypts a single 16-byte block using AES-256-ECB.
-
-**Arguments**:
-
-- `KEY` (`str`): URL-safe Base64-encoded AES key.
-- `PLAINTEXT_HEX` (`str`): 32 hex characters (16 bytes).
-
-**Output**:
-
-- 32-character hex ciphertext.
-
----
-
-#### `aes ecb-decrypt`
-
-```bash
-poetry run transcrypto.py aes ecb-decrypt KEY CIPHERTEXT_HEX
-```
-
-Decrypts a single 16-byte block using AES-256-ECB.
-
-**Arguments**:
-
-- `KEY` (`str`): URL-safe Base64-encoded AES key.
-- `CIPHERTEXT_HEX` (`str`): 32 hex characters (16 bytes).
-
-**Output**:
-
-- 32-character hex plaintext.
 
 ---
 
