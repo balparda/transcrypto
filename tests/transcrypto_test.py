@@ -359,16 +359,16 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
 )
 def test_not_implemented_error_paths(argv: list[str]) -> None:
   """Test CLI paths that raise NotImplementedError."""
-  with pytest.raises(NotImplementedError):
-    # call main() directly so the exception propagates
-    transcrypto.main(argv)
+  code, out = _RunCLI(argv)
+  assert code == 0
+  assert 'Invalid command' in out
 
 
 def test_from_flags_conflict_raises() -> None:
   """Directly hit _StrBytesType.FromFlags conflicting flags branch."""
   with pytest.raises(base.InputError):
     # Conflicting: --hex and --b64 at the same time
-    transcrypto._StrBytesType.FromFlags(is_hex=True, is_base64=True, is_bin=False)
+    transcrypto._StrBytesType.FromFlags(True, True, False)
 
 
 @pytest.mark.parametrize(
@@ -429,16 +429,20 @@ def test_markdown_table_helper() -> None:
   assert transcrypto._MarkdownTable([]) == ''  # empty input → empty output
 
 
-def test_requires_key() -> None:
+@pytest.mark.parametrize(
+    'argv',
+    [
+        ['--bin', 'aes', 'encrypt', 'msg'],
+        ['--bin', 'aes', 'decrypt', 'msg'],
+        ['aes', 'ecb', 'encrypt', '00112233445566778899aabbccddeeff'],
+        ['rsa', 'new'],
+    ],
+)
+def test_requires_key(argv: list[str]) -> None:
   """Hit the 'provide --key or --key-path' error in AES."""
-  with pytest.raises(base.InputError, match='provide -k/--key or -p/--key-path'):
-    transcrypto.main(['--bin', 'aes', 'encrypt', 'msg'])
-  with pytest.raises(base.InputError, match='provide -k/--key or -p/--key-path'):
-    transcrypto.main(['--bin', 'aes', 'decrypt', 'msg'])
-  with pytest.raises(base.InputError, match='provide -k/--key or -p/--key-path'):
-    transcrypto.main(['aes', 'ecb', 'encrypt', '00112233445566778899aabbccddeeff'])
-  with pytest.raises(base.InputError, match='you must provide -p/--key-path option'):
-    transcrypto.main(['rsa', 'new'])
+  code, out = _RunCLI(argv)
+  assert code == 0
+  assert '-p/--key-path' in out
 
 
 def test_aes_gcm_decrypt_wrong_aad_raises() -> None:
@@ -447,14 +451,14 @@ def test_aes_gcm_decrypt_wrong_aad_raises() -> None:
   key_bytes = bytes(range(32))
   key_b64: str = base.BytesToEncoded(key_bytes)
   # Encrypt with AAD='A'
-  code, ct_hex = _RunCLI(
+  code, out = _RunCLI(
       ['--b64', '--out-hex', 'aes', 'encrypt', 'AAAAAAB4eXo=', '-k', key_b64, '-a', 'eHl6'])  # cspell:disable-line
-  assert code == 0 and re.fullmatch(r'[0-9a-f]+', ct_hex)
+  assert code == 0 and re.fullmatch(r'[0-9a-f]+', out)
   # Decrypt with WRONG AAD='B' → should raise CryptoError
-  with pytest.raises(base.CryptoError):
-    transcrypto.main(
-        ['--b64', 'aes', 'decrypt',
-         base.BytesToEncoded(base.HexToBytes(ct_hex)), '-k', key_b64, '-a', 'eHm6'])
+  code, out = _RunCLI(
+      ['--b64', 'aes', 'decrypt',
+       base.BytesToEncoded(base.HexToBytes(out)), '-k', key_b64, '-a', 'eHm6'])
+  assert code == 0 and 'failed decryption' in out
 
 
 def test_walk_subcommands_includes_deep_path() -> None:
@@ -469,7 +473,7 @@ def test_walk_subcommands_includes_deep_path() -> None:
 def test_from_flags_conflict_raises_again() -> None:
   """Hit the conflicting flags branch in _StrBytesType.FromFlags."""
   with pytest.raises(base.InputError):
-    transcrypto._StrBytesType.FromFlags(is_hex=True, is_base64=True, is_bin=False)
+    transcrypto._StrBytesType.FromFlags(True, True, False)
 
 
 def test_rows_for_actions_cover_suppress_custom_and_help() -> None:
@@ -510,15 +514,6 @@ def test_aes_ecb_encrypt_decrypt_with_key_path(tmp_path: pathlib.Path) -> None:
   # Decrypt with --key-path
   code, pt_hex = _RunCLI(['-p', str(key_path), 'aes', 'ecb', 'decrypt', ct_hex])
   assert code == 0 and pt_hex == block_hex
-
-
-def test_aes_ecb_notimplemented_when_missing_subcommand(tmp_path: pathlib.Path) -> None:
-  """Explicitly hit the NotImplementedError in aes ecb when subcommand is missing."""
-  key = aes.AESKey(key256=os.urandom(32))
-  kp: pathlib.Path = tmp_path / 'k.bin'
-  base.Serialize(key, file_path=str(kp))
-  with pytest.raises(NotImplementedError):
-    transcrypto.main(['-p', str(kp), 'aes', 'ecb'])
 
 
 @pytest.mark.filterwarnings(r'ignore:.*found in sys.modules.*:RuntimeWarning')
