@@ -66,35 +66,45 @@ Started in July/2025, by Daniel Balparda. Since version 1.0.2 it is PyPI package
       - [`sss verify`](#sss-verify)
     - [`doc`](#doc)
       - [`doc md`](#doc-md)
-    - [3. RSA Cryptography](#3-rsa-cryptography)
-      - [`rsa new`](#rsa-new-1)
-      - [`rsa encrypt`](#rsa-encrypt-1)
-      - [`rsa decrypt`](#rsa-decrypt-1)
-    - [5. Hashing](#5-hashing)
-      - [`hash sha256`](#hash-sha256-1)
-      - [`hash sha512`](#hash-sha512-1)
-      - [`hash file`](#hash-file-1)
-    - [6. Shamir’s Secret Sharing](#6-shamirs-secret-sharing)
-      - [`sss split`](#sss-split)
-      - [`sss combine`](#sss-combine)
     - [Base Library](#base-library)
       - [Humanized Sizes (IEC binary)](#humanized-sizes-iec-binary)
       - [Humanized Decimal Quantities (SI)](#humanized-decimal-quantities-si)
       - [Humanized Durations](#humanized-durations)
       - [Cryptographically Secure Randomness](#cryptographically-secure-randomness)
+        - [Fixed-size random integers](#fixed-size-random-integers)
+        - [Uniform random integers in a range](#uniform-random-integers-in-a-range)
+        - [In-place secure shuffle](#in-place-secure-shuffle)
+        - [Random byte strings](#random-byte-strings)
       - [Computing the Greatest Common Divisor](#computing-the-greatest-common-divisor)
       - [Cryptographic Hashing](#cryptographic-hashing)
+        - [SHA-256 hashing](#sha-256-hashing)
+        - [SHA-512 hashing](#sha-512-hashing)
+        - [File hashing](#file-hashing)
       - [Execution Timing](#execution-timing)
+        - [Context manager](#context-manager)
+        - [Decorator](#decorator)
+        - [Manual use](#manual-use)
+        - [Key points](#key-points)
       - [Symmetric Encryption Interface](#symmetric-encryption-interface)
       - [Serialization Pipeline](#serialization-pipeline)
+        - [Serialize](#serialize)
+        - [DeSerialize](#deserialize)
       - [AES-256 Symmetric Encryption](#aes-256-symmetric-encryption)
+        - [Key creation](#key-creation)
+        - [AES-256 + GCM (default)](#aes-256--gcm-default)
+        - [AES-256 + ECB (unsafe, fixed block only)](#aes-256--ecb-unsafe-fixed-block-only)
       - [Fast Modular Arithmetic](#fast-modular-arithmetic)
       - [Chinese Remainder Theorem (CRT) – Pair](#chinese-remainder-theorem-crt--pair)
       - [Modular Polynomials \& Lagrange Interpolation](#modular-polynomials--lagrange-interpolation)
       - [Primality testing \& Prime generators, Mersenne primes](#primality-testing--prime-generators-mersenne-primes)
       - [RSA (Rivest-Shamir-Adleman) Public Cryptography](#rsa-rivest-shamir-adleman-public-cryptography)
       - [El-Gamal Public-Key Cryptography](#el-gamal-public-key-cryptography)
+        - [Shared Public Key](#shared-public-key)
+        - [Public Key](#public-key)
+        - [Private Key](#private-key)
       - [DSA (Digital Signature Algorithm)](#dsa-digital-signature-algorithm)
+        - [Security notes](#security-notes)
+        - [Advanced: custom primes generator](#advanced-custom-primes-generator)
       - [SSS (Shamir Shared Secret)](#sss-shamir-shared-secret)
   - [Appendix: Development Instructions](#appendix-development-instructions)
     - [Setup](#setup)
@@ -179,6 +189,70 @@ poetry run transcrypto <command> [sub-command] [options...]
 - **`dsa`** — `poetry run transcrypto dsa [-h] {shared,new,sign,verify} ...`
 - **`sss`** — `poetry run transcrypto sss [-h] {new,shares,recover,verify} ...`
 - **`doc`** — `poetry run transcrypto doc [-h] {md} ...`
+
+```bash
+Examples:
+
+  # --- Randomness ---
+  poetry run transcrypto random bits 16
+  poetry run transcrypto random int 1000 2000
+  poetry run transcrypto random bytes 32
+  poetry run transcrypto random prime 64
+
+  # --- Primes ---
+  poetry run transcrypto isprime 428568761
+  poetry run transcrypto primegen 100 -c 3
+  poetry run transcrypto mersenne -k 2 -C 17
+
+  # --- Integer / Modular Math ---
+  poetry run transcrypto gcd 462 1071
+  poetry run transcrypto xgcd 127 13
+  poetry run transcrypto mod inv 17 97
+  poetry run transcrypto mod div 6 127 13
+  poetry run transcrypto mod exp 438 234 127
+  poetry run transcrypto mod poly 12 17 10 20 30
+  poetry run transcrypto mod lagrange 5 13 2:4 6:3 7:1
+  poetry run transcrypto mod crt 6 7 127 13
+
+  # --- Hashing ---
+  poetry run transcrypto hash sha256 xyz
+  poetry run transcrypto --b64 hash sha512 eHl6
+  poetry run transcrypto hash file /etc/passwd --digest sha512
+
+  # --- AES ---
+  poetry run transcrypto --out-b64 aes key "correct horse battery staple"
+  poetry run transcrypto --b64 --out-b64 aes encrypt -k "<b64key>" "secret"
+  poetry run transcrypto --b64 --out-b64 aes decrypt -k "<b64key>" "<ciphertext>"
+  poetry run transcrypto aes ecb -k "<b64key>" encrypt "<128bithexblock>"
+  poetry run transcrypto aes ecb -k "<b64key>" decrypt "<128bithexblock>"
+
+  # --- RSA ---
+  poetry run transcrypto -p rsa-key rsa new --bits 2048
+  poetry run transcrypto -p rsa-key.pub rsa encrypt <plaintext>
+  poetry run transcrypto -p rsa-key.priv rsa decrypt <ciphertext>
+  poetry run transcrypto -p rsa-key.priv rsa sign <message>
+  poetry run transcrypto -p rsa-key.pub rsa verify <message> <signature>
+
+  # --- ElGamal ---
+  poetry run transcrypto -p eg-key elgamal shared --bits 2048
+  poetry run transcrypto -p eg-key elgamal new
+  poetry run transcrypto -p eg-key.pub elgamal encrypt <plaintext>
+  poetry run transcrypto -p eg-key.priv elgamal decrypt <c1:c2>
+  poetry run transcrypto -p eg-key.priv elgamal sign <message>
+  poetry run transcrypto-p eg-key.pub elgamal verify <message> <s1:s2>
+
+  # --- DSA ---
+  poetry run transcrypto -p dsa-key dsa shared --p-bits 2048 --q-bits 256
+  poetry run transcrypto -p dsa-key dsa new
+  poetry run transcrypto -p dsa-key.priv dsa sign <message>
+  poetry run transcrypto -p dsa-key.pub dsa verify <message> <s1:s2>
+
+  # --- Shamir Secret Sharing (SSS) ---
+  poetry run transcrypto -p sss-key sss new 3 --bits 1024
+  poetry run transcrypto -p sss-key sss shares <secret> 5
+  poetry run transcrypto -p sss-key sss recover
+  poetry run transcrypto -p sss-key sss verify <secret>
+```
 
 ---
 
@@ -387,7 +461,7 @@ poetry run transcrypto xgcd [-h] a b
 ```bash
 $ poetry run transcrypto xgcd 462 1071
 (21, 7, -3)
-$ poetry run transcrypto gcd 0 5
+$ poetry run transcrypto xgcd 0 5
 (5, 0, 1)
 $ poetry run transcrypto xgcd 127 13
 (1, 4, -39)
@@ -591,9 +665,9 @@ poetry run transcrypto hash sha512 [-h] data
 **Example:**
 
 ```bash
-$ poetry run transcrypto --bin hash sha256 xyz
+$ poetry run transcrypto --bin hash sha512 xyz
 4a3ed8147e37876adc8f76328e5abcc1b470e6acfc18efea0135f983604953a58e183c1a6086e91ba3e821d926f5fdeb37761c7ca0328a963f5e92870675b728
-$ poetry run transcrypto --b64 hash sha256 eHl6  # "xyz" in base-64
+$ poetry run transcrypto --b64 hash sha512 eHl6  # "xyz" in base-64
 4a3ed8147e37876adc8f76328e5abcc1b470e6acfc18efea0135f983604953a58e183c1a6086e91ba3e821d926f5fdeb37761c7ca0328a963f5e92870675b728
 ```
 
@@ -621,7 +695,7 @@ $ poetry run transcrypto hash file /etc/passwd --digest sha512
 
 ### `aes`
 
-AES-256 operations (GCM/ECB) and key derivation.
+AES-256 operations (GCM/ECB) and key derivation. No measures are taken here to prevent timing attacks.
 
 ```bash
 poetry run transcrypto aes [-h] {key,encrypt,decrypt,ecb} ...
@@ -645,7 +719,7 @@ poetry run transcrypto aes key [-h] password
 $ poetry run transcrypto --out-b64 aes key "correct horse battery staple"
 DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es=
 $ poetry run transcrypto -p keyfile.out --protect hunter aes key "correct horse battery staple"
-$
+AES key saved to 'keyfile.out'
 ```
 
 #### `aes encrypt`
@@ -748,7 +822,7 @@ $ poetry run transcrypto --b64 aes ecb -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_
 
 ### `rsa`
 
-Raw RSA over integers (no OAEP/PSS).
+Raw RSA (Rivest-Shamir-Adleman) asymmetric cryptography over *integers* (BEWARE: no OAEP/PSS padding or validation). These are pedagogical/raw primitives; do not use for new protocols. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
 
 ```bash
 poetry run transcrypto rsa [-h] {new,encrypt,decrypt,sign,verify} ...
@@ -756,19 +830,26 @@ poetry run transcrypto rsa [-h] {new,encrypt,decrypt,sign,verify} ...
 
 #### `rsa new`
 
-Generate RSA private key.
+Generate RSA private/public key pair with `bits` modulus size (prime sizes will be `bits`/2). Requires `-p`/`--key-path` to set the basename for output files.
 
 ```bash
-poetry run transcrypto rsa new [-h] bits
+poetry run transcrypto rsa new [-h] [--bits BITS]
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `bits` | Modulus size in bits (e.g., 2048) [type: int] |
+| `--bits` | Modulus size in bits; the default is a safe size [type: int (default: 3332)] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p rsa-key rsa new --bits 64  # NEVER use such a small key: example only!
+RSA private/public keys saved to 'rsa-key.priv/.pub'
+```
 
 #### `rsa encrypt`
 
-Encrypt integer with public key.
+Encrypt integer `message` with public key.
 
 ```bash
 poetry run transcrypto rsa encrypt [-h] message
@@ -776,11 +857,18 @@ poetry run transcrypto rsa encrypt [-h] message
 
 | Option/Arg | Description |
 |---|---|
-| `message` | Integer message (e.g., "12345" or "0x...") [type: str] |
+| `message` | Integer message to encrypt, 1≤`message`<*modulus* [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p rsa-key.pub rsa encrypt 999
+6354905961171348600
+```
 
 #### `rsa decrypt`
 
-Decrypt integer ciphertext with private key.
+Decrypt integer `ciphertext` with private key.
 
 ```bash
 poetry run transcrypto rsa decrypt [-h] ciphertext
@@ -788,11 +876,18 @@ poetry run transcrypto rsa decrypt [-h] ciphertext
 
 | Option/Arg | Description |
 |---|---|
-| `ciphertext` | Integer ciphertext [type: str] |
+| `ciphertext` | Integer ciphertext to decrypt, 1≤`ciphertext`<*modulus* [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p rsa-key.priv rsa decrypt 6354905961171348600
+999
+```
 
 #### `rsa sign`
 
-Sign integer message with private key.
+Sign integer `message` with private key.
 
 ```bash
 poetry run transcrypto rsa sign [-h] message
@@ -800,11 +895,18 @@ poetry run transcrypto rsa sign [-h] message
 
 | Option/Arg | Description |
 |---|---|
-| `message` | Integer message [type: str] |
+| `message` | Integer message to sign, 1≤`message`<*modulus* [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p rsa-key.priv rsa sign 999
+7632909108672871784
+```
 
 #### `rsa verify`
 
-Verify integer signature with public key.
+Verify integer `signature` for integer `message` with public key.
 
 ```bash
 poetry run transcrypto rsa verify [-h] message signature
@@ -812,14 +914,23 @@ poetry run transcrypto rsa verify [-h] message signature
 
 | Option/Arg | Description |
 |---|---|
-| `message` | Integer message [type: str] |
-| `signature` | Integer signature [type: str] |
+| `message` | Integer message that was signed earlier, 1≤`message`<*modulus* [type: str] |
+| `signature` | Integer putative signature for `message`, 1≤`signature`<*modulus* [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p rsa-key.pub rsa verify 999 7632909108672871784
+RSA signature: OK
+$ poetry run transcrypto -p rsa-key.pub rsa verify 999 7632909108672871785
+RSA signature: INVALID
+```
 
 ---
 
 ### `elgamal`
 
-Raw El-Gamal (no padding).
+Raw El-Gamal asymmetric cryptography over *integers* (BEWARE: no ECIES-style KEM/DEM padding or validation). These are pedagogical/raw primitives; do not use for new protocols. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
 
 ```bash
 poetry run transcrypto elgamal [-h]
@@ -828,31 +939,41 @@ poetry run transcrypto elgamal [-h]
 
 #### `elgamal shared`
 
-Generate shared parameters (p, g).
+Generate a shared El-Gamal key with `bits` prime modulus size, which is the first step in key generation. The shared key can safely be used by any number of users to generate their private/public key pairs (with the `new` command). The shared keys are "public". Requires `-p`/`--key-path` to set the basename for output files.
 
 ```bash
-poetry run transcrypto elgamal shared [-h] bits
+poetry run transcrypto elgamal shared [-h] [--bits BITS]
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `bits` | Bit length for prime modulus p [type: int] |
+| `--bits` | Prime modulus (`p`) size in bits; the default is a safe size [type: int (default: 3332)] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p eg-key elgamal shared --bits 64  # NEVER use such a small key: example only!
+El-Gamal shared key saved to 'eg-key.shared'
+```
 
 #### `elgamal new`
 
-Generate individual private key from shared.
+Generate an individual El-Gamal private/public key pair from a shared key.
 
 ```bash
-poetry run transcrypto elgamal new [-h] --out OUT
+poetry run transcrypto elgamal new [-h]
 ```
 
-| Option/Arg | Description |
-|---|---|
-| `--out` | Save private key to path [type: str] |
+**Example:**
+
+```bash
+$ poetry run transcrypto -p eg-key elgamal new
+El-Gamal private/public keys saved to 'eg-key.priv/.pub'
+```
 
 #### `elgamal encrypt`
 
-Encrypt integer with public key.
+Encrypt integer `message` with public key.
 
 ```bash
 poetry run transcrypto elgamal encrypt [-h] message
@@ -860,24 +981,37 @@ poetry run transcrypto elgamal encrypt [-h] message
 
 | Option/Arg | Description |
 |---|---|
-| `message` | Integer message 1 ≤ m < p [type: str] |
+| `message` | Integer message to encrypt, 1≤`message`<*modulus* [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p eg-key.pub elgamal encrypt 999
+2948854810728206041:15945988196340032688
+```
 
 #### `elgamal decrypt`
 
-Decrypt El-Gamal ciphertext tuple (c1,c2).
+Decrypt integer `ciphertext` with private key.
 
 ```bash
-poetry run transcrypto elgamal decrypt [-h] c1 c2
+poetry run transcrypto elgamal decrypt [-h] ciphertext
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `c1` | [type: str] |
-| `c2` | [type: str] |
+| `ciphertext` | Integer ciphertext to decrypt; expects `c1:c2` format with 2 integers,  2≤`c1`,`c2`<*modulus* [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p eg-key.priv elgamal decrypt 2948854810728206041:15945988196340032688
+999
+```
 
 #### `elgamal sign`
 
-Sign integer message with private key.
+Sign integer message with private key. Output will 2 integers in a `s1:s2` format.
 
 ```bash
 poetry run transcrypto elgamal sign [-h] message
@@ -885,27 +1019,42 @@ poetry run transcrypto elgamal sign [-h] message
 
 | Option/Arg | Description |
 |---|---|
-| `message` | [type: str] |
+| `message` | Integer message to sign, 1≤`message`<*modulus* [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p eg-key.priv elgamal sign 999
+4674885853217269088:14532144906178302633
+```
 
 #### `elgamal verify`
 
-Verify El-Gamal signature (s1,s2).
+Verify integer `signature` for integer `message` with public key.
 
 ```bash
-poetry run transcrypto elgamal verify [-h] message s1 s2
+poetry run transcrypto elgamal verify [-h] message signature
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `message` | [type: str] |
-| `s1` | [type: str] |
-| `s2` | [type: str] |
+| `message` | Integer message that was signed earlier, 1≤`message`<*modulus* [type: str] |
+| `signature` | Integer putative signature for `message`; expects `s1:s2` format with 2 integers,  2≤`s1`,`s2`<*modulus* [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p eg-key.pub elgamal verify 999 4674885853217269088:14532144906178302633
+El-Gamal signature: OK
+$ poetry run transcrypto -p eg-key.pub elgamal verify 999 4674885853217269088:14532144906178302632
+El-Gamal signature: INVALID
+```
 
 ---
 
 ### `dsa`
 
-Raw DSA (no hash, integer messages < q).
+Raw DSA (Digital Signature Algorithm) asymmetric signing over *integers* (BEWARE: no ECDSA/EdDSA padding or validation). These are pedagogical/raw primitives; do not use for new protocols. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
 
 ```bash
 poetry run transcrypto dsa [-h] {shared,new,sign,verify} ...
@@ -913,32 +1062,43 @@ poetry run transcrypto dsa [-h] {shared,new,sign,verify} ...
 
 #### `dsa shared`
 
-Generate (p,q,g) with q | p-1.
+Generate a shared DSA key with `p-bits`/`q-bits` prime modulus sizes, which is the first step in key generation. `q-bits` should be larger than the secrets that will be protected and `p-bits` should be much larger than `q-bits` (e.g. 3584/256). The shared key can safely be used by any number of users to generate their private/public key pairs (with the `new` command). The shared keys are "public". Requires `-p`/`--key-path` to set the basename for output files.
 
 ```bash
-poetry run transcrypto dsa shared [-h] p_bits q_bits
+poetry run transcrypto dsa shared [-h] [--p-bits P_BITS]
+                                         [--q-bits Q_BITS]
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `p_bits` | Bit length of p (≥ q_bits + 11) [type: int] |
-| `q_bits` | Bit length of q (≥ 11) [type: int] |
+| `--p-bits` | Prime modulus (`p`) size in bits; the default is a safe size [type: int (default: 3584)] |
+| `--q-bits` | Prime modulus (`q`) size in bits; the default is a safe size ***IFF*** you are protecting symmetric keys or regular hashes [type: int (default: 256)] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p dsa-key dsa shared --p-bits 128 --q-bits 32  # NEVER use such a small key: example only!
+DSA shared key saved to 'dsa-key.shared'
+```
 
 #### `dsa new`
 
-Generate DSA private key from shared.
+Generate an individual DSA private/public key pair from a shared key.
 
 ```bash
-poetry run transcrypto dsa new [-h] --out OUT
+poetry run transcrypto dsa new [-h]
 ```
 
-| Option/Arg | Description |
-|---|---|
-| `--out` | Save private key to path [type: str] |
+**Example:**
+
+```bash
+$ poetry run transcrypto -p dsa-key dsa new
+DSA private/public keys saved to 'dsa-key.priv/.pub'
+```
 
 #### `dsa sign`
 
-Sign integer m (1 ≤ m < q).
+Sign integer message with private key. Output will 2 integers in a `s1:s2` format.
 
 ```bash
 poetry run transcrypto dsa sign [-h] message
@@ -946,27 +1106,42 @@ poetry run transcrypto dsa sign [-h] message
 
 | Option/Arg | Description |
 |---|---|
-| `message` | [type: str] |
+| `message` | Integer message to sign, 1≤`message`<`q` [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p dsa-key.priv dsa sign 999
+2395961484:3435572290
+```
 
 #### `dsa verify`
 
-Verify DSA signature (s1,s2).
+Verify integer `signature` for integer `message` with public key.
 
 ```bash
-poetry run transcrypto dsa verify [-h] message s1 s2
+poetry run transcrypto dsa verify [-h] message signature
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `message` | [type: str] |
-| `s1` | [type: str] |
-| `s2` | [type: str] |
+| `message` | Integer message that was signed earlier, 1≤`message`<`q` [type: str] |
+| `signature` | Integer putative signature for `message`; expects `s1:s2` format with 2 integers,  2≤`s1`,`s2`<`q` [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p dsa-key.pub dsa verify 999 2395961484:3435572290
+DSA signature: OK
+$ poetry run transcrypto -p dsa-key.pub dsa verify 999 2395961484:3435572291
+DSA signature: INVALID
+```
 
 ---
 
 ### `sss`
 
-Shamir Shared Secret (unauthenticated).
+Raw SSS (Shamir Shared Secret) secret sharing crypto scheme over *integers* (BEWARE: no modern message wrapping, padding or validation). These are pedagogical/raw primitives; do not use for new protocols. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
 
 ```bash
 poetry run transcrypto sss [-h] {new,shares,recover,verify} ...
@@ -974,61 +1149,94 @@ poetry run transcrypto sss [-h] {new,shares,recover,verify} ...
 
 #### `sss new`
 
-Generate SSS params (minimum, prime, coefficients).
+Generate the private keys with `bits` prime modulus size and so that at least a `minimum` number of shares are needed to recover the secret. This key will be used to generate the shares later (with the `shares` command). Requires `-p`/`--key-path` to set the basename for output files.
 
 ```bash
-poetry run transcrypto sss new [-h] minimum bits
+poetry run transcrypto sss new [-h] [--bits BITS] minimum
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `minimum` | Threshold t (≥ 2) [type: int] |
-| `bits` | Prime modulus bit length (≥ 128 for non-toy) [type: int] |
+| `minimum` | Minimum number of shares required to recover secret, ≥ 2 [type: int] |
+| `--bits` | Prime modulus (`p`) size in bits; the default is a safe size ***IFF*** you are protecting symmetric keys; the number of bits should be comfortably larger than the size of the secret you want to protect with this scheme [type: int (default: 1024)] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p sss-key sss new 3 --bits 64  # NEVER use such a small key: example only!
+SSS private/public keys saved to 'sss-key.priv/.pub'
+```
 
 #### `sss shares`
 
-Issue N shares for a secret (private params).
+Issue `count` private shares for an integer `secret`.
 
 ```bash
-poetry run transcrypto sss shares [-h] [--out OUT] secret count
+poetry run transcrypto sss shares [-h] secret count
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `secret` | Secret as integer (supports 0x..) [type: str] |
-| `count` | How many shares to produce [type: int] |
-| `--out` | Save shares to path [type: str] |
+| `secret` | Integer secret to be protected, 1≤`secret`<*modulus* [type: str] |
+| `count` | How many shares to produce; must be ≥ `minimum` used in `new` command or else the `secret` would become unrecoverable [type: int] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p sss-key sss shares 999 5
+SSS 5 individual (private) shares saved to 'sss-key.share.1…5'
+$ rm sss-key.share.2 sss-key.share.4  # this is to simulate only having shares 1,3,5
+```
 
 #### `sss recover`
 
-Recover secret from shares (public params).
+Recover secret from shares; will use any available shares that were found.
 
 ```bash
-poetry run transcrypto sss recover [-h] shares [shares ...]
+poetry run transcrypto sss recover [-h]
 ```
 
-| Option/Arg | Description |
-|---|---|
-| `shares` | Shares as k:v (e.g., 2:123 5:456 ...) [nargs: +] |
+**Example:**
+
+```bash
+$ poetry run transcrypto -p sss-key sss recover
+Loaded SSS share: 'sss-key.share.3'
+Loaded SSS share: 'sss-key.share.5'
+Loaded SSS share: 'sss-key.share.1'  # using only 3 shares: number 2/4 are missing
+Secret:
+999
+```
 
 #### `sss verify`
 
-Verify a share against a secret (private params).
+Verify shares against a secret (private params).
 
 ```bash
-poetry run transcrypto sss verify [-h] secret share
+poetry run transcrypto sss verify [-h] secret
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `secret` | Secret as integer (supports 0x..) [type: str] |
-| `share` | One share as k:v (e.g., 7:9999) [type: str] |
+| `secret` | Integer secret used to generate the shares, 1≤`secret`<*modulus* [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p sss-key sss verify 999
+SSS share 'sss-key.share.3' verification: OK
+SSS share 'sss-key.share.5' verification: OK
+SSS share 'sss-key.share.1' verification: OK
+$ poetry run transcrypto -p sss-key sss verify 998
+SSS share 'sss-key.share.3' verification: INVALID
+SSS share 'sss-key.share.5' verification: INVALID
+SSS share 'sss-key.share.1' verification: INVALID
+```
 
 ---
 
 ### `doc`
 
-Documentation utilities.
+Documentation utilities. (Not for regular use: these are developer utils.)
 
 ```bash
 poetry run transcrypto doc [-h] {md} ...
@@ -1036,217 +1244,25 @@ poetry run transcrypto doc [-h] {md} ...
 
 #### `doc md`
 
-Emit Markdown for the CLI (see README.md section "Creating a New Version").
+Emit Markdown docs for the CLI (see README.md section "Creating a New Version").
 
 ```bash
 poetry run transcrypto doc md [-h]
+```
+
+**Example:**
+
+```bash
+$ poetry run transcrypto doc md > CLI.md
+$ ./tools/inject_md_includes.py
+inject: README.md updated with included content
 ```
 <!-- INCLUDE:CLI.md END -->
 <!-- (auto-generated; do not edit between START/END) -->
 
 <!-- cspell:enable -->
 
-
-
-
-
-
-
-
-
-
-
-
-
----
-
-### 3. RSA Cryptography
-
-#### `rsa new`
-
-```bash
-poetry run transcrypto.py rsa new BITS
-```
-
-Generates an RSA key pair with given bit length using `rsa.RSAKey()`.
-
-**Arguments**:
-
-- `BITS` (`int`): Key size in bits, typically 2048 or 4096.
-
-**Output**:
-
-- PEM-encoded private key.
-- PEM-encoded public key.
-
-**Example**:
-
-```bash
-poetry run transcrypto.py rsa new 2048
-# → <PEM output>
-```
-
----
-
-#### `rsa encrypt`
-
-```bash
-poetry run transcrypto.py rsa encrypt PUBKEY PLAINTEXT
-```
-
-Encrypts data with RSA public key using OAEP padding.
-
-**Arguments**:
-
-- `PUBKEY` (`str`): PEM-encoded public key string or file path.
-- `PLAINTEXT` (`str`): Plaintext string to encrypt.
-
-**Output**:
-
-- Hexadecimal ciphertext.
-
----
-
-#### `rsa decrypt`
-
-```bash
-poetry run transcrypto.py rsa decrypt PRIVKEY CIPHERTEXT_HEX
-```
-
-Decrypts RSA ciphertext with private key.
-
-**Arguments**:
-
-- `PRIVKEY` (`str`): PEM-encoded private key string or file path.
-- `CIPHERTEXT_HEX` (`str`): Hexadecimal-encoded ciphertext.
-
-**Output**:
-
-- Original plaintext string.
-
----
-
-### 5. Hashing
-
-#### `hash sha256`
-
-```bash
-poetry run transcrypto.py hash sha256 DATA
-```
-
-SHA-256 digest of given data.
-
-**Arguments**:
-
-- `DATA` (`str`): Input string; if starts with `0x` or matches hex length, treated as hex.
-
-**Output**:
-
-- 64-character hex digest.
-
----
-
-#### `hash sha512`
-
-```bash
-poetry run transcrypto.py hash sha512 DATA
-```
-
-SHA-512 digest of given data.
-
-**Arguments**:
-
-- `DATA` (`str`): As above.
-
-**Output**:
-
-- 128-character hex digest.
-
----
-
-#### `hash file`
-
-```bash
-poetry run transcrypto.py hash file PATH [-d DIGEST]
-```
-
-Computes file digest.
-
-**Arguments**:
-
-- `PATH` (`str`): Path to existing file.
-- `-d`, `--digest` (`str`): `sha256` (default) or `sha512`.
-
-**Output**:
-
-- Hex digest of file contents.
-
----
-
-### 6. Shamir’s Secret Sharing
-
-#### `sss split`
-
-```bash
-poetry run transcrypto.py sss split SECRET_HEX K N
-```
-
-Splits a secret into N shares with threshold K.
-
-**Arguments**:
-
-- `SECRET_HEX` (`str`): Hex-encoded secret.
-- `K` (`int`): Threshold, `2 ≤ K ≤ N`.
-- `N` (`int`): Total number of shares.
-
-**Output**:
-
-- List of share strings.
-
----
-
-#### `sss combine`
-
-```bash
-poetry run transcrypto.py sss combine SHARE1 SHARE2 [...]
-```
-
-Reconstructs the secret from K shares.
-
-**Arguments**:
-
-- `SHAREn` (`str`): Share strings.
-
-**Output**:
-
-- Original secret in hex.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ### Base Library
-
-
-
-
 
 #### Humanized Sizes (IEC binary)
 
@@ -1298,25 +1314,13 @@ utils.HumanizedSeconds(172800)            # '2.00 d'
 Chooses an appropriate time unit based on magnitude and formats with fixed precision:
 
 - `< 1 ms`: microseconds with three decimals (`µs`)
-
 - `< 1 s`: milliseconds with three decimals (`ms`)
-
 - `< 60 s`: seconds with two decimals (`s`)
-
 - `< 60 min`: minutes with two decimals (`min`)
-
 - `< 24 h`: hours with two decimals (`h`)
-
 - `≥ 24 h`: days with two decimals (`d`)
-
 - special case: `0 → '0.00 s'`
-
 - errors: negative or non-finite inputs raise `InputError`
-
-
-
-
-
 
 #### Cryptographically Secure Randomness
 
@@ -1326,7 +1330,7 @@ These helpers live in `base` and wrap Python’s `secrets` with additional check
 from transcrypto import base
 ```
 
-**Fixed-size random integers**
+##### Fixed-size random integers
 
 ```py
 # Generate a 256-bit integer (first bit always set)
@@ -1338,9 +1342,7 @@ Produces a crypto-secure random integer with exactly `n_bits` bits (`≥ 8`). Th
 
 - errors: `n_bits < 8` → `InputError`
 
----
-
-**Uniform random integers in a range**
+##### Uniform random integers in a range
 
 ```py
 # Uniform between [10, 20] inclusive
@@ -1353,9 +1355,7 @@ Returns a crypto-secure integer uniformly distributed over the closed interval `
 - constraints: `min_int ≥ 0` and `< max_int`
 - errors: invalid bounds → `InputError`
 
----
-
-**In-place secure shuffle**
+##### In-place secure shuffle
 
 ```py
 deck = list(range(10))
@@ -1368,9 +1368,7 @@ Performs an in-place Fisher–Yates shuffle using `secrets.randbelow`. Suitable 
 - constraints: sequence length ≥ 2
 - errors: shorter sequences → `InputError`
 
----
-
-**Random byte strings**
+##### Random byte strings
 
 ```py
 # 32 random bytes
@@ -1382,10 +1380,6 @@ Generates `n_bytes` of high-quality crypto-secure random data.
 
 - constraints: `n_bytes ≥ 1`
 - errors: smaller values → `InputError`
-
-
-
-
 
 #### Computing the Greatest Common Divisor
 
@@ -1412,10 +1406,6 @@ Use-cases:
 - solving linear Diophantine equations
 - RSA / ECC key generation internals
 
-
-
-
-
 #### Cryptographic Hashing
 
 Simple, fixed-output-size wrappers over Python’s `hashlib` for common digest operations, plus file hashing.
@@ -1424,7 +1414,7 @@ Simple, fixed-output-size wrappers over Python’s `hashlib` for common digest o
 from transcrypto import base
 ```
 
-**SHA-256 hashing**
+##### SHA-256 hashing
 
 ```py
 h = base.Hash256(b'hello world')
@@ -1434,9 +1424,7 @@ print(h.hex())                            # 64 hex chars
 
 Computes the SHA-256 digest of a byte string, returning exactly 32 bytes (256 bits). Suitable for fingerprints, commitments, or internal crypto primitives.
 
----
-
-**SHA-512 hashing**
+##### SHA-512 hashing
 
 ```py
 h = base.Hash512(b'hello world')
@@ -1446,9 +1434,7 @@ print(h.hex())                            # 128 hex chars
 
 Computes the SHA-512 digest of a byte string, returning exactly 64 bytes (512 bits). Higher collision resistance and larger output space than SHA-256.
 
----
-
-**File hashing**
+##### File hashing
 
 ```py
 # Default SHA-256
@@ -1462,13 +1448,9 @@ fh2 = base.FileHash('/path/to/file', digest='sha512')
 Hashes a file from disk in streaming mode. By default uses SHA-256; `digest='sha512'` switches to SHA-512.
 
 - constraints:
-
   - `digest` must be `'sha256'` or `'sha512'`
   - `full_path` must exist
 - errors: invalid digest or missing file → `InputError`
-
-
-
 
 #### Execution Timing
 
@@ -1479,7 +1461,7 @@ from transcrypto import base
 import time
 ```
 
-**Context manager**
+##### Context manager
 
 ```py
 with base.Timer('Block timing'):
@@ -1489,9 +1471,7 @@ with base.Timer('Block timing'):
 
 Starts timing on entry, stops on exit, and reports elapsed time automatically.
 
----
-
-**Decorator**
+##### Decorator
 
 ```py
 @base.Timer('Function timing')
@@ -1504,9 +1484,7 @@ slow_function()
 
 Wraps a function so that each call is automatically timed.
 
----
-
-**Manual use**
+##### Manual use
 
 ```py
 tm = base.Timer('Inline timing', emit_print=True)
@@ -1517,26 +1495,18 @@ tm.Stop()   # prints: "Inline timing: 0.10 s"
 
 Manual control over `Start()` and `Stop()` for precise measurement of custom intervals.
 
----
-
-**Key points**
+##### Key points
 
 - **Label**: required, shown in output; empty labels raise `InputError`
 - **Output**:
-
   - `emit_log=True` → `logging.info()` (default)
   - `emit_print=True` → direct `print()`
   - Both can be enabled
 - **Format**: elapsed time is shown using `HumanizedSeconds()`
 - **Safety**:
-
   - Cannot start an already started timer
   - Cannot stop an unstarted or already stopped timer
     (raises `Error`)
-
-
-
-
 
 #### Symmetric Encryption Interface
 
@@ -1553,8 +1523,6 @@ class MyAES(base.SymmetricCrypto):
         ...
 ```
 
----
-
 #### Serialization Pipeline
 
 These helpers turn arbitrary Python objects into compressed and/or encrypted binary blobs, and back again — with detailed timing and size logging.
@@ -1563,7 +1531,7 @@ These helpers turn arbitrary Python objects into compressed and/or encrypted bin
 from transcrypto import base
 ```
 
-**Serialize**
+##### Serialize
 
 ```py
 data = {'x': 42, 'y': 'hello'}
@@ -1584,7 +1552,7 @@ base.Serialize(data, file_path='/tmp/data.blob')
 
 Serialization path:
 
-```
+```text
 obj → pickle → (compress) → (encrypt) → (save)
 ```
 
@@ -1594,14 +1562,22 @@ At each stage:
 - Duration is timed with `Timer`
 - Results are logged once at the end
 
-**Compression levels**
-`compress` uses `zstandard`; see table in docstring for speed/ratio trade-offs.
+Compression levels:
 
-**Errors** — invalid compression level is clamped to range; other input errors raise `InputError`.
+`compress` uses `zstandard`; see table below for speed/ratio trade-offs:
 
----
+| Level    | Speed       | Compression ratio                 | Typical use case                        |
+| -------- | ------------| --------------------------------- | --------------------------------------- |
+| -5 to -1 | Fastest     | Poor (better than no compression) | Real-time or very latency-sensitive     |
+| 0…3      | Very fast   | Good ratio                        | Default CLI choice, safe baseline       |
+| 4…6      | Moderate    | Better ratio                      | Good compromise for general persistence |
+| 7…10     | Slower      | Marginally better ratio           | Only if storage space is precious       |
+| 11…15    | Much slower | Slight gains                      | Large archives, not for runtime use     |
+| 16…22    | Very slow   | Tiny gains                        | Archival-only, multi-GB datasets        |
 
-**DeSerialize**
+Errors: invalid compression level is clamped to range; other input errors raise `InputError`.
+
+##### DeSerialize
 
 ```py
 # From in-memory blob
@@ -1616,7 +1592,7 @@ obj = base.DeSerialize(data=blob, key=my_symmetric_key)
 
 Deserialization path:
 
-```
+```text
 data/file → (decrypt) → (decompress if Zstd) → unpickle
 ```
 
@@ -1629,19 +1605,12 @@ data/file → (decrypt) → (decompress if Zstd) → unpickle
 - `file_path` must exist; `data` must be at least 4 bytes.
 - Wrong key or corrupted data can raise `CryptoError`.
 
-
-
-
-
-
 #### AES-256 Symmetric Encryption
 
 Implements AES-256 in **GCM mode** for authenticated encryption and decryption, plus an **ECB mode** helper for fixed-size block encoding.
 Also includes a high-iteration PBKDF2-based key derivation from static passwords.
 
----
-
-**Key creation**
+##### Key creation
 
 ```py
 from transcrypto import aes
@@ -1656,13 +1625,10 @@ print(key.encoded)  # URL-safe Base64
 
 - **Length**: `key256` must be exactly 32 bytes
 - `FromStaticPassword()`:
-
   - Uses PBKDF2-HMAC-SHA256 with **fixed** salt and \~2 million iterations
   - Designed for **interactive** password entry, **not** for password databases
 
----
-
-**AES-256 + GCM (default)**
+##### AES-256 + GCM (default)
 
 ```py
 data = b'secret message'
@@ -1677,17 +1643,13 @@ assert pt == data
 ```
 
 - **Security**:
-
   - Random 128-bit IV (`iv`) per encryption
   - Authenticated tag (128-bit) ensures integrity
   - Optional `associated_data` is authenticated but not encrypted
 - **Errors**:
-
   - Tag mismatch or wrong key → `CryptoError`
 
----
-
-**AES-256 + ECB (unsafe, fixed block only)**
+##### AES-256 + ECB (unsafe, fixed block only)
 
 ```py
 # ECB mode is for 16-byte block encoding ONLY
@@ -1703,24 +1665,15 @@ hex_ct = ecb.EncryptHex('00112233445566778899aabbccddeeff')
 ```
 
 - **ECB mode**:
-
   - 16-byte plaintext ↔ 16-byte ciphertext
   - No padding, no IV, no integrity — **do not use for general encryption**
   - `associated_data` not supported
 
----
-
-**Key points**
+Key points:
 
 - **GCM mode** is secure for general use; ECB mode is for special low-level operations
 - **Static password derivation** is intentionally slow to resist brute force
 - All sizes and parameters are validated with `InputError` on misuse
-
-
-
-
-
-
 
 #### Fast Modular Arithmetic
 
@@ -1743,8 +1696,6 @@ assert (z * y) % m == x % m
 exp = modmath.ModExp(3, 10**20, m)   # ≈ log₂(y) time, handles huge exponents
 ```
 
-
-
 #### Chinese Remainder Theorem (CRT) – Pair
 
 ```py
@@ -1761,39 +1712,20 @@ assert x % 5 == 3
 
 Solves a system of two simultaneous congruences with **pairwise co-prime** moduli, returning the **least non-negative solution** `x` such that:
 
-```
+```text
 x ≡ a1 (mod m1)
 x ≡ a2 (mod m2)
 0 ≤ x < m1 * m2
 ```
 
 - **Requirements**:
-
   - `m1 ≥ 2`, `m2 ≥ 2`, `m1 != m2`
   - `gcd(m1, m2) == 1` (co-prime)
 - **Errors**:
-
   - invalid modulus values → `InputError`
   - non co-prime moduli → `ModularDivideError`
 
----
-
-**Example – Larger moduli**
-
-```py
-#   x ≡ 4 (mod 7)
-#   x ≡ 11 (mod 13)
-x = modmath.CRTPair(4, 7, 11, 13)
-assert 0 <= x < 91
-assert x % 7 == 4
-assert x % 13 == 11
-```
-
 This function is a 2-modulus variant; for multiple moduli, apply it iteratively or use a general CRT solver.
-
-
-
-
 
 #### Modular Polynomials & Lagrange Interpolation
 
@@ -1867,10 +1799,6 @@ sig = pair.RevealOriginalSignature(msg, blind_sig)
 assert pub.VerifySignature(msg, sig)
 ```
 
-
-
-
-
 #### El-Gamal Public-Key Cryptography
 
 [https://en.wikipedia.org/wiki/ElGamal\_encryption](https://en.wikipedia.org/wiki/ElGamal_encryption)
@@ -1878,9 +1806,7 @@ assert pub.VerifySignature(msg, sig)
 This is **raw El-Gamal** over a prime field — no padding, no hashing — and is **not** DSA.
 For real-world deployments, use a high-level library with authenticated encryption and proper encoding.
 
----
-
-**Shared Public Key**
+##### Shared Public Key
 
 ```py
 from transcrypto import elgamal
@@ -1895,9 +1821,7 @@ print(shared.group_base)
 - `group_base`: integer `3 ≤ g < p`
 - Used to derive individual public/private keys.
 
----
-
-**Public Key**
+##### Public Key
 
 ```py
 # ➋ Public key from private
@@ -1919,9 +1843,7 @@ assert pub.VerifySignature(msg, sig)
 - `VerifySignature(message, signature)` → `True` or `False`
 - `Copy()` extracts public portion from a private key
 
----
-
-**Private Key**
+##### Private Key
 
 ```py
 # ➌ Private key generation
@@ -1939,29 +1861,19 @@ assert pub.VerifySignature(msg, sig)
 - `Decrypt((c1, c2))` recovers `m`
 - `Sign(m)` returns `(s1, s2)`; both satisfy the modulus constraints
 
----
-
-**Key Points**
+Key points:
 
 - **Security parameters**:
-
   - Recommended `prime_modulus` bit length ≥ 2048 for real security
   - Random values from `base.RandBits`
 - **Ephemeral keys**:
-
   - Fresh per encryption/signature
   - Must satisfy `gcd(k, p-1) == 1`
 - **Errors**:
-
   - Bad ranges → `InputError`
   - Invalid math relationships → `CryptoError`
 - **Group sharing**:
-
   - Multiple parties can share `(p, g)` but have different `(individual_base, decrypt_exp)`
-
-
-
-
 
 #### DSA (Digital Signature Algorithm)
 
@@ -1989,22 +1901,18 @@ assert pub.VerifySignature(msg, sig)
 ```
 
 - ranges:
-
   - `1 ≤ message < q`
   - signatures: `(s1, s2)` with `2 ≤ s1, s2 < q`
 - errors:
-
   - invalid ranges → `InputError`
   - inconsistent parameters → `CryptoError`
 
-**Security notes**
+##### Security notes
 
 - Choose **large** parameters (e.g., `p ≥ 2048 bits`, `q ≥ 224 bits`) for non-toy settings.
 - In practice, compute `m = int.from_bytes(Hash(message), 'big') % q` before calling `Sign(m)`.
 
----
-
-**Advanced: custom primes generator**
+##### Advanced: custom primes generator
 
 ```py
 # Generate primes (p, q) with q | (p-1); also returns m = (p-1)//q
@@ -2014,12 +1922,6 @@ assert (p - 1) % q == 0
 
 Used internally by `DSASharedPublicKey.New()`.
 Search breadth and retry caps are bounded; repeated failures raise `CryptoError`.
-
-
-
-
-
-
 
 #### SSS (Shamir Shared Secret)
 

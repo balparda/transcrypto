@@ -78,7 +78,9 @@ def NBitRandomDSAPrimes(p_bits: int, q_bits: int, /) -> tuple[int, int, int]:
 class DSASharedPublicKey(base.CryptoKey):
   """DSA shared public key. This key can be shared by a group.
 
-  BEWARE: This is raw DSA, no padding, no hash!
+  BEWARE: This is raw DSA, no ECDSA/EdDSA padding, no hash, no validation!
+  These are pedagogical/raw primitives; do not use for new protocols.
+  No measures are taken here to prevent timing attacks.
 
   Attributes:
     prime_modulus (int): prime modulus (p), > prime_seed
@@ -137,7 +139,9 @@ class DSASharedPublicKey(base.CryptoKey):
 class DSAPublicKey(DSASharedPublicKey):
   """DSA public key. This is an individual public key.
 
-  BEWARE: This is raw DSA, no padding, no hash!
+  BEWARE: This is raw DSA, no ECDSA/EdDSA padding, no hash, no validation!
+  These are pedagogical/raw primitives; do not use for new protocols.
+  No measures are taken here to prevent timing attacks.
 
   Attributes:
     individual_base (int): individual encryption public base, 3 ≤ i < prime_modulus
@@ -213,7 +217,9 @@ class DSAPublicKey(DSASharedPublicKey):
 class DSAPrivateKey(DSAPublicKey):
   """DSA private key.
 
-  BEWARE: This is raw DSA, no padding, no hash!
+  BEWARE: This is raw DSA, no ECDSA/EdDSA padding, no hash, no validation!
+  These are pedagogical/raw primitives; do not use for new protocols.
+  No measures are taken here to prevent timing attacks.
 
   Attributes:
     decrypt_exp (int): individual decryption exponent, 3 ≤ i < prime_modulus

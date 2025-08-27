@@ -38,7 +38,9 @@ _MAX_KEY_GENERATION_FAILURES = 15
 class ElGamalSharedPublicKey(base.CryptoKey):
   """El-Gamal shared public key. This key can be shared by a group.
 
-  BEWARE: This is raw El-Gamal, no padding! This is **NOT** DSA!
+  BEWARE: This is raw El-Gamal, no ECIES-style KEM/DEM padding or validation! This is **NOT** DSA!
+  These are pedagogical/raw primitives; do not use for new protocols.
+  No measures are taken here to prevent timing attacks.
 
   Attributes:
     prime_modulus (int): prime modulus, ≥ 7
@@ -88,7 +90,9 @@ class ElGamalSharedPublicKey(base.CryptoKey):
 class ElGamalPublicKey(ElGamalSharedPublicKey):
   """El-Gamal public key. This is an individual public key.
 
-  BEWARE: This is raw El-Gamal, no padding! This is **NOT** DSA!
+  BEWARE: This is raw El-Gamal, no ECIES-style KEM/DEM padding or validation! This is **NOT** DSA!
+  These are pedagogical/raw primitives; do not use for new protocols.
+  No measures are taken here to prevent timing attacks.
 
   Attributes:
     individual_base (int): individual encryption public base, 3 ≤ i < prime_modulus
@@ -191,7 +195,9 @@ class ElGamalPublicKey(ElGamalSharedPublicKey):
 class ElGamalPrivateKey(ElGamalPublicKey):
   """El-Gamal private key.
 
-  BEWARE: This is raw El-Gamal, no padding! This is **NOT** DSA!
+  BEWARE: This is raw El-Gamal, no ECIES-style KEM/DEM padding or validation! This is **NOT** DSA!
+  These are pedagogical/raw primitives; do not use for new protocols.
+  No measures are taken here to prevent timing attacks.
 
   Attributes:
     decrypt_exp (int): individual decryption exponent, 3 ≤ i < prime_modulus

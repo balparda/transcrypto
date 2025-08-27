@@ -50,6 +50,8 @@ assert _PASSWORD_ITERATIONS == (6075308 + 1) // 3, 'should never happen: constan
 class AESKey(base.CryptoKey, base.SymmetricCrypto):
   """Advanced Encryption Standard (AES) 256 bits key (32 bytes).
 
+  No measures are taken here to prevent timing attacks.
+
   Attributes:
     key256 (bytes): AES 256 bits key (32 bytes), so length is always 32
   """
@@ -113,7 +115,7 @@ class AESKey(base.CryptoKey, base.SymmetricCrypto):
 
     Please DO **NOT** use this for regular cryptography. For regular crypto use Encrypt()/Decrypt().
     This class was specifically built to encode/decode 128 bit / 16 bytes blocks using a
-    pre-existing key.
+    pre-existing key. No measures are taken here to prevent timing attacks.
     """
 
     def __init__(self, key256: AESKey, /) -> None:
@@ -131,6 +133,7 @@ class AESKey(base.CryptoKey, base.SymmetricCrypto):
       """Encrypt a 128 bits block (16 bytes) `plaintext` and return `ciphertext` of 128 bits.
 
       Please DO **NOT** use this for regular cryptography.
+      No measures are taken here to prevent timing attacks.
 
       Args:
         plaintext (bytes): Data to encrypt.
@@ -153,6 +156,7 @@ class AESKey(base.CryptoKey, base.SymmetricCrypto):
       """Decrypt a 128 bits block (16 bytes) `ciphertext` and return original 128 bits `plaintext`.
 
       Please DO **NOT** use this for regular cryptography.
+      No measures are taken here to prevent timing attacks.
 
       Args:
         ciphertext (bytes): Data to decrypt (including any embedded nonce/tag if applicable)
@@ -189,6 +193,8 @@ class AESKey(base.CryptoKey, base.SymmetricCrypto):
     <https://en.wikipedia.org/wiki/Galois/Counter_Mode>
     <https://cryptography.io/en/latest/hazmat/primitives/symmetric-encryption/#cryptography.hazmat.primitives.ciphers.modes.GCM>
 
+    No measures are taken here to prevent timing attacks.
+
     Args:
       plaintext (bytes): Data to encrypt.
       associated_data (bytes, optional): Optional AAD (Authenticated Associated Data),
@@ -222,6 +228,8 @@ class AESKey(base.CryptoKey, base.SymmetricCrypto):
 
     <https://en.wikipedia.org/wiki/Galois/Counter_Mode>
     <https://cryptography.io/en/latest/hazmat/primitives/symmetric-encryption/#cryptography.hazmat.primitives.ciphers.modes.GCM>
+
+    No measures are taken here to prevent timing attacks.
 
     Args:
       ciphertext (bytes): Data to decrypt (including any embedded nonce/tag if applicable)

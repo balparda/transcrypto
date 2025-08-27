@@ -26,6 +26,10 @@ __version_tuple__: tuple[int, ...] = base.__version_tuple__
 class ShamirSharedSecretPublic(base.CryptoKey):
   """Shamir Shared Secret (SSS) public part.
 
+  BEWARE: This is raw SSS, no modern message wrapping, padding or validation!
+  These are pedagogical/raw primitives; do not use for new protocols.
+  No measures are taken here to prevent timing attacks.
+
   This is the information-theoretic SSS but with no authentication or binding between
   share and secret. Malicious share injection is possible! Add MAC or digital signature
   in hostile settings.
@@ -100,6 +104,10 @@ class ShamirSharedSecretPublic(base.CryptoKey):
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
   """Shamir Shared Secret (SSS) private keys.
+
+  BEWARE: This is raw SSS, no modern message wrapping, padding or validation!
+  These are pedagogical/raw primitives; do not use for new protocols.
+  No measures are taken here to prevent timing attacks.
 
   We deliberately choose prime coefficients. This shrinks the key-space and leaks a bit of
   structure. It is "unusual", but with large enough modulus (bit length > ~ 500) it makes no
@@ -239,6 +247,10 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class ShamirSharePrivate(ShamirSharedSecretPublic):
   """Shamir Shared Secret (SSS) one share.
+
+  BEWARE: This is raw SSS, no modern message wrapping, padding or validation!
+  These are pedagogical/raw primitives; do not use for new protocols.
+  No measures are taken here to prevent timing attacks.
 
   Attributes:
     share_key (int): share secret key; a randomly picked value, 1 ≤ k < modulus

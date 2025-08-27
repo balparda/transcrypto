@@ -48,7 +48,7 @@ def _RunCLI(argv: list[str]) -> tuple[int, str]:
         (['xgcd', '100', '24'], '(4, 1, -4)'),
 
         # --- modular arithmetic ---
-        (['mod', 'inv', '3', '11'], '4'),          # 3^-1 mod 11 = 4
+        (['mod', 'inv', '0x3', '11'], '4'),          # 3^-1 mod 11 = 4
         (['mod', 'inv', '3', '9'],
          '<<INVALID>> no modular inverse exists (ModularDivideError)'),
         (['mod', 'div', '0o12', '4', '13'], '9'),  # z*4 ≡ 10 (mod 13) → z = 9
@@ -58,7 +58,7 @@ def _RunCLI(argv: list[str]) -> tuple[int, str]:
         (['mod', 'poly', '127', '19937', '10', '30', '20', '12', '31'], '12928'),
         (['mod', 'lagrange', '9', '5', '1:1', '3:3'], '4'),
         (['mod', 'crt', '0b10', '3', '3', '5'], '8'),
-        (['mod', 'crt', '2', '3', '3', '15'],
+        (['mod', 'crt', '2', '3', '3', '0xf'],
          '<<INVALID>> moduli m1/m2 not co-prime (ModularDivideError)'),
 
         # --- prime generation (deterministic with -c) ---
@@ -168,7 +168,7 @@ def test_aes_key_print_b64_matches_library(tmp_path: pathlib.Path) -> None:
   code, out = _RunCLI(
       ['-p', str(priv_path), 'aes', 'key', 'correct horse battery staple', ])
   assert code == 0
-  assert out == ''
+  assert 'AES key saved to' in out
   assert priv_path.exists()
 
 
@@ -218,16 +218,14 @@ def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None: 
 @pytest.mark.slow
 def test_rsa_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None:
   """Test RSA key gen, encrypt/decrypt, sign/verify via CLI."""
+  base_path: pathlib.Path = tmp_path / 'rsa'
   priv_path: pathlib.Path = tmp_path / 'rsa.priv'
+  pub_path: pathlib.Path = tmp_path / 'rsa.pub'
   # Key gen (small for speed)
-  code, out = _RunCLI(['-p', str(priv_path), 'rsa', 'new', '512'])
-  assert code == 0
-  # Output: 2 lines, n=... bits=..., e=...
-  lines: list[str] = out.splitlines()
-  assert len(lines) == 2
-  assert lines[0].startswith('n=') and 'bits=' in lines[0]
-  assert lines[1].startswith('e=')
+  code, out = _RunCLI(['-p', str(base_path), 'rsa', 'new', '--bits', '512'])
+  assert code == 0 and 'RSA private/public keys saved to' in out
   assert priv_path.exists()
+  assert pub_path.exists()
   # Encrypt/decrypt a small message
   msg = 12345
   code, cipher = _RunCLI(['-p', str(priv_path), 'rsa', 'encrypt', str(msg)])
@@ -244,54 +242,64 @@ def test_rsa_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None:
   assert s > 0
   code, ok = _RunCLI(['-p', str(priv_path), 'rsa', 'verify', str(msg), str(s)])
   assert code == 0
-  assert ok == 'True'
+  assert ok == 'RSA signature: OK'
+  code, ok = _RunCLI(['-p', str(priv_path), 'rsa', 'verify', str(msg + 1), str(s)])
+  assert code == 0
+  assert ok == 'RSA signature: INVALID'
 
 
 def test_elgamal_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None:  # pylint: disable=too-many-locals
   """Test ElGamal shared/new, encrypt/decrypt, sign/verify via CLI."""
+  base_path: pathlib.Path = tmp_path / 'eg'
   shared_path: pathlib.Path = tmp_path / 'eg.shared'
   priv_path: pathlib.Path = tmp_path / 'eg.priv'
+  pub_path: pathlib.Path = tmp_path / 'eg.pub'
   # Shared params & private key
-  code, out = _RunCLI(['-p', str(shared_path), 'elgamal', 'shared', '64'])
-  assert code == 0 and out == 'shared parameters saved'
+  code, out = _RunCLI(['-p', str(base_path), 'elgamal', 'shared', '--bits', '64'])
+  assert code == 0 and 'El-Gamal shared key saved to' in out
   assert shared_path.exists()
-  code, out = _RunCLI(
-      ['-p', str(shared_path), 'elgamal', 'new', '--out', str(priv_path)])
-  assert code == 0 and out == 'elgamal key saved'
+  code, out = _RunCLI(['-p', str(base_path), 'elgamal', 'new'])
+  assert code == 0 and 'El-Gamal private/public keys saved to' in out
   assert priv_path.exists()
+  assert pub_path.exists()
   # Encrypt/decrypt (public can be derived from private file)
   msg = 42
-  code, ct = _RunCLI(['-p', str(priv_path), 'elgamal', 'encrypt', str(msg)])
+  code, out = _RunCLI(['-p', str(priv_path), 'elgamal', 'encrypt', str(msg)])
   assert code == 0
-  c1_s, c2_s = ct.split()
-  c1, c2 = int(c1_s), int(c2_s)
-  code, plain = _RunCLI(['-p', str(priv_path), 'elgamal', 'decrypt', str(c1), str(c2)])
+  code, plain = _RunCLI(['-p', str(priv_path), 'elgamal', 'decrypt', out])
   assert code == 0
   assert int(plain) == msg
   # Sign/verify
-  code, sig = _RunCLI(['-p', str(priv_path), 'elgamal', 'sign', str(msg)])
+  code, out = _RunCLI(['-p', str(priv_path), 'elgamal', 'sign', str(msg)])
   assert code == 0
-  s1_s, s2_s = sig.split()
-  code, ok = _RunCLI(['-p', str(priv_path), 'elgamal', 'verify', str(msg), s1_s, s2_s])
-  assert code == 0 and ok == 'True'
+  code, ok = _RunCLI(['-p', str(priv_path), 'elgamal', 'verify', str(msg), out])
+  assert code == 0 and ok == 'El-Gamal signature: OK'
+  code, ok = _RunCLI(['-p', str(priv_path), 'elgamal', 'verify', str(msg + 1), out])
+  assert code == 0 and ok == 'El-Gamal signature: INVALID'
 
 
 def test_dsa_sign_verify(tmp_path: pathlib.Path) -> None:
   """Test DSA shared/new, sign/verify via CLI."""
+  base_path: pathlib.Path = tmp_path / 'dsa'
   shared_path: pathlib.Path = tmp_path / 'dsa.shared'
   priv_path: pathlib.Path = tmp_path / 'dsa.priv'
+  pub_path: pathlib.Path = tmp_path / 'dsa.pub'
   # Small, but respect constraints: p_bits >= q_bits + 11, q_bits >= 11
-  code, out = _RunCLI(['-p', str(shared_path), 'dsa', 'shared', '64', '32'])
-  assert code == 0 and out == 'dsa shared parameters saved'
   code, out = _RunCLI(
-      ['-p', str(shared_path), 'dsa', 'new', '--out', str(priv_path)])
-  assert code == 0 and out == 'dsa key saved'
+      ['-p', str(base_path), 'dsa', 'shared', '--p-bits', '64', '--q-bits', '32'])
+  assert code == 0 and 'DSA shared key saved to' in out
+  assert shared_path.exists()
+  code, out = _RunCLI(['-p', str(base_path), 'dsa', 'new'])
+  assert code == 0 and 'DSA private/public keys saved to' in out
+  assert priv_path.exists()
+  assert pub_path.exists()
   msg = 123456
   code, sig = _RunCLI(['-p', str(priv_path), 'dsa', 'sign', str(msg)])
   assert code == 0
-  s1_s, s2_s = sig.split()
-  code, ok = _RunCLI(['-p', str(priv_path), 'dsa', 'verify', str(msg), s1_s, s2_s])
-  assert code == 0 and ok == 'True'
+  code, ok = _RunCLI(['-p', str(priv_path), 'dsa', 'verify', str(msg), sig])
+  assert code == 0 and ok == 'DSA signature: OK'
+  code, ok = _RunCLI(['-p', str(priv_path), 'dsa', 'verify', str(msg + 1), sig])
+  assert code == 0 and ok == 'DSA signature: INVALID'
 
 
 @pytest.mark.slow
@@ -301,43 +309,52 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
   priv_path = pathlib.Path(str(base_path) + '.priv')
   pub_path = pathlib.Path(str(base_path) + '.pub')
   # Generate params
-  code, out = _RunCLI(['-p', str(base_path), 'sss', 'new', '3', '128'])
-  assert code == 0 and out == 'sss private/public saved'
+  code, out = _RunCLI(['-p', str(base_path), 'sss', 'new', '3', '--bits', '128'])
+  assert code == 0 and 'SSS private/public keys saved to' in out
   assert priv_path.exists() and pub_path.exists()
   # Issue 3 shares for a known secret
-  secret_hex = '0xC0FFEE'
-  code, shares_out = _RunCLI(
-      ['-p', str(priv_path), 'sss', 'shares', secret_hex, '3', '--out', str(base_path)])
+  secret = 999
+  code, out = _RunCLI(['-p', str(base_path), 'sss', 'shares', str(secret), '3'])
   assert code == 0
-  lines: list[str] = shares_out.splitlines()
-  assert len(lines) == 3 and all(':' in ln for ln in lines)
+  assert 'SSS 3 individual (private) shares saved to' in out and '1…3' in out
   for i in range(3):
     share_path = pathlib.Path(f'{base_path}.share.{i + 1}')
     assert share_path.exists()
-    assert lines[i].startswith(f'Share {i + 1} - ')
   # Recover with public key
-  lines = [line.split(' - ')[1] for line in lines]
-  code, recovered = _RunCLI(['-p', str(pub_path), 'sss', 'recover', *lines])
+  code, out = _RunCLI(['-p', str(base_path), 'sss', 'recover'])
   assert code == 0
-  assert int(recovered) == int(secret_hex, 0)
+  lines: list[str] = out.splitlines()
+  assert len(lines) == 5
+  assert 'Loaded SSS share' in lines[0]
+  assert int(lines[-1]) == secret
   # Verify a share against the same secret with private key
-  code, ok = _RunCLI(['-p', str(priv_path), 'sss', 'verify', secret_hex, lines[0]])
-  assert code == 0 and ok == 'True'
+  code, out = _RunCLI(['-p', str(base_path), 'sss', 'verify', str(secret)])
+  assert code == 0
+  lines = out.splitlines()
+  assert len(lines) == 3
+  for line in lines:
+    assert 'verification: OK' in line
+  code, out = _RunCLI(['-p', str(base_path), 'sss', 'verify', str(secret + 1)])
+  assert code == 0
+  lines = out.splitlines()
+  assert len(lines) == 3
+  for line in lines:
+    assert 'verification: INVALID' in line
 
 
 @pytest.mark.parametrize(
     'argv',
     [
+        ['random'],
+        ['hash'],
         ['mod'],
         ['aes'],
         ['--b64', 'aes', 'ecb', '-k', 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8='],
-        ['elgamal'],
-        ['dsa'],
-        ['sss'],
+        ['-p', 'kkk', 'rsa'],
+        ['-p', 'kkk', 'elgamal'],
+        ['-p', 'kkk', 'dsa'],
+        ['-p', 'kkk', 'sss'],
         ['doc'],
-        ['random'],
-        ['hash'],
-        ['rsa'],
     ],
 )
 def test_not_implemented_error_paths(argv: list[str]) -> None:
@@ -412,18 +429,16 @@ def test_markdown_table_helper() -> None:
   assert transcrypto._MarkdownTable([]) == ''  # empty input → empty output
 
 
-def test_aes_crypt_requires_key() -> None:
-  """Hit the 'provide --key or --key-path' error in AES encrypt."""
-  with pytest.raises(base.InputError, match='provide --key or --key-path'):
+def test_requires_key() -> None:
+  """Hit the 'provide --key or --key-path' error in AES."""
+  with pytest.raises(base.InputError, match='provide -k/--key or -p/--key-path'):
     transcrypto.main(['--bin', 'aes', 'encrypt', 'msg'])
-  with pytest.raises(base.InputError, match='provide --key or --key-path'):
+  with pytest.raises(base.InputError, match='provide -k/--key or -p/--key-path'):
     transcrypto.main(['--bin', 'aes', 'decrypt', 'msg'])
-
-
-def test_aes_ecb_requires_key() -> None:
-  """Hit the 'provide --key-b64 or --key-path' error in AES ecb."""
-  with pytest.raises(base.InputError, match='provide --key or --key-path'):
+  with pytest.raises(base.InputError, match='provide -k/--key or -p/--key-path'):
     transcrypto.main(['aes', 'ecb', 'encrypt', '00112233445566778899aabbccddeeff'])
+  with pytest.raises(base.InputError, match='you must provide -p/--key-path option'):
+    transcrypto.main(['rsa', 'new'])
 
 
 def test_aes_gcm_decrypt_wrong_aad_raises() -> None:

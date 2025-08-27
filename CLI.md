@@ -40,6 +40,70 @@ poetry run transcrypto <command> [sub-command] [options...]
 - **`sss`** — `poetry run transcrypto sss [-h] {new,shares,recover,verify} ...`
 - **`doc`** — `poetry run transcrypto doc [-h] {md} ...`
 
+```bash
+Examples:
+
+  # --- Randomness ---
+  poetry run transcrypto random bits 16
+  poetry run transcrypto random int 1000 2000
+  poetry run transcrypto random bytes 32
+  poetry run transcrypto random prime 64
+
+  # --- Primes ---
+  poetry run transcrypto isprime 428568761
+  poetry run transcrypto primegen 100 -c 3
+  poetry run transcrypto mersenne -k 2 -C 17
+
+  # --- Integer / Modular Math ---
+  poetry run transcrypto gcd 462 1071
+  poetry run transcrypto xgcd 127 13
+  poetry run transcrypto mod inv 17 97
+  poetry run transcrypto mod div 6 127 13
+  poetry run transcrypto mod exp 438 234 127
+  poetry run transcrypto mod poly 12 17 10 20 30
+  poetry run transcrypto mod lagrange 5 13 2:4 6:3 7:1
+  poetry run transcrypto mod crt 6 7 127 13
+
+  # --- Hashing ---
+  poetry run transcrypto hash sha256 xyz
+  poetry run transcrypto --b64 hash sha512 eHl6
+  poetry run transcrypto hash file /etc/passwd --digest sha512
+
+  # --- AES ---
+  poetry run transcrypto --out-b64 aes key "correct horse battery staple"
+  poetry run transcrypto --b64 --out-b64 aes encrypt -k "<b64key>" "secret"
+  poetry run transcrypto --b64 --out-b64 aes decrypt -k "<b64key>" "<ciphertext>"
+  poetry run transcrypto aes ecb -k "<b64key>" encrypt "<128bithexblock>"
+  poetry run transcrypto aes ecb -k "<b64key>" decrypt "<128bithexblock>"
+
+  # --- RSA ---
+  poetry run transcrypto -p rsa-key rsa new --bits 2048
+  poetry run transcrypto -p rsa-key.pub rsa encrypt <plaintext>
+  poetry run transcrypto -p rsa-key.priv rsa decrypt <ciphertext>
+  poetry run transcrypto -p rsa-key.priv rsa sign <message>
+  poetry run transcrypto -p rsa-key.pub rsa verify <message> <signature>
+
+  # --- ElGamal ---
+  poetry run transcrypto -p eg-key elgamal shared --bits 2048
+  poetry run transcrypto -p eg-key elgamal new
+  poetry run transcrypto -p eg-key.pub elgamal encrypt <plaintext>
+  poetry run transcrypto -p eg-key.priv elgamal decrypt <c1:c2>
+  poetry run transcrypto -p eg-key.priv elgamal sign <message>
+  poetry run transcrypto-p eg-key.pub elgamal verify <message> <s1:s2>
+
+  # --- DSA ---
+  poetry run transcrypto -p dsa-key dsa shared --p-bits 2048 --q-bits 256
+  poetry run transcrypto -p dsa-key dsa new
+  poetry run transcrypto -p dsa-key.priv dsa sign <message>
+  poetry run transcrypto -p dsa-key.pub dsa verify <message> <s1:s2>
+
+  # --- Shamir Secret Sharing (SSS) ---
+  poetry run transcrypto -p sss-key sss new 3 --bits 1024
+  poetry run transcrypto -p sss-key sss shares <secret> 5
+  poetry run transcrypto -p sss-key sss recover
+  poetry run transcrypto -p sss-key sss verify <secret>
+```
+
 ---
 
 ### `random`
@@ -247,7 +311,7 @@ poetry run transcrypto xgcd [-h] a b
 ```bash
 $ poetry run transcrypto xgcd 462 1071
 (21, 7, -3)
-$ poetry run transcrypto gcd 0 5
+$ poetry run transcrypto xgcd 0 5
 (5, 0, 1)
 $ poetry run transcrypto xgcd 127 13
 (1, 4, -39)
@@ -451,9 +515,9 @@ poetry run transcrypto hash sha512 [-h] data
 **Example:**
 
 ```bash
-$ poetry run transcrypto --bin hash sha256 xyz
+$ poetry run transcrypto --bin hash sha512 xyz
 4a3ed8147e37876adc8f76328e5abcc1b470e6acfc18efea0135f983604953a58e183c1a6086e91ba3e821d926f5fdeb37761c7ca0328a963f5e92870675b728
-$ poetry run transcrypto --b64 hash sha256 eHl6  # "xyz" in base-64
+$ poetry run transcrypto --b64 hash sha512 eHl6  # "xyz" in base-64
 4a3ed8147e37876adc8f76328e5abcc1b470e6acfc18efea0135f983604953a58e183c1a6086e91ba3e821d926f5fdeb37761c7ca0328a963f5e92870675b728
 ```
 
@@ -481,7 +545,7 @@ $ poetry run transcrypto hash file /etc/passwd --digest sha512
 
 ### `aes`
 
-AES-256 operations (GCM/ECB) and key derivation.
+AES-256 operations (GCM/ECB) and key derivation. No measures are taken here to prevent timing attacks.
 
 ```bash
 poetry run transcrypto aes [-h] {key,encrypt,decrypt,ecb} ...
@@ -505,7 +569,7 @@ poetry run transcrypto aes key [-h] password
 $ poetry run transcrypto --out-b64 aes key "correct horse battery staple"
 DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es=
 $ poetry run transcrypto -p keyfile.out --protect hunter aes key "correct horse battery staple"
-$
+AES key saved to 'keyfile.out'
 ```
 
 #### `aes encrypt`
@@ -608,7 +672,7 @@ $ poetry run transcrypto --b64 aes ecb -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_
 
 ### `rsa`
 
-Raw RSA over integers (no OAEP/PSS).
+Raw RSA (Rivest-Shamir-Adleman) asymmetric cryptography over *integers* (BEWARE: no OAEP/PSS padding or validation). These are pedagogical/raw primitives; do not use for new protocols. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
 
 ```bash
 poetry run transcrypto rsa [-h] {new,encrypt,decrypt,sign,verify} ...
@@ -616,19 +680,26 @@ poetry run transcrypto rsa [-h] {new,encrypt,decrypt,sign,verify} ...
 
 #### `rsa new`
 
-Generate RSA private key.
+Generate RSA private/public key pair with `bits` modulus size (prime sizes will be `bits`/2). Requires `-p`/`--key-path` to set the basename for output files.
 
 ```bash
-poetry run transcrypto rsa new [-h] bits
+poetry run transcrypto rsa new [-h] [--bits BITS]
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `bits` | Modulus size in bits (e.g., 2048) [type: int] |
+| `--bits` | Modulus size in bits; the default is a safe size [type: int (default: 3332)] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p rsa-key rsa new --bits 64  # NEVER use such a small key: example only!
+RSA private/public keys saved to 'rsa-key.priv/.pub'
+```
 
 #### `rsa encrypt`
 
-Encrypt integer with public key.
+Encrypt integer `message` with public key.
 
 ```bash
 poetry run transcrypto rsa encrypt [-h] message
@@ -636,11 +707,18 @@ poetry run transcrypto rsa encrypt [-h] message
 
 | Option/Arg | Description |
 |---|---|
-| `message` | Integer message (e.g., "12345" or "0x...") [type: str] |
+| `message` | Integer message to encrypt, 1≤`message`<*modulus* [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p rsa-key.pub rsa encrypt 999
+6354905961171348600
+```
 
 #### `rsa decrypt`
 
-Decrypt integer ciphertext with private key.
+Decrypt integer `ciphertext` with private key.
 
 ```bash
 poetry run transcrypto rsa decrypt [-h] ciphertext
@@ -648,11 +726,18 @@ poetry run transcrypto rsa decrypt [-h] ciphertext
 
 | Option/Arg | Description |
 |---|---|
-| `ciphertext` | Integer ciphertext [type: str] |
+| `ciphertext` | Integer ciphertext to decrypt, 1≤`ciphertext`<*modulus* [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p rsa-key.priv rsa decrypt 6354905961171348600
+999
+```
 
 #### `rsa sign`
 
-Sign integer message with private key.
+Sign integer `message` with private key.
 
 ```bash
 poetry run transcrypto rsa sign [-h] message
@@ -660,11 +745,18 @@ poetry run transcrypto rsa sign [-h] message
 
 | Option/Arg | Description |
 |---|---|
-| `message` | Integer message [type: str] |
+| `message` | Integer message to sign, 1≤`message`<*modulus* [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p rsa-key.priv rsa sign 999
+7632909108672871784
+```
 
 #### `rsa verify`
 
-Verify integer signature with public key.
+Verify integer `signature` for integer `message` with public key.
 
 ```bash
 poetry run transcrypto rsa verify [-h] message signature
@@ -672,14 +764,23 @@ poetry run transcrypto rsa verify [-h] message signature
 
 | Option/Arg | Description |
 |---|---|
-| `message` | Integer message [type: str] |
-| `signature` | Integer signature [type: str] |
+| `message` | Integer message that was signed earlier, 1≤`message`<*modulus* [type: str] |
+| `signature` | Integer putative signature for `message`, 1≤`signature`<*modulus* [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p rsa-key.pub rsa verify 999 7632909108672871784
+RSA signature: OK
+$ poetry run transcrypto -p rsa-key.pub rsa verify 999 7632909108672871785
+RSA signature: INVALID
+```
 
 ---
 
 ### `elgamal`
 
-Raw El-Gamal (no padding).
+Raw El-Gamal asymmetric cryptography over *integers* (BEWARE: no ECIES-style KEM/DEM padding or validation). These are pedagogical/raw primitives; do not use for new protocols. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
 
 ```bash
 poetry run transcrypto elgamal [-h]
@@ -688,31 +789,41 @@ poetry run transcrypto elgamal [-h]
 
 #### `elgamal shared`
 
-Generate shared parameters (p, g).
+Generate a shared El-Gamal key with `bits` prime modulus size, which is the first step in key generation. The shared key can safely be used by any number of users to generate their private/public key pairs (with the `new` command). The shared keys are "public". Requires `-p`/`--key-path` to set the basename for output files.
 
 ```bash
-poetry run transcrypto elgamal shared [-h] bits
+poetry run transcrypto elgamal shared [-h] [--bits BITS]
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `bits` | Bit length for prime modulus p [type: int] |
+| `--bits` | Prime modulus (`p`) size in bits; the default is a safe size [type: int (default: 3332)] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p eg-key elgamal shared --bits 64  # NEVER use such a small key: example only!
+El-Gamal shared key saved to 'eg-key.shared'
+```
 
 #### `elgamal new`
 
-Generate individual private key from shared.
+Generate an individual El-Gamal private/public key pair from a shared key.
 
 ```bash
-poetry run transcrypto elgamal new [-h] --out OUT
+poetry run transcrypto elgamal new [-h]
 ```
 
-| Option/Arg | Description |
-|---|---|
-| `--out` | Save private key to path [type: str] |
+**Example:**
+
+```bash
+$ poetry run transcrypto -p eg-key elgamal new
+El-Gamal private/public keys saved to 'eg-key.priv/.pub'
+```
 
 #### `elgamal encrypt`
 
-Encrypt integer with public key.
+Encrypt integer `message` with public key.
 
 ```bash
 poetry run transcrypto elgamal encrypt [-h] message
@@ -720,24 +831,37 @@ poetry run transcrypto elgamal encrypt [-h] message
 
 | Option/Arg | Description |
 |---|---|
-| `message` | Integer message 1 ≤ m < p [type: str] |
+| `message` | Integer message to encrypt, 1≤`message`<*modulus* [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p eg-key.pub elgamal encrypt 999
+2948854810728206041:15945988196340032688
+```
 
 #### `elgamal decrypt`
 
-Decrypt El-Gamal ciphertext tuple (c1,c2).
+Decrypt integer `ciphertext` with private key.
 
 ```bash
-poetry run transcrypto elgamal decrypt [-h] c1 c2
+poetry run transcrypto elgamal decrypt [-h] ciphertext
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `c1` | [type: str] |
-| `c2` | [type: str] |
+| `ciphertext` | Integer ciphertext to decrypt; expects `c1:c2` format with 2 integers,  2≤`c1`,`c2`<*modulus* [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p eg-key.priv elgamal decrypt 2948854810728206041:15945988196340032688
+999
+```
 
 #### `elgamal sign`
 
-Sign integer message with private key.
+Sign integer message with private key. Output will 2 integers in a `s1:s2` format.
 
 ```bash
 poetry run transcrypto elgamal sign [-h] message
@@ -745,27 +869,42 @@ poetry run transcrypto elgamal sign [-h] message
 
 | Option/Arg | Description |
 |---|---|
-| `message` | [type: str] |
+| `message` | Integer message to sign, 1≤`message`<*modulus* [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p eg-key.priv elgamal sign 999
+4674885853217269088:14532144906178302633
+```
 
 #### `elgamal verify`
 
-Verify El-Gamal signature (s1,s2).
+Verify integer `signature` for integer `message` with public key.
 
 ```bash
-poetry run transcrypto elgamal verify [-h] message s1 s2
+poetry run transcrypto elgamal verify [-h] message signature
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `message` | [type: str] |
-| `s1` | [type: str] |
-| `s2` | [type: str] |
+| `message` | Integer message that was signed earlier, 1≤`message`<*modulus* [type: str] |
+| `signature` | Integer putative signature for `message`; expects `s1:s2` format with 2 integers,  2≤`s1`,`s2`<*modulus* [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p eg-key.pub elgamal verify 999 4674885853217269088:14532144906178302633
+El-Gamal signature: OK
+$ poetry run transcrypto -p eg-key.pub elgamal verify 999 4674885853217269088:14532144906178302632
+El-Gamal signature: INVALID
+```
 
 ---
 
 ### `dsa`
 
-Raw DSA (no hash, integer messages < q).
+Raw DSA (Digital Signature Algorithm) asymmetric signing over *integers* (BEWARE: no ECDSA/EdDSA padding or validation). These are pedagogical/raw primitives; do not use for new protocols. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
 
 ```bash
 poetry run transcrypto dsa [-h] {shared,new,sign,verify} ...
@@ -773,32 +912,43 @@ poetry run transcrypto dsa [-h] {shared,new,sign,verify} ...
 
 #### `dsa shared`
 
-Generate (p,q,g) with q | p-1.
+Generate a shared DSA key with `p-bits`/`q-bits` prime modulus sizes, which is the first step in key generation. `q-bits` should be larger than the secrets that will be protected and `p-bits` should be much larger than `q-bits` (e.g. 3584/256). The shared key can safely be used by any number of users to generate their private/public key pairs (with the `new` command). The shared keys are "public". Requires `-p`/`--key-path` to set the basename for output files.
 
 ```bash
-poetry run transcrypto dsa shared [-h] p_bits q_bits
+poetry run transcrypto dsa shared [-h] [--p-bits P_BITS]
+                                         [--q-bits Q_BITS]
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `p_bits` | Bit length of p (≥ q_bits + 11) [type: int] |
-| `q_bits` | Bit length of q (≥ 11) [type: int] |
+| `--p-bits` | Prime modulus (`p`) size in bits; the default is a safe size [type: int (default: 3584)] |
+| `--q-bits` | Prime modulus (`q`) size in bits; the default is a safe size ***IFF*** you are protecting symmetric keys or regular hashes [type: int (default: 256)] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p dsa-key dsa shared --p-bits 128 --q-bits 32  # NEVER use such a small key: example only!
+DSA shared key saved to 'dsa-key.shared'
+```
 
 #### `dsa new`
 
-Generate DSA private key from shared.
+Generate an individual DSA private/public key pair from a shared key.
 
 ```bash
-poetry run transcrypto dsa new [-h] --out OUT
+poetry run transcrypto dsa new [-h]
 ```
 
-| Option/Arg | Description |
-|---|---|
-| `--out` | Save private key to path [type: str] |
+**Example:**
+
+```bash
+$ poetry run transcrypto -p dsa-key dsa new
+DSA private/public keys saved to 'dsa-key.priv/.pub'
+```
 
 #### `dsa sign`
 
-Sign integer m (1 ≤ m < q).
+Sign integer message with private key. Output will 2 integers in a `s1:s2` format.
 
 ```bash
 poetry run transcrypto dsa sign [-h] message
@@ -806,27 +956,42 @@ poetry run transcrypto dsa sign [-h] message
 
 | Option/Arg | Description |
 |---|---|
-| `message` | [type: str] |
+| `message` | Integer message to sign, 1≤`message`<`q` [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p dsa-key.priv dsa sign 999
+2395961484:3435572290
+```
 
 #### `dsa verify`
 
-Verify DSA signature (s1,s2).
+Verify integer `signature` for integer `message` with public key.
 
 ```bash
-poetry run transcrypto dsa verify [-h] message s1 s2
+poetry run transcrypto dsa verify [-h] message signature
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `message` | [type: str] |
-| `s1` | [type: str] |
-| `s2` | [type: str] |
+| `message` | Integer message that was signed earlier, 1≤`message`<`q` [type: str] |
+| `signature` | Integer putative signature for `message`; expects `s1:s2` format with 2 integers,  2≤`s1`,`s2`<`q` [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p dsa-key.pub dsa verify 999 2395961484:3435572290
+DSA signature: OK
+$ poetry run transcrypto -p dsa-key.pub dsa verify 999 2395961484:3435572291
+DSA signature: INVALID
+```
 
 ---
 
 ### `sss`
 
-Shamir Shared Secret (unauthenticated).
+Raw SSS (Shamir Shared Secret) secret sharing crypto scheme over *integers* (BEWARE: no modern message wrapping, padding or validation). These are pedagogical/raw primitives; do not use for new protocols. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
 
 ```bash
 poetry run transcrypto sss [-h] {new,shares,recover,verify} ...
@@ -834,61 +999,94 @@ poetry run transcrypto sss [-h] {new,shares,recover,verify} ...
 
 #### `sss new`
 
-Generate SSS params (minimum, prime, coefficients).
+Generate the private keys with `bits` prime modulus size and so that at least a `minimum` number of shares are needed to recover the secret. This key will be used to generate the shares later (with the `shares` command). Requires `-p`/`--key-path` to set the basename for output files.
 
 ```bash
-poetry run transcrypto sss new [-h] minimum bits
+poetry run transcrypto sss new [-h] [--bits BITS] minimum
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `minimum` | Threshold t (≥ 2) [type: int] |
-| `bits` | Prime modulus bit length (≥ 128 for non-toy) [type: int] |
+| `minimum` | Minimum number of shares required to recover secret, ≥ 2 [type: int] |
+| `--bits` | Prime modulus (`p`) size in bits; the default is a safe size ***IFF*** you are protecting symmetric keys; the number of bits should be comfortably larger than the size of the secret you want to protect with this scheme [type: int (default: 1024)] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p sss-key sss new 3 --bits 64  # NEVER use such a small key: example only!
+SSS private/public keys saved to 'sss-key.priv/.pub'
+```
 
 #### `sss shares`
 
-Issue N shares for a secret (private params).
+Issue `count` private shares for an integer `secret`.
 
 ```bash
-poetry run transcrypto sss shares [-h] [--out OUT] secret count
+poetry run transcrypto sss shares [-h] secret count
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `secret` | Secret as integer (supports 0x..) [type: str] |
-| `count` | How many shares to produce [type: int] |
-| `--out` | Save shares to path [type: str] |
+| `secret` | Integer secret to be protected, 1≤`secret`<*modulus* [type: str] |
+| `count` | How many shares to produce; must be ≥ `minimum` used in `new` command or else the `secret` would become unrecoverable [type: int] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p sss-key sss shares 999 5
+SSS 5 individual (private) shares saved to 'sss-key.share.1…5'
+$ rm sss-key.share.2 sss-key.share.4  # this is to simulate only having shares 1,3,5
+```
 
 #### `sss recover`
 
-Recover secret from shares (public params).
+Recover secret from shares; will use any available shares that were found.
 
 ```bash
-poetry run transcrypto sss recover [-h] shares [shares ...]
+poetry run transcrypto sss recover [-h]
 ```
 
-| Option/Arg | Description |
-|---|---|
-| `shares` | Shares as k:v (e.g., 2:123 5:456 ...) [nargs: +] |
+**Example:**
+
+```bash
+$ poetry run transcrypto -p sss-key sss recover
+Loaded SSS share: 'sss-key.share.3'
+Loaded SSS share: 'sss-key.share.5'
+Loaded SSS share: 'sss-key.share.1'  # using only 3 shares: number 2/4 are missing
+Secret:
+999
+```
 
 #### `sss verify`
 
-Verify a share against a secret (private params).
+Verify shares against a secret (private params).
 
 ```bash
-poetry run transcrypto sss verify [-h] secret share
+poetry run transcrypto sss verify [-h] secret
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `secret` | Secret as integer (supports 0x..) [type: str] |
-| `share` | One share as k:v (e.g., 7:9999) [type: str] |
+| `secret` | Integer secret used to generate the shares, 1≤`secret`<*modulus* [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto -p sss-key sss verify 999
+SSS share 'sss-key.share.3' verification: OK
+SSS share 'sss-key.share.5' verification: OK
+SSS share 'sss-key.share.1' verification: OK
+$ poetry run transcrypto -p sss-key sss verify 998
+SSS share 'sss-key.share.3' verification: INVALID
+SSS share 'sss-key.share.5' verification: INVALID
+SSS share 'sss-key.share.1' verification: INVALID
+```
 
 ---
 
 ### `doc`
 
-Documentation utilities.
+Documentation utilities. (Not for regular use: these are developer utils.)
 
 ```bash
 poetry run transcrypto doc [-h] {md} ...
@@ -896,9 +1094,17 @@ poetry run transcrypto doc [-h] {md} ...
 
 #### `doc md`
 
-Emit Markdown for the CLI (see README.md section "Creating a New Version").
+Emit Markdown docs for the CLI (see README.md section "Creating a New Version").
 
 ```bash
 poetry run transcrypto doc md [-h]
+```
+
+**Example:**
+
+```bash
+$ poetry run transcrypto doc md > CLI.md
+$ ./tools/inject_md_includes.py
+inject: README.md updated with included content
 ```
 

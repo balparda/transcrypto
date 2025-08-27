@@ -32,7 +32,9 @@ _MAX_KEY_GENERATION_FAILURES = 15
 class RSAPublicKey(base.CryptoKey):
   """RSA (Rivest-Shamir-Adleman) key, with the public part of the key.
 
-  BEWARE: This is raw RSA, no OAEP or PSS!
+  BEWARE: This is raw RSA, no OAEP or PSS padding or validation!
+  These are pedagogical/raw primitives; do not use for new protocols.
+  No measures are taken here to prevent timing attacks.
 
   By default and deliberate choice the encryption exponent will be either 7 or 65537,
   depending on the size of phi=(p-1)*(q-1). If phi allows it the larger one will be chosen
@@ -109,6 +111,10 @@ class RSAPublicKey(base.CryptoKey):
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class RSAObfuscationPair(RSAPublicKey):
   """RSA (Rivest-Shamir-Adleman) obfuscation pair for a public key.
+
+  BEWARE: This only works on raw RSA, no OAEP or PSS padding or validation!
+  These are pedagogical/raw primitives; do not use for new protocols.
+  No measures are taken here to prevent timing attacks.
 
   Attributes:
     random_key (int): random value key, 2 ≤ k < modulus
@@ -221,6 +227,10 @@ class RSAObfuscationPair(RSAPublicKey):
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class RSAPrivateKey(RSAPublicKey):
   """RSA (Rivest-Shamir-Adleman) private key.
+
+  BEWARE: This is raw RSA, no OAEP or PSS padding or validation!
+  These are pedagogical/raw primitives; do not use for new protocols.
+  No measures are taken here to prevent timing attacks.
 
   The attributes modulus_p (p), modulus_q (q) and decrypt_exp (d) are "enough" for a working key,
   but we have the other 3 (remainder_p, remainder_q, q_inverse_p) to speedup decryption/signing

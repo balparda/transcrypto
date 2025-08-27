@@ -8,10 +8,10 @@ See README.md for documentation on how to use.
 
 Notes on the layout (quick mental model):
 
-isprime, mr, randomprime, primegen, mersenne
+isprime, primegen, mersenne
 gcd, xgcd, and grouped mod inv|div|exp|poly|lagrange|crt
-rand bits|int|bytes, hash sha256|sha512|file
-aes key frompass, aes encrypt|decrypt (GCM), aes ecb encrypthex|decrypthex
+random bits|int|bytes|prime, hash sha256|sha512|file
+aes key frompass, aes encrypt|decrypt (GCM), aes ecb encrypt|decrypt
 rsa new|encrypt|decrypt|sign|verify (integer messages)
 elgamal shared|new|encrypt|decrypt|sign|verify
 dsa shared|new|sign|verify
@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import enum
+import glob
 import logging
 # import pdb
 import sys
@@ -247,6 +248,10 @@ def _GenerateCLIMarkdown() -> str:  # pylint: disable=too-many-locals
       help_text = help_text.replace('usage: ', '').strip()  # type:ignore
       lines.append(f'- **`{name}`** — `{help_text}`')
   lines.append('')
+  if parser.epilog:
+    lines.append('```bash')
+    lines.append(parser.epilog)
+    lines.append('```\n')
   # Detailed sections per (sub)command
   for path, sub_parser, parent_sub_action in _WalkSubcommands(parser):
     if len(path) == 1:
@@ -286,13 +291,58 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
       description=('transcrypto: CLI for number theory, hashing, '
                    'AES, RSA, ElGamal, DSA, SSS, and utilities.'),
       epilog=(
-          'Examples:\n'
+          'Examples:\n\n'
+          '  # --- Randomness ---\n'
+          '  poetry run transcrypto random bits 16\n'
+          '  poetry run transcrypto random int 1000 2000\n'
+          '  poetry run transcrypto random bytes 32\n'
+          '  poetry run transcrypto random prime 64\n\n'
+          '  # --- Primes ---\n'
           '  poetry run transcrypto isprime 428568761\n'
-          '  poetry run transcrypto rsa new 2048 --out rsa.priv --protect hunter2\n'
-          '  poetry run transcrypto aes key frompass "correct horse" --print-b64\n'
-          '  poetry run transcrypto aes encrypt "secret" -k "<b64key>" -a "aad" --out-b64\n'
+          '  poetry run transcrypto primegen 100 -c 3\n'
+          '  poetry run transcrypto mersenne -k 2 -C 17\n\n'
+          '  # --- Integer / Modular Math ---\n'
+          '  poetry run transcrypto gcd 462 1071\n'
+          '  poetry run transcrypto xgcd 127 13\n'
           '  poetry run transcrypto mod inv 17 97\n'
-          '  poetry run transcrypto sss new 3 128 --out /tmp/sss\n'
+          '  poetry run transcrypto mod div 6 127 13\n'
+          '  poetry run transcrypto mod exp 438 234 127\n'
+          '  poetry run transcrypto mod poly 12 17 10 20 30\n'
+          '  poetry run transcrypto mod lagrange 5 13 2:4 6:3 7:1\n'
+          '  poetry run transcrypto mod crt 6 7 127 13\n\n'
+          '  # --- Hashing ---\n'
+          '  poetry run transcrypto hash sha256 xyz\n'
+          '  poetry run transcrypto --b64 hash sha512 eHl6\n'
+          '  poetry run transcrypto hash file /etc/passwd --digest sha512\n\n'
+          '  # --- AES ---\n'
+          '  poetry run transcrypto --out-b64 aes key "correct horse battery staple"\n'
+          '  poetry run transcrypto --b64 --out-b64 aes encrypt -k "<b64key>" "secret"\n'
+          '  poetry run transcrypto --b64 --out-b64 aes decrypt -k "<b64key>" "<ciphertext>"\n'
+          '  poetry run transcrypto aes ecb -k "<b64key>" encrypt "<128bithexblock>"\n'    # cspell:disable-line
+          '  poetry run transcrypto aes ecb -k "<b64key>" decrypt "<128bithexblock>"\n\n'  # cspell:disable-line
+          '  # --- RSA ---\n'
+          '  poetry run transcrypto -p rsa-key rsa new --bits 2048\n'
+          '  poetry run transcrypto -p rsa-key.pub rsa encrypt <plaintext>\n'
+          '  poetry run transcrypto -p rsa-key.priv rsa decrypt <ciphertext>\n'
+          '  poetry run transcrypto -p rsa-key.priv rsa sign <message>\n'
+          '  poetry run transcrypto -p rsa-key.pub rsa verify <message> <signature>\n\n'
+          '  # --- ElGamal ---\n'
+          '  poetry run transcrypto -p eg-key elgamal shared --bits 2048\n'
+          '  poetry run transcrypto -p eg-key elgamal new\n'
+          '  poetry run transcrypto -p eg-key.pub elgamal encrypt <plaintext>\n'
+          '  poetry run transcrypto -p eg-key.priv elgamal decrypt <c1:c2>\n'
+          '  poetry run transcrypto -p eg-key.priv elgamal sign <message>\n'
+          '  poetry run transcrypto-p eg-key.pub elgamal verify <message> <s1:s2>\n\n'
+          '  # --- DSA ---\n'
+          '  poetry run transcrypto -p dsa-key dsa shared --p-bits 2048 --q-bits 256\n'
+          '  poetry run transcrypto -p dsa-key dsa new\n'
+          '  poetry run transcrypto -p dsa-key.priv dsa sign <message>\n'
+          '  poetry run transcrypto -p dsa-key.pub dsa verify <message> <s1:s2>\n\n'
+          '  # --- Shamir Secret Sharing (SSS) ---\n'
+          '  poetry run transcrypto -p sss-key sss new 3 --bits 1024\n'
+          '  poetry run transcrypto -p sss-key sss shares <secret> 5\n'
+          '  poetry run transcrypto -p sss-key sss recover\n'
+          '  poetry run transcrypto -p sss-key sss verify <secret>'
       ),
       formatter_class=argparse.RawTextHelpFormatter)
   sub = parser.add_subparsers(dest='command')
@@ -407,7 +457,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
       'xgcd',
       help=('Extended Greatest Common Divisor (x-GCD) of integers `a` and `b`, '
             'will return `(g, x, y)` where `a×x+b×y==g`.'),
-      epilog='xgcd 462 1071\n(21, 7, -3) $$ gcd 0 5\n(5, 0, 1) $$ xgcd 127 13\n(1, 4, -39)')
+      epilog='xgcd 462 1071\n(21, 7, -3) $$ xgcd 0 5\n(5, 0, 1) $$ xgcd 127 13\n(1, 4, -39)')
   p_xgcd.add_argument('a', type=str, help='Integer, ≥ 0')
   p_xgcd.add_argument('b', type=str, help='Integer, ≥ 0 (can\'t be both zero)')
 
@@ -503,10 +553,10 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_h512 = hash_sub.add_parser(
       'sha512',
       help='SHA-512 of input `data`.',
-      epilog=('--bin hash sha256 xyz\n'
+      epilog=('--bin hash sha512 xyz\n'
               '4a3ed8147e37876adc8f76328e5abcc1b470e6acfc18efea0135f983604953a5'
               '8e183c1a6086e91ba3e821d926f5fdeb37761c7ca0328a963f5e92870675b728 $$'
-              '--b64 hash sha256 eHl6  # "xyz" in base-64\n'
+              '--b64 hash sha512 eHl6  # "xyz" in base-64\n'
               '4a3ed8147e37876adc8f76328e5abcc1b470e6acfc18efea0135f983604953a5'
               '8e183c1a6086e91ba3e821d926f5fdeb37761c7ca0328a963f5e92870675b728'))
   p_h512.add_argument('data', type=str, help='Input data (raw text; or use --hex/--b64/--bin)')
@@ -526,7 +576,9 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
 
   # AES group
   p_aes: argparse.ArgumentParser = sub.add_parser(
-      'aes', help='AES-256 operations (GCM/ECB) and key derivation.')
+      'aes',
+      help=('AES-256 operations (GCM/ECB) and key derivation. '
+            'No measures are taken here to prevent timing attacks.'))
   aes_sub = p_aes.add_subparsers(dest='aes_command')
 
   # Derive key from password
@@ -537,7 +589,8 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
             'passwords databases (because of constant salt).'),
       epilog=('--out-b64 aes key "correct horse battery staple"\n'
               'DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= $$ '  # cspell:disable-line
-              '-p keyfile.out --protect hunter aes key "correct horse battery staple"\n$'))
+              '-p keyfile.out --protect hunter aes key "correct horse battery staple"\n'
+              'AES key saved to \'keyfile.out\''))
   p_aes_key_pass.add_argument(
       'password', type=str, help='Password (leading/trailing spaces ignored)')
 
@@ -612,141 +665,273 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   # ========================= RSA ==================================================================
 
   # RSA group
-  p_rsa: argparse.ArgumentParser = sub.add_parser('rsa', help='Raw RSA over integers (no OAEP/PSS).')
+  p_rsa: argparse.ArgumentParser = sub.add_parser(
+      'rsa',
+      help=('Raw RSA (Rivest-Shamir-Adleman) asymmetric cryptography over *integers* '
+            '(BEWARE: no OAEP/PSS padding or validation). '
+            'These are pedagogical/raw primitives; do not use for new protocols. '
+            'No measures are taken here to prevent timing attacks. '
+            'All methods require file key(s) as `-p`/`--key-path` (see provided examples).'))
   rsa_sub = p_rsa.add_subparsers(dest='rsa_command')
 
   # Generate new RSA private key
-  p_rsa_new: argparse.ArgumentParser = rsa_sub.add_parser('new', help='Generate RSA private key.')
-  p_rsa_new.add_argument('bits', type=int, help='Modulus size in bits (e.g., 2048)')
+  p_rsa_new: argparse.ArgumentParser = rsa_sub.add_parser(
+      'new',
+      help=('Generate RSA private/public key pair with `bits` modulus size '
+            '(prime sizes will be `bits`/2). '
+            'Requires `-p`/`--key-path` to set the basename for output files.'),
+      epilog=('-p rsa-key rsa new --bits 64  # NEVER use such a small key: example only!\n'
+              'RSA private/public keys saved to \'rsa-key.priv/.pub\''))
+  p_rsa_new.add_argument(
+      '--bits', type=int, default=3332, help='Modulus size in bits; the default is a safe size')
 
   # Encrypt integer with public key
   p_rsa_enc: argparse.ArgumentParser = rsa_sub.add_parser(
-      'encrypt', help='Encrypt integer with public key.')
-  p_rsa_enc.add_argument('message', type=str, help='Integer message (e.g., "12345" or "0x...")')
+      'encrypt',
+      help='Encrypt integer `message` with public key.',
+      epilog='-p rsa-key.pub rsa encrypt 999\n6354905961171348600')
+  p_rsa_enc.add_argument(
+      'message', type=str, help='Integer message to encrypt, 1≤`message`<*modulus*')
 
   # Decrypt integer ciphertext with private key
   p_rsa_dec: argparse.ArgumentParser = rsa_sub.add_parser(
-      'decrypt', help='Decrypt integer ciphertext with private key.')
-  p_rsa_dec.add_argument('ciphertext', type=str, help='Integer ciphertext')
+      'decrypt',
+      help='Decrypt integer `ciphertext` with private key.',
+      epilog='-p rsa-key.priv rsa decrypt 6354905961171348600\n999')
+  p_rsa_dec.add_argument(
+      'ciphertext', type=str, help='Integer ciphertext to decrypt, 1≤`ciphertext`<*modulus*')
 
   # Sign integer message with private key
   p_rsa_sig: argparse.ArgumentParser = rsa_sub.add_parser(
-      'sign', help='Sign integer message with private key.')
-  p_rsa_sig.add_argument('message', type=str, help='Integer message')
+      'sign',
+      help='Sign integer `message` with private key.',
+      epilog='-p rsa-key.priv rsa sign 999\n7632909108672871784')
+  p_rsa_sig.add_argument('message', type=str, help='Integer message to sign, 1≤`message`<*modulus*')
 
   # Verify integer signature with public key
   p_rsa_ver: argparse.ArgumentParser = rsa_sub.add_parser(
-      'verify', help='Verify integer signature with public key.')
-  p_rsa_ver.add_argument('message', type=str, help='Integer message')
-  p_rsa_ver.add_argument('signature', type=str, help='Integer signature')
+      'verify',
+      help='Verify integer `signature` for integer `message` with public key.',
+      epilog=('-p rsa-key.pub rsa verify 999 7632909108672871784\nRSA signature: OK $$ '
+              '-p rsa-key.pub rsa verify 999 7632909108672871785\nRSA signature: INVALID'))
+  p_rsa_ver.add_argument(
+      'message', type=str, help='Integer message that was signed earlier, 1≤`message`<*modulus*')
+  p_rsa_ver.add_argument(
+      'signature', type=str,
+      help='Integer putative signature for `message`, 1≤`signature`<*modulus*')
 
   # ========================= ElGamal ==============================================================
 
   # ElGamal group
-  p_eg: argparse.ArgumentParser = sub.add_parser('elgamal', help='Raw El-Gamal (no padding).')
+  p_eg: argparse.ArgumentParser = sub.add_parser(
+      'elgamal',
+      help=('Raw El-Gamal asymmetric cryptography over *integers* '
+            '(BEWARE: no ECIES-style KEM/DEM padding or validation). These are '
+            'pedagogical/raw primitives; do not use for new protocols. '
+            'No measures are taken here to prevent timing attacks. '
+            'All methods require file key(s) as `-p`/`--key-path` (see provided examples).'))
   eg_sub = p_eg.add_subparsers(dest='eg_command')
 
   # Generate shared (p,g) params
   p_eg_shared: argparse.ArgumentParser = eg_sub.add_parser(
-      'shared', help='Generate shared parameters (p, g).')
-  p_eg_shared.add_argument('bits', type=int, help='Bit length for prime modulus p')
+      'shared',
+      help=('Generate a shared El-Gamal key with `bits` prime modulus size, which is the '
+            'first step in key generation. '
+            'The shared key can safely be used by any number of users to generate their '
+            'private/public key pairs (with the `new` command). The shared keys are "public". '
+            'Requires `-p`/`--key-path` to set the basename for output files.'),
+      epilog=('-p eg-key elgamal shared --bits 64  # NEVER use such a small key: example only!\n'
+              'El-Gamal shared key saved to \'eg-key.shared\''))
+  p_eg_shared.add_argument(
+      '--bits', type=int, default=3332,
+      help='Prime modulus (`p`) size in bits; the default is a safe size')
 
   # Generate individual private key from shared (p,g)
-  p_eg_new: argparse.ArgumentParser = eg_sub.add_parser(
-      'new', help='Generate individual private key from shared.')
-  p_eg_new.add_argument('--out', type=str, required=True, help='Save private key to path')
+  eg_sub.add_parser(
+      'new',
+      help='Generate an individual El-Gamal private/public key pair from a shared key.',
+      epilog='-p eg-key elgamal new\nEl-Gamal private/public keys saved to \'eg-key.priv/.pub\'')
 
   # Encrypt integer with public key
   p_eg_enc: argparse.ArgumentParser = eg_sub.add_parser(
-      'encrypt', help='Encrypt integer with public key.')
-  p_eg_enc.add_argument('message', type=str, help='Integer message 1 ≤ m < p')
+      'encrypt',
+      help='Encrypt integer `message` with public key.',
+      epilog='-p eg-key.pub elgamal encrypt 999\n2948854810728206041:15945988196340032688')
+  p_eg_enc.add_argument(
+      'message', type=str, help='Integer message to encrypt, 1≤`message`<*modulus*')
 
   # Decrypt El-Gamal ciphertext tuple (c1,c2)
   p_eg_dec: argparse.ArgumentParser = eg_sub.add_parser(
-      'decrypt', help='Decrypt El-Gamal ciphertext tuple (c1,c2).')
-  p_eg_dec.add_argument('c1', type=str)
-  p_eg_dec.add_argument('c2', type=str)
+      'decrypt',
+      help='Decrypt integer `ciphertext` with private key.',
+      epilog='-p eg-key.priv elgamal decrypt 2948854810728206041:15945988196340032688\n999')
+  p_eg_dec.add_argument(
+      'ciphertext', type=str,
+      help=('Integer ciphertext to decrypt; expects `c1:c2` format with 2 integers, '
+            ' 2≤`c1`,`c2`<*modulus*'))
 
   # Sign integer message with private key
   p_eg_sig: argparse.ArgumentParser = eg_sub.add_parser(
-      'sign', help='Sign integer message with private key.')
-  p_eg_sig.add_argument('message', type=str)
+      'sign',
+      help='Sign integer message with private key. Output will 2 integers in a `s1:s2` format.',
+      epilog='-p eg-key.priv elgamal sign 999\n4674885853217269088:14532144906178302633')
+  p_eg_sig.add_argument('message', type=str, help='Integer message to sign, 1≤`message`<*modulus*')
 
   # Verify El-Gamal signature (s1,s2)
   p_eg_ver: argparse.ArgumentParser = eg_sub.add_parser(
-      'verify', help='Verify El-Gamal signature (s1,s2).')
-  p_eg_ver.add_argument('message', type=str)
-  p_eg_ver.add_argument('s1', type=str)
-  p_eg_ver.add_argument('s2', type=str)
+      'verify',
+      help='Verify integer `signature` for integer `message` with public key.',
+      epilog=('-p eg-key.pub elgamal verify 999 4674885853217269088:14532144906178302633\n'
+              'El-Gamal signature: OK $$ '
+              '-p eg-key.pub elgamal verify 999 4674885853217269088:14532144906178302632\n'
+              'El-Gamal signature: INVALID'))
+  p_eg_ver.add_argument(
+      'message', type=str, help='Integer message that was signed earlier, 1≤`message`<*modulus*')
+  p_eg_ver.add_argument(
+      'signature', type=str,
+      help=('Integer putative signature for `message`; expects `s1:s2` format with 2 integers, '
+            ' 2≤`s1`,`s2`<*modulus*'))
 
   # ========================= DSA ==================================================================
 
   # DSA group
   p_dsa: argparse.ArgumentParser = sub.add_parser(
-      'dsa', help='Raw DSA (no hash, integer messages < q).')
+      'dsa',
+      help=('Raw DSA (Digital Signature Algorithm) asymmetric signing over *integers* '
+            '(BEWARE: no ECDSA/EdDSA padding or validation). These are pedagogical/raw '
+            'primitives; do not use for new protocols. '
+            'No measures are taken here to prevent timing attacks. '
+            'All methods require file key(s) as `-p`/`--key-path` (see provided examples).'))
   dsa_sub = p_dsa.add_subparsers(dest='dsa_command')
 
   # Generate shared (p,q,g) params
   p_dsa_shared: argparse.ArgumentParser = dsa_sub.add_parser(
-      'shared', help='Generate (p,q,g) with q | p-1.')
-  p_dsa_shared.add_argument('p_bits', type=int, help='Bit length of p (≥ q_bits + 11)')
-  p_dsa_shared.add_argument('q_bits', type=int, help='Bit length of q (≥ 11)')
+      'shared',
+      help=('Generate a shared DSA key with `p-bits`/`q-bits` prime modulus sizes, which is '
+            'the first step in key generation. `q-bits` should be larger than the secrets that '
+            'will be protected and `p-bits` should be much larger than `q-bits` (e.g. 3584/256). '
+            'The shared key can safely be used by any number of users to generate their '
+            'private/public key pairs (with the `new` command). The shared keys are "public". '
+            'Requires `-p`/`--key-path` to set the basename for output files.'),
+      epilog=('-p dsa-key dsa shared --p-bits 128 --q-bits 32  '
+              '# NEVER use such a small key: example only!\n'
+              'DSA shared key saved to \'dsa-key.shared\''))
+  p_dsa_shared.add_argument(
+      '--p-bits', type=int, default=3584,
+      help='Prime modulus (`p`) size in bits; the default is a safe size')
+  p_dsa_shared.add_argument(
+      '--q-bits', type=int, default=256,
+      help=('Prime modulus (`q`) size in bits; the default is a safe size ***IFF*** you '
+            'are protecting symmetric keys or regular hashes'))
 
   # Generate individual private key from shared (p,q,g)
-  p_dsa_new: argparse.ArgumentParser = dsa_sub.add_parser(
-      'new', help='Generate DSA private key from shared.')
-  p_dsa_new.add_argument('--out', type=str, required=True, help='Save private key to path')
+  dsa_sub.add_parser(
+      'new',
+      help='Generate an individual DSA private/public key pair from a shared key.',
+      epilog='-p dsa-key dsa new\nDSA private/public keys saved to \'dsa-key.priv/.pub\'')
 
   # Sign integer m with private key
   p_dsa_sign: argparse.ArgumentParser = dsa_sub.add_parser(
-      'sign', help='Sign integer m (1 ≤ m < q).')
-  p_dsa_sign.add_argument('message', type=str)
+      'sign',
+      help='Sign integer message with private key. Output will 2 integers in a `s1:s2` format.',
+      epilog='-p dsa-key.priv dsa sign 999\n2395961484:3435572290')
+  p_dsa_sign.add_argument('message', type=str, help='Integer message to sign, 1≤`message`<`q`')
 
   # Verify DSA signature (s1,s2)
   p_dsa_verify: argparse.ArgumentParser = dsa_sub.add_parser(
-      'verify', help='Verify DSA signature (s1,s2).')
-  p_dsa_verify.add_argument('message', type=str)
-  p_dsa_verify.add_argument('s1', type=str)
-  p_dsa_verify.add_argument('s2', type=str)
+      'verify',
+      help='Verify integer `signature` for integer `message` with public key.',
+      epilog=('-p dsa-key.pub dsa verify 999 2395961484:3435572290\nDSA signature: OK $$ '
+              '-p dsa-key.pub dsa verify 999 2395961484:3435572291\nDSA signature: INVALID'))
+  p_dsa_verify.add_argument(
+      'message', type=str, help='Integer message that was signed earlier, 1≤`message`<`q`')
+  p_dsa_verify.add_argument(
+      'signature', type=str,
+      help=('Integer putative signature for `message`; expects `s1:s2` format with 2 integers, '
+            ' 2≤`s1`,`s2`<`q`'))
 
   # ========================= Shamir Secret Sharing ================================================
 
   # SSS group
   p_sss: argparse.ArgumentParser = sub.add_parser(
-      'sss', help='Shamir Shared Secret (unauthenticated).')
+      'sss',
+      help=('Raw SSS (Shamir Shared Secret) secret sharing crypto scheme over *integers* '
+            '(BEWARE: no modern message wrapping, padding or validation). These are '
+            'pedagogical/raw primitives; do not use for new protocols. '
+            'No measures are taken here to prevent timing attacks. '
+            'All methods require file key(s) as `-p`/`--key-path` (see provided examples).'))
   sss_sub = p_sss.add_subparsers(dest='sss_command')
 
   # Generate new SSS params (t, prime, coefficients)
   p_sss_new: argparse.ArgumentParser = sss_sub.add_parser(
-      'new', help='Generate SSS params (minimum, prime, coefficients).')
-  p_sss_new.add_argument('minimum', type=int, help='Threshold t (≥ 2)')
-  p_sss_new.add_argument('bits', type=int, help='Prime modulus bit length (≥ 128 for non-toy)')
+      'new',
+      help=('Generate the private keys with `bits` prime modulus size and so that at least a '
+            '`minimum` number of shares are needed to recover the secret. '
+            'This key will be used to generate the shares later (with the `shares` command). '
+            'Requires `-p`/`--key-path` to set the basename for output files.'),
+      epilog=('-p sss-key sss new 3 --bits 64  # NEVER use such a small key: example only!\n'
+              'SSS private/public keys saved to \'sss-key.priv/.pub\''))
+  p_sss_new.add_argument(
+      'minimum', type=int, help='Minimum number of shares required to recover secret, ≥ 2')
+  p_sss_new.add_argument(
+      '--bits', type=int, default=1024,
+      help=('Prime modulus (`p`) size in bits; the default is a safe size ***IFF*** you '
+            'are protecting symmetric keys; the number of bits should be comfortably larger '
+            'than the size of the secret you want to protect with this scheme'))
 
   # Issue N shares for a secret
   p_sss_shares: argparse.ArgumentParser = sss_sub.add_parser(
-      'shares', help='Issue N shares for a secret (private params).')
-  p_sss_shares.add_argument('secret', type=str, help='Secret as integer (supports 0x..)')
-  p_sss_shares.add_argument('count', type=int, help='How many shares to produce')
-  p_sss_shares.add_argument('--out', type=str, help='Save shares to path')
+      'shares',
+      help='Issue `count` private shares for an integer `secret`.',
+      epilog=('-p sss-key sss shares 999 5\n'
+              'SSS 5 individual (private) shares saved to \'sss-key.share.1…5\'\n'
+              '$ rm sss-key.share.2 sss-key.share.4  '
+              '# this is to simulate only having shares 1,3,5'))
+  p_sss_shares.add_argument(
+      'secret', type=str, help='Integer secret to be protected, 1≤`secret`<*modulus*')
+  p_sss_shares.add_argument(
+      'count', type=int,
+      help=('How many shares to produce; must be ≥ `minimum` used in `new` command or else the '
+            '`secret` would become unrecoverable'))
 
   # Recover secret from shares
-  p_sss_recover: argparse.ArgumentParser = sss_sub.add_parser(
-      'recover', help='Recover secret from shares (public params).')
-  p_sss_recover.add_argument('shares', nargs='+', help='Shares as k:v (e.g., 2:123 5:456 ...)')
+  sss_sub.add_parser(
+      'recover',
+      help='Recover secret from shares; will use any available shares that were found.',
+      epilog=('-p sss-key sss recover\n'
+              'Loaded SSS share: \'sss-key.share.3\'\n'
+              'Loaded SSS share: \'sss-key.share.5\'\n'
+              'Loaded SSS share: \'sss-key.share.1\'  '
+              '# using only 3 shares: number 2/4 are missing\n'
+              'Secret:\n999'))
 
   # Verify a share against a secret
   p_sss_verify: argparse.ArgumentParser = sss_sub.add_parser(
-      'verify', help='Verify a share against a secret (private params).')
-  p_sss_verify.add_argument('secret', type=str, help='Secret as integer (supports 0x..)')
-  p_sss_verify.add_argument('share', type=str, help='One share as k:v (e.g., 7:9999)')
+      'verify',
+      help='Verify shares against a secret (private params).',
+      epilog=('-p sss-key sss verify 999\n'
+              'SSS share \'sss-key.share.3\' verification: OK\n'
+              'SSS share \'sss-key.share.5\' verification: OK\n'
+              'SSS share \'sss-key.share.1\' verification: OK $$ '
+              '-p sss-key sss verify 998\n'
+              'SSS share \'sss-key.share.3\' verification: INVALID\n'
+              'SSS share \'sss-key.share.5\' verification: INVALID\n'
+              'SSS share \'sss-key.share.1\' verification: INVALID'))
+  p_sss_verify.add_argument(
+      'secret', type=str, help='Integer secret used to generate the shares, 1≤`secret`<*modulus*')
 
   # ========================= Markdown Generation ==================================================
 
   # Documentation generation
-  doc: argparse.ArgumentParser = sub.add_parser('doc', help='Documentation utilities.')
+  doc: argparse.ArgumentParser = sub.add_parser(
+      'doc', help='Documentation utilities. (Not for regular use: these are developer utils.)')
   doc_sub = doc.add_subparsers(dest='doc_command')
-  doc_sub.add_parser('md', help='Emit Markdown for the CLI (see README.md section "Creating a New Version").')
-  # doc_md: argparse.ArgumentParser (for future use)
+  doc_sub.add_parser(
+      'md',
+      help='Emit Markdown docs for the CLI (see README.md section "Creating a New Version").',
+      epilog=('doc md > CLI.md\n'
+              '$ ./tools/inject_md_includes.py\n'
+              'inject: README.md updated with included content'))
 
   return parser
 
@@ -768,10 +953,13 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
   a: int
   b: int
   c: int
+  c1: str
+  c2: str
   e: int
   i: int
   m: int
   n: int
+  ss: tuple[int, int]
   x: int
   y: int
   bt: bytes
@@ -779,6 +967,8 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
   ct: bytes
 
   command: str = args.command.lower().strip() if args.command else ''
+  if command in ('rsa', 'elgamal', 'dsa', 'sss') and not args.key_path:
+    raise base.InputError(f'you must provide -p/--key-path option for {command!r}')
   match command:
     # -------- primes ----------
     case 'isprime':
@@ -886,6 +1076,7 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
           aes_key: aes.AESKey = aes.AESKey.FromStaticPassword(args.password)
           if args.key_path:
             _SaveObj(aes_key, args.key_path, args.protect or None)
+            print(f'AES key saved to {args.key_path!r}')
           else:
             print(_BytesToText(aes_key.key256, out_format))
         case 'encrypt':
@@ -894,7 +1085,7 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
           elif args.key_path:
             aes_key = _LoadObj(args.key_path, args.protect or None)
           else:
-            raise base.InputError('provide --key or --key-path')
+            raise base.InputError('provide -k/--key or -p/--key-path')
           aad: bytes | None = _BytesFromText(args.aad, in_format) if args.aad else None
           pt = _BytesFromText(args.plaintext, in_format)
           ct = aes_key.Encrypt(pt, associated_data=aad)
@@ -905,7 +1096,7 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
           elif args.key_path:
             aes_key = _LoadObj(args.key_path, args.protect or None)
           else:
-            raise base.InputError('provide --key or --key-path')
+            raise base.InputError('provide -k/--key or -p/--key-path')
           aad = _BytesFromText(args.aad, in_format) if args.aad else None
           ct = _BytesFromText(args.ciphertext, in_format)
           pt = aes_key.Decrypt(ct, associated_data=aad)
@@ -917,7 +1108,7 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
           elif args.key_path:
             aes_key = _LoadObj(args.key_path, args.protect or None)
           else:
-            raise base.InputError('provide --key or --key-path')
+            raise base.InputError('provide -k/--key or -p/--key-path')
           match ecb_cmd:
             case 'encrypt':
               ecb: aes.AESKey.ECBEncoderClass = aes_key.ECBEncoder()
@@ -936,11 +1127,10 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
       match rsa_cmd:
         case 'new':
           rsa_priv: rsa.RSAPrivateKey = rsa.RSAPrivateKey.New(args.bits)
-          if args.key_path:
-            _SaveObj(rsa_priv, args.key_path, args.protect or None)
           rsa_pub: rsa.RSAPublicKey = rsa.RSAPublicKey.Copy(rsa_priv)
-          print(f'n={rsa_pub.public_modulus}  bits={rsa_pub.public_modulus.bit_length()}')
-          print(f'e={rsa_pub.encrypt_exp}')
+          _SaveObj(rsa_priv, args.key_path + '.priv', args.protect or None)
+          _SaveObj(rsa_pub, args.key_path + '.pub', args.protect or None)
+          print(f'RSA private/public keys saved to {args.key_path + ".priv/.pub"!r}')
         case 'encrypt':
           rsa_pub = rsa.RSAPublicKey.Copy(_LoadObj(args.key_path, args.protect or None))
           m = _ParseInt(args.message)
@@ -957,44 +1147,47 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
           rsa_pub = rsa.RSAPublicKey.Copy(_LoadObj(args.key_path, args.protect or None))
           m = _ParseInt(args.message)
           sig: int = _ParseInt(args.signature)
-          print(rsa_pub.VerifySignature(m, sig))
+          print('RSA signature: ' + ('OK' if rsa_pub.VerifySignature(m, sig) else 'INVALID'))
         case _:
           raise NotImplementedError()
 
-    # -------- ElGamal ----------
+    # -------- El-Gamal ----------
     case 'elgamal':
       eg_cmd: str = args.eg_command.lower().strip() if args.eg_command else ''
       match eg_cmd:
         case 'shared':
           shared_eg: elgamal.ElGamalSharedPublicKey = elgamal.ElGamalSharedPublicKey.NewShared(
               args.bits)
-          _SaveObj(shared_eg, args.key_path, args.protect or None)
-          print('shared parameters saved')
+          _SaveObj(shared_eg, args.key_path + '.shared', args.protect or None)
+          print(f'El-Gamal shared key saved to {args.key_path + ".shared"!r}')
         case 'new':
-          shared_eg = _LoadObj(args.key_path, args.protect or None)
-          eg_priv: elgamal.ElGamalPrivateKey = elgamal.ElGamalPrivateKey.New(shared_eg)
-          _SaveObj(eg_priv, args.out, args.protect or None)
-          print('elgamal key saved')
+          eg_priv: elgamal.ElGamalPrivateKey = elgamal.ElGamalPrivateKey.New(
+              _LoadObj(args.key_path + '.shared', args.protect or None))
+          eg_pub: elgamal.ElGamalPublicKey = elgamal.ElGamalPublicKey.Copy(eg_priv)
+          _SaveObj(eg_priv, args.key_path + '.priv', args.protect or None)
+          _SaveObj(eg_pub, args.key_path + '.pub', args.protect or None)
+          print(f'El-Gamal private/public keys saved to {args.key_path + ".priv/.pub"!r}')
         case 'encrypt':
-          pub_eg: elgamal.ElGamalPublicKey = elgamal.ElGamalPublicKey.Copy(
-              _LoadObj(args.key_path, args.protect or None))
+          eg_pub = elgamal.ElGamalPublicKey.Copy(_LoadObj(args.key_path, args.protect or None))
           m = _ParseInt(args.message)
-          cc: tuple[int, int] = pub_eg.Encrypt(m)
-          print(f'{cc[0]} {cc[1]}')
+          ss = eg_pub.Encrypt(m)
+          print(f'{ss[0]}:{ss[1]}')
         case 'decrypt':
           eg_priv = _LoadObj(args.key_path, args.protect or None)
-          cc = _ParseInt(args.c1), _ParseInt(args.c2)
-          print(eg_priv.Decrypt(cc))
+          c1, c2 = args.ciphertext.split(':')
+          ss = (_ParseInt(c1), _ParseInt(c2))
+          print(eg_priv.Decrypt(ss))
         case 'sign':
           eg_priv = _LoadObj(args.key_path, args.protect or None)
           m = _ParseInt(args.message)
-          ss: tuple[int, int] = eg_priv.Sign(m)
-          print(f'{ss[0]} {ss[1]}')
+          ss = eg_priv.Sign(m)
+          print(f'{ss[0]}:{ss[1]}')
         case 'verify':
-          pub_eg = elgamal.ElGamalPublicKey.Copy(_LoadObj(args.key_path, args.protect or None))
+          eg_pub = elgamal.ElGamalPublicKey.Copy(_LoadObj(args.key_path, args.protect or None))
           m = _ParseInt(args.message)
-          ss = (_ParseInt(args.s1), _ParseInt(args.s2))
-          print(pub_eg.VerifySignature(m, ss))
+          c1, c2 = args.signature.split(':')
+          ss = (_ParseInt(c1), _ParseInt(c2))
+          print('El-Gamal signature: ' + ('OK' if eg_pub.VerifySignature(m, ss) else 'INVALID'))
         case _:
           raise NotImplementedError()
 
@@ -1005,24 +1198,26 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
         case 'shared':
           dsa_shared: dsa.DSASharedPublicKey = dsa.DSASharedPublicKey.NewShared(
               args.p_bits, args.q_bits)
-          _SaveObj(dsa_shared, args.key_path, args.protect or None)
-          print('dsa shared parameters saved')
+          _SaveObj(dsa_shared, args.key_path + '.shared', args.protect or None)
+          print(f'DSA shared key saved to {args.key_path + ".shared"!r}')
         case 'new':
           dsa_priv: dsa.DSAPrivateKey = dsa.DSAPrivateKey.New(
-              _LoadObj(args.key_path, args.protect or None))
-          _SaveObj(dsa_priv, args.out, args.protect or None)
-          print('dsa key saved')
+              _LoadObj(args.key_path + '.shared', args.protect or None))
+          dsa_pub: dsa.DSAPublicKey = dsa.DSAPublicKey.Copy(dsa_priv)
+          _SaveObj(dsa_priv, args.key_path + '.priv', args.protect or None)
+          _SaveObj(dsa_pub, args.key_path + '.pub', args.protect or None)
+          print(f'DSA private/public keys saved to {args.key_path + ".priv/.pub"!r}')
         case 'sign':
           dsa_priv = _LoadObj(args.key_path, args.protect or None)
           m = _ParseInt(args.message) % dsa_priv.prime_seed
           ss = dsa_priv.Sign(m)
-          print(f'{ss[0]} {ss[1]}')
+          print(f'{ss[0]}:{ss[1]}')
         case 'verify':
-          dsa_pub: dsa.DSAPublicKey = dsa.DSAPublicKey.Copy(
-              _LoadObj(args.key_path, args.protect or None))
+          dsa_pub = dsa.DSAPublicKey.Copy(_LoadObj(args.key_path, args.protect or None))
           m = _ParseInt(args.message) % dsa_pub.prime_seed
-          ss = (_ParseInt(args.s1), _ParseInt(args.s2))
-          print(dsa_pub.VerifySignature(m, ss))
+          c1, c2 = args.signature.split(':')
+          ss = (_ParseInt(c1), _ParseInt(c2))
+          print('DSA signature: ' + ('OK' if dsa_pub.VerifySignature(m, ss) else 'INVALID'))
         case _:
           raise NotImplementedError()
 
@@ -1033,34 +1228,34 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
         case 'new':
           sss_priv: sss.ShamirSharedSecretPrivate = sss.ShamirSharedSecretPrivate.New(
               args.minimum, args.bits)
-          pub: sss.ShamirSharedSecretPublic = sss.ShamirSharedSecretPublic.Copy(sss_priv)
+          sss_pub: sss.ShamirSharedSecretPublic = sss.ShamirSharedSecretPublic.Copy(sss_priv)
           _SaveObj(sss_priv, args.key_path + '.priv', args.protect or None)
-          _SaveObj(pub, args.key_path + '.pub', args.protect or None)
-          print('sss private/public saved')
+          _SaveObj(sss_pub, args.key_path + '.pub', args.protect or None)
+          print(f'SSS private/public keys saved to {args.key_path + ".priv/.pub"!r}')
         case 'shares':
-          sss_priv = _LoadObj(args.key_path, args.protect or None)
+          sss_priv = _LoadObj(args.key_path + '.priv', args.protect or None)
           secret: int = _ParseInt(args.secret)
-          for i, sh in enumerate(sss_priv.Shares(secret, max_shares=args.count)):
-            print(f'Share {i + 1} - {sh.share_key}:{sh.share_value}')
-            if args.out:
-              _SaveObj(sh, f'{args.out}.share.{i + 1}', args.protect or None)
+          sss_share: sss.ShamirSharePrivate
+          for i, sss_share in enumerate(sss_priv.Shares(secret, max_shares=args.count)):
+            _SaveObj(sss_share, f'{args.key_path}.share.{i + 1}', args.protect or None)
+          print(f'SSS {args.count} individual (private) shares saved to '
+                f'{args.key_path + ".share.1…" + str(args.count)!r}')
         case 'recover':
-          pub = _LoadObj(args.key_path, args.protect or None)
+          sss_pub = _LoadObj(args.key_path + '.pub', args.protect or None)
           subset: list[sss.ShamirSharePrivate] = []
-          for kv in args.shares:
-            k_s, v_s = kv.split(':', 1)
-            subset.append(sss.ShamirSharePrivate(
-                minimum=pub.minimum, modulus=pub.modulus,
-                share_key=_ParseInt(k_s), share_value=_ParseInt(v_s)))
-          print(pub.RecoverSecret(subset))
+          for fname in glob.glob(args.key_path + '.share.*'):
+            sss_share = _LoadObj(fname, args.protect or None)
+            subset.append(sss_share)
+            print(f'Loaded SSS share: {fname!r}')
+          print('Secret:')
+          print(sss_pub.RecoverSecret(subset))
         case 'verify':
-          sss_priv = _LoadObj(args.key_path, args.protect or None)
+          sss_priv = _LoadObj(args.key_path + '.priv', args.protect or None)
           secret = _ParseInt(args.secret)
-          k_s, v_s = args.share.split(':', 1)
-          share = sss.ShamirSharePrivate(
-              minimum=sss_priv.minimum, modulus=sss_priv.modulus,
-              share_key=_ParseInt(k_s), share_value=_ParseInt(v_s))
-          print(sss_priv.VerifyShare(secret, share))
+          for fname in glob.glob(args.key_path + '.share.*'):
+            sss_share = _LoadObj(fname, args.protect or None)
+            print(f'SSS share {fname!r} verification: '
+                  f'{"OK" if sss_priv.VerifyShare(secret, sss_share) else "INVALID"}')
         case _:
           raise NotImplementedError()
 
@@ -1076,6 +1271,7 @@ def main(argv: list[str] | None = None) -> int:  # pylint: disable=invalid-name,
 
     case _:
       parser.print_help()
+  # TODO: error handling so exceptions are printed
   return 0
 
 
