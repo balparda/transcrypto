@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import collections
 import concurrent.futures
+import dataclasses
 import itertools
 import logging
 import math
@@ -21,8 +22,9 @@ from typing import Any
 from unittest import mock
 
 import pytest
+import typeguard
 
-from src.transcrypto import base
+from src.transcrypto import base, aes
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = base.__version__  # tests inherit version from module
@@ -36,6 +38,7 @@ def test_bytes_conversions() -> None:
   assert base.BytesToEncoded(bb) == 'eHl6'
   assert base.HexToBytes('78797a') == bb
   assert base.IntToBytes(7895418) == bb
+  assert base.IntToEncoded(7895418) == 'eHl6'
   assert base.EncodedToBytes('eHl6') == bb
   assert base.PadBytesTo(bb, 8) == bb
   assert base.PadBytesTo(bb, 16) == bb
@@ -565,83 +568,55 @@ def test_FileHash_missing_file() -> None:
     base.FileHash('/path/to/surely/not/exist-123')
 
 
-@pytest.mark.parametrize('secret, public_hash', [
-    (b'a',
-     '711f48ea38b803f8d2026846e7a8fb637879e818f60f768594bc91f061f23c00'
-     '4187183c2d8c81c3b67feb534e5cad90b3d9eae9488a525dd037eccac9512f2f'),
-    (b'secret',
-     'ab13b41fe50fef61483f2ce495ca5af1e173245811ef8610023d61b0d12d3f52'
-     'd9c1b92388fec771dc4601bc36c4ddffe713e64532c01eb8936e29e06d10f936'),
-    (b'longer secret value with spaces',
-     '5f25720c817a89c446e51ce56e64643aa5343cb1898904ea0e45b8ad5f4caabc'
-     'aba091fb7e122bfff8d8b54855fcaa27e0f962d98c8eebae3a7765393c0fdf6a'),
-])
-@mock.patch('src.transcrypto.base.RandBytes', autospec=True)
-def test_Bid_with_mock(randbytes: mock.MagicMock, secret: bytes, public_hash: str) -> None:
+@typeguard.suppress_type_checks
+def test_ObfuscateSecret() -> None:
   """Test."""
-  randbytes.side_effect = [b'x' * 64, b'y' * 64]
-  priv: base.PrivateBid = base.PrivateBid.New(secret)
-  pub: base.PublicBid = base.PublicBid.Copy(priv)
-  assert base.BytesToHex(pub.public_hash) == public_hash
-  assert pub.VerifyBid(b'y' * 64, secret)
-  assert not pub.VerifyBid(b'y' * 64, secret + b'x')
-  assert not pub.VerifyBid(b'z' * 64, secret)
-  assert randbytes.call_args_list == [mock.call(64), mock.call(64)]
+  assert base.ObfuscateSecret('abc') == 'ddaf35a1…'
+  assert base.ObfuscateSecret(b'abcd') == 'd8022f20…'
+  assert base.ObfuscateSecret(123) == 'c2d03c6e…'
+  with pytest.raises(base.InputError, match=r'invalid type for data.*float'):
+    base.ObfuscateSecret(123.4)  # type:ignore
 
 
-@pytest.mark.stochastic
-@pytest.mark.parametrize('secret', [
-    b'a',
-    b'secret',
-    b'longer secret value with spaces',
-])
-def test_Bid(secret: bytes) -> None:
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
+class _ToyCrypto(base.CryptoKey):
+  """Toy class."""
+
+  key: bytes
+  secret: str
+  modulus: int
+
+  def __str__(self) -> str:
+    """String."""
+    return (f'_ToyCrypto(key={base.ObfuscateSecret(self.key)}, '
+            f'secret={base.ObfuscateSecret(self.secret)}, '
+            f'modulus={base.ObfuscateSecret(self.modulus)})')
+
+
+def test_CryptoKey_base() -> None:
   """Test."""
-  priv1: base.PrivateBid = base.PrivateBid.New(secret)
-  priv2: base.PrivateBid = base.PrivateBid.New(secret)
-  pub: base.PublicBid = base.PublicBid.Copy(priv1)
-  assert pub.VerifyBid(priv1.private_key, secret)
-  assert not pub.VerifyBid(priv1.private_key, secret + b'x')
-  assert not pub.VerifyBid(priv2.private_key, secret)
-  assert priv1.public_key != priv2.public_key  # this could fail with probability 1 in 2**512...
-  assert priv1.private_key != priv2.private_key
-  assert priv1.public_hash != priv2.public_hash
-  assert priv2.VerifyBid(priv2.private_key, secret)
-
-
-def test_Bid_invalid() -> None:
-  """Test."""
-  with pytest.raises(base.InputError, match='invalid public_key or public_hash'):
-    base.PublicBid(public_key=b'key', public_hash=b'hash')
-  with pytest.raises(base.InputError, match='invalid private_key or secret_bid'):
-    base.PrivateBid(
-        public_key=b'k' * 64, public_hash=b'h' * 64, private_key=b'priv', secret_bid=b'secret')
-  with pytest.raises(base.CryptoError, match='inconsistent bid'):
-    base.PrivateBid(
-        public_key=b'k' * 64, public_hash=b'h' * 64, private_key=b'p' * 64, secret_bid=b'secret')
-  with pytest.raises(base.InputError, match='invalid secret length'):
-    base.PrivateBid.New(b'')
-
-
-class _ToyCipher(base.SymmetricCrypto):
-  """Tiny reversible "cipher" for tests. Format: b'X' + secret + aad + plaintext."""
-
-  def __init__(self, secret: bytes) -> None:
-    """Constructor."""
-    self._secret: bytes = secret
-
-  def Encrypt(self, plaintext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
-    """Toy encrypt."""
-    aad: bytes = associated_data or b''
-    return b'X' + self._secret + aad + plaintext
-
-  def Decrypt(self, ciphertext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
-    """Toy decrypt."""
-    aad: bytes = associated_data or b''
-    prefix: bytes = b'X' + self._secret + aad
-    if not ciphertext.startswith(prefix):
-      raise base.CryptoError('decryption failed: bad key or aad')
-    return ciphertext[len(prefix):]
+  crypto = _ToyCrypto(key=b'abc', secret='cba', modulus=123)
+  key = aes.AESKey(key256=b'x' * 32)
+  assert str(crypto) == '_ToyCrypto(key=ddaf35a1…, secret=3b1d17bf…, modulus=c2d03c6e…)'
+  assert str(crypto) == repr(crypto)
+  assert crypto._DebugDump() == '_ToyCrypto(key=b\'abc\', secret=\'cba\', modulus=123)'
+  assert crypto.blob == (
+      b'(\xb5/\xfd C\x19\x02\x00\x80\x04\x958\x00\x00\x00\x00\x00\x00\x00\x8c\x0ftests.base_test'  # cspell:disable-line
+      b'\x94\x8c\n_ToyCrypto\x94\x93\x94)\x81\x94]\x94(C\x03abc\x94\x8c\x03cba\x94K{eb.')
+  assert crypto.blob == crypto.Blob()        # Blob() with no options should be the same as blob
+  assert crypto.encoded == crypto.Encoded()  # Encoded() with no options should be same as encoded
+  assert _ToyCrypto.Load(crypto.blob) == crypto
+  assert crypto.encoded == (
+      'KLUv_SBDGQIAgASVOAAAAAAAAACMD3Rlc3RzLmJhc2VfdGVzdJSMCl9Ub3lDcnlwdG-Uk5QpgZRdlCh'  # cspell:disable-line
+      'DA2FiY5SMA2NiYZRLe2ViLg==')
+  assert _ToyCrypto.Load(crypto.encoded) == crypto
+  blob_crypto: bytes = crypto.Blob(key=key)
+  assert _ToyCrypto.Load(blob_crypto, key=key) == crypto
+  encoded_crypto: str = crypto.Encoded(key=key)
+  assert _ToyCrypto.Load(encoded_crypto, key=key) == crypto
+  with typeguard.suppress_type_checks():
+    with pytest.raises(base.InputError, match=r'serialized data is not a CryptoKey.*dict'):
+      _ToyCrypto.Load(base.Serialize({1: 2, 3: 4}, compress=None))  # binary is a dict
 
 
 @pytest.fixture
@@ -686,7 +661,7 @@ def test_serialize_deserialize_with_compress_high_clamped(
 def test_serialize_deserialize_with_encrypt_ok(
     sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
   """Test."""
-  key = _ToyCipher(b'secret1')
+  key = aes.AESKey(key256=b'x' * 32)
   blob: bytes = base.Serialize(sample_obj, compress=3, key=key)
   # must supply same key (and same AAD inside implementation)
   obj2 = base.DeSerialize(data=blob, key=key)
@@ -724,8 +699,8 @@ def test_deserialize_invalid_calls() -> None:
 def test_deserialize_wrong_key_raises(
     sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
   """Test."""
-  key_ok = _ToyCipher(b'k1')
-  key_bad = _ToyCipher(b'k2')
+  key_ok = aes.AESKey(key256=b'x' * 32)
+  key_bad = aes.AESKey(key256=b'y' * 32)
   blob: bytes = base.Serialize(sample_obj, compress=3, key=key_ok)
   with pytest.raises(base.CryptoError):
     base.DeSerialize(data=blob, key=key_bad)
@@ -755,6 +730,86 @@ def test_deserialize_no_compression_detected_branch(
   # This exercises the "(no compression detected)" branch
   obj2 = base.DeSerialize(data=blob)
   assert obj2 == sample_obj
+
+
+@pytest.mark.parametrize('secret, public_hash, bid_str', [
+    pytest.param(
+        b'a',
+        '711f48ea38b803f8d2026846e7a8fb637879e818f60f768594bc91f061f23c00'
+        '4187183c2d8c81c3b67feb534e5cad90b3d9eae9488a525dd037eccac9512f2f',
+        'PrivateBid(PublicBid(public_key=eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4'
+        'eHh4eHh4eHh4eHh4eHh4eHh4eHh4eA==, public_hash=711f48ea38b803f8d2026846e7a8fb637879e818f6'
+        '0f768594bc91f061f23c004187183c2d8c81c3b67feb534e5cad90b3d9eae9488a525dd037eccac9512f2f), '
+        'private_key=81e396cb…, secret_bid=1f40fc92…)',
+        id='a'),
+    pytest.param(
+        b'secret',
+        'ab13b41fe50fef61483f2ce495ca5af1e173245811ef8610023d61b0d12d3f52'
+        'd9c1b92388fec771dc4601bc36c4ddffe713e64532c01eb8936e29e06d10f936',
+        'PrivateBid(PublicBid(public_key=eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4'
+        'eHh4eHh4eHh4eHh4eHh4eHh4eHh4eA==, public_hash=ab13b41fe50fef61483f2ce495ca5af1e173245811'
+        'ef8610023d61b0d12d3f52d9c1b92388fec771dc4601bc36c4ddffe713e64532c01eb8936e29e06d10f936), '
+        'private_key=81e396cb…, secret_bid=bd2b1aaf…)',
+        id='secret'),
+    pytest.param(
+        b'longer secret value with spaces',
+        '5f25720c817a89c446e51ce56e64643aa5343cb1898904ea0e45b8ad5f4caabc'
+        'aba091fb7e122bfff8d8b54855fcaa27e0f962d98c8eebae3a7765393c0fdf6a',
+        'PrivateBid(PublicBid(public_key=eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4'
+        'eHh4eHh4eHh4eHh4eHh4eHh4eHh4eA==, public_hash=5f25720c817a89c446e51ce56e64643aa5343cb189'
+        '8904ea0e45b8ad5f4caabcaba091fb7e122bfff8d8b54855fcaa27e0f962d98c8eebae3a7765393c0fdf6a), '
+        'private_key=81e396cb…, secret_bid=826df62c…)',
+        id='longer secret value with spaces'),
+])
+@mock.patch('src.transcrypto.base.RandBytes', autospec=True)
+def test_Bid_with_mock(
+    randbytes: mock.MagicMock, secret: bytes, public_hash: str, bid_str: str) -> None:
+  """Test."""
+  randbytes.side_effect = [b'x' * 64, b'y' * 64]
+  priv: base.PrivateBid = base.PrivateBid.New(secret)
+  pub: base.PublicBid = base.PublicBid.Copy(priv)
+  assert base.BytesToHex(pub.public_hash) == public_hash
+  priv_s = str(priv)
+  assert priv_s == bid_str
+  assert priv_s == repr(priv) and str(pub) == repr(pub)
+  assert pub.VerifyBid(b'y' * 64, secret)
+  assert not pub.VerifyBid(b'y' * 64, secret + b'x')
+  assert not pub.VerifyBid(b'z' * 64, secret)
+  assert randbytes.call_args_list == [mock.call(64), mock.call(64)]
+
+
+@pytest.mark.stochastic
+@pytest.mark.parametrize('secret', [
+    b'a',
+    b'secret',
+    b'longer secret value with spaces',
+])
+def test_Bid(secret: bytes) -> None:
+  """Test."""
+  priv1: base.PrivateBid = base.PrivateBid.New(secret)
+  priv2: base.PrivateBid = base.PrivateBid.New(secret)
+  pub: base.PublicBid = base.PublicBid.Copy(priv1)
+  assert pub.VerifyBid(priv1.private_key, secret)
+  assert not pub.VerifyBid(priv1.private_key, secret + b'x')
+  assert not pub.VerifyBid(priv2.private_key, secret)
+  assert priv1.public_key != priv2.public_key  # this could fail with probability 1 in 2**512...
+  assert priv1.private_key != priv2.private_key
+  assert priv1.public_hash != priv2.public_hash
+  assert priv2.VerifyBid(priv2.private_key, secret)
+
+
+def test_Bid_invalid() -> None:
+  """Test."""
+  with pytest.raises(base.InputError, match='invalid public_key or public_hash'):
+    base.PublicBid(public_key=b'key', public_hash=b'hash')
+  with pytest.raises(base.InputError, match='invalid private_key or secret_bid'):
+    base.PrivateBid(
+        public_key=b'k' * 64, public_hash=b'h' * 64, private_key=b'priv', secret_bid=b'secret')
+  with pytest.raises(base.CryptoError, match='inconsistent bid'):
+    base.PrivateBid(
+        public_key=b'k' * 64, public_hash=b'h' * 64, private_key=b'p' * 64, secret_bid=b'secret')
+  with pytest.raises(base.InputError, match='invalid secret length'):
+    base.PrivateBid.New(b'')
 
 
 if __name__ == '__main__':

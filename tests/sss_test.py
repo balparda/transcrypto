@@ -83,12 +83,23 @@ def test_ShamirSharedSecret_creation(
       sss.ShamirSharePrivate(minimum=3, modulus=31, share_key=22, share_value=7),
   ]
   private = sss.ShamirSharedSecretPrivate(minimum=3, modulus=907, polynomial=[593, 787])
-  assert list(private.Shares(12, max_shares=3)) == [
+  shares: list[sss.ShamirSharePrivate] = list(private.Shares(12, max_shares=3))
+  assert shares == [
       # the 535 value will generate a share_value of 0 and will be discarded
       sss.ShamirSharePrivate(minimum=3, modulus=907, share_key=587, share_value=758),
       sss.ShamirSharePrivate(minimum=3, modulus=907, share_key=498, share_value=555),
       sss.ShamirSharePrivate(minimum=3, modulus=907, share_key=341, share_value=439),
   ]
+  assert str(private) == (
+      'ShamirSharedSecretPrivate(ShamirSharedSecretPublic(minimum=3, modulus=A4s=), '
+      'polynomial=[48d0972e…, 9c72b540…])')
+  assert private._DebugDump() == (
+      'ShamirSharedSecretPrivate(minimum=3, modulus=907, polynomial=[593, 787])')
+  assert str(shares[0]) == (
+      'ShamirSharePrivate(ShamirSharedSecretPublic(minimum=3, modulus=A4s=), '
+      'share_key=ed467e80…, share_value=6be320c8…)')
+  assert shares[0]._DebugDump() == (
+      'ShamirSharePrivate(minimum=3, modulus=907, share_key=587, share_value=758)')
   assert prime.call_args_list == [mock.call(10)] * 4
   shuffle.assert_called_once_with([19, 23])
   assert randbits.call_args_list == [mock.call(4)] * 7 + [mock.call(9)] * 4

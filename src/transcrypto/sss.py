@@ -22,7 +22,7 @@ __version__: str = base.__version__  # version comes from base!
 __version_tuple__: tuple[int, ...] = base.__version_tuple__
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
 class ShamirSharedSecretPublic(base.CryptoKey):
   """Shamir Shared Secret (SSS) public part.
 
@@ -41,7 +41,6 @@ class ShamirSharedSecretPublic(base.CryptoKey):
 
   minimum: int
   modulus: int
-  # TODO: add __str__/__repr__() that displays object info in a human-friendly way (base64?)
 
   def __post_init__(self) -> None:
     """Check data.
@@ -54,6 +53,16 @@ class ShamirSharedSecretPublic(base.CryptoKey):
         not modmath.IsPrime(self.modulus) or
         self.minimum < 2):
       raise base.InputError(f'invalid modulus or minimum: {self}')
+
+  def __str__(self) -> str:
+    """Safe string representation of the ShamirSharedSecretPublic.
+
+    Returns:
+      string representation of ShamirSharedSecretPublic
+    """
+    return ('ShamirSharedSecretPublic('
+            f'minimum={self.minimum}, '
+            f'modulus={base.IntToEncoded(self.modulus)})')
 
   def RecoverSecret(
       self, shares: Collection[ShamirSharePrivate], /, *, force_recover: bool = False) -> int:
@@ -101,7 +110,7 @@ class ShamirSharedSecretPublic(base.CryptoKey):
     return cls(minimum=other.minimum, modulus=other.modulus)
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
 class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
   """Shamir Shared Secret (SSS) private keys.
 
@@ -118,7 +127,6 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
   """
 
   polynomial: list[int]
-  # TODO: add __str__/__repr__() that displays object info in a human-friendly way (base64?)
 
   def __post_init__(self) -> None:
     """Check data.
@@ -133,6 +141,15 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
         any(not modmath.IsPrime(p) or p.bit_length() != self.modulus.bit_length()
             for p in self.polynomial)):                          # all primes and the right size
       raise base.InputError(f'invalid polynomial: {self}')
+
+  def __str__(self) -> str:
+    """Safe (no secrets) string representation of the ShamirSharedSecretPrivate.
+
+    Returns:
+      string representation of ShamirSharedSecretPrivate without leaking secrets
+    """
+    return (f'ShamirSharedSecretPrivate({super(ShamirSharedSecretPrivate, self).__str__()}, '  # pylint: disable=super-with-arguments
+            f'polynomial=[{", ".join(base.ObfuscateSecret(i) for i in self.polynomial)}])')
 
   def Share(self, secret: int, /, *, share_key: int = 0) -> ShamirSharePrivate:
     """Make a new ShamirSharePrivate for the `secret`.
@@ -244,7 +261,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
     return cls(minimum=minimum_shares, modulus=modulus, polynomial=ordered_primes)
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
 class ShamirSharePrivate(ShamirSharedSecretPublic):
   """Shamir Shared Secret (SSS) one share.
 
@@ -259,7 +276,6 @@ class ShamirSharePrivate(ShamirSharedSecretPublic):
 
   share_key: int
   share_value: int
-  # TODO: add __str__/__repr__() that displays object info in a human-friendly way (base64?)
 
   def __post_init__(self) -> None:
     """Check data.
@@ -271,3 +287,13 @@ class ShamirSharePrivate(ShamirSharedSecretPublic):
     if (not 0 < self.share_key < self.modulus or
         not 0 < self.share_value < self.modulus):
       raise base.InputError(f'invalid share: {self}')
+
+  def __str__(self) -> str:
+    """Safe (no secrets) string representation of the ShamirSharePrivate.
+
+    Returns:
+      string representation of ShamirSharePrivate without leaking secrets
+    """
+    return (f'ShamirSharePrivate({super(ShamirSharePrivate, self).__str__()}, '  # pylint: disable=super-with-arguments
+            f'share_key={base.ObfuscateSecret(self.share_key)}, '
+            f'share_value={base.ObfuscateSecret(self.share_value)})')

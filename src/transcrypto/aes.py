@@ -46,7 +46,7 @@ assert base.BytesToEncoded(_PASSWORD_SALT_256) == 'Y7Vv6SYO0_91KoajQU5DWOTY4-Mbn
 assert _PASSWORD_ITERATIONS == (6075308 + 1) // 3, 'should never happen: constant'
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
 class AESKey(base.CryptoKey, base.SymmetricCrypto):
   """Advanced Encryption Standard (AES) 256 bits key (32 bytes).
 
@@ -57,7 +57,6 @@ class AESKey(base.CryptoKey, base.SymmetricCrypto):
   """
 
   key256: bytes
-  # TODO: add __str__() that displays object info in a human-friendly way
 
   def __post_init__(self) -> None:
     """Check data.
@@ -69,10 +68,13 @@ class AESKey(base.CryptoKey, base.SymmetricCrypto):
     if len(self.key256) != 32:
       raise base.InputError(f'invalid key256: {self}')
 
-  @property
-  def encoded(self) -> str:
-    """Key encoded as URL-safe base64."""
-    return base.BytesToEncoded(self.key256)
+  def __str__(self) -> str:
+    """Safe (no secrets) string representation of the AESKey.
+
+    Returns:
+      string representation of AESKey without leaking secrets
+    """
+    return f'AESKey(key256={base.ObfuscateSecret(self.key256)})'
 
   @classmethod
   def FromStaticPassword(cls, str_password: str, /) -> Self:

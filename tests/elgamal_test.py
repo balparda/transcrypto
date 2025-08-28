@@ -37,6 +37,11 @@ def test_ElGamal_keys_creation(prime: mock.MagicMock, randbits: mock.MagicMock) 
   private: elgamal.ElGamalPrivateKey = elgamal.ElGamalPrivateKey.New(group)
   assert private == elgamal.ElGamalPrivateKey(
       prime_modulus=1783, group_base=146, individual_base=694, decrypt_exp=409)
+  assert str(private) == (
+      'ElGamalPrivateKey(ElGamalPublicKey(ElGamalSharedPublicKey('
+      'prime_modulus=Bvc=, group_base=kg==), individual_base=ArY=), decrypt_exp=78168064…)')
+  assert private._DebugDump() == (
+      'ElGamalPrivateKey(prime_modulus=1783, group_base=146, individual_base=694, decrypt_exp=409)')
   with pytest.MonkeyPatch().context() as mp:
     mp.setattr(elgamal, '_MAX_KEY_GENERATION_FAILURES', 2)
     with pytest.raises(base.CryptoError, match='failed key generation'):

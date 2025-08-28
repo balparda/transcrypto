@@ -74,7 +74,7 @@ def NBitRandomDSAPrimes(p_bits: int, q_bits: int, /) -> tuple[int, int, int]:
     logging.warning(f'failed primes search: {failures}')
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
 class DSASharedPublicKey(base.CryptoKey):
   """DSA shared public key. This key can be shared by a group.
 
@@ -91,7 +91,6 @@ class DSASharedPublicKey(base.CryptoKey):
   prime_modulus: int
   prime_seed: int
   group_base: int
-  # TODO: add __str__/__repr__() that displays object info in a human-friendly way (base64?)
 
   def __post_init__(self) -> None:
     """Check data.
@@ -109,6 +108,17 @@ class DSASharedPublicKey(base.CryptoKey):
     if (not 2 < self.group_base < self.prime_modulus or
         self.group_base == self.prime_seed):
       raise base.InputError(f'invalid group_base: {self}')
+
+  def __str__(self) -> str:
+    """Safe string representation of the DSASharedPublicKey.
+
+    Returns:
+      string representation of DSASharedPublicKey
+    """
+    return ('DSASharedPublicKey('
+            f'prime_modulus={base.IntToEncoded(self.prime_modulus)}, '
+            f'prime_seed={base.IntToEncoded(self.prime_seed)}, '
+            f'group_base={base.IntToEncoded(self.group_base)})')
 
   @classmethod
   def NewShared(cls, p_bits: int, q_bits: int, /) -> Self:
@@ -135,7 +145,7 @@ class DSASharedPublicKey(base.CryptoKey):
     return cls(prime_modulus=p, prime_seed=q, group_base=g)
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
 class DSAPublicKey(DSASharedPublicKey):
   """DSA public key. This is an individual public key.
 
@@ -148,7 +158,6 @@ class DSAPublicKey(DSASharedPublicKey):
   """
 
   individual_base: int
-  # TODO: add __str__/__repr__() that displays object info in a human-friendly way (base64?)
 
   def __post_init__(self) -> None:
     """Check data.
@@ -160,6 +169,15 @@ class DSAPublicKey(DSASharedPublicKey):
     if (not 2 < self.individual_base < self.prime_modulus or
         self.individual_base in (self.group_base, self.prime_seed)):
       raise base.InputError(f'invalid individual_base: {self}')
+
+  def __str__(self) -> str:
+    """Safe string representation of the DSAPublicKey.
+
+    Returns:
+      string representation of DSAPublicKey
+    """
+    return (f'DSAPublicKey({super(DSAPublicKey, self).__str__()}, '  # pylint: disable=super-with-arguments
+            f'individual_base={base.IntToEncoded(self.individual_base)})')
 
   def _MakeEphemeralKey(self) -> tuple[int, int]:
     """Make an ephemeral key adequate to be used with El-Gamal.
@@ -213,7 +231,7 @@ class DSAPublicKey(DSASharedPublicKey):
         individual_base=other.individual_base)
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
 class DSAPrivateKey(DSAPublicKey):
   """DSA private key.
 
@@ -226,7 +244,6 @@ class DSAPrivateKey(DSAPublicKey):
   """
 
   decrypt_exp: int
-  # TODO: add __str__/__repr__() that displays object info in a human-friendly way (base64?)
 
   def __post_init__(self) -> None:
     """Check data.
@@ -242,6 +259,15 @@ class DSAPrivateKey(DSAPublicKey):
     if modmath.ModExp(
         self.group_base, self.decrypt_exp, self.prime_modulus) != self.individual_base:
       raise base.CryptoError(f'inconsistent g**d % p == i: {self}')
+
+  def __str__(self) -> str:
+    """Safe (no secrets) string representation of the DSAPrivateKey.
+
+    Returns:
+      string representation of DSAPrivateKey without leaking secrets
+    """
+    return (f'DSAPrivateKey({super(DSAPrivateKey, self).__str__()}, '  # pylint: disable=super-with-arguments
+            f'decrypt_exp={base.ObfuscateSecret(self.decrypt_exp)})')
 
   def Sign(self, message: int, /) -> tuple[int, int]:
     """Sign `message` with this private key.

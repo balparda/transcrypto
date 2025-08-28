@@ -19,7 +19,7 @@ import pickle
 # import pdb
 import secrets
 import time
-from typing import Any, Callable, MutableSequence, Self, TypeVar
+from typing import Any, Callable, final, MutableSequence, Self, TypeVar
 
 import zstandard
 
@@ -37,6 +37,7 @@ BytesToEncoded: Callable[[bytes], str] = lambda b: base64.urlsafe_b64encode(b).d
 HexToBytes: Callable[[str], bytes] = bytes.fromhex
 IntToBytes: Callable[[int], bytes] = lambda i: i.to_bytes(
     (i.bit_length() + 7) // 8, 'big', signed=False)
+IntToEncoded: Callable[[int], str] = lambda i: BytesToEncoded(IntToBytes(i))
 EncodedToBytes: Callable[[str], bytes] = lambda e: base64.urlsafe_b64decode(e.encode('ascii'))
 
 PadBytesTo: Callable[[bytes, int], bytes] = lambda b, i: b.rjust((i + 7) // 8, b'\x00')
@@ -556,123 +557,144 @@ def FileHash(full_path: str, /, *, digest: str = 'sha256') -> bytes:
     return hashlib.file_digest(file_obj, digest).digest()
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
-class CryptoKey:
+def ObfuscateSecret(data: str | bytes | int, /) -> str:
+  """Obfuscate a secret string/key/bytes/int by hashing SHA-512 and only showing the first 4 bytes.
+
+  Always a length of 9 chars, e.g. "aabbccdd…" (always adds '…' at the end).
+  Known vulnerability: If the secret is small, can be brute-forced!
+  Use only on large (~>64bits) secrets.
+
+  Args:
+    data (str | bytes | int): Data to obfuscate
+
+  Returns:
+    obfuscated string, e.g. "aabbccdd…"
+  """
+  if isinstance(data, str):
+    data = data.encode('utf-8')
+  elif isinstance(data, int):
+    data = IntToBytes(data)
+  if not isinstance(data, bytes):
+    raise InputError(f'invalid type for data: {type(data)}')
+  return BytesToHex(Hash512(data))[:8] + '…'
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
+class CryptoKey(abc.ABC):
   """A cryptographic key."""
 
   def __post_init__(self) -> None:
     """Check data."""
 
-
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
-class PublicBid(CryptoKey):
-  """Public commitment to a (cryptographically secure) bid that can be revealed/validated later.
-
-  Bid is computed as: public_hash = Hash512(public_key || private_key || secret_bid)
-
-  Everything is bytes. The public part is (public_key, public_hash) and the private
-  part is (private_key, secret_bid). The whole computation can be checked later.
-
-  Attributes:
-    public_key (bytes): 512-bits random value
-    public_hash (bytes): SHA-512 hash of (public_key || private_key || secret_bid)
-  """
-
-  public_key: bytes
-  public_hash: bytes
-  # TODO: add to docs; add to CLI
-  # TODO: add __str__() that displays object info in a human-friendly way
-
-  def __post_init__(self) -> None:
-    """Check data.
-
-    Raises:
-      InputError: invalid inputs
-    """
-    super(PublicBid, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
-    if len(self.public_key) != 64 or len(self.public_hash) != 64:
-      raise InputError(f'invalid public_key or public_hash: {self}')
-
-  def VerifyBid(self, private_key: bytes, secret: bytes, /) -> bool:
-    """Verify a bid. True if OK; False if failed verification.
-
-    Args:
-      private_key (bytes): 512-bits private key
-      secret (bytes): Any number of bytes (≥1) to bid on (e.g., UTF-8 encoded string)
+  @abc.abstractmethod
+  def __str__(self) -> str:
+    """Safe (no secrets) string representation of the key.
 
     Returns:
-      True if bid is valid, False otherwise
-
-    Raises:
-      InputError: invalid inputs
+      string representation of the key without leaking secrets
     """
-    try:
-      # creating the PrivateBid object will validate everything; InputError we allow to propagate
-      PrivateBid(
-          public_key=self.public_key, public_hash=self.public_hash,
-          private_key=private_key, secret_bid=secret)
-      return True  # if we got here, all is good
-    except CryptoError:
-      return False  # bid does not match the public commitment
+    # every sub-class of CryptoKey has to implement its own version of __str__()
 
-  @classmethod
-  def Copy(cls, other: PublicBid, /) -> Self:
-    """Initialize a public bid by taking the public parts of a public/private bid."""
-    return cls(public_key=other.public_key, public_hash=other.public_hash)
-
-
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
-class PrivateBid(PublicBid):
-  """Private bid that can be revealed and validated against a public commitment (see PublicBid).
-
-  Attributes:
-    private_key (bytes): 512-bits random value
-    secret_bid (bytes): Any number of bytes (≥1) to bid on (e.g., UTF-8 encoded string)
-  """
-
-  private_key: bytes
-  secret_bid: bytes
-  # TODO: add to docs; add to CLI
-  # TODO: add __str__() that displays object info in a human-friendly way
-
-  def __post_init__(self) -> None:
-    """Check data.
-
-    Raises:
-      InputError: invalid inputs
-      CryptoError: bid does not match the public commitment
-    """
-    super(PrivateBid, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
-    if len(self.private_key) != 64 or len(self.secret_bid) < 1:
-      raise InputError(f'invalid private_key or secret_bid: {self}')
-    if self.public_hash != Hash512(self.public_key + self.private_key + self.secret_bid):
-      raise CryptoError(f'inconsistent bid: {self}')
-
-  @classmethod
-  def New(cls, secret: bytes, /) -> Self:
-    """Make the `secret` into a new bid.
-
-    Args:
-      secret (bytes): Any number of bytes (≥1) to bid on (e.g., UTF-8 encoded string)
+  @final
+  def __repr__(self) -> str:
+    """Safe (no secrets) string representation of the key. Same as __str__().
 
     Returns:
-      PrivateBid object ready for use (use PublicBid.Copy() to get the public part)
-
-    Raises:
-      InputError: invalid inputs
+      string representation of the key without leaking secrets
     """
-    # test inputs
-    if len(secret) < 1:
-      raise InputError(f'invalid secret length: {len(secret)}')
-    # generate random values
-    public_key: bytes = RandBytes(64)   # 512 bits
-    private_key: bytes = RandBytes(64)  # 512 bits
-    # build object
-    return cls(
-        public_key=public_key,
-        public_hash=Hash512(public_key + private_key + secret),
-        private_key=private_key,
-        secret_bid=secret)
+    # concrete __repr__() delegates to the (abstract) __str__():
+    # this avoids marking __repr__() abstract while still unifying behavior
+    return self.__str__()
+
+  @final
+  def _DebugDump(self) -> str:
+    """Debug dump of the key object. NOT for logging, NOT for regular use, EXPOSES secrets.
+
+    We disable default __repr__() for the CryptoKey classes for security reasons, so we won't
+    leak private key values into logs, but this method allows for explicit access to the
+    class fields for debugging purposes by mimicking the usual dataclass __repr__().
+
+    Returns:
+      string with all the object's fields explicit values
+    """
+    cls: str = type(self).__name__
+    parts: list[str] = []
+    for field in dataclasses.fields(self):
+      val: Any = getattr(self, field.name)  # getattr is fine with frozen/slots
+      parts.append(f'{field.name}={repr(val)}')
+    return f'{cls}({", ".join(parts)})'
+
+  @final
+  @property
+  def blob(self) -> bytes:
+    """Serial (bytes) representation of the object.
+
+    Returns:
+      bytes, pickled, representation of the object
+    """
+    return Serialize(self, compress=-2, silent=True)
+
+  @final
+  @property
+  def encoded(self) -> str:
+    """Base-64 representation of the object.
+
+    Returns:
+      str, pickled, base64, representation of the object
+    """
+    return BytesToEncoded(self.blob)
+
+  @final
+  def Blob(self, /, *, key: SymmetricCrypto | None = None, silent: bool = True) -> bytes:
+    """Serial (bytes) representation of the object with more options, including encryption.
+
+    Args:
+      key (SymmetricCrypto, optional): if given will key.Encrypt() data before saving
+      silent (bool, optional): if True (default) will not log
+
+    Returns:
+      bytes, pickled, representation of the object
+    """
+    return Serialize(self, compress=-2, key=key, silent=silent)
+
+  @final
+  def Encoded(self, /, *, key: SymmetricCrypto | None = None, silent: bool = True) -> str:
+    """Base-64 representation of the object with more options, including encryption.
+
+    Args:
+      key (SymmetricCrypto, optional): if given will key.Encrypt() data before saving
+      silent (bool, optional): if True (default) will not log
+
+    Returns:
+      str, pickled, base64, representation of the object
+    """
+    return BytesToEncoded(self.Blob(key=key, silent=silent))
+
+  @final
+  @classmethod
+  def Load(
+      cls, data: str | bytes, /, *,
+      key: SymmetricCrypto | None = None, silent: bool = True) -> Self:
+    """Load (create) object from serialized bytes or string.
+
+    Args:
+      data (str | bytes): if bytes is assumed from CryptoKey.blob/Blob(), and
+          if string is assumed from CryptoKey.encoded/Encoded()
+      key (SymmetricCrypto, optional): if given will key.Encrypt() data before saving
+      silent (bool, optional): if True (default) will not log
+
+    Returns:
+      a CryptoKey object ready for use
+    """
+    # if this is a string, then we suppose it is base64
+    if isinstance(data, str):
+      data = EncodedToBytes(data)
+    # we now have bytes and we suppose it came from CryptoKey.blob()/CryptoKey.CryptoBlob()
+    obj: CryptoKey = DeSerialize(data=data, key=key, silent=silent)
+    # make sure we've got an object that makes sense
+    if not isinstance(obj, CryptoKey):  # type:ignore
+      raise InputError(f'serialized data is not a CryptoKey: {type(obj)}')
+    return obj  # type:ignore
 
 
 class SymmetricCrypto(abc.ABC):
@@ -728,7 +750,7 @@ class SymmetricCrypto(abc.ABC):
 
 def Serialize(
     python_obj: Any, /, *, file_path: str | None = None,
-    compress: int | None = 3, key: SymmetricCrypto | None = None) -> bytes:
+    compress: int | None = 3, key: SymmetricCrypto | None = None, silent: bool = False) -> bytes:
   """Serialize a Python object into a BLOB, optionally compress / encrypt / save to disk.
 
   Data path is:
@@ -755,6 +777,7 @@ def Serialize(
     compress (int | None, optional): Compress level before encrypting/saving; -22 ≤ compress ≤ 22;
         None is no compression; default is 3, which is fast, see table above for other values
     key (SymmetricCrypto, optional): if given will key.Encrypt() data before saving
+    silent (bool, optional): if True will not log; default is False (will log)
 
   Returns:
     bytes: serialized binary data corresponding to obj + (compression) + (encryption)
@@ -764,33 +787,38 @@ def Serialize(
     # pickle
     with Timer('PICKLE', emit_log=False) as tm_pickle:
       obj: bytes = pickle.dumps(python_obj, protocol=_PICKLE_PROTOCOL)
-    messages.append(f'    {tm_pickle}, {HumanizedBytes(len(obj))}')
+    if not silent:
+      messages.append(f'    {tm_pickle}, {HumanizedBytes(len(obj))}')
     # compress, if needed
     if compress is not None:
       compress = -22 if compress < -22 else compress
       compress = 22 if compress > 22 else compress
       with Timer(f'COMPRESS@{compress}', emit_log=False) as tm_compress:
         obj = zstandard.ZstdCompressor(level=compress).compress(obj)
-      messages.append(f'    {tm_compress}, {HumanizedBytes(len(obj))}')
+      if not silent:
+        messages.append(f'    {tm_compress}, {HumanizedBytes(len(obj))}')
     # encrypt, if needed
     if key is not None:
       with Timer('ENCRYPT', emit_log=False) as tm_crypto:
         obj = key.Encrypt(obj, associated_data=_PICKLE_AAD)
-      messages.append(f'    {tm_crypto}, {HumanizedBytes(len(obj))}')
+      if not silent:
+        messages.append(f'    {tm_crypto}, {HumanizedBytes(len(obj))}')
     # optionally save to disk
     if file_path is not None:
       with Timer('SAVE', emit_log=False) as tm_save:
         with open(file_path, 'wb') as file_obj:
           file_obj.write(obj)
-      messages.append(f'    {tm_save}, to {file_path!r}')
+      if not silent:
+        messages.append(f'    {tm_save}, to {file_path!r}')
   # log and return
-  logging.info(f'{tm_all}; parts:\n' + '\n'.join(messages))
+  if not silent:
+    logging.info(f'{tm_all}; parts:\n' + '\n'.join(messages))
   return obj
 
 
 def DeSerialize(
     *, data: bytes | None = None, file_path: str | None = None,
-    key: SymmetricCrypto | None = None) -> Any:
+    key: SymmetricCrypto | None = None, silent: bool = False) -> Any:
   """Loads (de-serializes) a BLOB back to a Python object, optionally decrypting / decompressing.
 
   Data path is:
@@ -807,6 +835,7 @@ def DeSerialize(
     file_path (str, optional): if given, use this as file path to load binary data string (input);
        if you use this option, `data` will be ignored
     key (SymmetricCrypto, optional): if given will key.Decrypt() data before decompressing/loading
+    silent (bool, optional): if True will not log; default is False (will log)
 
   Returns:
     De-Serialized Python object corresponding to data
@@ -824,7 +853,7 @@ def DeSerialize(
     raise InputError('invalid data: too small')
   # start the pipeline
   obj: bytes = data if data else b''
-  messages: list[str] = [f'DATA: {HumanizedBytes(len(obj))}'] if data else []
+  messages: list[str] = [f'DATA: {HumanizedBytes(len(obj))}'] if data and not silent else []
   with Timer('De-Serialization complete', emit_log=False) as tm_all:
     # optionally load from disk
     if file_path:
@@ -832,25 +861,159 @@ def DeSerialize(
       with Timer('LOAD', emit_log=False) as tm_load:
         with open(file_path, 'rb') as file_obj:
           obj = file_obj.read()
-      messages.append(f'    {tm_load}, {HumanizedBytes(len(obj))}, from {file_path!r}')
+      if not silent:
+        messages.append(f'    {tm_load}, {HumanizedBytes(len(obj))}, from {file_path!r}')
     # decrypt, if needed
     if key is not None:
       with Timer('DECRYPT', emit_log=False) as tm_crypto:
         obj = key.Decrypt(obj, associated_data=_PICKLE_AAD)
-      messages.append(f'    {tm_crypto}, {HumanizedBytes(len(obj))}')
+      if not silent:
+        messages.append(f'    {tm_crypto}, {HumanizedBytes(len(obj))}')
     # decompress: we try to detect compression to determine if we must call zstandard
     if (len(obj) >= 4 and
         (((magic := int.from_bytes(obj[:4], 'little')) == _ZSTD_MAGIC_FRAME) or
          (_ZSTD_MAGIC_SKIPPABLE_MIN <= magic <= _ZSTD_MAGIC_SKIPPABLE_MAX))):
       with Timer('DECOMPRESS', emit_log=False) as tm_decompress:
         obj = zstandard.ZstdDecompressor().decompress(obj)
-      messages.append(f'    {tm_decompress}, {HumanizedBytes(len(obj))}')
+      if not silent:
+        messages.append(f'    {tm_decompress}, {HumanizedBytes(len(obj))}')
     else:
-      messages.append('    (no compression detected)')
+      if not silent:
+        messages.append('    (no compression detected)')
     # create the actual object = unpickle
     with Timer('UNPICKLE', emit_log=False) as tm_unpickle:
-      python_obj: Any = pickle.loads(obj)  # nosec - this is dangerous!
-    messages.append(f'    {tm_unpickle}')
+      python_obj: Any = pickle.loads(obj)
+    if not silent:
+      messages.append(f'    {tm_unpickle}')
   # log and return
-  logging.info(f'{tm_all}; parts:\n' + '\n'.join(messages))
+  if not silent:
+    logging.info(f'{tm_all}; parts:\n' + '\n'.join(messages))
   return python_obj
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
+class PublicBid(CryptoKey):
+  """Public commitment to a (cryptographically secure) bid that can be revealed/validated later.
+
+  Bid is computed as: public_hash = Hash512(public_key || private_key || secret_bid)
+
+  Everything is bytes. The public part is (public_key, public_hash) and the private
+  part is (private_key, secret_bid). The whole computation can be checked later.
+
+  Attributes:
+    public_key (bytes): 512-bits random value
+    public_hash (bytes): SHA-512 hash of (public_key || private_key || secret_bid)
+  """
+
+  public_key: bytes
+  public_hash: bytes
+  # TODO: add to docs; add to CLI
+
+  def __post_init__(self) -> None:
+    """Check data.
+
+    Raises:
+      InputError: invalid inputs
+    """
+    super(PublicBid, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
+    if len(self.public_key) != 64 or len(self.public_hash) != 64:
+      raise InputError(f'invalid public_key or public_hash: {self}')
+
+  def __str__(self) -> str:
+    """Safe string representation of the PublicBid.
+
+    Returns:
+      string representation of PublicBid
+    """
+    return (f'PublicBid(public_key={BytesToEncoded(self.public_key)}, '
+            f'public_hash={BytesToHex(self.public_hash)})')
+
+  def VerifyBid(self, private_key: bytes, secret: bytes, /) -> bool:
+    """Verify a bid. True if OK; False if failed verification.
+
+    Args:
+      private_key (bytes): 512-bits private key
+      secret (bytes): Any number of bytes (≥1) to bid on (e.g., UTF-8 encoded string)
+
+    Returns:
+      True if bid is valid, False otherwise
+
+    Raises:
+      InputError: invalid inputs
+    """
+    try:
+      # creating the PrivateBid object will validate everything; InputError we allow to propagate
+      PrivateBid(
+          public_key=self.public_key, public_hash=self.public_hash,
+          private_key=private_key, secret_bid=secret)
+      return True  # if we got here, all is good
+    except CryptoError:
+      return False  # bid does not match the public commitment
+
+  @classmethod
+  def Copy(cls, other: PublicBid, /) -> Self:
+    """Initialize a public bid by taking the public parts of a public/private bid."""
+    return cls(public_key=other.public_key, public_hash=other.public_hash)
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
+class PrivateBid(PublicBid):
+  """Private bid that can be revealed and validated against a public commitment (see PublicBid).
+
+  Attributes:
+    private_key (bytes): 512-bits random value
+    secret_bid (bytes): Any number of bytes (≥1) to bid on (e.g., UTF-8 encoded string)
+  """
+
+  private_key: bytes
+  secret_bid: bytes
+  # TODO: add to docs; add to CLI
+
+  def __post_init__(self) -> None:
+    """Check data.
+
+    Raises:
+      InputError: invalid inputs
+      CryptoError: bid does not match the public commitment
+    """
+    super(PrivateBid, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
+    if len(self.private_key) != 64 or len(self.secret_bid) < 1:
+      raise InputError(f'invalid private_key or secret_bid: {self}')
+    if self.public_hash != Hash512(self.public_key + self.private_key + self.secret_bid):
+      raise CryptoError(f'inconsistent bid: {self}')
+
+  def __str__(self) -> str:
+    """Safe (no secrets) string representation of the PrivateBid.
+
+    Returns:
+      string representation of PrivateBid without leaking secrets
+    """
+    return (f'PrivateBid({super(PrivateBid, self).__str__()}, '  # pylint: disable=super-with-arguments
+            f'private_key={ObfuscateSecret(self.private_key)}, '
+            f'secret_bid={ObfuscateSecret(self.secret_bid)})')
+
+  @classmethod
+  def New(cls, secret: bytes, /) -> Self:
+    """Make the `secret` into a new bid.
+
+    Args:
+      secret (bytes): Any number of bytes (≥1) to bid on (e.g., UTF-8 encoded string)
+
+    Returns:
+      PrivateBid object ready for use (use PublicBid.Copy() to get the public part)
+
+    Raises:
+      InputError: invalid inputs
+    """
+    # test inputs
+    if len(secret) < 1:
+      raise InputError(f'invalid secret length: {len(secret)}')
+    # generate random values
+    public_key: bytes = RandBytes(64)   # 512 bits
+    private_key: bytes = RandBytes(64)  # 512 bits
+    # build object
+    return cls(
+        public_key=public_key,
+        public_hash=Hash512(public_key + private_key + secret),
+        private_key=private_key,
+        secret_bid=secret)

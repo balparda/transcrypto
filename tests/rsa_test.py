@@ -40,8 +40,20 @@ def test_RSA_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
   assert private == rsa.RSAPrivateKey(
       public_modulus=1829, encrypt_exp=7, modulus_p=31, modulus_q=59, decrypt_exp=1243,
       remainder_p=13, remainder_q=25, q_inverse_p=10)
-  assert rsa.RSAObfuscationPair.New(rsa.RSAPublicKey.Copy(private)) == rsa.RSAObfuscationPair(
+  ob_pair = rsa.RSAObfuscationPair(
       public_modulus=1829, encrypt_exp=7, random_key=1000, key_inverse=1337)
+  assert rsa.RSAObfuscationPair.New(rsa.RSAPublicKey.Copy(private)) == ob_pair
+  assert str(private) == (
+      'RSAPrivateKey(RSAPublicKey(public_modulus=ByU=, encrypt_exp=Bw==), '
+      'modulus_p=4ff3abc9…, modulus_q=e28e547f…, decrypt_exp=6567108b…)')
+  assert private._DebugDump() == (
+      'RSAPrivateKey(public_modulus=1829, encrypt_exp=7, modulus_p=31, modulus_q=59, '
+      'decrypt_exp=1243, remainder_p=13, remainder_q=25, q_inverse_p=10)')
+  assert str(ob_pair) == (
+      'RSAObfuscationPair(RSAPublicKey(public_modulus=ByU=, encrypt_exp=Bw==), '
+      'random_key=c597618a…, key_inverse=db5f8454…)')
+  assert ob_pair._DebugDump() == (
+      'RSAObfuscationPair(public_modulus=1829, encrypt_exp=7, random_key=1000, key_inverse=1337)')
   assert prime.call_args_list == [mock.call(n) for n in (5, 5, 6, 6, 5, 5, 5, 5, 5, 5, 6, 6, 5, 5)]
   assert randbits.call_args_list == [mock.call(10)] * 2
 

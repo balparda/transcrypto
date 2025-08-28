@@ -35,7 +35,13 @@ def test_AESKey() -> None:
     aes.AESKey.FromStaticPassword(' ')
   # password hash --- the FromStaticPassword() costs ~1 second CPU time!
   key: aes.AESKey = aes.AESKey.FromStaticPassword('daniel')
-  assert key.encoded == '6gWMOO735KhgFFL1aekVdqm130scXWUT3cLWHmlg07Q='  # cspell:disable-line
+  assert key.encoded == (
+      'KLUv_SBXuQIAgASVTAAAAAAAAACME3NyYy50cmFuc2NyeXB0by5hZXOUjAZBRVNLZXmUk5QpgZRdlEMg6gWMOO'
+      '735KhgFFL1aekVdqm130scXWUT3cLWHmlg07SUYWIu')
+  assert str(key) == 'AESKey(key256=d683ab04…)'
+  assert key._DebugDump() == (
+      'AESKey(key256=b\'\\xea\\x05\\x8c8\\xee\\xf7\\xe4\\xa8`\\x14R\\xf5i\\xe9\\x15v\\xa9\\xb5'
+      '\\xdfK\\x1c]e\\x13\\xdd\\xc2\\xd6\\x1ei`\\xd3\\xb4\')')
 
 
 @pytest.mark.parametrize('s_key, pth, ct1, ct101', [

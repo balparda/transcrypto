@@ -44,6 +44,12 @@ def test_DSA_keys_creation(
   assert private == dsa.DSAPrivateKey(
       prime_modulus=3971141, prime_seed=1097, group_base=2508153,
       individual_base=1144026, decrypt_exp=807)
+  assert str(private) == (
+      'DSAPrivateKey(DSAPublicKey(DSASharedPublicKey(prime_modulus=PJhF, prime_seed=BEk=, '
+      'group_base=JkV5), individual_base=EXTa), decrypt_exp=9444c8b9…)')
+  assert private._DebugDump() == (
+      'DSAPrivateKey(prime_modulus=3971141, prime_seed=1097, group_base=2508153, '
+      'individual_base=1144026, decrypt_exp=807)')
   with pytest.MonkeyPatch().context() as mp:
     mp.setattr(dsa, '_MAX_KEY_GENERATION_FAILURES', 2)
     with pytest.raises(base.CryptoError, match='failed primes generation'):

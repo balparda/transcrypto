@@ -34,7 +34,7 @@ __version_tuple__: tuple[int, ...] = base.__version_tuple__
 _MAX_KEY_GENERATION_FAILURES = 15
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
 class ElGamalSharedPublicKey(base.CryptoKey):
   """El-Gamal shared public key. This key can be shared by a group.
 
@@ -49,7 +49,6 @@ class ElGamalSharedPublicKey(base.CryptoKey):
 
   prime_modulus: int
   group_base: int
-  # TODO: add __str__/__repr__() that displays object info in a human-friendly way (base64?)
 
   def __post_init__(self) -> None:
     """Check data.
@@ -62,6 +61,16 @@ class ElGamalSharedPublicKey(base.CryptoKey):
       raise base.InputError(f'invalid prime_modulus: {self}')
     if not 2 < self.group_base < self.prime_modulus - 1:
       raise base.InputError(f'invalid group_base: {self}')
+
+  def __str__(self) -> str:
+    """Safe string representation of the ElGamalSharedPublicKey.
+
+    Returns:
+      string representation of ElGamalSharedPublicKey
+    """
+    return ('ElGamalSharedPublicKey('
+            f'prime_modulus={base.IntToEncoded(self.prime_modulus)}, '
+            f'group_base={base.IntToEncoded(self.group_base)})')
 
   @classmethod
   def NewShared(cls, bit_length: int, /) -> Self:
@@ -86,7 +95,7 @@ class ElGamalSharedPublicKey(base.CryptoKey):
     )
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
 class ElGamalPublicKey(ElGamalSharedPublicKey):
   """El-Gamal public key. This is an individual public key.
 
@@ -99,7 +108,6 @@ class ElGamalPublicKey(ElGamalSharedPublicKey):
   """
 
   individual_base: int
-  # TODO: add __str__/__repr__() that displays object info in a human-friendly way (base64?)
 
   def __post_init__(self) -> None:
     """Check data.
@@ -111,6 +119,15 @@ class ElGamalPublicKey(ElGamalSharedPublicKey):
     if (not 2 < self.individual_base < self.prime_modulus - 1 or
         self.individual_base == self.group_base):
       raise base.InputError(f'invalid individual_base: {self}')
+
+  def __str__(self) -> str:
+    """Safe string representation of the ElGamalPublicKey.
+
+    Returns:
+      string representation of ElGamalPublicKey
+    """
+    return (f'ElGamalPublicKey({super(ElGamalPublicKey, self).__str__()}, '  # pylint: disable=super-with-arguments
+            f'individual_base={base.IntToEncoded(self.individual_base)})')
 
   def _MakeEphemeralKey(self) -> tuple[int, int]:
     """Make an ephemeral key adequate to be used with El-Gamal.
@@ -191,7 +208,7 @@ class ElGamalPublicKey(ElGamalSharedPublicKey):
         individual_base=other.individual_base)
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
 class ElGamalPrivateKey(ElGamalPublicKey):
   """El-Gamal private key.
 
@@ -204,7 +221,6 @@ class ElGamalPrivateKey(ElGamalPublicKey):
   """
 
   decrypt_exp: int
-  # TODO: add __str__/__repr__() that displays object info in a human-friendly way (base64?)
 
   def __post_init__(self) -> None:
     """Check data.
@@ -220,6 +236,15 @@ class ElGamalPrivateKey(ElGamalPublicKey):
     if modmath.ModExp(
         self.group_base, self.decrypt_exp, self.prime_modulus) != self.individual_base:
       raise base.CryptoError(f'inconsistent g**e % p == i: {self}')
+
+  def __str__(self) -> str:
+    """Safe (no secrets) string representation of the ElGamalPrivateKey.
+
+    Returns:
+      string representation of ElGamalPrivateKey without leaking secrets
+    """
+    return (f'ElGamalPrivateKey({super(ElGamalPrivateKey, self).__str__()}, '  # pylint: disable=super-with-arguments
+            f'decrypt_exp={base.ObfuscateSecret(self.decrypt_exp)})')
 
   def Decrypt(self, ciphertext: tuple[int, int], /) -> int:
     """Decrypt `ciphertext` tuple with this private key.

@@ -28,7 +28,7 @@ _BIG_ENCRYPTION_EXPONENT = 2 ** 16 + 1  # 65537
 _MAX_KEY_GENERATION_FAILURES = 15
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
 class RSAPublicKey(base.CryptoKey):
   """RSA (Rivest-Shamir-Adleman) key, with the public part of the key.
 
@@ -47,7 +47,6 @@ class RSAPublicKey(base.CryptoKey):
 
   public_modulus: int
   encrypt_exp: int
-  # TODO: add __str__/__repr__() that displays object info in a human-friendly way (base64?)
 
   def __post_init__(self) -> None:
     """Check data.
@@ -63,6 +62,16 @@ class RSAPublicKey(base.CryptoKey):
     if not 2 < self.encrypt_exp < self.public_modulus or not modmath.IsPrime(self.encrypt_exp):
       # technically, encrypt_exp < phi, but again the private key tests for this explicitly
       raise base.InputError(f'invalid encrypt_exp: {self}')
+
+  def __str__(self) -> str:
+    """Safe string representation of the RSAPublicKey.
+
+    Returns:
+      string representation of RSAPublicKey
+    """
+    return ('RSAPublicKey('
+            f'public_modulus={base.IntToEncoded(self.public_modulus)}, '
+            f'encrypt_exp={base.IntToEncoded(self.encrypt_exp)})')
 
   def Encrypt(self, message: int, /) -> int:
     """Encrypt `message` with this public key.
@@ -108,7 +117,7 @@ class RSAPublicKey(base.CryptoKey):
     return cls(public_modulus=other.public_modulus, encrypt_exp=other.encrypt_exp)
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
 class RSAObfuscationPair(RSAPublicKey):
   """RSA (Rivest-Shamir-Adleman) obfuscation pair for a public key.
 
@@ -123,7 +132,6 @@ class RSAObfuscationPair(RSAPublicKey):
 
   random_key: int
   key_inverse: int
-  # TODO: add __str__/__repr__() that displays object info in a human-friendly way (base64?)
 
   def __post_init__(self) -> None:
     """Check data.
@@ -139,6 +147,16 @@ class RSAObfuscationPair(RSAPublicKey):
       raise base.InputError(f'invalid keys: {self}')
     if (self.random_key * self.key_inverse) % self.public_modulus != 1:
       raise base.CryptoError(f'inconsistent keys: {self}')
+
+  def __str__(self) -> str:
+    """Safe (no secrets) string representation of the RSAObfuscationPair.
+
+    Returns:
+      string representation of RSAObfuscationPair without leaking secrets
+    """
+    return (f'RSAObfuscationPair({super(RSAObfuscationPair, self).__str__()}, '  # pylint: disable=super-with-arguments
+            f'random_key={base.ObfuscateSecret(self.random_key)}, '
+            f'key_inverse={base.ObfuscateSecret(self.key_inverse)})')
 
   def ObfuscateMessage(self, message: int, /) -> int:
     """Convert message to an obfuscated message to be signed by this key's owner.
@@ -224,7 +242,7 @@ class RSAObfuscationPair(RSAPublicKey):
         random_key=random_key, key_inverse=key_inverse)
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
 class RSAPrivateKey(RSAPublicKey):
   """RSA (Rivest-Shamir-Adleman) private key.
 
@@ -249,10 +267,9 @@ class RSAPrivateKey(RSAPublicKey):
   modulus_q: int
   decrypt_exp: int
 
-  remainder_p: int
-  remainder_q: int
+  remainder_p: int  # these 3 are derived from the previous 3 and are used for speedup only!
+  remainder_q: int  # because of that they will not be printed in __str__()
   q_inverse_p: int
-  # TODO: add __str__/__repr__() that displays object info in a human-friendly way (base64?)
 
   def __post_init__(self) -> None:
     """Check data.
@@ -289,6 +306,17 @@ class RSAPrivateKey(RSAPublicKey):
         self.remainder_q != self.decrypt_exp % (self.modulus_q - 1) or
         (self.q_inverse_p * self.modulus_q) % self.modulus_p != 1):
       raise base.CryptoError(f'inconsistent speedup remainder_p/remainder_q/q_inverse_p: {self}')
+
+  def __str__(self) -> str:
+    """Safe (no secrets) string representation of the RSAPrivateKey.
+
+    Returns:
+      string representation of RSAPrivateKey without leaking secrets
+    """
+    return (f'RSAPrivateKey({super(RSAPrivateKey, self).__str__()}, '  # pylint: disable=super-with-arguments
+            f'modulus_p={base.ObfuscateSecret(self.modulus_p)}, '
+            f'modulus_q={base.ObfuscateSecret(self.modulus_q)}, '
+            f'decrypt_exp={base.ObfuscateSecret(self.decrypt_exp)})')
 
   def Decrypt(self, ciphertext: int, /) -> int:
     """Decrypt `ciphertext` with this private key.
