@@ -24,7 +24,7 @@ from typing import Any, Callable, final, MutableSequence, Self, TypeVar
 import zstandard
 
 __author__ = 'balparda@github.com'
-__version__ = '1.1.0'  # v1.1.0, 2025-08-29
+__version__ = '1.1.1'  # v1.1.1, 2025-08-29
 __version_tuple__: tuple[int, ...] = tuple(int(v) for v in __version__.split('.'))
 
 # MIN_TM = int(  # minimum allowed timestamp
