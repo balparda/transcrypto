@@ -457,7 +457,7 @@ def test_aes_gcm_decrypt_wrong_aad_raises() -> None:
   # Decrypt with WRONG AAD='B' → should raise CryptoError
   code, out = _RunCLI(
       ['--b64', 'aes', 'decrypt',
-       base.BytesToEncoded(base.HexToBytes(out)), '-k', key_b64, '-a', 'eHm6'])
+       '"' + base.BytesToEncoded(base.HexToBytes(out)) + '"', '-k', key_b64, '-a', 'eHm6'])
   assert code == 0 and 'failed decryption' in out
 
 
