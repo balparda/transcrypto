@@ -24,7 +24,7 @@ from typing import Any, Callable, final, MutableSequence, Self, TypeVar
 import zstandard
 
 __author__ = 'balparda@github.com'
-__version__ = '1.0.3'  # v1.0.3, 2025-07-30
+__version__ = '1.1.0'  # v1.1.0, 2025-08-29
 __version_tuple__: tuple[int, ...] = tuple(int(v) for v in __version__.split('.'))
 
 # MIN_TM = int(  # minimum allowed timestamp
@@ -595,7 +595,6 @@ class CryptoKey(abc.ABC):
     """
     # every sub-class of CryptoKey has to implement its own version of __str__()
     # TODO: make printing a part of the CLI
-    # TODO: add printing to README
 
   @final
   def __repr__(self) -> str:

@@ -70,6 +70,7 @@
     "pyright",
     "randbelow",
     "randomprime",
+    "repr",
     "Rijndael",
     "Rivest",
     "Shamir",

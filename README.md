@@ -92,6 +92,7 @@ Started in July/2025, by Daniel Balparda. Since version 1.0.2 it is PyPI package
       - [Serialization Pipeline](#serialization-pipeline)
         - [Serialize](#serialize)
         - [DeSerialize](#deserialize)
+      - [Crypto Objects General Properties (`CryptoKey`)](#crypto-objects-general-properties-cryptokey)
       - [AES-256 Symmetric Encryption](#aes-256-symmetric-encryption)
         - [Key creation](#key-creation)
         - [AES-256 + GCM (default)](#aes-256--gcm-default)
@@ -1659,6 +1660,45 @@ data/file → (decrypt) → (decompress if Zstd) → unpickle
 - Exactly one of `data` or `file_path` must be provided.
 - `file_path` must exist; `data` must be at least 4 bytes.
 - Wrong key or corrupted data can raise `CryptoError`.
+
+#### Crypto Objects General Properties (`CryptoKey`)
+
+Cryptographic objects all derive from the `CryptoKey` class and will all have some important characteristics:
+
+- Will be safe to log and print, i.e., implement safe `__str__()` and `__repr__()` methods (in actuality `repr` will be exactly the same as `str`). The `__str__()` should always fully print the public parts of the object and obfuscate the private ones. This obfuscation allows for some debugging, if needed, but if the secrets are "too short" then it can be defeated by brute force. For usual crypto defaults the obfuscation is fine. The obfuscation is the fist 4 bytes of the SHA-512 for the value followed by an ellipsis (e.g. `c9626f16…`).
+- It will have a `_DebugDump()` method that **does print secrets** and can be used for **debugging only**.
+- Can be easily serialized to `bytes` by the `blob` property and to base-64 encoded `str` by the `encoded` property.
+- Can be serialized encrypted to `bytes` by the `Blob(key=[SymmetricCrypto])` method and to encrypted base-64 encoded `str` by the `Encoded(key=[SymmetricCrypto])` method.
+- Can be instantiated back as an object from `str` or `bytes` using the `Load(data, key=[SymmetricCrypto] | None)` method. The `Load()` will decide how to build the object and will work universally with all the serialization options discussed above.
+
+Example:
+
+<!-- cspell:disable -->
+```py
+from transcrypto import base, rsa, aes
+
+priv = rsa.RSAPrivateKey.New(512)  # small key, but good for this example
+print(str(priv))                   # safe, no secrets
+# ▶ RSAPrivateKey(RSAPublicKey(public_modulus=pQaoxy-QeXSds1k9WsGjJw==, encrypt_exp=AQAB), modulus_p=f18141aa…, modulus_q=67494eb9…, decrypt_exp=c96db24a…)
+
+print(priv._DebugDump())  # UNSAFE: prints secrets
+# ▶ RSAPrivateKey(public_modulus=219357196311600536151291741191131996967, encrypt_exp=65537, modulus_p=13221374197986739361, modulus_q=16591104148992527047, decrypt_exp=37805202135275158391322585315542443073, remainder_p=9522084656682089473, remainder_q=8975656462800098363, q_inverse_p=11965562396596149292)
+
+print(priv.blob)
+# ▶ b"(\xb5/\xfd \x98\xc1\x04\x00\x80\x04\x95\x8d\x00\x00\x00\x00\x00\x00\x00\x8c\x0ftranscrypto.rsa\x94\x8c\rRSAPrivateKey\x94\x93\x94)\x81\x94]\x94(\x8a\x11'\xa3\xc1Z=Y\xb3\x9dty\x90/\xc7\xa8\x06\xa5\x00J\x01\x00\x01\x00\x8a\t\xa1\xc4\x83\x81\xc8\xc1{\xb7\x00\x8a\t\xc7\x8a5\xf0Qq?\xe6\x00\x8a\x10A$&\x82!\x1cy\x89r\xef\xeb\xa7_\x04q\x1c\x8a\t\x01\xbc\xbb\x8a\x8b=%\x84\x00\x8a\x08;\x94#s\xff\xef\x8f|\x8a\t,\x9c\xe2z\x9a7\x0e\xa6\x00eb."
+
+print(priv.encoded)
+# ▶ KLUv_WBwAIELAIAElWUBAAAAAAAAjA90cmFuc2NyeXB0by5yc2GUjA1SU0FQcml2YXRlS2V5lJOUKYGUXZQoikHf1EvsmZedAZve7TrLmobLAwuRIr_77TLG6G_0fsLGThERVJu075be8PLjUQYnLXcacZFQ5Fb1Iy1WtiE985euAEoBAAEAiiFR9ngiXMzkf41o5CRBY3h0D4DJVisDDhLmAWsiaHggzQCKIS_cmQ6MKXCtROtC7c_Mrsi9A-9NM8DksaHaRwvy6uTZAIpB4TVbsLxc41TEc19wIzpxbi9y5dW5gdfTkRQSSiz0ijmb8Xk3pyBfKAv8JbHp8Yv48gNZUfX67qq0J7yhJqeUoACKIbFb2kTNRzSqm3JRtjc2BPS-FnLFdadlFcV4-6IW7eqLAIogFZfzDN39gZLR9uTz4KHSTaqxWrJgP8-YYssjss6FlFKKIIItgCDv7ompNpY8gBs5bibN8XTsr-JOYSntDVT5Fe5vZWIu
+
+key = aes.AESKey(key256=b'x' * 32)
+print(key)
+# ▶ AESKey(key256=86a86df7…)
+
+encrypted = priv.Blob(key=key)
+print(priv == rsa.RSAPrivateKey.Load(encrypted, key=key))
+# ▶ True
+```
+<!-- cspell:enable -->
 
 #### AES-256 Symmetric Encryption
 
