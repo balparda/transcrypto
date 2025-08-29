@@ -594,6 +594,8 @@ class CryptoKey(abc.ABC):
       string representation of the key without leaking secrets
     """
     # every sub-class of CryptoKey has to implement its own version of __str__()
+    # TODO: make printing a part of the CLI
+    # TODO: add printing to README
 
   @final
   def __repr__(self) -> str:
@@ -907,7 +909,6 @@ class PublicBid(CryptoKey):
 
   public_key: bytes
   public_hash: bytes
-  # TODO: add to docs; add to CLI
 
   def __post_init__(self) -> None:
     """Check data.
@@ -967,7 +968,6 @@ class PrivateBid(PublicBid):
 
   private_key: bytes
   secret_bid: bytes
-  # TODO: add to docs; add to CLI
 
   def __post_init__(self) -> None:
     """Check data.

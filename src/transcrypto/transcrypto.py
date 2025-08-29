@@ -15,6 +15,7 @@ aes key frompass, aes encrypt|decrypt (GCM), aes ecb encrypt|decrypt
 rsa new|encrypt|decrypt|sign|verify (integer messages)
 elgamal shared|new|encrypt|decrypt|sign|verify
 dsa shared|new|sign|verify
+bid new|verify
 sss new|shares|recover|verify
 """
 
@@ -105,10 +106,14 @@ def _SaveObj(obj: Any, path: str, password: str | None, /) -> None:
   logging.info('saved object: %s (%s)', path, base.HumanizedBytes(len(blob)))
 
 
-def _LoadObj(path: str, password: str | None, /) -> Any:
+def _LoadObj(path: str, password: str | None, expect: type, /) -> Any:
   """Load object."""
   key: aes.AESKey | None = _MaybePasswordKey(password)
-  return base.DeSerialize(file_path=path, key=key)
+  obj: Any = base.DeSerialize(file_path=path, key=key)
+  if not isinstance(obj, expect):
+    raise base.InputError(
+        f'Object loaded from {path} is of invalid type {type(obj)}, expected {expect}')
+  return obj
 
 
 def _FlagNames(a: argparse.Action, /) -> list[str]:
@@ -225,7 +230,8 @@ def _GenerateCLIMarkdown() -> str:  # pylint: disable=too-many-locals
       f'`{prog}` is a command-line utility that provides access to all core functionality '
       'described in this documentation. It serves as a convenient wrapper over the Python APIs, '
       'enabling **cryptographic operations**, **number theory functions**, **secure randomness '
-      'generation**, **hashing**, and other utilities without writing code.\n')
+      'generation**, **hashing**, **AES**, **RSA**, **El-Gamal**, **DSA**, **bidding**, **SSS**, '
+      'and other utilities without writing code.\n')
   lines.append('Invoke with:\n')
   lines.append('```bash')
   lines.append(f'poetry run {prog} <command> [sub-command] [options...]')
@@ -289,7 +295,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   parser: argparse.ArgumentParser = argparse.ArgumentParser(
       prog='poetry run transcrypto',
       description=('transcrypto: CLI for number theory, hashing, '
-                   'AES, RSA, ElGamal, DSA, SSS, and utilities.'),
+                   'AES, RSA, El-Gamal, DSA, bidding, SSS, and utilities.'),
       epilog=(
           'Examples:\n\n'
           '  # --- Randomness ---\n'
@@ -338,6 +344,9 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
           '  poetry run transcrypto -p dsa-key dsa new\n'
           '  poetry run transcrypto -p dsa-key.priv dsa sign <message>\n'
           '  poetry run transcrypto -p dsa-key.pub dsa verify <message> <s1:s2>\n\n'
+          '  # --- Public Bid ---\n'
+          '  poetry run transcrypto --bin bid new "tomorrow it will rain"\n'
+          '  poetry run transcrypto --out-bin bid verify\n\n'
           '  # --- Shamir Secret Sharing (SSS) ---\n'
           '  poetry run transcrypto -p sss-key sss new 3 --bits 1024\n'
           '  poetry run transcrypto -p sss-key sss shares <secret> 5\n'
@@ -850,6 +859,33 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
       help=('Integer putative signature for `message`; expects `s1:s2` format with 2 integers, '
             ' 2≤`s1`,`s2`<`q`'))
 
+  # ========================= Public Bid ===========================================================
+
+  # bidding group
+  p_bid: argparse.ArgumentParser = sub.add_parser(
+      'bid',
+      help=('Bidding on a `secret` so that you can cryptographically convince a neutral '
+            'party that the `secret` that was committed to previously was not changed. '
+            'All methods require file key(s) as `-p`/`--key-path` (see provided examples).'))
+  bid_sub = p_bid.add_subparsers(dest='bid_command')
+
+  # Generate a new bid
+  p_bid_new: argparse.ArgumentParser = bid_sub.add_parser(
+      'new',
+      help=('Generate the bid files for `secret`. '
+            'Requires `-p`/`--key-path` to set the basename for output files.'),
+      epilog=('--bin -p my-bid bid new "tomorrow it will rain"\n'
+              'Bid private/public commitments saved to \'my-bid.priv/.pub\''))
+  p_bid_new.add_argument('secret', type=str, help='Input data to bid to, the protected "secret"')
+
+  # verify bid
+  bid_sub.add_parser(
+      'verify',
+      help=('Verify the bid files for correctness and reveal the `secret`. '
+            'Requires `-p`/`--key-path` to set the basename for output files.'),
+      epilog=('--out-bin -p my-bid bid verify\n'
+              'Bid commitment: OK\nBid secret:\ntomorrow it will rain'))
+
   # ========================= Shamir Secret Sharing ================================================
 
   # SSS group
@@ -954,7 +990,7 @@ def AESCommand(
       if args.key:
         aes_key = aes.AESKey(key256=_BytesFromText(args.key, in_format))
       elif args.key_path:
-        aes_key = _LoadObj(args.key_path, args.protect or None)
+        aes_key = _LoadObj(args.key_path, args.protect or None, aes.AESKey)
       else:
         raise base.InputError('provide -k/--key or -p/--key-path')
       aad: bytes | None = _BytesFromText(args.aad, in_format) if args.aad else None
@@ -965,7 +1001,7 @@ def AESCommand(
       if args.key:
         aes_key = aes.AESKey(key256=_BytesFromText(args.key, in_format))
       elif args.key_path:
-        aes_key = _LoadObj(args.key_path, args.protect or None)
+        aes_key = _LoadObj(args.key_path, args.protect or None, aes.AESKey)
       else:
         raise base.InputError('provide -k/--key or -p/--key-path')
       aad = _BytesFromText(args.aad, in_format) if args.aad else None
@@ -977,7 +1013,7 @@ def AESCommand(
       if args.key:
         aes_key = aes.AESKey(key256=_BytesFromText(args.key, in_format))
       elif args.key_path:
-        aes_key = _LoadObj(args.key_path, args.protect or None)
+        aes_key = _LoadObj(args.key_path, args.protect or None, aes.AESKey)
       else:
         raise base.InputError('provide -k/--key or -p/--key-path')
       match ecb_cmd:
@@ -1006,19 +1042,21 @@ def RSACommand(args: argparse.Namespace, /) -> None:
       _SaveObj(rsa_pub, args.key_path + '.pub', args.protect or None)
       print(f'RSA private/public keys saved to {args.key_path + ".priv/.pub"!r}')
     case 'encrypt':
-      rsa_pub = rsa.RSAPublicKey.Copy(_LoadObj(args.key_path, args.protect or None))
+      rsa_pub = rsa.RSAPublicKey.Copy(
+          _LoadObj(args.key_path, args.protect or None, rsa.RSAPublicKey))
       m = _ParseInt(args.message)
       print(rsa_pub.Encrypt(m))
     case 'decrypt':
-      rsa_priv = _LoadObj(args.key_path, args.protect or None)
+      rsa_priv = _LoadObj(args.key_path, args.protect or None, rsa.RSAPrivateKey)
       c = _ParseInt(args.ciphertext)
       print(rsa_priv.Decrypt(c))
     case 'sign':
-      rsa_priv = _LoadObj(args.key_path, args.protect or None)
+      rsa_priv = _LoadObj(args.key_path, args.protect or None, rsa.RSAPrivateKey)
       m = _ParseInt(args.message)
       print(rsa_priv.Sign(m))
     case 'verify':
-      rsa_pub = rsa.RSAPublicKey.Copy(_LoadObj(args.key_path, args.protect or None))
+      rsa_pub = rsa.RSAPublicKey.Copy(
+          _LoadObj(args.key_path, args.protect or None, rsa.RSAPublicKey))
       m = _ParseInt(args.message)
       sig: int = _ParseInt(args.signature)
       print('RSA signature: ' + ('OK' if rsa_pub.VerifySignature(m, sig) else 'INVALID'))
@@ -1041,28 +1079,30 @@ def ElGamalCommand(args: argparse.Namespace, /) -> None:
       print(f'El-Gamal shared key saved to {args.key_path + ".shared"!r}')
     case 'new':
       eg_priv: elgamal.ElGamalPrivateKey = elgamal.ElGamalPrivateKey.New(
-          _LoadObj(args.key_path + '.shared', args.protect or None))
+          _LoadObj(args.key_path + '.shared', args.protect or None, elgamal.ElGamalSharedPublicKey))
       eg_pub: elgamal.ElGamalPublicKey = elgamal.ElGamalPublicKey.Copy(eg_priv)
       _SaveObj(eg_priv, args.key_path + '.priv', args.protect or None)
       _SaveObj(eg_pub, args.key_path + '.pub', args.protect or None)
       print(f'El-Gamal private/public keys saved to {args.key_path + ".priv/.pub"!r}')
     case 'encrypt':
-      eg_pub = elgamal.ElGamalPublicKey.Copy(_LoadObj(args.key_path, args.protect or None))
+      eg_pub = elgamal.ElGamalPublicKey.Copy(
+          _LoadObj(args.key_path, args.protect or None, elgamal.ElGamalPublicKey))
       m = _ParseInt(args.message)
       ss = eg_pub.Encrypt(m)
       print(f'{ss[0]}:{ss[1]}')
     case 'decrypt':
-      eg_priv = _LoadObj(args.key_path, args.protect or None)
+      eg_priv = _LoadObj(args.key_path, args.protect or None, elgamal.ElGamalPrivateKey)
       c1, c2 = args.ciphertext.split(':')
       ss = (_ParseInt(c1), _ParseInt(c2))
       print(eg_priv.Decrypt(ss))
     case 'sign':
-      eg_priv = _LoadObj(args.key_path, args.protect or None)
+      eg_priv = _LoadObj(args.key_path, args.protect or None, elgamal.ElGamalPrivateKey)
       m = _ParseInt(args.message)
       ss = eg_priv.Sign(m)
       print(f'{ss[0]}:{ss[1]}')
     case 'verify':
-      eg_pub = elgamal.ElGamalPublicKey.Copy(_LoadObj(args.key_path, args.protect or None))
+      eg_pub = elgamal.ElGamalPublicKey.Copy(
+          _LoadObj(args.key_path, args.protect or None, elgamal.ElGamalPublicKey))
       m = _ParseInt(args.message)
       c1, c2 = args.signature.split(':')
       ss = (_ParseInt(c1), _ParseInt(c2))
@@ -1086,22 +1126,48 @@ def DSACommand(args: argparse.Namespace, /) -> None:
       print(f'DSA shared key saved to {args.key_path + ".shared"!r}')
     case 'new':
       dsa_priv: dsa.DSAPrivateKey = dsa.DSAPrivateKey.New(
-          _LoadObj(args.key_path + '.shared', args.protect or None))
+          _LoadObj(args.key_path + '.shared', args.protect or None, dsa.DSASharedPublicKey))
       dsa_pub: dsa.DSAPublicKey = dsa.DSAPublicKey.Copy(dsa_priv)
       _SaveObj(dsa_priv, args.key_path + '.priv', args.protect or None)
       _SaveObj(dsa_pub, args.key_path + '.pub', args.protect or None)
       print(f'DSA private/public keys saved to {args.key_path + ".priv/.pub"!r}')
     case 'sign':
-      dsa_priv = _LoadObj(args.key_path, args.protect or None)
+      dsa_priv = _LoadObj(args.key_path, args.protect or None, dsa.DSAPrivateKey)
       m = _ParseInt(args.message) % dsa_priv.prime_seed
       ss = dsa_priv.Sign(m)
       print(f'{ss[0]}:{ss[1]}')
     case 'verify':
-      dsa_pub = dsa.DSAPublicKey.Copy(_LoadObj(args.key_path, args.protect or None))
+      dsa_pub = dsa.DSAPublicKey.Copy(
+          _LoadObj(args.key_path, args.protect or None, dsa.DSAPublicKey))
       m = _ParseInt(args.message) % dsa_pub.prime_seed
       c1, c2 = args.signature.split(':')
       ss = (_ParseInt(c1), _ParseInt(c2))
       print('DSA signature: ' + ('OK' if dsa_pub.VerifySignature(m, ss) else 'INVALID'))
+    case _:
+      raise NotImplementedError()
+
+
+def BidCommand(
+    args: argparse.Namespace, in_format: _StrBytesType, out_format: _StrBytesType, /) -> None:
+  """Execute `bid` command."""
+  bid_cmd: str = args.bid_command.lower().strip() if args.bid_command else ''
+  match bid_cmd:
+    case 'new':
+      secret: bytes = _BytesFromText(args.secret, in_format)
+      bid_priv: base.PrivateBid = base.PrivateBid.New(secret)
+      bid_pub: base.PublicBid = base.PublicBid.Copy(bid_priv)
+      _SaveObj(bid_priv, args.key_path + '.priv', args.protect or None)
+      _SaveObj(bid_pub, args.key_path + '.pub', args.protect or None)
+      print(f'Bid private/public commitments saved to {args.key_path + ".priv/.pub"!r}')
+    case 'verify':
+      bid_priv = _LoadObj(args.key_path + '.priv', args.protect or None, base.PrivateBid)
+      bid_pub = _LoadObj(args.key_path + '.pub', args.protect or None, base.PublicBid)
+      bid_pub_expect: base.PublicBid = base.PublicBid.Copy(bid_priv)
+      print('Bid commitment: ' + (
+          'OK' if (bid_pub.VerifyBid(bid_priv.private_key, bid_priv.secret_bid) and
+                   bid_pub == bid_pub_expect) else 'INVALID'))
+      print('Bid secret:')
+      print(_BytesToText(bid_priv.secret_bid, out_format))
     case _:
       raise NotImplementedError()
 
@@ -1118,7 +1184,8 @@ def SSSCommand(args: argparse.Namespace, /) -> None:
       _SaveObj(sss_pub, args.key_path + '.pub', args.protect or None)
       print(f'SSS private/public keys saved to {args.key_path + ".priv/.pub"!r}')
     case 'shares':
-      sss_priv = _LoadObj(args.key_path + '.priv', args.protect or None)
+      sss_priv = _LoadObj(
+          args.key_path + '.priv', args.protect or None, sss.ShamirSharedSecretPrivate)
       secret: int = _ParseInt(args.secret)
       sss_share: sss.ShamirSharePrivate
       for i, sss_share in enumerate(sss_priv.Shares(secret, max_shares=args.count)):
@@ -1126,19 +1193,20 @@ def SSSCommand(args: argparse.Namespace, /) -> None:
       print(f'SSS {args.count} individual (private) shares saved to '
             f'{args.key_path + ".share.1…" + str(args.count)!r}')
     case 'recover':
-      sss_pub = _LoadObj(args.key_path + '.pub', args.protect or None)
+      sss_pub = _LoadObj(args.key_path + '.pub', args.protect or None, sss.ShamirSharedSecretPublic)
       subset: list[sss.ShamirSharePrivate] = []
       for fname in glob.glob(args.key_path + '.share.*'):
-        sss_share = _LoadObj(fname, args.protect or None)
+        sss_share = _LoadObj(fname, args.protect or None, sss.ShamirSharePrivate)
         subset.append(sss_share)
         print(f'Loaded SSS share: {fname!r}')
       print('Secret:')
       print(sss_pub.RecoverSecret(subset))
     case 'verify':
-      sss_priv = _LoadObj(args.key_path + '.priv', args.protect or None)
+      sss_priv = _LoadObj(
+          args.key_path + '.priv', args.protect or None, sss.ShamirSharedSecretPrivate)
       secret = _ParseInt(args.secret)
       for fname in glob.glob(args.key_path + '.share.*'):
-        sss_share = _LoadObj(fname, args.protect or None)
+        sss_share = _LoadObj(fname, args.protect or None, sss.ShamirSharePrivate)
         print(f'SSS share {fname!r} verification: '
               f'{"OK" if sss_priv.VerifyShare(secret, sss_share) else "INVALID"}')
     case _:
@@ -1172,7 +1240,7 @@ def main(argv: list[str] | None = None, /) -> int:  # pylint: disable=invalid-na
   try:
     # get the command, do basic checks and switch
     command: str = args.command.lower().strip() if args.command else ''
-    if command in ('rsa', 'elgamal', 'dsa', 'sss') and not args.key_path:
+    if command in ('rsa', 'elgamal', 'dsa', 'bid', 'sss') and not args.key_path:
       raise base.InputError(f'you must provide -p/--key-path option for {command!r}')
     match command:
       # -------- primes ----------
@@ -1285,6 +1353,9 @@ def main(argv: list[str] | None = None, /) -> int:  # pylint: disable=invalid-na
 
       case 'dsa':
         DSACommand(args)
+
+      case 'bid':
+        BidCommand(args, in_format, out_format)
 
       case 'sss':
         SSSCommand(args)

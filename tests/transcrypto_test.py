@@ -36,6 +36,17 @@ def _RunCLI(argv: list[str]) -> tuple[int, str]:
   return (code, out)
 
 
+def test_LoadObj_wrong_type_raises(tmp_path: pathlib.Path) -> None:
+  """_LoadObj should raise if the on-disk object is not of the expected type."""
+  path: pathlib.Path = tmp_path / "obj.saved"
+  # Save an AESKey object…
+  key = aes.AESKey(key256=b"\x00" * 32)
+  transcrypto._SaveObj(key, str(path), None)
+  # …then try to load it expecting a completely different type.
+  with pytest.raises(base.InputError, match=r'invalid type.*AESKey.*expected.*PublicBid'):
+    transcrypto._LoadObj(str(path), None, base.PublicBid)  # expecting PublicBid, got AESKey
+
+
 @pytest.mark.parametrize(
     'argv, expected',
     [
@@ -302,6 +313,22 @@ def test_dsa_sign_verify(tmp_path: pathlib.Path) -> None:
   assert code == 0 and ok == 'DSA signature: INVALID'
 
 
+def test_bid_commit_verify(tmp_path: pathlib.Path) -> None:
+  """Test bidding via CLI."""
+  key_base = tmp_path / 'bid-key'
+  priv_path = pathlib.Path(str(key_base) + '.priv')
+  pub_path = pathlib.Path(str(key_base) + '.pub')
+  secret = 'top-secret-123'  # raw UTF-8; we'll use --bin so it’s treated as bytes
+  # Create new bid (writes .priv/.pub beside key_base)
+  code, out = _RunCLI(['--bin', '-p', str(key_base), 'bid', 'new', secret])
+  assert code == 0 and 'Bid private/public commitments saved to' in out
+  assert priv_path.exists()
+  assert pub_path.exists()
+  # Verify: should print OK and echo the secret back
+  code, out = _RunCLI(['--out-bin', '-p', str(key_base), 'bid', 'verify'])
+  assert code == 0 and out == 'Bid commitment: OK\nBid secret:\ntop-secret-123'
+
+
 @pytest.mark.slow
 def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
   """Test Shamir's Secret Sharing new, shares, recover, verify via CLI."""
@@ -353,6 +380,7 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
         ['-p', 'kkk', 'rsa'],
         ['-p', 'kkk', 'elgamal'],
         ['-p', 'kkk', 'dsa'],
+        ['-p', 'kkk', 'bid'],
         ['-p', 'kkk', 'sss'],
         ['doc'],
     ],

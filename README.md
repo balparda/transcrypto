@@ -59,6 +59,9 @@ Started in July/2025, by Daniel Balparda. Since version 1.0.2 it is PyPI package
       - [`dsa new`](#dsa-new)
       - [`dsa sign`](#dsa-sign)
       - [`dsa verify`](#dsa-verify)
+    - [`bid`](#bid)
+      - [`bid new`](#bid-new)
+      - [`bid verify`](#bid-verify)
     - [`sss`](#sss)
       - [`sss new`](#sss-new)
       - [`sss shares`](#sss-shares)
@@ -105,6 +108,7 @@ Started in July/2025, by Daniel Balparda. Since version 1.0.2 it is PyPI package
       - [DSA (Digital Signature Algorithm)](#dsa-digital-signature-algorithm)
         - [Security notes](#security-notes)
         - [Advanced: custom primes generator](#advanced-custom-primes-generator)
+      - [Public Bidding](#public-bidding)
       - [SSS (Shamir Shared Secret)](#sss-shamir-shared-secret)
   - [Appendix: Development Instructions](#appendix-development-instructions)
     - [Setup](#setup)
@@ -151,7 +155,7 @@ Known dependencies:
 
 ## Command-Line Interface
 
-`transcrypto` is a command-line utility that provides access to all core functionality described in this documentation. It serves as a convenient wrapper over the Python APIs, enabling **cryptographic operations**, **number theory functions**, **secure randomness generation**, **hashing**, and other utilities without writing code.
+`transcrypto` is a command-line utility that provides access to all core functionality described in this documentation. It serves as a convenient wrapper over the Python APIs, enabling **cryptographic operations**, **number theory functions**, **secure randomness generation**, **hashing**, **AES**, **RSA**, **El-Gamal**, **DSA**, **bidding**, **SSS**, and other utilities without writing code.
 
 Invoke with:
 
@@ -187,6 +191,7 @@ poetry run transcrypto <command> [sub-command] [options...]
 - **`rsa`** — `poetry run transcrypto rsa [-h] {new,encrypt,decrypt,sign,verify} ...`
 - **`elgamal`** — `poetry run transcrypto elgamal [-h]`
 - **`dsa`** — `poetry run transcrypto dsa [-h] {shared,new,sign,verify} ...`
+- **`bid`** — `poetry run transcrypto bid [-h] {new,verify} ...`
 - **`sss`** — `poetry run transcrypto sss [-h] {new,shares,recover,verify} ...`
 - **`doc`** — `poetry run transcrypto doc [-h] {md} ...`
 
@@ -246,6 +251,10 @@ Examples:
   poetry run transcrypto -p dsa-key dsa new
   poetry run transcrypto -p dsa-key.priv dsa sign <message>
   poetry run transcrypto -p dsa-key.pub dsa verify <message> <s1:s2>
+
+  # --- Public Bid ---
+  poetry run transcrypto --bin bid new "tomorrow it will rain"
+  poetry run transcrypto --out-bin bid verify
 
   # --- Shamir Secret Sharing (SSS) ---
   poetry run transcrypto -p sss-key sss new 3 --bits 1024
@@ -1139,6 +1148,52 @@ DSA signature: INVALID
 
 ---
 
+### `bid`
+
+Bidding on a `secret` so that you can cryptographically convince a neutral party that the `secret` that was committed to previously was not changed. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
+
+```bash
+poetry run transcrypto bid [-h] {new,verify} ...
+```
+
+#### `bid new`
+
+Generate the bid files for `secret`. Requires `-p`/`--key-path` to set the basename for output files.
+
+```bash
+poetry run transcrypto bid new [-h] secret
+```
+
+| Option/Arg | Description |
+|---|---|
+| `secret` | Input data to bid to, the protected "secret" [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --bin -p my-bid bid new "tomorrow it will rain"
+Bid private/public commitments saved to 'my-bid.priv/.pub'
+```
+
+#### `bid verify`
+
+Verify the bid files for correctness and reveal the `secret`. Requires `-p`/`--key-path` to set the basename for output files.
+
+```bash
+poetry run transcrypto bid verify [-h]
+```
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --out-bin -p my-bid bid verify
+Bid commitment: OK
+Bid secret:
+tomorrow it will rain
+```
+
+---
+
 ### `sss`
 
 Raw SSS (Shamir Shared Secret) secret sharing crypto scheme over *integers* (BEWARE: no modern message wrapping, padding or validation). These are pedagogical/raw primitives; do not use for new protocols. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
@@ -1922,6 +1977,24 @@ assert (p - 1) % q == 0
 
 Used internally by `DSASharedPublicKey.New()`.
 Search breadth and retry caps are bounded; repeated failures raise `CryptoError`.
+
+#### Public Bidding
+
+This is a way of bidding on some commitment (the `secret`) that can be cryptographically proved later to not have been changed. To do that the secret is combined with 2 nonces (random values, `n1` & `n2`) and a hash of it is taken (`H=SHA-512(n1||n2||secret)`). The hash `H` and one nonce `n1` are public and divulged. The other nonce `n2` and the `secret` are kept private and will be used to show `secret` was not changed since the beginning of the process. The nonces guarantee the `secret` cannot be brute-forced or changed after-the-fact. The whole process is as strong as SHA-512 collisions.
+
+```py
+from transcrypto import base
+
+# Generate the private and public bids
+bid_priv = base.PrivateBid.New(secret)    # this one you keep private
+bid_pub = base.PublicBid.Copy(bid_priv)   # this one you publish
+
+# Checking that a bid is genuine requires the public bid and knowing the nonce and the secret:
+print(bid_pub.VerifyBid(private_key, secret_bid))  # these come from a divulged private bid
+# of course, you want to also make sure the provided private data matches your version of it, e.g.:
+bid_pub_expected = base.PublicBid.Copy(bid_priv)
+print(bid_pub == bid_pub_expected)
+```
 
 #### SSS (Shamir Shared Secret)
 

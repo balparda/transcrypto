@@ -1,7 +1,7 @@
 
 ## Command-Line Interface
 
-`transcrypto` is a command-line utility that provides access to all core functionality described in this documentation. It serves as a convenient wrapper over the Python APIs, enabling **cryptographic operations**, **number theory functions**, **secure randomness generation**, **hashing**, and other utilities without writing code.
+`transcrypto` is a command-line utility that provides access to all core functionality described in this documentation. It serves as a convenient wrapper over the Python APIs, enabling **cryptographic operations**, **number theory functions**, **secure randomness generation**, **hashing**, **AES**, **RSA**, **El-Gamal**, **DSA**, **bidding**, **SSS**, and other utilities without writing code.
 
 Invoke with:
 
@@ -37,6 +37,7 @@ poetry run transcrypto <command> [sub-command] [options...]
 - **`rsa`** — `poetry run transcrypto rsa [-h] {new,encrypt,decrypt,sign,verify} ...`
 - **`elgamal`** — `poetry run transcrypto elgamal [-h]`
 - **`dsa`** — `poetry run transcrypto dsa [-h] {shared,new,sign,verify} ...`
+- **`bid`** — `poetry run transcrypto bid [-h] {new,verify} ...`
 - **`sss`** — `poetry run transcrypto sss [-h] {new,shares,recover,verify} ...`
 - **`doc`** — `poetry run transcrypto doc [-h] {md} ...`
 
@@ -96,6 +97,10 @@ Examples:
   poetry run transcrypto -p dsa-key dsa new
   poetry run transcrypto -p dsa-key.priv dsa sign <message>
   poetry run transcrypto -p dsa-key.pub dsa verify <message> <s1:s2>
+
+  # --- Public Bid ---
+  poetry run transcrypto --bin bid new "tomorrow it will rain"
+  poetry run transcrypto --out-bin bid verify
 
   # --- Shamir Secret Sharing (SSS) ---
   poetry run transcrypto -p sss-key sss new 3 --bits 1024
@@ -985,6 +990,52 @@ $ poetry run transcrypto -p dsa-key.pub dsa verify 999 2395961484:3435572290
 DSA signature: OK
 $ poetry run transcrypto -p dsa-key.pub dsa verify 999 2395961484:3435572291
 DSA signature: INVALID
+```
+
+---
+
+### `bid`
+
+Bidding on a `secret` so that you can cryptographically convince a neutral party that the `secret` that was committed to previously was not changed. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
+
+```bash
+poetry run transcrypto bid [-h] {new,verify} ...
+```
+
+#### `bid new`
+
+Generate the bid files for `secret`. Requires `-p`/`--key-path` to set the basename for output files.
+
+```bash
+poetry run transcrypto bid new [-h] secret
+```
+
+| Option/Arg | Description |
+|---|---|
+| `secret` | Input data to bid to, the protected "secret" [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --bin -p my-bid bid new "tomorrow it will rain"
+Bid private/public commitments saved to 'my-bid.priv/.pub'
+```
+
+#### `bid verify`
+
+Verify the bid files for correctness and reveal the `secret`. Requires `-p`/`--key-path` to set the basename for output files.
+
+```bash
+poetry run transcrypto bid verify [-h]
+```
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --out-bin -p my-bid bid verify
+Bid commitment: OK
+Bid secret:
+tomorrow it will rain
 ```
 
 ---
