@@ -78,8 +78,6 @@ def NBitRandomDSAPrimes(p_bits: int, q_bits: int, /) -> tuple[int, int, int]:
 class DSASharedPublicKey(base.CryptoKey):
   """DSA shared public key. This key can be shared by a group.
 
-  BEWARE: This is raw DSA, no ECDSA/EdDSA padding, no hash, no validation!
-  These are pedagogical/raw primitives; do not use for new protocols.
   No measures are taken here to prevent timing attacks.
 
   Attributes:
@@ -149,8 +147,6 @@ class DSASharedPublicKey(base.CryptoKey):
 class DSAPublicKey(DSASharedPublicKey):
   """DSA public key. This is an individual public key.
 
-  BEWARE: This is raw DSA, no ECDSA/EdDSA padding, no hash, no validation!
-  These are pedagogical/raw primitives; do not use for new protocols.
   No measures are taken here to prevent timing attacks.
 
   Attributes:
@@ -192,9 +188,11 @@ class DSAPublicKey(DSASharedPublicKey):
       ephemeral_key = base.RandBits(bit_length - 1)
     return (ephemeral_key, modmath.ModInv(ephemeral_key, self.prime_seed))
 
-  def VerifySignature(self, message: int, signature: tuple[int, int], /) -> bool:
+  def RawVerify(self, message: int, signature: tuple[int, int], /) -> bool:
     """Verify a signature. True if OK; False if failed verification.
 
+    BEWARE: This is raw DSA, no ECDSA/EdDSA padding, no hash, no validation!
+    These are pedagogical/raw primitives; do not use for new protocols.
     We explicitly disallow `message` to be zero.
 
     Args:
@@ -235,8 +233,6 @@ class DSAPublicKey(DSASharedPublicKey):
 class DSAPrivateKey(DSAPublicKey):
   """DSA private key.
 
-  BEWARE: This is raw DSA, no ECDSA/EdDSA padding, no hash, no validation!
-  These are pedagogical/raw primitives; do not use for new protocols.
   No measures are taken here to prevent timing attacks.
 
   Attributes:
@@ -269,9 +265,11 @@ class DSAPrivateKey(DSAPublicKey):
     return (f'DSAPrivateKey({super(DSAPrivateKey, self).__str__()}, '  # pylint: disable=super-with-arguments
             f'decrypt_exp={base.ObfuscateSecret(self.decrypt_exp)})')
 
-  def Sign(self, message: int, /) -> tuple[int, int]:
+  def RawSign(self, message: int, /) -> tuple[int, int]:
     """Sign `message` with this private key.
 
+    BEWARE: This is raw DSA, no ECDSA/EdDSA padding, no hash, no validation!
+    These are pedagogical/raw primitives; do not use for new protocols.
     We explicitly disallow `message` to be zero.
 
     Args:

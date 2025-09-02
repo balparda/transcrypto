@@ -32,8 +32,6 @@ _MAX_KEY_GENERATION_FAILURES = 15
 class RSAPublicKey(base.CryptoKey):
   """RSA (Rivest-Shamir-Adleman) key, with the public part of the key.
 
-  BEWARE: This is raw RSA, no OAEP or PSS padding or validation!
-  These are pedagogical/raw primitives; do not use for new protocols.
   No measures are taken here to prevent timing attacks.
 
   By default and deliberate choice the encryption exponent will be either 7 or 65537,
@@ -73,9 +71,11 @@ class RSAPublicKey(base.CryptoKey):
             f'public_modulus={base.IntToEncoded(self.public_modulus)}, '
             f'encrypt_exp={base.IntToEncoded(self.encrypt_exp)})')
 
-  def Encrypt(self, message: int, /) -> int:
+  def RawEncrypt(self, message: int, /) -> int:
     """Encrypt `message` with this public key.
 
+    BEWARE: This is raw RSA, no OAEP or PSS padding or validation!
+    These are pedagogical/raw primitives; do not use for new protocols.
     We explicitly disallow `message` to be zero.
 
     Args:
@@ -93,9 +93,11 @@ class RSAPublicKey(base.CryptoKey):
     # encrypt
     return modmath.ModExp(message, self.encrypt_exp, self.public_modulus)
 
-  def VerifySignature(self, message: int, signature: int, /) -> bool:
+  def RawVerify(self, message: int, signature: int, /) -> bool:
     """Verify a signature. True if OK; False if failed verification.
 
+    BEWARE: This is raw RSA, no OAEP or PSS padding or validation!
+    These are pedagogical/raw primitives; do not use for new protocols.
     We explicitly disallow `message` to be zero.
 
     Args:
@@ -109,7 +111,7 @@ class RSAPublicKey(base.CryptoKey):
     Raises:
       InputError: invalid inputs
     """
-    return self.Encrypt(signature) == message
+    return self.RawEncrypt(signature) == message
 
   @classmethod
   def Copy(cls, other: RSAPublicKey, /) -> Self:
@@ -198,11 +200,11 @@ class RSAObfuscationPair(RSAPublicKey):
     """
     # verify that obfuscated signature is valid
     obfuscated: int = self.ObfuscateMessage(message)
-    if not self.VerifySignature(obfuscated, signature):
+    if not self.RawVerify(obfuscated, signature):
       raise base.CryptoError(f'obfuscated message was not signed: {message=} ; {signature=}')
     # compute signature for original message and check it
     original: int = (signature * self.key_inverse) % self.public_modulus
-    if not self.VerifySignature(message, original):
+    if not self.RawVerify(message, original):
       raise base.CryptoError(f'failed signature recovery: {message=} ; {signature=}')
     return original
 
@@ -246,8 +248,6 @@ class RSAObfuscationPair(RSAPublicKey):
 class RSAPrivateKey(RSAPublicKey):
   """RSA (Rivest-Shamir-Adleman) private key.
 
-  BEWARE: This is raw RSA, no OAEP or PSS padding or validation!
-  These are pedagogical/raw primitives; do not use for new protocols.
   No measures are taken here to prevent timing attacks.
 
   The attributes modulus_p (p), modulus_q (q) and decrypt_exp (d) are "enough" for a working key,
@@ -318,9 +318,11 @@ class RSAPrivateKey(RSAPublicKey):
             f'modulus_q={base.ObfuscateSecret(self.modulus_q)}, '
             f'decrypt_exp={base.ObfuscateSecret(self.decrypt_exp)})')
 
-  def Decrypt(self, ciphertext: int, /) -> int:
+  def RawDecrypt(self, ciphertext: int, /) -> int:
     """Decrypt `ciphertext` with this private key.
 
+    BEWARE: This is raw RSA, no OAEP or PSS padding or validation!
+    These are pedagogical/raw primitives; do not use for new protocols.
     We explicitly allow `ciphertext` to be zero for completeness, but it shouldn't be in practice.
 
     Args:
@@ -342,9 +344,11 @@ class RSAPrivateKey(RSAPublicKey):
     h: int = (self.q_inverse_p * (m_p - m_q)) % self.modulus_p
     return (m_q + h * self.modulus_q) % self.public_modulus
 
-  def Sign(self, message: int, /) -> int:
+  def RawSign(self, message: int, /) -> int:
     """Sign `message` with this private key.
 
+    BEWARE: This is raw RSA, no OAEP or PSS padding or validation!
+    These are pedagogical/raw primitives; do not use for new protocols.
     We explicitly disallow `message` to be zero.
 
     Args:
@@ -361,7 +365,7 @@ class RSAPrivateKey(RSAPublicKey):
     if not 0 < message < self.public_modulus:
       raise base.InputError(f'invalid message: {message=}')
     # call decryption
-    return self.Decrypt(message)
+    return self.RawDecrypt(message)
 
   @classmethod
   def New(cls, bit_length: int, /) -> Self:

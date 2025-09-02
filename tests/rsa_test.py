@@ -88,10 +88,10 @@ def test_RSA(  # pylint: disable=too-many-locals,too-many-arguments,too-many-pos
   public: rsa.RSAPublicKey = rsa.RSAPublicKey.Copy(private)
   # do public key operations
   with pytest.raises(base.InputError, match='invalid message'):
-    public.Encrypt(0)
+    public.RawEncrypt(0)
   with pytest.raises(base.InputError, match='invalid message'):
-    public.Encrypt(public_modulus)
-  cypher: int = public.Encrypt(message)
+    public.RawEncrypt(public_modulus)
+  cypher: int = public.RawEncrypt(message)
   with pytest.raises(base.InputError, match='invalid message'):
     ob.ObfuscateMessage(0)
   with pytest.raises(base.InputError, match='invalid message'):
@@ -100,23 +100,22 @@ def test_RSA(  # pylint: disable=too-many-locals,too-many-arguments,too-many-pos
   assert (cypher, obfuscated) == (expected_cypher, expected_obfuscated)
   # do private key operations
   with pytest.raises(base.InputError, match='invalid message'):
-    private.Sign(0)
+    private.RawSign(0)
   with pytest.raises(base.InputError, match='invalid message'):
-    private.Decrypt(public_modulus)
-  assert private.Decrypt(cypher) == message
+    private.RawDecrypt(public_modulus)
+  assert private.RawDecrypt(cypher) == message
   assert modmath.ModExp(cypher, private.decrypt_exp, private.public_modulus) == message
-  signed: int = private.Sign(message)
-  obfuscated_signed: int = private.Sign(obfuscated)
+  signed: int = private.RawSign(message)
+  obfuscated_signed: int = private.RawSign(obfuscated)
   assert (signed, obfuscated_signed) == (expected_signed, expected_obfuscated_signed)
   # check signatures with public key
-  assert public.VerifySignature(message, signed)
-  assert not public.VerifySignature(message, signed + 1)
-  assert not public.VerifySignature(message + 1, signed)
+  assert public.RawVerify(message, signed)
+  assert not public.RawVerify(message, signed + 1)
+  assert not public.RawVerify(message + 1, signed)
   assert ob.RevealOriginalSignature(message, obfuscated_signed) == signed
   with pytest.raises(base.CryptoError, match='obfuscated message was not signed'):
     ob.RevealOriginalSignature(message, obfuscated_signed + 1)
-  with mock.patch(
-      'src.transcrypto.rsa.RSAPublicKey.VerifySignature', autospec=True) as verify:
+  with mock.patch('src.transcrypto.rsa.RSAPublicKey.RawVerify', autospec=True) as verify:
     verify.side_effect = [True, False]
     with pytest.raises(base.CryptoError, match='failed signature recovery'):
       ob.RevealOriginalSignature(message + 1, obfuscated_signed)

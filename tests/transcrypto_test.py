@@ -239,22 +239,22 @@ def test_rsa_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None:
   assert pub_path.exists()
   # Encrypt/decrypt a small message
   msg = 12345
-  code, cipher = _RunCLI(['-p', str(priv_path), 'rsa', 'encrypt', str(msg)])
+  code, cipher = _RunCLI(['-p', str(priv_path), 'rsa', 'rawencrypt', str(msg)])
   assert code == 0
   c = int(cipher)
   assert c > 0
-  code, plain = _RunCLI(['-p', str(priv_path), 'rsa', 'decrypt', str(c)])
+  code, plain = _RunCLI(['-p', str(priv_path), 'rsa', 'rawdecrypt', str(c)])
   assert code == 0
   assert int(plain) == msg
   # Sign/verify
-  code, sig = _RunCLI(['-p', str(priv_path), 'rsa', 'sign', str(msg)])
+  code, sig = _RunCLI(['-p', str(priv_path), 'rsa', 'rawsign', str(msg)])
   assert code == 0
   s = int(sig)
   assert s > 0
-  code, ok = _RunCLI(['-p', str(priv_path), 'rsa', 'verify', str(msg), str(s)])
+  code, ok = _RunCLI(['-p', str(priv_path), 'rsa', 'rawverify', str(msg), str(s)])
   assert code == 0
   assert ok == 'RSA signature: OK'
-  code, ok = _RunCLI(['-p', str(priv_path), 'rsa', 'verify', str(msg + 1), str(s)])
+  code, ok = _RunCLI(['-p', str(priv_path), 'rsa', 'rawverify', str(msg + 1), str(s)])
   assert code == 0
   assert ok == 'RSA signature: INVALID'
 
@@ -275,17 +275,17 @@ def test_elgamal_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None
   assert pub_path.exists()
   # Encrypt/decrypt (public can be derived from private file)
   msg = 42
-  code, out = _RunCLI(['-p', str(priv_path), 'elgamal', 'encrypt', str(msg)])
+  code, out = _RunCLI(['-p', str(priv_path), 'elgamal', 'rawencrypt', str(msg)])
   assert code == 0
-  code, plain = _RunCLI(['-p', str(priv_path), 'elgamal', 'decrypt', out])
+  code, plain = _RunCLI(['-p', str(priv_path), 'elgamal', 'rawdecrypt', out])
   assert code == 0
   assert int(plain) == msg
   # Sign/verify
-  code, out = _RunCLI(['-p', str(priv_path), 'elgamal', 'sign', str(msg)])
+  code, out = _RunCLI(['-p', str(priv_path), 'elgamal', 'rawsign', str(msg)])
   assert code == 0
-  code, ok = _RunCLI(['-p', str(priv_path), 'elgamal', 'verify', str(msg), out])
+  code, ok = _RunCLI(['-p', str(priv_path), 'elgamal', 'rawverify', str(msg), out])
   assert code == 0 and ok == 'El-Gamal signature: OK'
-  code, ok = _RunCLI(['-p', str(priv_path), 'elgamal', 'verify', str(msg + 1), out])
+  code, ok = _RunCLI(['-p', str(priv_path), 'elgamal', 'rawverify', str(msg + 1), out])
   assert code == 0 and ok == 'El-Gamal signature: INVALID'
 
 
@@ -305,11 +305,11 @@ def test_dsa_sign_verify(tmp_path: pathlib.Path) -> None:
   assert priv_path.exists()
   assert pub_path.exists()
   msg = 123456
-  code, sig = _RunCLI(['-p', str(priv_path), 'dsa', 'sign', str(msg)])
+  code, sig = _RunCLI(['-p', str(priv_path), 'dsa', 'rawsign', str(msg)])
   assert code == 0
-  code, ok = _RunCLI(['-p', str(priv_path), 'dsa', 'verify', str(msg), sig])
+  code, ok = _RunCLI(['-p', str(priv_path), 'dsa', 'rawverify', str(msg), sig])
   assert code == 0 and ok == 'DSA signature: OK'
-  code, ok = _RunCLI(['-p', str(priv_path), 'dsa', 'verify', str(msg + 1), sig])
+  code, ok = _RunCLI(['-p', str(priv_path), 'dsa', 'rawverify', str(msg + 1), sig])
   assert code == 0 and ok == 'DSA signature: INVALID'
 
 

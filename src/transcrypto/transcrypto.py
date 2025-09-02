@@ -12,9 +12,9 @@ isprime, primegen, mersenne
 gcd, xgcd, and grouped mod inv|div|exp|poly|lagrange|crt
 random bits|int|bytes|prime, hash sha256|sha512|file
 aes key frompass, aes encrypt|decrypt (GCM), aes ecb encrypt|decrypt
-rsa new|encrypt|decrypt|sign|verify (integer messages)
-elgamal shared|new|encrypt|decrypt|sign|verify
-dsa shared|new|sign|verify
+rsa new|encrypt|decrypt|sign|verify|rawencrypt|rawdecrypt|rawsign|rawverify
+elgamal shared|new|encrypt|decrypt|sign|verify|rawencrypt|rawdecrypt|rawsign|rawverify
+dsa shared|new|sign|verify|rawsign|rawverify
 bid new|verify
 sss new|shares|recover|verify
 """
@@ -248,9 +248,9 @@ def _GenerateCLIMarkdown() -> str:  # pylint: disable=too-many-locals
   top_subs: list[argparse.Action] = [a for a in parser._actions if _ActionIsSubparser(a)]  # type: ignore[attr-defined]  # pylint: disable=protected-access
   for action in top_subs:
     for name, sp in action.choices.items():  # type: ignore[union-attr]
-      help_text: str = (sp.description or sp.format_usage().splitlines()[0]).strip()  # type:ignore
-      short: str = (sp.help if hasattr(sp, 'help') else '') or ''                     # type:ignore
-      help_text = short or help_text                                                  # type:ignore
+      help_text: str = (sp.description or ' '.join(i.strip() for i in sp.format_usage().splitlines())).strip()  # type:ignore
+      short: str = (sp.help if hasattr(sp, 'help') else '') or ''  # type:ignore
+      help_text = short or help_text                               # type:ignore
       help_text = help_text.replace('usage: ', '').strip()  # type:ignore
       lines.append(f'- **`{name}`** — `{help_text}`')
   lines.append('')
@@ -695,37 +695,38 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
       '--bits', type=int, default=3332, help='Modulus size in bits; the default is a safe size')
 
   # Encrypt integer with public key
-  p_rsa_enc: argparse.ArgumentParser = rsa_sub.add_parser(
-      'encrypt',
+  p_rsa_enc_raw: argparse.ArgumentParser = rsa_sub.add_parser(
+      'rawencrypt',
       help='Encrypt integer `message` with public key.',
-      epilog='-p rsa-key.pub rsa encrypt 999\n6354905961171348600')
-  p_rsa_enc.add_argument(
+      epilog='-p rsa-key.pub rsa rawencrypt 999\n6354905961171348600')
+  p_rsa_enc_raw.add_argument(
       'message', type=str, help='Integer message to encrypt, 1≤`message`<*modulus*')
 
   # Decrypt integer ciphertext with private key
-  p_rsa_dec: argparse.ArgumentParser = rsa_sub.add_parser(
-      'decrypt',
+  p_rsa_dec_raw: argparse.ArgumentParser = rsa_sub.add_parser(
+      'rawdecrypt',
       help='Decrypt integer `ciphertext` with private key.',
-      epilog='-p rsa-key.priv rsa decrypt 6354905961171348600\n999')
-  p_rsa_dec.add_argument(
+      epilog='-p rsa-key.priv rsa rawdecrypt 6354905961171348600\n999')
+  p_rsa_dec_raw.add_argument(
       'ciphertext', type=str, help='Integer ciphertext to decrypt, 1≤`ciphertext`<*modulus*')
 
   # Sign integer message with private key
-  p_rsa_sig: argparse.ArgumentParser = rsa_sub.add_parser(
-      'sign',
+  p_rsa_sig_raw: argparse.ArgumentParser = rsa_sub.add_parser(
+      'rawsign',
       help='Sign integer `message` with private key.',
-      epilog='-p rsa-key.priv rsa sign 999\n7632909108672871784')
-  p_rsa_sig.add_argument('message', type=str, help='Integer message to sign, 1≤`message`<*modulus*')
+      epilog='-p rsa-key.priv rsa rawsign 999\n7632909108672871784')
+  p_rsa_sig_raw.add_argument(
+      'message', type=str, help='Integer message to sign, 1≤`message`<*modulus*')
 
   # Verify integer signature with public key
-  p_rsa_ver: argparse.ArgumentParser = rsa_sub.add_parser(
-      'verify',
+  p_rsa_ver_raw: argparse.ArgumentParser = rsa_sub.add_parser(
+      'rawverify',
       help='Verify integer `signature` for integer `message` with public key.',
-      epilog=('-p rsa-key.pub rsa verify 999 7632909108672871784\nRSA signature: OK $$ '
-              '-p rsa-key.pub rsa verify 999 7632909108672871785\nRSA signature: INVALID'))
-  p_rsa_ver.add_argument(
+      epilog=('-p rsa-key.pub rsa rawverify 999 7632909108672871784\nRSA signature: OK $$ '
+              '-p rsa-key.pub rsa rawverify 999 7632909108672871785\nRSA signature: INVALID'))
+  p_rsa_ver_raw.add_argument(
       'message', type=str, help='Integer message that was signed earlier, 1≤`message`<*modulus*')
-  p_rsa_ver.add_argument(
+  p_rsa_ver_raw.add_argument(
       'signature', type=str,
       help='Integer putative signature for `message`, 1≤`signature`<*modulus*')
 
@@ -762,41 +763,42 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
       epilog='-p eg-key elgamal new\nEl-Gamal private/public keys saved to \'eg-key.priv/.pub\'')
 
   # Encrypt integer with public key
-  p_eg_enc: argparse.ArgumentParser = eg_sub.add_parser(
-      'encrypt',
+  p_eg_enc_raw: argparse.ArgumentParser = eg_sub.add_parser(
+      'rawencrypt',
       help='Encrypt integer `message` with public key.',
-      epilog='-p eg-key.pub elgamal encrypt 999\n2948854810728206041:15945988196340032688')
-  p_eg_enc.add_argument(
+      epilog='-p eg-key.pub elgamal rawencrypt 999\n2948854810728206041:15945988196340032688')
+  p_eg_enc_raw.add_argument(
       'message', type=str, help='Integer message to encrypt, 1≤`message`<*modulus*')
 
   # Decrypt El-Gamal ciphertext tuple (c1,c2)
-  p_eg_dec: argparse.ArgumentParser = eg_sub.add_parser(
-      'decrypt',
+  p_eg_dec_raw: argparse.ArgumentParser = eg_sub.add_parser(
+      'rawdecrypt',
       help='Decrypt integer `ciphertext` with private key.',
-      epilog='-p eg-key.priv elgamal decrypt 2948854810728206041:15945988196340032688\n999')
-  p_eg_dec.add_argument(
+      epilog='-p eg-key.priv elgamal rawdecrypt 2948854810728206041:15945988196340032688\n999')
+  p_eg_dec_raw.add_argument(
       'ciphertext', type=str,
       help=('Integer ciphertext to decrypt; expects `c1:c2` format with 2 integers, '
             ' 2≤`c1`,`c2`<*modulus*'))
 
   # Sign integer message with private key
-  p_eg_sig: argparse.ArgumentParser = eg_sub.add_parser(
-      'sign',
+  p_eg_sig_raw: argparse.ArgumentParser = eg_sub.add_parser(
+      'rawsign',
       help='Sign integer message with private key. Output will 2 integers in a `s1:s2` format.',
-      epilog='-p eg-key.priv elgamal sign 999\n4674885853217269088:14532144906178302633')
-  p_eg_sig.add_argument('message', type=str, help='Integer message to sign, 1≤`message`<*modulus*')
+      epilog='-p eg-key.priv elgamal rawsign 999\n4674885853217269088:14532144906178302633')
+  p_eg_sig_raw.add_argument(
+      'message', type=str, help='Integer message to sign, 1≤`message`<*modulus*')
 
   # Verify El-Gamal signature (s1,s2)
-  p_eg_ver: argparse.ArgumentParser = eg_sub.add_parser(
-      'verify',
+  p_eg_ver_raw: argparse.ArgumentParser = eg_sub.add_parser(
+      'rawverify',
       help='Verify integer `signature` for integer `message` with public key.',
-      epilog=('-p eg-key.pub elgamal verify 999 4674885853217269088:14532144906178302633\n'
+      epilog=('-p eg-key.pub elgamal rawverify 999 4674885853217269088:14532144906178302633\n'
               'El-Gamal signature: OK $$ '
-              '-p eg-key.pub elgamal verify 999 4674885853217269088:14532144906178302632\n'
+              '-p eg-key.pub elgamal rawverify 999 4674885853217269088:14532144906178302632\n'
               'El-Gamal signature: INVALID'))
-  p_eg_ver.add_argument(
+  p_eg_ver_raw.add_argument(
       'message', type=str, help='Integer message that was signed earlier, 1≤`message`<*modulus*')
-  p_eg_ver.add_argument(
+  p_eg_ver_raw.add_argument(
       'signature', type=str,
       help=('Integer putative signature for `message`; expects `s1:s2` format with 2 integers, '
             ' 2≤`s1`,`s2`<*modulus*'))
@@ -840,21 +842,21 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
       epilog='-p dsa-key dsa new\nDSA private/public keys saved to \'dsa-key.priv/.pub\'')
 
   # Sign integer m with private key
-  p_dsa_sign: argparse.ArgumentParser = dsa_sub.add_parser(
-      'sign',
+  p_dsa_sign_raw: argparse.ArgumentParser = dsa_sub.add_parser(
+      'rawsign',
       help='Sign integer message with private key. Output will 2 integers in a `s1:s2` format.',
-      epilog='-p dsa-key.priv dsa sign 999\n2395961484:3435572290')
-  p_dsa_sign.add_argument('message', type=str, help='Integer message to sign, 1≤`message`<`q`')
+      epilog='-p dsa-key.priv dsa rawsign 999\n2395961484:3435572290')
+  p_dsa_sign_raw.add_argument('message', type=str, help='Integer message to sign, 1≤`message`<`q`')
 
   # Verify DSA signature (s1,s2)
-  p_dsa_verify: argparse.ArgumentParser = dsa_sub.add_parser(
-      'verify',
+  p_dsa_verify_raw: argparse.ArgumentParser = dsa_sub.add_parser(
+      'rawverify',
       help='Verify integer `signature` for integer `message` with public key.',
-      epilog=('-p dsa-key.pub dsa verify 999 2395961484:3435572290\nDSA signature: OK $$ '
-              '-p dsa-key.pub dsa verify 999 2395961484:3435572291\nDSA signature: INVALID'))
-  p_dsa_verify.add_argument(
+      epilog=('-p dsa-key.pub dsa rawverify 999 2395961484:3435572290\nDSA signature: OK $$ '
+              '-p dsa-key.pub dsa rawverify 999 2395961484:3435572291\nDSA signature: INVALID'))
+  p_dsa_verify_raw.add_argument(
       'message', type=str, help='Integer message that was signed earlier, 1≤`message`<`q`')
-  p_dsa_verify.add_argument(
+  p_dsa_verify_raw.add_argument(
       'signature', type=str,
       help=('Integer putative signature for `message`; expects `s1:s2` format with 2 integers, '
             ' 2≤`s1`,`s2`<`q`'))
@@ -1041,25 +1043,25 @@ def RSACommand(args: argparse.Namespace, /) -> None:
       _SaveObj(rsa_priv, args.key_path + '.priv', args.protect or None)
       _SaveObj(rsa_pub, args.key_path + '.pub', args.protect or None)
       print(f'RSA private/public keys saved to {args.key_path + ".priv/.pub"!r}')
-    case 'encrypt':
+    case 'rawencrypt':
       rsa_pub = rsa.RSAPublicKey.Copy(
           _LoadObj(args.key_path, args.protect or None, rsa.RSAPublicKey))
       m = _ParseInt(args.message)
-      print(rsa_pub.Encrypt(m))
-    case 'decrypt':
+      print(rsa_pub.RawEncrypt(m))
+    case 'rawdecrypt':
       rsa_priv = _LoadObj(args.key_path, args.protect or None, rsa.RSAPrivateKey)
       c = _ParseInt(args.ciphertext)
-      print(rsa_priv.Decrypt(c))
-    case 'sign':
+      print(rsa_priv.RawDecrypt(c))
+    case 'rawsign':
       rsa_priv = _LoadObj(args.key_path, args.protect or None, rsa.RSAPrivateKey)
       m = _ParseInt(args.message)
-      print(rsa_priv.Sign(m))
-    case 'verify':
+      print(rsa_priv.RawSign(m))
+    case 'rawverify':
       rsa_pub = rsa.RSAPublicKey.Copy(
           _LoadObj(args.key_path, args.protect or None, rsa.RSAPublicKey))
       m = _ParseInt(args.message)
       sig: int = _ParseInt(args.signature)
-      print('RSA signature: ' + ('OK' if rsa_pub.VerifySignature(m, sig) else 'INVALID'))
+      print('RSA signature: ' + ('OK' if rsa_pub.RawVerify(m, sig) else 'INVALID'))
     case _:
       raise NotImplementedError()
 
@@ -1084,29 +1086,29 @@ def ElGamalCommand(args: argparse.Namespace, /) -> None:
       _SaveObj(eg_priv, args.key_path + '.priv', args.protect or None)
       _SaveObj(eg_pub, args.key_path + '.pub', args.protect or None)
       print(f'El-Gamal private/public keys saved to {args.key_path + ".priv/.pub"!r}')
-    case 'encrypt':
+    case 'rawencrypt':
       eg_pub = elgamal.ElGamalPublicKey.Copy(
           _LoadObj(args.key_path, args.protect or None, elgamal.ElGamalPublicKey))
       m = _ParseInt(args.message)
-      ss = eg_pub.Encrypt(m)
+      ss = eg_pub.RawEncrypt(m)
       print(f'{ss[0]}:{ss[1]}')
-    case 'decrypt':
+    case 'rawdecrypt':
       eg_priv = _LoadObj(args.key_path, args.protect or None, elgamal.ElGamalPrivateKey)
       c1, c2 = args.ciphertext.split(':')
       ss = (_ParseInt(c1), _ParseInt(c2))
-      print(eg_priv.Decrypt(ss))
-    case 'sign':
+      print(eg_priv.RawDecrypt(ss))
+    case 'rawsign':
       eg_priv = _LoadObj(args.key_path, args.protect or None, elgamal.ElGamalPrivateKey)
       m = _ParseInt(args.message)
-      ss = eg_priv.Sign(m)
+      ss = eg_priv.RawSign(m)
       print(f'{ss[0]}:{ss[1]}')
-    case 'verify':
+    case 'rawverify':
       eg_pub = elgamal.ElGamalPublicKey.Copy(
           _LoadObj(args.key_path, args.protect or None, elgamal.ElGamalPublicKey))
       m = _ParseInt(args.message)
       c1, c2 = args.signature.split(':')
       ss = (_ParseInt(c1), _ParseInt(c2))
-      print('El-Gamal signature: ' + ('OK' if eg_pub.VerifySignature(m, ss) else 'INVALID'))
+      print('El-Gamal signature: ' + ('OK' if eg_pub.RawVerify(m, ss) else 'INVALID'))
     case _:
       raise NotImplementedError()
 
@@ -1131,18 +1133,18 @@ def DSACommand(args: argparse.Namespace, /) -> None:
       _SaveObj(dsa_priv, args.key_path + '.priv', args.protect or None)
       _SaveObj(dsa_pub, args.key_path + '.pub', args.protect or None)
       print(f'DSA private/public keys saved to {args.key_path + ".priv/.pub"!r}')
-    case 'sign':
+    case 'rawsign':
       dsa_priv = _LoadObj(args.key_path, args.protect or None, dsa.DSAPrivateKey)
       m = _ParseInt(args.message) % dsa_priv.prime_seed
-      ss = dsa_priv.Sign(m)
+      ss = dsa_priv.RawSign(m)
       print(f'{ss[0]}:{ss[1]}')
-    case 'verify':
+    case 'rawverify':
       dsa_pub = dsa.DSAPublicKey.Copy(
           _LoadObj(args.key_path, args.protect or None, dsa.DSAPublicKey))
       m = _ParseInt(args.message) % dsa_pub.prime_seed
       c1, c2 = args.signature.split(':')
       ss = (_ParseInt(c1), _ParseInt(c2))
-      print('DSA signature: ' + ('OK' if dsa_pub.VerifySignature(m, ss) else 'INVALID'))
+      print('DSA signature: ' + ('OK' if dsa_pub.RawVerify(m, ss) else 'INVALID'))
     case _:
       raise NotImplementedError()
 

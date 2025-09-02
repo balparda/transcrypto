@@ -89,33 +89,33 @@ def test_ElGamal(  # pylint: disable=too-many-arguments,too-many-positional-argu
   make_ephemeral.return_value = (
       ephemeral, elgamal.modmath.ModInv(ephemeral, prime_modulus - 1))
   with pytest.raises(base.InputError, match='invalid message'):
-    public.Encrypt(0)
+    public.RawEncrypt(0)
   with pytest.raises(base.InputError, match='invalid message'):
-    public.Encrypt(prime_modulus)
-  cypher: tuple[int, int] = public.Encrypt(message)
+    public.RawEncrypt(prime_modulus)
+  cypher: tuple[int, int] = public.RawEncrypt(message)
   assert cypher == expected_cypher
   # do private key operations
   with pytest.raises(base.InputError, match='invalid message'):
-    private.Sign(0)
+    private.RawSign(0)
   with pytest.raises(base.InputError, match='invalid message'):
-    private.Sign(prime_modulus)
+    private.RawSign(prime_modulus)
   with pytest.raises(base.InputError, match='invalid message'):
-    private.Decrypt((-1, 3))
+    private.RawDecrypt((-1, 3))
   with pytest.raises(base.InputError, match='invalid message'):
-    private.Decrypt((3, prime_modulus))
-  assert private.Decrypt(cypher) == message
-  signed: tuple[int, int] = private.Sign(message)
+    private.RawDecrypt((3, prime_modulus))
+  assert private.RawDecrypt(cypher) == message
+  signed: tuple[int, int] = private.RawSign(message)
   assert signed == expected_signed
   # check signatures with public key
-  assert public.VerifySignature(message, signed)
-  assert not public.VerifySignature(message, (signed[0], signed[1] + 1))
-  assert not public.VerifySignature(message + 1, signed)
+  assert public.RawVerify(message, signed)
+  assert not public.RawVerify(message, (signed[0], signed[1] + 1))
+  assert not public.RawVerify(message + 1, signed)
   with pytest.raises(base.InputError, match='invalid message'):
-    private.VerifySignature(0, (3, 3))
+    private.RawVerify(0, (3, 3))
   with pytest.raises(base.InputError, match='invalid signature'):
-    private.VerifySignature(10, (1, 3))
+    private.RawVerify(10, (1, 3))
   with pytest.raises(base.InputError, match='invalid signature'):
-    private.VerifySignature(10, (3, prime_modulus - 1))
+    private.RawVerify(10, (3, prime_modulus - 1))
 
 
 def test_ElGamalKey_invalid() -> None:

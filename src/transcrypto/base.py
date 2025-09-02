@@ -19,8 +19,7 @@ import pickle
 # import pdb
 import secrets
 import time
-from typing import Any, Callable, final, MutableSequence, Self, TypeVar
-
+from typing import Any, Callable, final, MutableSequence, Protocol, runtime_checkable, Self, TypeVar
 import zstandard
 
 __author__ = 'balparda@github.com'
@@ -46,7 +45,7 @@ PadBytesTo: Callable[[bytes, int], bytes] = lambda b, i: b.rjust((i + 7) // 8, b
 # these control the pickling of data, do NOT ever change, or you will break all databases
 # <https://docs.python.org/3/library/pickle.html#pickle.DEFAULT_PROTOCOL>
 _PICKLE_PROTOCOL = 4  # protocol 4 available since python v3.8 # do NOT ever change!
-_PICKLE_AAD = b'transcrypto.base.Serialize'  # do NOT ever change!
+_PICKLE_AAD = b'transcrypto.base.Serialize.1.0'  # do NOT ever change!
 # these help find compressed files, do NOT change unless zstandard changes
 _ZSTD_MAGIC_FRAME = 0xFD2FB528
 _ZSTD_MAGIC_SKIPPABLE_MIN = 0x184D2A50
@@ -646,11 +645,11 @@ class CryptoKey(abc.ABC):
     return BytesToEncoded(self.blob)
 
   @final
-  def Blob(self, /, *, key: SymmetricCrypto | None = None, silent: bool = True) -> bytes:
+  def Blob(self, /, *, key: Encryptor | None = None, silent: bool = True) -> bytes:
     """Serial (bytes) representation of the object with more options, including encryption.
 
     Args:
-      key (SymmetricCrypto, optional): if given will key.Encrypt() data before saving
+      key (Encryptor, optional): if given will key.Encrypt() data before saving
       silent (bool, optional): if True (default) will not log
 
     Returns:
@@ -659,11 +658,11 @@ class CryptoKey(abc.ABC):
     return Serialize(self, compress=-2, key=key, silent=silent)
 
   @final
-  def Encoded(self, /, *, key: SymmetricCrypto | None = None, silent: bool = True) -> str:
+  def Encoded(self, /, *, key: Encryptor | None = None, silent: bool = True) -> str:
     """Base-64 representation of the object with more options, including encryption.
 
     Args:
-      key (SymmetricCrypto, optional): if given will key.Encrypt() data before saving
+      key (Encryptor, optional): if given will key.Encrypt() data before saving
       silent (bool, optional): if True (default) will not log
 
     Returns:
@@ -674,14 +673,13 @@ class CryptoKey(abc.ABC):
   @final
   @classmethod
   def Load(
-      cls, data: str | bytes, /, *,
-      key: SymmetricCrypto | None = None, silent: bool = True) -> Self:
+      cls, data: str | bytes, /, *, key: Decryptor | None = None, silent: bool = True) -> Self:
     """Load (create) object from serialized bytes or string.
 
     Args:
       data (str | bytes): if bytes is assumed from CryptoKey.blob/Blob(), and
           if string is assumed from CryptoKey.encoded/Encoded()
-      key (SymmetricCrypto, optional): if given will key.Encrypt() data before saving
+      key (Decryptor, optional): if given will key.Encrypt() data before saving
       silent (bool, optional): if True (default) will not log
 
     Returns:
@@ -698,20 +696,21 @@ class CryptoKey(abc.ABC):
     return obj  # type:ignore
 
 
-class SymmetricCrypto(abc.ABC):
-  """Abstract interface for symmetric encryption.
+@runtime_checkable
+class Encryptor(Protocol):  # pylint: disable=too-few-public-methods
+  """Abstract interface for a class that has encryption
 
   Contract:
     - If algorithm accepts a `nonce` or `tag` these have to be handled internally by the
-      implementation and appended to the ciphertext.
+      implementation and appended to the `ciphertext`/`signature`.
     - If AEAD is supported, `associated_data` (AAD) must be authenticated. If not supported
       then `associated_data` different from None must raise InputError.
 
   Notes:
     The interface is deliberately minimal: byte-in / byte-out.
     Metadata like nonce/tag may be:
-      - returned alongside ciphertext, or
-      - bundled/serialized into `ciphertext` by the implementation.
+      - returned alongside `ciphertext`/`signature`, or
+      - bundled/serialized into `ciphertext`/`signature` by the implementation.
   """
 
   @abc.abstractmethod
@@ -732,6 +731,11 @@ class SymmetricCrypto(abc.ABC):
       CryptoError: internal crypto failures
     """
 
+
+@runtime_checkable
+class Decryptor(Protocol):  # pylint: disable=too-few-public-methods
+  """Abstract interface for a class that has decryption (see contract/notes in Encryptor)."""
+
   @abc.abstractmethod
   def Decrypt(self, ciphertext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
     """Decrypt `ciphertext` and return the original `plaintext`.
@@ -749,9 +753,55 @@ class SymmetricCrypto(abc.ABC):
     """
 
 
+@runtime_checkable
+class Verifier(Protocol):  # pylint: disable=too-few-public-methods
+  """Abstract interface for asymmetric signature verify. (see contract/notes in Encryptor)."""
+
+  @abc.abstractmethod
+  def Verify(
+      self, message: bytes, signature: bytes, /, *, associated_data: bytes | None = None) -> bool:
+    """Verify a `signature` for `message`. True if OK; False if failed verification.
+
+    Args:
+      message (bytes): Data that was signed (including any embedded nonce/tag if applicable)
+      signature (bytes): Signature data to verify (including any embedded nonce/tag if applicable)
+      associated_data (bytes, optional): Optional AAD (must match what was used during signing)
+
+    Returns:
+      True if signature is valid, False otherwise
+
+    Raises:
+      InputError: invalid inputs
+      CryptoError: internal crypto failures, authentication failure, key mismatch, etc
+    """
+
+
+@runtime_checkable
+class Signer(Protocol):  # pylint: disable=too-few-public-methods
+  """Abstract interface for asymmetric signing. (see contract/notes in Encryptor)."""
+
+  @abc.abstractmethod
+  def Sign(self, message: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+    """Sign `message` and return the `signature`.
+
+    Args:
+      message (bytes): Data to sign.
+      associated_data (bytes, optional): Optional AAD for AEAD modes; must be
+          provided again on decrypt
+
+    Returns:
+      bytes: Signature; if a nonce/tag is needed for decryption, the implementation
+      must encode it within the returned bytes (or document how to retrieve it)
+
+    Raises:
+      InputError: invalid inputs
+      CryptoError: internal crypto failures
+    """
+
+
 def Serialize(
     python_obj: Any, /, *, file_path: str | None = None,
-    compress: int | None = 3, key: SymmetricCrypto | None = None, silent: bool = False) -> bytes:
+    compress: int | None = 3, key: Encryptor | None = None, silent: bool = False) -> bytes:
   """Serialize a Python object into a BLOB, optionally compress / encrypt / save to disk.
 
   Data path is:
@@ -777,7 +827,7 @@ def Serialize(
     file_path (str, optional): full path to optionally save the data to
     compress (int | None, optional): Compress level before encrypting/saving; -22 ≤ compress ≤ 22;
         None is no compression; default is 3, which is fast, see table above for other values
-    key (SymmetricCrypto, optional): if given will key.Encrypt() data before saving
+    key (Encryptor, optional): if given will key.Encrypt() data before saving
     silent (bool, optional): if True will not log; default is False (will log)
 
   Returns:
@@ -819,7 +869,7 @@ def Serialize(
 
 def DeSerialize(
     *, data: bytes | None = None, file_path: str | None = None,
-    key: SymmetricCrypto | None = None, silent: bool = False) -> Any:
+    key: Decryptor | None = None, silent: bool = False) -> Any:
   """Loads (de-serializes) a BLOB back to a Python object, optionally decrypting / decompressing.
 
   Data path is:
@@ -835,7 +885,7 @@ def DeSerialize(
        if you use this option, `file_path` will be ignored
     file_path (str, optional): if given, use this as file path to load binary data string (input);
        if you use this option, `data` will be ignored
-    key (SymmetricCrypto, optional): if given will key.Decrypt() data before decompressing/loading
+    key (Decryptor, optional): if given will key.Decrypt() data before decompressing/loading
     silent (bool, optional): if True will not log; default is False (will log)
 
   Returns:
@@ -900,6 +950,8 @@ class PublicBid(CryptoKey):
 
   Everything is bytes. The public part is (public_key, public_hash) and the private
   part is (private_key, secret_bid). The whole computation can be checked later.
+
+  No measures are taken here to prevent timing attacks (probably not a concern).
 
   Attributes:
     public_key (bytes): 512-bits random value

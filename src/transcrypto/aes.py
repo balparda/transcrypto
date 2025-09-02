@@ -47,7 +47,7 @@ assert _PASSWORD_ITERATIONS == (6075308 + 1) // 3, 'should never happen: constan
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
-class AESKey(base.CryptoKey, base.SymmetricCrypto):
+class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
   """Advanced Encryption Standard (AES) 256 bits key (32 bytes).
 
   No measures are taken here to prevent timing attacks.
@@ -112,7 +112,7 @@ class AESKey(base.CryptoKey, base.SymmetricCrypto):
         salt=_PASSWORD_SALT_256, iterations=_PASSWORD_ITERATIONS)
     return cls(key256=kdf.derive(str_password.encode('utf-8')))
 
-  class ECBEncoderClass(base.SymmetricCrypto):
+  class ECBEncoderClass(base.Encryptor, base.Decryptor):
     """The simplest encryption possible (UNSAFE if misused): 128 bit block AES-ECB, 256 bit key.
 
     Please DO **NOT** use this for regular cryptography. For regular crypto use Encrypt()/Decrypt().
