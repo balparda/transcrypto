@@ -25,8 +25,11 @@ __version__: str = base.__version__  # version comes from base!
 __version_tuple__: tuple[int, ...] = base.__version_tuple__
 
 
-_PRIME_MULTIPLE_SEARCH = 30
+_PRIME_MULTIPLE_SEARCH = 4096  # how many multiples of q to try before restarting
 _MAX_KEY_GENERATION_FAILURES = 15
+
+# fixed prefixes: do NOT ever change! will break all encryption and signature schemes
+_DSA_SIGNATURE_HASH_PREFIX = b'transcrypto.DSA.Signature.1.0\x00'
 
 
 def NBitRandomDSAPrimes(p_bits: int, q_bits: int, /) -> tuple[int, int, int]:
@@ -57,16 +60,19 @@ def NBitRandomDSAPrimes(p_bits: int, q_bits: int, /) -> tuple[int, int, int]:
   assert max_m - min_m > 1000  # make sure we'll have options!
   # start searching from a random multiple
   failures: int = 0
+  window: int = max(_PRIME_MULTIPLE_SEARCH, 2 * p_bits)
   while True:
     # try searching starting here
     m: int = base.RandInt(min_m, max_m)
-    for _ in range(_PRIME_MULTIPLE_SEARCH):
+    if m % 2:
+      m += 1  # make even
+    for _ in range(window):
       p: int = q * m + 1
       if p >= max_p:
         break
       if modmath.IsPrime(p):
         return (p, q, m)  # found a suitable prime set!
-      m += 1  # next multiple
+      m += 2  # next multiple
     # after _PRIME_MULTIPLE_SEARCH we declare this range failed
     failures += 1
     if failures >= _MAX_KEY_GENERATION_FAILURES:
@@ -119,6 +125,38 @@ class DSASharedPublicKey(base.CryptoKey):
             f'prime_seed={base.IntToEncoded(self.prime_seed)}, '
             f'group_base={base.IntToEncoded(self.group_base)})')
 
+  @property
+  def modulus_size(self) -> tuple[int, int]:
+    """Modulus size in bytes. The number of bytes used in Encrypt/Decrypt/Sign/Verify."""
+    return ((self.prime_modulus.bit_length() + 7) // 8,
+            (self.prime_seed.bit_length() + 7) // 8)
+
+  def _DomainSeparatedHash(
+      self, message: bytes, associated_data: bytes | None, salt: bytes, /) -> int:
+    """Compute the domain-separated hash for signing and verifying.
+
+    Args:
+      message (bytes): message to sign/verify
+      associated_data (bytes | None): optional associated data
+      salt (bytes): salt to use in the hash
+
+    Returns:
+      int: integer representation of the hash output;
+      Hash512("prefix" || len(aad) || aad || message || salt)
+
+    Raises:
+      CryptoError: hash output is out of range
+    """
+    aad: bytes = b'' if associated_data is None else associated_data
+    la: bytes = base.IntToFixedBytes(len(aad), 8)
+    assert len(salt) == 64, 'should never happen: salt should be exactly 64 bytes'
+    y: int = base.BytesToInt(
+        base.Hash512(_DSA_SIGNATURE_HASH_PREFIX + la + aad + message + salt))
+    if not 1 < y < self.prime_seed - 1:
+      # will only reasonably happen if prime seed is small
+      raise base.CryptoError(f'hash output {y} is out of range/invalid {self.prime_seed}')
+    return y
+
   @classmethod
   def NewShared(cls, p_bits: int, q_bits: int, /) -> Self:
     """Make a new shared public key of `bit_length` bits.
@@ -145,7 +183,7 @@ class DSASharedPublicKey(base.CryptoKey):
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
-class DSAPublicKey(DSASharedPublicKey):
+class DSAPublicKey(DSASharedPublicKey, base.Verifier):
   """DSA public key. This is an individual public key.
 
   No measures are taken here to prevent timing attacks.
@@ -178,7 +216,7 @@ class DSAPublicKey(DSASharedPublicKey):
             f'individual_base={base.IntToEncoded(self.individual_base)})')
 
   def _MakeEphemeralKey(self) -> tuple[int, int]:
-    """Make an ephemeral key adequate to be used with El-Gamal.
+    """Make an ephemeral key adequate to be used with DSA.
 
     Returns:
       (key, key_inverse), where 3 ≤ k < p_seed and (k*i) % p_seed == 1
@@ -221,6 +259,42 @@ class DSAPublicKey(DSASharedPublicKey):
         self.individual_base, (signature[0] * inv) % self.prime_seed, self.prime_modulus)
     return ((a * b) % self.prime_modulus) % self.prime_seed == signature[0]
 
+  def Verify(
+      self, message: bytes, signature: bytes, /, *, associated_data: bytes | None = None) -> bool:
+    """Verify a `signature` for `message`. True if OK; False if failed verification.
+
+    • Let k = ceil(log2(n))/8 be the modulus size in bytes.
+    • Split signature in 3 parts: the first 64 bytes is salt, the rest is s1 and s2
+    • y_check = DSA(s1, s2)
+    • return y_check == Hash512("prefix" || len(aad) || aad || message || salt)
+    • return False for any malformed signature
+
+    Args:
+      message (bytes): Data that was signed
+      signature (bytes): Signature data to verify
+      associated_data (bytes, optional): Optional AAD (must match what was used during signing)
+
+    Returns:
+      True if signature is valid, False otherwise
+
+    Raises:
+      InputError: invalid inputs
+      CryptoError: internal crypto failures, authentication failure, key mismatch, etc
+    """
+    k: int = self.modulus_size[1]  # use prime_seed size
+    if k <= 64:
+      raise base.InputError(f'modulus/seed too small for signing operations: {k} bytes')
+    if len(signature) != (64 + k + k):
+      logging.info(f'invalid signature length: {len(signature)} ; expected {64 + k + k}')
+      return False
+    try:
+      return self.RawVerify(
+          self._DomainSeparatedHash(message, associated_data, signature[:64]),
+          (base.BytesToInt(signature[64:64 + k]), base.BytesToInt(signature[64 + k:])))
+    except base.InputError as err:
+      logging.info(err)
+      return False
+
   @classmethod
   def Copy(cls, other: DSAPublicKey, /) -> Self:
     """Initialize a public key by taking the public parts of a public/private key."""
@@ -232,7 +306,7 @@ class DSAPublicKey(DSASharedPublicKey):
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
-class DSAPrivateKey(DSAPublicKey):
+class DSAPrivateKey(DSAPublicKey, base.Signer):  # pylint: disable=too-many-ancestors
   """DSA private key.
 
   No measures are taken here to prevent timing attacks.
@@ -294,6 +368,41 @@ class DSAPrivateKey(DSAPublicKey):
       a = modmath.ModExp(self.group_base, ephemeral_key, self.prime_modulus) % self.prime_seed
       b = (ephemeral_inv * ((message + a * self.decrypt_exp) % self.prime_seed)) % self.prime_seed
     return (a, b)
+
+  def Sign(self, message: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+    """Sign `message` and return the `signature`.
+
+    • Let k = ceil(log2(n))/8 be the modulus size in bytes.
+    • Pick random salt of 64 bytes
+    • s1, s2 = DSA(Hash512("prefix" || len(aad) || aad || message || salt))
+    • return salt || Padded(s1, k) || Padded(s2, k)
+
+    This is basically Full-Domain Hash DSA with a 512-bit hash and per-signature salt,
+    which is EUF-CMA secure in the ROM. Our domain-separation prefix and explicit AAD
+    length prefix are both correct and remove composition/ambiguity pitfalls.
+    There are no Bleichenbacher-style issue because we do not expose any padding semantics.
+
+    Args:
+      message (bytes): Data to sign.
+      associated_data (bytes, optional): Optional AAD for AEAD modes; must be
+          provided again on decrypt
+
+    Returns:
+      bytes: Signature; salt || Padded(s, k) - see above
+
+    Raises:
+      InputError: invalid inputs
+      CryptoError: internal crypto failures
+    """
+    # TODO: add to CLI
+    k: int = self.modulus_size[1]  # use prime_seed size
+    if k <= 64:
+      raise base.InputError(f'modulus/seed too small for signing operations: {k} bytes')
+    salt: bytes = base.RandBytes(64)
+    s_int: tuple[int, int] = self.RawSign(self._DomainSeparatedHash(message, associated_data, salt))
+    s_bytes: bytes = base.IntToFixedBytes(s_int[0], k) + base.IntToFixedBytes(s_int[1], k)
+    assert len(s_bytes) == 2 * k, 'should never happen: s_bytes should be exactly 2k bytes'
+    return salt + s_bytes
 
   @classmethod
   def New(cls, shared_key: DSASharedPublicKey, /) -> Self:

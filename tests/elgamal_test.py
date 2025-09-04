@@ -48,7 +48,7 @@ def test_ElGamal_keys_creation(prime: mock.MagicMock, randbits: mock.MagicMock) 
       elgamal.ElGamalPrivateKey.New(group)
   assert private._MakeEphemeralKey() == (149, 299)
   assert prime.call_args_list == [mock.call(11)]
-  assert randbits.call_args_list == [mock.call(10)] * 8
+  assert randbits.call_args_list == [mock.call(11)] * 8
 
 
 @pytest.mark.parametrize(
@@ -74,13 +74,13 @@ def test_ElGamal_keys_creation(prime: mock.MagicMock, randbits: mock.MagicMock) 
          (8344081885661343574, 4646135738472651478)),   # another individual of the same group, first cypher is equal!
     ])
 @mock.patch('src.transcrypto.elgamal.ElGamalPublicKey._MakeEphemeralKey', autospec=True)
-def test_ElGamal(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+def test_ElGamal_raw(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     make_ephemeral: mock.MagicMock, prime_modulus: int, group_base: int, individual_base: int,
     decrypt_exp: int, message: int, ephemeral: int, expected_cypher: tuple[int, int],
     expected_signed: tuple[int, int]) -> None:
   """Test."""
   # create keys
-  elgamal.ElGamalSharedPublicKey(prime_modulus=prime_modulus, group_base=group_base)
+  shared = elgamal.ElGamalSharedPublicKey(prime_modulus=prime_modulus, group_base=group_base)
   private = elgamal.ElGamalPrivateKey(
       prime_modulus=prime_modulus, group_base=group_base,
       individual_base=individual_base, decrypt_exp=decrypt_exp)
@@ -94,6 +94,12 @@ def test_ElGamal(  # pylint: disable=too-many-arguments,too-many-positional-argu
     public.RawEncrypt(prime_modulus)
   cypher: tuple[int, int] = public.RawEncrypt(message)
   assert cypher == expected_cypher
+  with pytest.raises(base.InputError, match='modulus too small for signing operations'):
+    public.Verify(b'msg', b'sig')
+  with pytest.raises(base.InputError, match='modulus too small for signing operations'):
+    private.Sign(b'msg')
+  with pytest.raises(base.CryptoError, match=r'hash output.*is out of range/invalid'):
+    shared._DomainSeparatedHash(b'msg', b'aad', b's' * 64)
   # do private key operations
   with pytest.raises(base.InputError, match='invalid message'):
     private.RawSign(0)
@@ -116,6 +122,42 @@ def test_ElGamal(  # pylint: disable=too-many-arguments,too-many-positional-argu
     private.RawVerify(10, (1, 3))
   with pytest.raises(base.InputError, match='invalid signature'):
     private.RawVerify(10, (3, prime_modulus - 1))
+
+
+@pytest.mark.slow
+@pytest.mark.veryslow
+def test_ElGamal() -> None:
+  """Test."""
+  shared: elgamal.ElGamalSharedPublicKey = elgamal.ElGamalSharedPublicKey.NewShared(609)  # not too slow, not too fast
+  private: elgamal.ElGamalPrivateKey = elgamal.ElGamalPrivateKey.New(shared)
+  public: elgamal.ElGamalPublicKey = elgamal.ElGamalPublicKey.Copy(private)
+  assert private.modulus_size == shared.modulus_size == 77
+  assert public.prime_modulus.bit_length() == 609
+  aad: bytes | None
+  for plaintext, aad, h_dsh in [  # parametrize here so we don't have to repeat key gen
+      (b'', b'', '28ef0d5e5ccf4680'),
+      (b'abc', b'', '89fced7b71b8a56f'),
+      (b'abcd', b'', '2ab4c5f26e1a0c63'),
+      (b'abc', b'z', '1d679318e921385d'),
+      (b'a0b1c2d3e4' * 10000000, b'e4d3c2b1a0' * 10000000, '2dc8e0183a121cb9'),
+  ]:
+    aad = aad if aad else None  # make sure we test both None and b''
+    ct: bytes = public.Encrypt(plaintext, associated_data=aad)
+    dsh: int = public._DomainSeparatedHash(plaintext, aad, b's' * 64)
+    sg: bytes = private.Sign(plaintext, associated_data=aad)
+    sg2: bytes = private.Sign(b'foo')
+    assert private.Decrypt(ct, associated_data=aad) == plaintext
+    with pytest.raises(base.InputError, match='invalid ciphertext length'):
+      private.Decrypt(b'v' * 108, associated_data=aad)
+    assert public.Verify(plaintext, sg, associated_data=aad)
+    assert public.Verify(b'foo', sg2)
+    assert not public.Verify(plaintext, sg + b'x', associated_data=aad)  # wrong size
+    assert not public.Verify(plaintext, sg2, associated_data=aad)        # incorrect signature
+    assert not public.Verify(plaintext, b'\x00' * (64 + 77 + 77), associated_data=aad)  # zero sig
+    assert not public.Verify(plaintext + b' ', sg, associated_data=aad)  # incorrect message
+    assert not public.Verify(b'bar', sg2)                                # incorrect message
+    assert not public.Verify(plaintext, sg, associated_data=(aad if aad else b'') + b'x')  # AAD
+    assert base.BytesToHex(base.IntToBytes(dsh))[:16] == h_dsh
 
 
 def test_ElGamalKey_invalid() -> None:

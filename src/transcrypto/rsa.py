@@ -26,6 +26,8 @@ _BIG_ENCRYPTION_EXPONENT = 2 ** 16 + 1  # 65537
 
 _MAX_KEY_GENERATION_FAILURES = 15
 
+# fixed prefixes: do NOT ever change! will break all encryption and signature schemes
+_RSA_ENCRYPTION_AAD_PREFIX = b'transcrypto.RSA.Encryption.1.0\x00'
 _RSA_SIGNATURE_HASH_PREFIX = b'transcrypto.RSA.Signature.1.0\x00'
 
 
@@ -106,27 +108,29 @@ class RSAPublicKey(base.CryptoKey, base.Encryptor, base.Verifier):
     • Let k = ceil(log2(n))/8 be the modulus size in bytes.
     • Pick random r ∈ [2, n-1]
     • ct = r^e mod n
-    • return Padded(ct, k) + AES-256-GCM(key=SHA512(r)[32:], plaintext, aad)
+    • return Padded(ct, k) + AES-256-GCM(key=SHA512(r)[32:], plaintext,
+                                         associated_data="prefix" + len(aad) + aad + Padded(ct, k))
 
     We pick fresh random r, send ct = r^e mod n, and derive the DEM key from r,
     then use AES-GCM for the payload. This is the classic RSA-KEM construction.
     With AEAD as the DEM, we get strong confidentiality and ciphertext integrity
-    (CCA resistance in the ROM under standard assumptions). The unauthenticated
-    RSA header is fine because any tampering just yields a different AEAD key
-    and the tag fails. There are no Bleichenbacher-style issue because we do not
-    expose any padding semantics.
+    (CCA resistance in the ROM under standard assumptions). There are no
+    Bleichenbacher-style issue because we do not expose any padding semantics.
 
     Args:
       plaintext (bytes): Data to encrypt.
       associated_data (bytes, optional): Optional AAD; must be provided again on decrypt
 
     Returns:
-      bytes: Ciphertext; Padded(ct, k) + AES-256-GCM(key=SHA512(r)[32:], plaintext, aad) - see above
+      bytes: Ciphertext; see above:
+      Padded(ct, k) + AES-256-GCM(key=SHA512(r)[32:], plaintext,
+                                  associated_data="prefix" + len(aad) + aad + Padded(ct, k))
 
     Raises:
       InputError: invalid inputs
       CryptoError: internal crypto failures
     """
+    # TODO: add to CLI
     # generate random r and encrypt it
     r: int = 0
     while not 1 < r < self.public_modulus or base.GCD(r, self.public_modulus) != 1:
@@ -134,9 +138,11 @@ class RSAPublicKey(base.CryptoKey, base.Encryptor, base.Verifier):
     k: int = self.modulus_size
     ct: bytes = base.IntToFixedBytes(self.RawEncrypt(r), k)
     assert len(ct) == k, 'should never happen: c_kem should be exactly k bytes'
-    # encrypt plaintext with AES-256-GCM using SHA256(r) as key; return ct || Encrypt(...)
+    # encrypt plaintext with AES-256-GCM using SHA512(r)[32:] as key; return ct || Encrypt(...)
     ss: bytes = base.Hash512(base.IntToFixedBytes(r, k))
-    return ct + aes.AESKey(key256=ss[32:]).Encrypt(plaintext, associated_data=associated_data)
+    aad: bytes = b'' if associated_data is None else associated_data
+    aad_prime: bytes = _RSA_ENCRYPTION_AAD_PREFIX + base.IntToFixedBytes(len(aad), 8) + aad + ct
+    return ct + aes.AESKey(key256=ss[32:]).Encrypt(plaintext, associated_data=aad_prime)
 
   def RawVerify(self, message: int, signature: int, /) -> bool:
     """Verify a signature. True if OK; False if failed verification.
@@ -194,8 +200,8 @@ class RSAPublicKey(base.CryptoKey, base.Encryptor, base.Verifier):
     • return False for any malformed signature
 
     Args:
-      message (bytes): Data that was signed (including any embedded nonce/tag if applicable)
-      signature (bytes): Signature data to verify (including any embedded nonce/tag if applicable)
+      message (bytes): Data that was signed
+      signature (bytes): Signature data to verify
       associated_data (bytes, optional): Optional AAD (must match what was used during signing)
 
     Returns:
@@ -212,8 +218,9 @@ class RSAPublicKey(base.CryptoKey, base.Encryptor, base.Verifier):
       logging.info(f'invalid signature length: {len(signature)} ; expected {64 + k}')
       return False
     try:
-      y_check: int = self.RawEncrypt(base.BytesToInt(signature[64:]))
-      return y_check == self._DomainSeparatedHash(message, associated_data, signature[:64])
+      return self.RawVerify(
+          self._DomainSeparatedHash(message, associated_data, signature[:64]),
+          base.BytesToInt(signature[64:]))
     except base.InputError as err:
       logging.info(err)
       return False
@@ -457,11 +464,13 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):  # pylint: disab
     • Let k = ceil(log2(n))/8 be the modulus size in bytes.
     • Split ciphertext in two parts: the first k bytes is ct, the rest is AES-256-GCM
     • r = ct^d mod n
-    • return AES-256-GCM(key=SHA512(r)[32:], ciphertext, aad)
+    • return AES-256-GCM(key=SHA512(r)[32:], ciphertext,
+                         associated_data="prefix" + len(aad) + aad + Padded(ct, k))
 
     Args:
-      ciphertext (bytes): Data to decrypt (including any embedded nonce/tag if applicable);
-          Padded(ct, k) + AES-256-GCM(key=SHA512(r)[32:], plaintext, aad) - see Encrypt() above
+      ciphertext (bytes): Data to decrypt; see Encrypt() above:
+          Padded(ct, k) + AES-256-GCM(key=SHA512(r)[32:], plaintext,
+                                      associated_data="prefix" + len(aad) + aad + Padded(ct, k))
       associated_data (bytes, optional): Optional AAD (must match what was used during encrypt)
 
     Returns:
@@ -473,12 +482,14 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):  # pylint: disab
     """
     k: int = self.modulus_size
     if len(ciphertext) < (k + 32):
-      raise base.InputError(f'invalid ciphertext length: {len(ciphertext)=} ; {k=}')
+      raise base.InputError(f'invalid ciphertext length: {len(ciphertext)} ; {k=}')
     # split ciphertext in two parts: the first k bytes is ct, the rest is AES-256-GCM
     rsa_ct, aes_ct = ciphertext[:k], ciphertext[k:]
     r: int = self.RawDecrypt(base.BytesToInt(rsa_ct))
     ss: bytes = base.Hash512(base.IntToFixedBytes(r, k))
-    return aes.AESKey(key256=ss[32:]).Decrypt(aes_ct, associated_data=associated_data)
+    aad: bytes = b'' if associated_data is None else associated_data
+    aad_prime: bytes = _RSA_ENCRYPTION_AAD_PREFIX + base.IntToFixedBytes(len(aad), 8) + aad + rsa_ct
+    return aes.AESKey(key256=ss[32:]).Decrypt(aes_ct, associated_data=aad_prime)
 
   def RawSign(self, message: int, /) -> int:
     """Sign `message` with this private key.
@@ -532,7 +543,7 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):  # pylint: disab
     if k <= 64:
       raise base.InputError(f'modulus too small for signing operations: {k} bytes')
     salt: bytes = base.RandBytes(64)
-    s_int: int = self.RawDecrypt(self._DomainSeparatedHash(message, associated_data, salt))
+    s_int: int = self.RawSign(self._DomainSeparatedHash(message, associated_data, salt))
     s_bytes: bytes = base.IntToFixedBytes(s_int, k)
     assert len(s_bytes) == k, 'should never happen: s_bytes should be exactly k bytes'
     return salt + s_bytes

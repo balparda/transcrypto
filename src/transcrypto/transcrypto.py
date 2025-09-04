@@ -820,7 +820,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
       'shared',
       help=('Generate a shared DSA key with `p-bits`/`q-bits` prime modulus sizes, which is '
             'the first step in key generation. `q-bits` should be larger than the secrets that '
-            'will be protected and `p-bits` should be much larger than `q-bits` (e.g. 3584/256). '
+            'will be protected and `p-bits` should be much larger than `q-bits` (e.g. 4096/544). '
             'The shared key can safely be used by any number of users to generate their '
             'private/public key pairs (with the `new` command). The shared keys are "public". '
             'Requires `-p`/`--key-path` to set the basename for output files.'),
@@ -828,10 +828,10 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
               '# NEVER use such a small key: example only!\n'
               'DSA shared key saved to \'dsa-key.shared\''))
   p_dsa_shared.add_argument(
-      '--p-bits', type=int, default=3584,
+      '--p-bits', type=int, default=4096,
       help='Prime modulus (`p`) size in bits; the default is a safe size')
   p_dsa_shared.add_argument(
-      '--q-bits', type=int, default=256,
+      '--q-bits', type=int, default=544,
       help=('Prime modulus (`q`) size in bits; the default is a safe size ***IFF*** you '
             'are protecting symmetric keys or regular hashes'))
 

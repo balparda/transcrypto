@@ -23,8 +23,7 @@ import logging
 # import pdb
 from typing import Self
 
-from . import base
-from . import modmath
+from . import base, modmath, aes
 
 __author__ = 'balparda@github.com'
 __version__: str = base.__version__  # version comes from base!
@@ -32,6 +31,10 @@ __version_tuple__: tuple[int, ...] = base.__version_tuple__
 
 
 _MAX_KEY_GENERATION_FAILURES = 15
+
+# fixed prefixes: do NOT ever change! will break all encryption and signature schemes
+_ELGAMAL_ENCRYPTION_AAD_PREFIX = b'transcrypto.ElGamal.Encryption.1.0\x00'
+_ELGAMAL_SIGNATURE_HASH_PREFIX = b'transcrypto.ElGamal.Signature.1.0\x00'
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
@@ -71,6 +74,37 @@ class ElGamalSharedPublicKey(base.CryptoKey):
             f'prime_modulus={base.IntToEncoded(self.prime_modulus)}, '
             f'group_base={base.IntToEncoded(self.group_base)})')
 
+  @property
+  def modulus_size(self) -> int:
+    """Modulus size in bytes. The number of bytes used in Encrypt/Decrypt/Sign/Verify."""
+    return (self.prime_modulus.bit_length() + 7) // 8
+
+  def _DomainSeparatedHash(
+      self, message: bytes, associated_data: bytes | None, salt: bytes, /) -> int:
+    """Compute the domain-separated hash for signing and verifying.
+
+    Args:
+      message (bytes): message to sign/verify
+      associated_data (bytes | None): optional associated data
+      salt (bytes): salt to use in the hash
+
+    Returns:
+      int: integer representation of the hash output;
+      Hash512("prefix" || len(aad) || aad || message || salt)
+
+    Raises:
+      CryptoError: hash output is out of range
+    """
+    aad: bytes = b'' if associated_data is None else associated_data
+    la: bytes = base.IntToFixedBytes(len(aad), 8)
+    assert len(salt) == 64, 'should never happen: salt should be exactly 64 bytes'
+    y: int = base.BytesToInt(
+        base.Hash512(_ELGAMAL_SIGNATURE_HASH_PREFIX + la + aad + message + salt))
+    if not 1 < y < self.prime_modulus:
+      # will only reasonably happen if modulus is small
+      raise base.CryptoError(f'hash output {y} is out of range/invalid {self.prime_modulus}')
+    return y
+
   @classmethod
   def NewShared(cls, bit_length: int, /) -> Self:
     """Make a new shared public key of `bit_length` bits.
@@ -88,14 +122,15 @@ class ElGamalSharedPublicKey(base.CryptoKey):
     if bit_length < 11:
       raise base.InputError(f'invalid bit length: {bit_length=}')
     # generate random prime and number, create object (should never fail)
-    return cls(
-        prime_modulus=modmath.NBitRandomPrime(bit_length),
-        group_base=base.RandBits(bit_length - 1),
-    )
+    p: int = modmath.NBitRandomPrime(bit_length)
+    g: int = 0
+    while not 2 < g < p - 1:
+      g = base.RandBits(bit_length)
+    return cls(prime_modulus=p, group_base=g)
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
-class ElGamalPublicKey(ElGamalSharedPublicKey):
+class ElGamalPublicKey(ElGamalSharedPublicKey, base.Encryptor, base.Verifier):
   """El-Gamal public key. This is an individual public key.
 
   BEWARE: This is **NOT** DSA! No measures are taken here to prevent timing attacks.
@@ -139,7 +174,7 @@ class ElGamalPublicKey(ElGamalSharedPublicKey):
     bit_length: int = self.prime_modulus.bit_length()
     while (not 1 < ephemeral_key < p_1 or
            ephemeral_key in (self.group_base, self.individual_base)):
-      ephemeral_key = base.RandBits(bit_length - 1)
+      ephemeral_key = base.RandBits(bit_length)
       if base.GCD(ephemeral_key, p_1) != 1:
         ephemeral_key = 0  # we have to try again
     return (ephemeral_key, modmath.ModInv(ephemeral_key, p_1))
@@ -164,13 +199,61 @@ class ElGamalPublicKey(ElGamalSharedPublicKey):
     if not 0 < message < self.prime_modulus:
       raise base.InputError(f'invalid message: {message=}')
     # encrypt
-    ephemeral_key: int = self._MakeEphemeralKey()[0]
-    a, b = 0, 0
+    a: int = 0
+    b: int = 0
     while a < 2 or b < 2:
+      ephemeral_key: int = self._MakeEphemeralKey()[0]
       a = modmath.ModExp(self.group_base, ephemeral_key, self.prime_modulus)
       s: int = modmath.ModExp(self.individual_base, ephemeral_key, self.prime_modulus)
       b = (message * s) % self.prime_modulus
     return (a, b)
+
+  def Encrypt(self, plaintext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+    """Encrypt `plaintext` and return `ciphertext`.
+
+    • Let k = ceil(log2(n))/8 be the modulus size in bytes.
+    • Pick random r ∈ [2, n-1]
+    • ct1, ct2 = ElGamal(r)
+    • return Padded(ct1, k) + Padded(ct2, k) +
+             AES-256-GCM(key=SHA512(r)[32:], plaintext,
+                         associated_data="prefix" + len(aad) + aad +
+                                         Padded(ct1, k) + Padded(ct2, k))
+
+    We pick fresh random r, send ct = ElGamal(r), and derive the DEM key from r,
+    then use AES-GCM for the payload. This is the classic El-Gamal-KEM construction.
+    With AEAD as the DEM, we get strong confidentiality and ciphertext integrity
+    (CCA resistance in the ROM under standard assumptions). There are no
+    Bleichenbacher-style issue because we do not expose any padding semantics.
+
+    Args:
+      plaintext (bytes): Data to encrypt.
+      associated_data (bytes, optional): Optional AAD; must be provided again on decrypt
+
+    Returns:
+      bytes: Ciphertext; see above:
+      Padded(ct1, k) + Padded(ct2, k) + AES-256-GCM(key=SHA512(r)[32:], plaintext,
+                                                    associated_data="prefix" + len(aad) + aad +
+                                                                    Padded(ct1, k) + Padded(ct2, k))
+
+    Raises:
+      InputError: invalid inputs
+      CryptoError: internal crypto failures
+    """
+    # TODO: add to CLI
+    # generate random r and encrypt it
+    r: int = 0
+    while not 1 < r < self.prime_modulus - 1:
+      r = base.RandBits(self.prime_modulus.bit_length())
+    k: int = self.modulus_size
+    i_ct: tuple[int, int] = self.RawEncrypt(r)
+    ct: bytes = base.IntToFixedBytes(i_ct[0], k) + base.IntToFixedBytes(i_ct[1], k)
+    assert len(ct) == 2 * k, 'should never happen: c_kem should be exactly 2k bytes'
+    # encrypt plaintext with AES-256-GCM using SHA512(r)[32:] as key; return ct || Encrypt(...)
+    ss: bytes = base.Hash512(base.IntToFixedBytes(r, k))
+    aad: bytes = b'' if associated_data is None else associated_data
+    aad_prime: bytes = (
+        _ELGAMAL_ENCRYPTION_AAD_PREFIX + base.IntToFixedBytes(len(aad), 8) + aad + ct)
+    return ct + aes.AESKey(key256=ss[32:]).Encrypt(plaintext, associated_data=aad_prime)
 
   def RawVerify(self, message: int, signature: tuple[int, int], /) -> bool:
     """Verify a signature. True if OK; False if failed verification.
@@ -201,6 +284,42 @@ class ElGamalPublicKey(ElGamalSharedPublicKey):
     c: int = modmath.ModExp(self.individual_base, signature[0], self.prime_modulus)
     return a == (b * c) % self.prime_modulus
 
+  def Verify(
+      self, message: bytes, signature: bytes, /, *, associated_data: bytes | None = None) -> bool:
+    """Verify a `signature` for `message`. True if OK; False if failed verification.
+
+    • Let k = ceil(log2(n))/8 be the modulus size in bytes.
+    • Split signature in 3 parts: the first 64 bytes is salt, the rest is s1 and s2
+    • y_check = ElGamal(s1, s2)
+    • return y_check == Hash512("prefix" || len(aad) || aad || message || salt)
+    • return False for any malformed signature
+
+    Args:
+      message (bytes): Data that was signed
+      signature (bytes): Signature data to verify
+      associated_data (bytes, optional): Optional AAD (must match what was used during signing)
+
+    Returns:
+      True if signature is valid, False otherwise
+
+    Raises:
+      InputError: invalid inputs
+      CryptoError: internal crypto failures, authentication failure, key mismatch, etc
+    """
+    k: int = self.modulus_size
+    if k <= 64:
+      raise base.InputError(f'modulus too small for signing operations: {k} bytes')
+    if len(signature) != (64 + k + k):
+      logging.info(f'invalid signature length: {len(signature)} ; expected {64 + k + k}')
+      return False
+    try:
+      return self.RawVerify(
+          self._DomainSeparatedHash(message, associated_data, signature[:64]),
+          (base.BytesToInt(signature[64:64 + k]), base.BytesToInt(signature[64 + k:])))
+    except base.InputError as err:
+      logging.info(err)
+      return False
+
   @classmethod
   def Copy(cls, other: ElGamalPublicKey, /) -> Self:
     """Initialize a public key by taking the public parts of a public/private key."""
@@ -211,7 +330,7 @@ class ElGamalPublicKey(ElGamalSharedPublicKey):
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
-class ElGamalPrivateKey(ElGamalPublicKey):
+class ElGamalPrivateKey(ElGamalPublicKey, base.Decryptor, base.Signer):  # pylint: disable=too-many-ancestors
   """El-Gamal private key.
 
   BEWARE: This is **NOT** DSA! No measures are taken here to prevent timing attacks.
@@ -271,6 +390,42 @@ class ElGamalPrivateKey(ElGamalPublicKey):
         ciphertext[0], self.prime_modulus - 1 - self.decrypt_exp, self.prime_modulus)
     return (ciphertext[1] * csi) % self.prime_modulus
 
+  def Decrypt(self, ciphertext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+    """Decrypt `ciphertext` and return the original `plaintext`.
+
+    • Let k = ceil(log2(n))/8 be the modulus size in bytes.
+    • Split ciphertext in 3 parts: k bytes for ct1, k bytes for ct2, the rest is AES-256-GCM
+    • r = ElGamal(ct1, ct2)
+    • return AES-256-GCM(key=SHA512(r)[32:], ciphertext,
+                         associated_data="prefix" + len(aad) + aad +
+                                         Padded(ct1, k) + Padded(ct2, k))
+
+    Args:
+      ciphertext (bytes): Data to decrypt; see Encrypt() above:
+          Padded(ct1, k) + Padded(ct2, k) +
+          AES-256-GCM(key=SHA512(r)[32:], plaintext,
+                      associated_data="prefix" + len(aad) + aad + Padded(ct1, k) + Padded(ct2, k))
+      associated_data (bytes, optional): Optional AAD (must match what was used during encrypt)
+
+    Returns:
+      bytes: Decrypted plaintext bytes
+
+    Raises:
+      InputError: invalid inputs
+      CryptoError: internal crypto failures, authentication failure, key mismatch, etc
+    """
+    k: int = self.modulus_size
+    if len(ciphertext) < (k + k + 32):
+      raise base.InputError(f'invalid ciphertext length: {len(ciphertext)} ; {k=}')
+    # split ciphertext in 3 parts: the first 2k bytes is ct, the rest is AES-256-GCM
+    ct1, ct2, aes_ct = ciphertext[:k], ciphertext[k:2 * k], ciphertext[2 * k:]
+    r: int = self.RawDecrypt((base.BytesToInt(ct1), base.BytesToInt(ct2)))
+    ss: bytes = base.Hash512(base.IntToFixedBytes(r, k))
+    aad: bytes = b'' if associated_data is None else associated_data
+    aad_prime: bytes = (
+        _ELGAMAL_ENCRYPTION_AAD_PREFIX + base.IntToFixedBytes(len(aad), 8) + aad + ct1 + ct2)
+    return aes.AESKey(key256=ss[32:]).Decrypt(aes_ct, associated_data=aad_prime)
+
   def RawSign(self, message: int, /) -> tuple[int, int]:
     """Sign `message` with this private key.
 
@@ -291,12 +446,48 @@ class ElGamalPrivateKey(ElGamalPublicKey):
     if not 0 < message < self.prime_modulus:
       raise base.InputError(f'invalid message: {message=}')
     # sign
-    a, b, p_1 = 0, 0, self.prime_modulus - 1
+    a: int = 0
+    b: int = 0
+    p_1: int = self.prime_modulus - 1
     while a < 2 or b < 2:
       ephemeral_key, ephemeral_inv = self._MakeEphemeralKey()
       a = modmath.ModExp(self.group_base, ephemeral_key, self.prime_modulus)
       b = (ephemeral_inv * ((message - a * self.decrypt_exp) % p_1)) % p_1
     return (a, b)
+
+  def Sign(self, message: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+    """Sign `message` and return the `signature`.
+
+    • Let k = ceil(log2(n))/8 be the modulus size in bytes.
+    • Pick random salt of 64 bytes
+    • s1, s2 = ElGamal(Hash512("prefix" || len(aad) || aad || message || salt))
+    • return salt || Padded(s1, k) || Padded(s2, k)
+
+    This is basically Full-Domain Hash El-Gamal with a 512-bit hash and per-signature salt,
+    which is EUF-CMA secure in the ROM. Our domain-separation prefix and explicit AAD
+    length prefix are both correct and remove composition/ambiguity pitfalls.
+    There are no Bleichenbacher-style issue because we do not expose any padding semantics.
+
+    Args:
+      message (bytes): Data to sign.
+      associated_data (bytes, optional): Optional AAD for AEAD modes; must be
+          provided again on decrypt
+
+    Returns:
+      bytes: Signature; salt || Padded(s, k) - see above
+
+    Raises:
+      InputError: invalid inputs
+      CryptoError: internal crypto failures
+    """
+    k: int = self.modulus_size
+    if k <= 64:
+      raise base.InputError(f'modulus too small for signing operations: {k} bytes')
+    salt: bytes = base.RandBytes(64)
+    s_int: tuple[int, int] = self.RawSign(self._DomainSeparatedHash(message, associated_data, salt))
+    s_bytes: bytes = base.IntToFixedBytes(s_int[0], k) + base.IntToFixedBytes(s_int[1], k)
+    assert len(s_bytes) == 2 * k, 'should never happen: s_bytes should be exactly 2k bytes'
+    return salt + s_bytes
 
   @classmethod
   def New(cls, shared_key: ElGamalSharedPublicKey, /) -> Self:
@@ -324,7 +515,7 @@ class ElGamalPrivateKey(ElGamalPublicKey):
         decrypt_exp: int = 0
         while (not 2 < decrypt_exp < shared_key.prime_modulus - 1 or
                decrypt_exp == shared_key.group_base):
-          decrypt_exp = base.RandBits(bit_length - 1)
+          decrypt_exp = base.RandBits(bit_length)
         # make the object
         return cls(
             prime_modulus=shared_key.prime_modulus,

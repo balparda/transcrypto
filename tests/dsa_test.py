@@ -84,13 +84,13 @@ def test_DSA_keys_creation(
          10, 2055930860, (1621446112, 1461014680)),  # another individual of the same group, first cypher is equal!
     ])
 @mock.patch('src.transcrypto.dsa.DSAPublicKey._MakeEphemeralKey', autospec=True)
-def test_DSA(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+def test_DSA_raw(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     make_ephemeral: mock.MagicMock, prime_modulus: int, prime_seed: int, group_base: int,
     individual_base: int, decrypt_exp: int, message: int, ephemeral: int,
     expected_signed: tuple[int, int]) -> None:
   """Test."""
   # create keys
-  dsa.DSASharedPublicKey(
+  shared = dsa.DSASharedPublicKey(
       prime_modulus=prime_modulus, prime_seed=prime_seed, group_base=group_base)
   private = dsa.DSAPrivateKey(
       prime_modulus=prime_modulus, prime_seed=prime_seed, group_base=group_base,
@@ -104,6 +104,12 @@ def test_DSA(  # pylint: disable=too-many-arguments,too-many-positional-argument
     private.RawSign(prime_seed)
   signed: tuple[int, int] = private.RawSign(message)
   assert signed == expected_signed
+  with pytest.raises(base.InputError, match='modulus/seed too small for signing operations'):
+    public.Verify(b'msg', b'sig')
+  with pytest.raises(base.InputError, match='modulus/seed too small for signing operations'):
+    private.Sign(b'msg')
+  with pytest.raises(base.CryptoError, match=r'hash output.*is out of range/invalid'):
+    shared._DomainSeparatedHash(b'msg', b'aad', b's' * 64)
   # check signatures with public key
   assert public.RawVerify(message, signed)
   assert not public.RawVerify(message, (signed[0], signed[1] + 1))
@@ -115,6 +121,38 @@ def test_DSA(  # pylint: disable=too-many-arguments,too-many-positional-argument
   with pytest.raises(base.InputError, match='invalid signature'):
     private.RawVerify(10, (3, prime_seed))
   assert make_ephemeral.call_args_list == [mock.call(private)]
+
+
+@pytest.mark.slow
+@pytest.mark.veryslow
+def test_DSA() -> None:
+  """Test."""
+  shared: dsa.DSASharedPublicKey = dsa.DSASharedPublicKey.NewShared(800, 609)  # not too slow, not too fast
+  private: dsa.DSAPrivateKey = dsa.DSAPrivateKey.New(shared)
+  public: dsa.DSAPublicKey = dsa.DSAPublicKey.Copy(private)
+  assert private.modulus_size == shared.modulus_size == (100, 77)
+  assert public.prime_modulus.bit_length() == 800
+  aad: bytes | None
+  for plaintext, aad, h_dsh in [  # parametrize here so we don't have to repeat key gen
+      (b'', b'', '49ef4ca3b3b36c9c'),
+      (b'abc', b'', 'e548b51939a9f1c4'),
+      (b'abcd', b'', 'c8e8bd6106084560'),
+      (b'abc', b'z', '2d8f648a3bb059f3'),
+      (b'a0b1c2d3e4' * 10000000, b'e4d3c2b1a0' * 10000000, '47110bca1034a8ff'),
+  ]:
+    aad = aad if aad else None  # make sure we test both None and b''
+    dsh: int = public._DomainSeparatedHash(plaintext, aad, b's' * 64)
+    sg: bytes = private.Sign(plaintext, associated_data=aad)
+    sg2: bytes = private.Sign(b'foo')
+    assert public.Verify(plaintext, sg, associated_data=aad)
+    assert public.Verify(b'foo', sg2)
+    assert not public.Verify(plaintext, sg + b'x', associated_data=aad)  # wrong size
+    assert not public.Verify(plaintext, sg2, associated_data=aad)        # incorrect signature
+    assert not public.Verify(plaintext, b'\x00' * (64 + 77 + 77), associated_data=aad)  # zero sig
+    assert not public.Verify(plaintext + b' ', sg, associated_data=aad)  # incorrect message
+    assert not public.Verify(b'bar', sg2)                                # incorrect message
+    assert not public.Verify(plaintext, sg, associated_data=(aad if aad else b'') + b'x')  # AAD
+    assert base.BytesToHex(base.IntToBytes(dsh))[:16] == h_dsh
 
 
 def test_DSAKey_invalid() -> None:
