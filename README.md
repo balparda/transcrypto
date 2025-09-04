@@ -93,14 +93,14 @@ Started in July/2025, by Daniel Balparda. Since version 1.0.2 it is PyPI package
         - [Serialize](#serialize)
         - [DeSerialize](#deserialize)
       - [Crypto Objects General Properties (`CryptoKey`)](#crypto-objects-general-properties-cryptokey)
-      - [AES-256 Symmetric Encryption](#aes-256-symmetric-encryption)
-        - [Key creation](#key-creation)
-        - [AES-256 + GCM (default)](#aes-256--gcm-default)
-        - [AES-256 + ECB (unsafe, fixed block only)](#aes-256--ecb-unsafe-fixed-block-only)
       - [Fast Modular Arithmetic](#fast-modular-arithmetic)
       - [Chinese Remainder Theorem (CRT) – Pair](#chinese-remainder-theorem-crt--pair)
       - [Modular Polynomials \& Lagrange Interpolation](#modular-polynomials--lagrange-interpolation)
       - [Primality testing \& Prime generators, Mersenne primes](#primality-testing--prime-generators-mersenne-primes)
+      - [AES-256 Symmetric Encryption](#aes-256-symmetric-encryption)
+        - [Key creation](#key-creation)
+        - [AES-256 + GCM (default)](#aes-256--gcm-default)
+        - [AES-256 + ECB (unsafe, fixed block only)](#aes-256--ecb-unsafe-fixed-block-only)
       - [RSA (Rivest-Shamir-Adleman) Public Cryptography](#rsa-rivest-shamir-adleman-public-cryptography)
       - [El-Gamal Public-Key Cryptography](#el-gamal-public-key-cryptography)
         - [Shared Public Key](#shared-public-key)
@@ -1702,76 +1702,6 @@ print(priv == rsa.RSAPrivateKey.Load(encrypted, key=key))
 ```
 <!-- cspell:enable -->
 
-#### AES-256 Symmetric Encryption
-
-Implements AES-256 in **GCM mode** for authenticated encryption and decryption, plus an **ECB mode** helper for fixed-size block encoding.
-Also includes a high-iteration PBKDF2-based key derivation from static passwords.
-
-##### Key creation
-
-```py
-from transcrypto import aes
-
-# From raw bytes (must be exactly 32 bytes)
-key = aes.AESKey(key256=b'\x00' * 32)
-
-# From a static password (slow, high-iteration PBKDF2-SHA256)
-key = aes.AESKey.FromStaticPassword('correct horse battery staple')
-print(key.encoded)  # URL-safe Base64
-```
-
-- **Length**: `key256` must be exactly 32 bytes
-- `FromStaticPassword()`:
-  - Uses PBKDF2-HMAC-SHA256 with **fixed** salt and \~2 million iterations
-  - Designed for **interactive** password entry, **not** for password databases
-
-##### AES-256 + GCM (default)
-
-```py
-data = b'secret message'
-aad  = b'metadata'
-
-# Encrypt (returns IV + ciphertext + tag)
-ct = key.Encrypt(data, associated_data=aad)
-
-# Decrypt
-pt = key.Decrypt(ct, associated_data=aad)
-assert pt == data
-```
-
-- **Security**:
-  - Random 128-bit IV (`iv`) per encryption
-  - Authenticated tag (128-bit) ensures integrity
-  - Optional `associated_data` is authenticated but not encrypted
-- **Errors**:
-  - Tag mismatch or wrong key → `CryptoError`
-
-##### AES-256 + ECB (unsafe, fixed block only)
-
-```py
-# ECB mode is for 16-byte block encoding ONLY
-ecb = key.ECBEncoder()
-
-block = b'16-byte string!!'
-ct_block = ecb.Encrypt(block)
-pt_block = ecb.Decrypt(ct_block)
-assert pt_block == block
-
-# Hex helpers
-hex_ct = ecb.EncryptHex('00112233445566778899aabbccddeeff')
-```
-
-- **ECB mode**:
-  - 16-byte plaintext ↔ 16-byte ciphertext
-  - No padding, no IV, no integrity — **do not use for general encryption**
-  - `associated_data` not supported
-
-Key points:
-
-- **GCM mode** is secure for general use; ECB mode is for special low-level operations
-- **Static password derivation** is intentionally slow to resist brute force
-- All sizes and parameters are validated with `InputError` on misuse
-
 #### Fast Modular Arithmetic
 
 ```py
@@ -1860,6 +1790,76 @@ for k, m_p, perfect in modmath.MersennePrimesGenerator(0):
     break
 ```
 
+#### AES-256 Symmetric Encryption
+
+Implements AES-256 in **GCM mode** for authenticated encryption and decryption, plus an **ECB mode** helper for fixed-size block encoding.
+Also includes a high-iteration PBKDF2-based key derivation from static passwords.
+
+##### Key creation
+
+```py
+from transcrypto import aes
+
+# From raw bytes (must be exactly 32 bytes)
+key = aes.AESKey(key256=b'\x00' * 32)
+
+# From a static password (slow, high-iteration PBKDF2-SHA256)
+key = aes.AESKey.FromStaticPassword('correct horse battery staple')
+print(key.encoded)  # URL-safe Base64
+```
+
+- **Length**: `key256` must be exactly 32 bytes
+- `FromStaticPassword()`:
+  - Uses PBKDF2-HMAC-SHA256 with **fixed** salt and \~2 million iterations
+  - Designed for **interactive** password entry, **not** for password databases
+
+##### AES-256 + GCM (default)
+
+```py
+data = b'secret message'
+aad  = b'metadata'
+
+# Encrypt (returns IV + ciphertext + tag)
+ct = key.Encrypt(data, associated_data=aad)
+
+# Decrypt
+pt = key.Decrypt(ct, associated_data=aad)
+assert pt == data
+```
+
+- **Security**:
+  - Random 128-bit IV (`iv`) per encryption
+  - Authenticated tag (128-bit) ensures integrity
+  - Optional `associated_data` is authenticated but not encrypted
+- **Errors**:
+  - Tag mismatch or wrong key → `CryptoError`
+
+##### AES-256 + ECB (unsafe, fixed block only)
+
+```py
+# ECB mode is for 16-byte block encoding ONLY
+ecb = key.ECBEncoder()
+
+block = b'16-byte string!!'
+ct_block = ecb.Encrypt(block)
+pt_block = ecb.Decrypt(ct_block)
+assert pt_block == block
+
+# Hex helpers
+hex_ct = ecb.EncryptHex('00112233445566778899aabbccddeeff')
+```
+
+- **ECB mode**:
+  - 16-byte plaintext ↔ 16-byte ciphertext
+  - No padding, no IV, no integrity — **do not use for general encryption**
+  - `associated_data` not supported
+
+Key points:
+
+- **GCM mode** is secure for general use; ECB mode is for special low-level operations
+- **Static password derivation** is intentionally slow to resist brute force
+- All sizes and parameters are validated with `InputError` on misuse
+
 #### RSA (Rivest-Shamir-Adleman) Public Cryptography
 
 <https://en.wikipedia.org/wiki/RSA_cryptosystem>
@@ -1872,28 +1872,28 @@ By default and deliberate choice the *encryption exponent* will be either 7 or 6
 from transcrypto import rsa
 
 # Generate a key pair
-priv = rsa.RSAPrivateKey.New(2048)     # 2048-bit modulus
-pub  = rsa.RSAPublicKey.Copy(priv)     # public half
+priv = rsa.RSAPrivateKey.New(2048)        # 2048-bit modulus
+pub  = rsa.RSAPublicKey.Copy(priv)        # public half
 print(priv.public_modulus.bit_length())   # 2048
 
 # Encrypt & decrypt
 msg = 123456789  # (Zero is forbidden by design; smallest valid message is 1.)
-cipher = pub.Encrypt(msg)
-plain  = priv.Decrypt(cipher)
+cipher = pub.RawEncrypt(msg)
+plain  = priv.RawDecrypt(cipher)
 assert plain == msg
 
 # Sign & verify
-signature = priv.Sign(msg)
-assert pub.VerifySignature(msg, signature)
+signature = priv.RawSign(msg)
+assert pub.RawVerify(msg, signature)
 
 # Blind signatures (obfuscation pair) - only works on raw RSA
 pair = rsa.RSAObfuscationPair.New(pub)
 
 blind_msg = pair.ObfuscateMessage(msg)            # what you send to signer
-blind_sig = priv.Sign(blind_msg)                  # signer’s output
+blind_sig = priv.RawSign(blind_msg)               # signer’s output
 
 sig = pair.RevealOriginalSignature(msg, blind_sig)
-assert pub.VerifySignature(msg, sig)
+assert pub.RawVerify(msg, sig)
 ```
 
 #### El-Gamal Public-Key Cryptography
@@ -1927,13 +1927,13 @@ pub  = elgamal.ElGamalPublicKey.Copy(priv)
 
 # Encryption
 msg = 42
-cipher = pub.Encrypt(msg)
-plain = priv.Decrypt(cipher)
+cipher = pub.RawEncrypt(msg)
+plain = priv.RawDecrypt(cipher)
 assert plain == msg
 
 # Signature verify
-sig = priv.Sign(msg)
-assert pub.VerifySignature(msg, sig)
+sig = priv.RawSign(msg)
+assert pub.RawVerify(msg, sig)
 ```
 
 - `Encrypt(message)` → `(c1, c2)`, both in `[2, p-1]`
@@ -1947,11 +1947,11 @@ assert pub.VerifySignature(msg, sig)
 priv = elgamal.ElGamalPrivateKey.New(shared)
 
 # Decryption
-plain = priv.Decrypt(cipher)
+plain = priv.RawDecrypt(cipher)
 
 # Signing
-sig = priv.Sign(msg)
-assert pub.VerifySignature(msg, sig)
+sig = priv.RawSign(msg)
+assert pub.RawVerify(msg, sig)
 ```
 
 - `decrypt_exp`: secret exponent `3 ≤ e < p`
@@ -1993,8 +1993,8 @@ pub  = dsa.DSAPublicKey.Copy(priv)
 
 # ➌ Sign & verify (message must be 1 ≤ m < q)
 msg = 123456789 % shared.prime_seed
-sig = priv.Sign(msg)
-assert pub.VerifySignature(msg, sig)
+sig = priv.RawSign(msg)
+assert pub.RawVerify(msg, sig)
 ```
 
 - ranges:
@@ -2060,7 +2060,7 @@ print(f'poly coefficients: {priv.polynomial}')         # keep these private!
 
 secret = 0xC0FFEE
 # Generate an unlimited stream; here we take 5
-five_shares = list(priv.Shares(secret, max_shares=5))
+five_shares = list(priv.RawShares(secret, max_shares=5))
 for sh in five_shares:
   print(f'share {sh.share_key} → {sh.share_value}')
 ```
@@ -2071,7 +2071,7 @@ A single share object looks like `sss.ShamirSharePrivate(minimum=3, modulus=...,
 # Re-constructing the secret
 
 subset = five_shares[:3]          # any 3 distinct shares
-recovered = pub.RecoverSecret(subset)
+recovered = pub.RawRecoverSecret(subset)
 assert recovered == secret
 ```
 
@@ -2079,23 +2079,23 @@ If you supply fewer than minimum shares you get a `CryptoError`, unless you expl
 
 ```py
 try:
-  pub.RecoverSecret(five_shares[:2])        # raises
+  pub.RawRecoverSecret(five_shares[:2])        # raises
 except Exception as e:
   print(e)                                  # "unrecoverable secret …"
 
 # Force the interpolation even with 2 points (gives a wrong secret, of course)
-print(pub.RecoverSecret(five_shares[:2], force_recover=True))
+print(pub.RawRecoverSecret(five_shares[:2], force_recover=True))
 
 # Checking that a share is genuine
 
 share = five_shares[0]
-ok = priv.VerifyShare(secret, share)       # ▶ True
+ok = priv.RawVerifyShare(secret, share)       # ▶ True
 tampered = sss.ShamirSharePrivate(
     minimum=share.minimum,
     modulus=share.modulus,
     share_key=share.share_key,
     share_value=(share.share_value + 1) % share.modulus)
-print(priv.VerifyShare(secret, tampered))  # ▶ False
+print(priv.RawVerifyShare(secret, tampered))  # ▶ False
 ```
 
 ## Appendix: Development Instructions
