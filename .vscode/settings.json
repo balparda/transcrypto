@@ -73,6 +73,8 @@
     "randomprime",
     "rawdecrypt",
     "rawencrypt",
+    "rawrecover",
+    "rawshares",
     "rawsign",
     "rawverify",
     "repr",

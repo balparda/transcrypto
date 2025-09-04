@@ -16,7 +16,7 @@ rsa new|encrypt|decrypt|sign|verify|rawencrypt|rawdecrypt|rawsign|rawverify
 elgamal shared|new|encrypt|decrypt|sign|verify|rawencrypt|rawdecrypt|rawsign|rawverify
 dsa shared|new|sign|verify|rawsign|rawverify
 bid new|verify
-sss new|shares|recover|verify
+sss new|rawshares|rawrecover|rawverify
 """
 
 from __future__ import annotations
@@ -328,30 +328,30 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
           '  poetry run transcrypto aes ecb -k "<b64key>" decrypt "<128bithexblock>"\n\n'  # cspell:disable-line
           '  # --- RSA ---\n'
           '  poetry run transcrypto -p rsa-key rsa new --bits 2048\n'
-          '  poetry run transcrypto -p rsa-key.pub rsa encrypt <plaintext>\n'
-          '  poetry run transcrypto -p rsa-key.priv rsa decrypt <ciphertext>\n'
-          '  poetry run transcrypto -p rsa-key.priv rsa sign <message>\n'
-          '  poetry run transcrypto -p rsa-key.pub rsa verify <message> <signature>\n\n'
+          '  poetry run transcrypto -p rsa-key.pub rsa rawencrypt <plaintext>\n'
+          '  poetry run transcrypto -p rsa-key.priv rsa rawdecrypt <ciphertext>\n'
+          '  poetry run transcrypto -p rsa-key.priv rsa rawsign <message>\n'
+          '  poetry run transcrypto -p rsa-key.pub rsa rawverify <message> <signature>\n\n'
           '  # --- ElGamal ---\n'
           '  poetry run transcrypto -p eg-key elgamal shared --bits 2048\n'
           '  poetry run transcrypto -p eg-key elgamal new\n'
-          '  poetry run transcrypto -p eg-key.pub elgamal encrypt <plaintext>\n'
-          '  poetry run transcrypto -p eg-key.priv elgamal decrypt <c1:c2>\n'
-          '  poetry run transcrypto -p eg-key.priv elgamal sign <message>\n'
-          '  poetry run transcrypto-p eg-key.pub elgamal verify <message> <s1:s2>\n\n'
+          '  poetry run transcrypto -p eg-key.pub elgamal rawencrypt <plaintext>\n'
+          '  poetry run transcrypto -p eg-key.priv elgamal rawdecrypt <c1:c2>\n'
+          '  poetry run transcrypto -p eg-key.priv elgamal rawsign <message>\n'
+          '  poetry run transcrypto-p eg-key.pub elgamal rawverify <message> <s1:s2>\n\n'
           '  # --- DSA ---\n'
           '  poetry run transcrypto -p dsa-key dsa shared --p-bits 2048 --q-bits 256\n'
           '  poetry run transcrypto -p dsa-key dsa new\n'
-          '  poetry run transcrypto -p dsa-key.priv dsa sign <message>\n'
-          '  poetry run transcrypto -p dsa-key.pub dsa verify <message> <s1:s2>\n\n'
+          '  poetry run transcrypto -p dsa-key.priv dsa rawsign <message>\n'
+          '  poetry run transcrypto -p dsa-key.pub dsa rawverify <message> <s1:s2>\n\n'
           '  # --- Public Bid ---\n'
           '  poetry run transcrypto --bin bid new "tomorrow it will rain"\n'
           '  poetry run transcrypto --out-bin bid verify\n\n'
           '  # --- Shamir Secret Sharing (SSS) ---\n'
           '  poetry run transcrypto -p sss-key sss new 3 --bits 1024\n'
-          '  poetry run transcrypto -p sss-key sss shares <secret> 5\n'
-          '  poetry run transcrypto -p sss-key sss recover\n'
-          '  poetry run transcrypto -p sss-key sss verify <secret>'
+          '  poetry run transcrypto -p sss-key sss rawshares <secret> 5\n'
+          '  poetry run transcrypto -p sss-key sss rawrecover\n'
+          '  poetry run transcrypto -p sss-key sss rawverify <secret>'
       ),
       formatter_class=argparse.RawTextHelpFormatter)
   sub = parser.add_subparsers(dest='command')
@@ -918,25 +918,25 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
             'than the size of the secret you want to protect with this scheme'))
 
   # Issue N shares for a secret
-  p_sss_shares: argparse.ArgumentParser = sss_sub.add_parser(
-      'shares',
+  p_sss_shares_raw: argparse.ArgumentParser = sss_sub.add_parser(
+      'rawshares',
       help='Issue `count` private shares for an integer `secret`.',
-      epilog=('-p sss-key sss shares 999 5\n'
+      epilog=('-p sss-key sss rawshares 999 5\n'
               'SSS 5 individual (private) shares saved to \'sss-key.share.1…5\'\n'
               '$ rm sss-key.share.2 sss-key.share.4  '
               '# this is to simulate only having shares 1,3,5'))
-  p_sss_shares.add_argument(
+  p_sss_shares_raw.add_argument(
       'secret', type=str, help='Integer secret to be protected, 1≤`secret`<*modulus*')
-  p_sss_shares.add_argument(
+  p_sss_shares_raw.add_argument(
       'count', type=int,
       help=('How many shares to produce; must be ≥ `minimum` used in `new` command or else the '
             '`secret` would become unrecoverable'))
 
   # Recover secret from shares
   sss_sub.add_parser(
-      'recover',
+      'rawrecover',
       help='Recover secret from shares; will use any available shares that were found.',
-      epilog=('-p sss-key sss recover\n'
+      epilog=('-p sss-key sss rawrecover\n'
               'Loaded SSS share: \'sss-key.share.3\'\n'
               'Loaded SSS share: \'sss-key.share.5\'\n'
               'Loaded SSS share: \'sss-key.share.1\'  '
@@ -944,18 +944,18 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
               'Secret:\n999'))
 
   # Verify a share against a secret
-  p_sss_verify: argparse.ArgumentParser = sss_sub.add_parser(
-      'verify',
+  p_sss_verify_raw: argparse.ArgumentParser = sss_sub.add_parser(
+      'rawverify',
       help='Verify shares against a secret (private params).',
-      epilog=('-p sss-key sss verify 999\n'
+      epilog=('-p sss-key sss rawverify 999\n'
               'SSS share \'sss-key.share.3\' verification: OK\n'
               'SSS share \'sss-key.share.5\' verification: OK\n'
               'SSS share \'sss-key.share.1\' verification: OK $$ '
-              '-p sss-key sss verify 998\n'
+              '-p sss-key sss rawverify 998\n'
               'SSS share \'sss-key.share.3\' verification: INVALID\n'
               'SSS share \'sss-key.share.5\' verification: INVALID\n'
               'SSS share \'sss-key.share.1\' verification: INVALID'))
-  p_sss_verify.add_argument(
+  p_sss_verify_raw.add_argument(
       'secret', type=str, help='Integer secret used to generate the shares, 1≤`secret`<*modulus*')
 
   # ========================= Markdown Generation ==================================================
@@ -1185,16 +1185,16 @@ def SSSCommand(args: argparse.Namespace, /) -> None:
       _SaveObj(sss_priv, args.key_path + '.priv', args.protect or None)
       _SaveObj(sss_pub, args.key_path + '.pub', args.protect or None)
       print(f'SSS private/public keys saved to {args.key_path + ".priv/.pub"!r}')
-    case 'shares':
+    case 'rawshares':
       sss_priv = _LoadObj(
           args.key_path + '.priv', args.protect or None, sss.ShamirSharedSecretPrivate)
       secret: int = _ParseInt(args.secret)
       sss_share: sss.ShamirSharePrivate
-      for i, sss_share in enumerate(sss_priv.Shares(secret, max_shares=args.count)):
+      for i, sss_share in enumerate(sss_priv.RawShares(secret, max_shares=args.count)):
         _SaveObj(sss_share, f'{args.key_path}.share.{i + 1}', args.protect or None)
       print(f'SSS {args.count} individual (private) shares saved to '
             f'{args.key_path + ".share.1…" + str(args.count)!r}')
-    case 'recover':
+    case 'rawrecover':
       sss_pub = _LoadObj(args.key_path + '.pub', args.protect or None, sss.ShamirSharedSecretPublic)
       subset: list[sss.ShamirSharePrivate] = []
       for fname in glob.glob(args.key_path + '.share.*'):
@@ -1202,15 +1202,15 @@ def SSSCommand(args: argparse.Namespace, /) -> None:
         subset.append(sss_share)
         print(f'Loaded SSS share: {fname!r}')
       print('Secret:')
-      print(sss_pub.RecoverSecret(subset))
-    case 'verify':
+      print(sss_pub.RawRecoverSecret(subset))
+    case 'rawverify':
       sss_priv = _LoadObj(
           args.key_path + '.priv', args.protect or None, sss.ShamirSharedSecretPrivate)
       secret = _ParseInt(args.secret)
       for fname in glob.glob(args.key_path + '.share.*'):
         sss_share = _LoadObj(fname, args.protect or None, sss.ShamirSharePrivate)
         print(f'SSS share {fname!r} verification: '
-              f'{"OK" if sss_priv.VerifyShare(secret, sss_share) else "INVALID"}')
+              f'{"OK" if sss_priv.RawVerifyShare(secret, sss_share) else "INVALID"}')
     case _:
       raise NotImplementedError()
 

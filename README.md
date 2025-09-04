@@ -64,9 +64,9 @@ Started in July/2025, by Daniel Balparda. Since version 1.0.2 it is PyPI package
       - [`bid verify`](#bid-verify)
     - [`sss`](#sss)
       - [`sss new`](#sss-new)
-      - [`sss shares`](#sss-shares)
-      - [`sss recover`](#sss-recover)
-      - [`sss verify`](#sss-verify)
+      - [`sss rawshares`](#sss-rawshares)
+      - [`sss rawrecover`](#sss-rawrecover)
+      - [`sss rawverify`](#sss-rawverify)
     - [`doc`](#doc)
       - [`doc md`](#doc-md)
     - [Base Library](#base-library)
@@ -193,7 +193,7 @@ poetry run transcrypto <command> [sub-command] [options...]
 - **`elgamal`** — `poetry run transcrypto elgamal [-h] {shared,new,rawencrypt,rawdecrypt,rawsign,rawverify} ...`
 - **`dsa`** — `poetry run transcrypto dsa [-h] {shared,new,rawsign,rawverify} ...`
 - **`bid`** — `poetry run transcrypto bid [-h] {new,verify} ...`
-- **`sss`** — `poetry run transcrypto sss [-h] {new,shares,recover,verify} ...`
+- **`sss`** — `poetry run transcrypto sss [-h] {new,rawshares,rawrecover,rawverify} ...`
 - **`doc`** — `poetry run transcrypto doc [-h] {md} ...`
 
 ```bash
@@ -234,24 +234,24 @@ Examples:
 
   # --- RSA ---
   poetry run transcrypto -p rsa-key rsa new --bits 2048
-  poetry run transcrypto -p rsa-key.pub rsa encrypt <plaintext>
-  poetry run transcrypto -p rsa-key.priv rsa decrypt <ciphertext>
-  poetry run transcrypto -p rsa-key.priv rsa sign <message>
-  poetry run transcrypto -p rsa-key.pub rsa verify <message> <signature>
+  poetry run transcrypto -p rsa-key.pub rsa rawencrypt <plaintext>
+  poetry run transcrypto -p rsa-key.priv rsa rawdecrypt <ciphertext>
+  poetry run transcrypto -p rsa-key.priv rsa rawsign <message>
+  poetry run transcrypto -p rsa-key.pub rsa rawverify <message> <signature>
 
   # --- ElGamal ---
   poetry run transcrypto -p eg-key elgamal shared --bits 2048
   poetry run transcrypto -p eg-key elgamal new
-  poetry run transcrypto -p eg-key.pub elgamal encrypt <plaintext>
-  poetry run transcrypto -p eg-key.priv elgamal decrypt <c1:c2>
-  poetry run transcrypto -p eg-key.priv elgamal sign <message>
-  poetry run transcrypto-p eg-key.pub elgamal verify <message> <s1:s2>
+  poetry run transcrypto -p eg-key.pub elgamal rawencrypt <plaintext>
+  poetry run transcrypto -p eg-key.priv elgamal rawdecrypt <c1:c2>
+  poetry run transcrypto -p eg-key.priv elgamal rawsign <message>
+  poetry run transcrypto-p eg-key.pub elgamal rawverify <message> <s1:s2>
 
   # --- DSA ---
   poetry run transcrypto -p dsa-key dsa shared --p-bits 2048 --q-bits 256
   poetry run transcrypto -p dsa-key dsa new
-  poetry run transcrypto -p dsa-key.priv dsa sign <message>
-  poetry run transcrypto -p dsa-key.pub dsa verify <message> <s1:s2>
+  poetry run transcrypto -p dsa-key.priv dsa rawsign <message>
+  poetry run transcrypto -p dsa-key.pub dsa rawverify <message> <s1:s2>
 
   # --- Public Bid ---
   poetry run transcrypto --bin bid new "tomorrow it will rain"
@@ -259,9 +259,9 @@ Examples:
 
   # --- Shamir Secret Sharing (SSS) ---
   poetry run transcrypto -p sss-key sss new 3 --bits 1024
-  poetry run transcrypto -p sss-key sss shares <secret> 5
-  poetry run transcrypto -p sss-key sss recover
-  poetry run transcrypto -p sss-key sss verify <secret>
+  poetry run transcrypto -p sss-key sss rawshares <secret> 5
+  poetry run transcrypto -p sss-key sss rawrecover
+  poetry run transcrypto -p sss-key sss rawverify <secret>
 ```
 
 ---
@@ -1073,7 +1073,7 @@ poetry run transcrypto dsa [-h] {shared,new,rawsign,rawverify} ...
 
 #### `dsa shared`
 
-Generate a shared DSA key with `p-bits`/`q-bits` prime modulus sizes, which is the first step in key generation. `q-bits` should be larger than the secrets that will be protected and `p-bits` should be much larger than `q-bits` (e.g. 3584/256). The shared key can safely be used by any number of users to generate their private/public key pairs (with the `new` command). The shared keys are "public". Requires `-p`/`--key-path` to set the basename for output files.
+Generate a shared DSA key with `p-bits`/`q-bits` prime modulus sizes, which is the first step in key generation. `q-bits` should be larger than the secrets that will be protected and `p-bits` should be much larger than `q-bits` (e.g. 4096/544). The shared key can safely be used by any number of users to generate their private/public key pairs (with the `new` command). The shared keys are "public". Requires `-p`/`--key-path` to set the basename for output files.
 
 ```bash
 poetry run transcrypto dsa shared [-h] [--p-bits P_BITS]
@@ -1082,8 +1082,8 @@ poetry run transcrypto dsa shared [-h] [--p-bits P_BITS]
 
 | Option/Arg | Description |
 |---|---|
-| `--p-bits` | Prime modulus (`p`) size in bits; the default is a safe size [type: int (default: 3584)] |
-| `--q-bits` | Prime modulus (`q`) size in bits; the default is a safe size ***IFF*** you are protecting symmetric keys or regular hashes [type: int (default: 256)] |
+| `--p-bits` | Prime modulus (`p`) size in bits; the default is a safe size [type: int (default: 4096)] |
+| `--q-bits` | Prime modulus (`q`) size in bits; the default is a safe size ***IFF*** you are protecting symmetric keys or regular hashes [type: int (default: 544)] |
 
 **Example:**
 
@@ -1201,7 +1201,8 @@ tomorrow it will rain
 Raw SSS (Shamir Shared Secret) secret sharing crypto scheme over *integers* (BEWARE: no modern message wrapping, padding or validation). These are pedagogical/raw primitives; do not use for new protocols. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
 
 ```bash
-poetry run transcrypto sss [-h] {new,shares,recover,verify} ...
+poetry run transcrypto sss [-h]
+                                  {new,rawshares,rawrecover,rawverify} ...
 ```
 
 #### `sss new`
@@ -1224,12 +1225,12 @@ $ poetry run transcrypto -p sss-key sss new 3 --bits 64  # NEVER use such a smal
 SSS private/public keys saved to 'sss-key.priv/.pub'
 ```
 
-#### `sss shares`
+#### `sss rawshares`
 
 Issue `count` private shares for an integer `secret`.
 
 ```bash
-poetry run transcrypto sss shares [-h] secret count
+poetry run transcrypto sss rawshares [-h] secret count
 ```
 
 | Option/Arg | Description |
@@ -1240,23 +1241,23 @@ poetry run transcrypto sss shares [-h] secret count
 **Example:**
 
 ```bash
-$ poetry run transcrypto -p sss-key sss shares 999 5
+$ poetry run transcrypto -p sss-key sss rawshares 999 5
 SSS 5 individual (private) shares saved to 'sss-key.share.1…5'
 $ rm sss-key.share.2 sss-key.share.4  # this is to simulate only having shares 1,3,5
 ```
 
-#### `sss recover`
+#### `sss rawrecover`
 
 Recover secret from shares; will use any available shares that were found.
 
 ```bash
-poetry run transcrypto sss recover [-h]
+poetry run transcrypto sss rawrecover [-h]
 ```
 
 **Example:**
 
 ```bash
-$ poetry run transcrypto -p sss-key sss recover
+$ poetry run transcrypto -p sss-key sss rawrecover
 Loaded SSS share: 'sss-key.share.3'
 Loaded SSS share: 'sss-key.share.5'
 Loaded SSS share: 'sss-key.share.1'  # using only 3 shares: number 2/4 are missing
@@ -1264,12 +1265,12 @@ Secret:
 999
 ```
 
-#### `sss verify`
+#### `sss rawverify`
 
 Verify shares against a secret (private params).
 
 ```bash
-poetry run transcrypto sss verify [-h] secret
+poetry run transcrypto sss rawverify [-h] secret
 ```
 
 | Option/Arg | Description |
@@ -1279,11 +1280,11 @@ poetry run transcrypto sss verify [-h] secret
 **Example:**
 
 ```bash
-$ poetry run transcrypto -p sss-key sss verify 999
+$ poetry run transcrypto -p sss-key sss rawverify 999
 SSS share 'sss-key.share.3' verification: OK
 SSS share 'sss-key.share.5' verification: OK
 SSS share 'sss-key.share.1' verification: OK
-$ poetry run transcrypto -p sss-key sss verify 998
+$ poetry run transcrypto -p sss-key sss rawverify 998
 SSS share 'sss-key.share.3' verification: INVALID
 SSS share 'sss-key.share.5' verification: INVALID
 SSS share 'sss-key.share.1' verification: INVALID

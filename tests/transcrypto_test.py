@@ -342,27 +342,27 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
   assert priv_path.exists() and pub_path.exists()
   # Issue 3 shares for a known secret
   secret = 999
-  code, out = _RunCLI(['-p', str(base_path), 'sss', 'shares', str(secret), '3'])
+  code, out = _RunCLI(['-p', str(base_path), 'sss', 'rawshares', str(secret), '3'])
   assert code == 0
   assert 'SSS 3 individual (private) shares saved to' in out and '1…3' in out
   for i in range(3):
     share_path = pathlib.Path(f'{base_path}.share.{i + 1}')
     assert share_path.exists()
   # Recover with public key
-  code, out = _RunCLI(['-p', str(base_path), 'sss', 'recover'])
+  code, out = _RunCLI(['-p', str(base_path), 'sss', 'rawrecover'])
   assert code == 0
   lines: list[str] = out.splitlines()
   assert len(lines) == 5
   assert 'Loaded SSS share' in lines[0]
   assert int(lines[-1]) == secret
   # Verify a share against the same secret with private key
-  code, out = _RunCLI(['-p', str(base_path), 'sss', 'verify', str(secret)])
+  code, out = _RunCLI(['-p', str(base_path), 'sss', 'rawverify', str(secret)])
   assert code == 0
   lines = out.splitlines()
   assert len(lines) == 3
   for line in lines:
     assert 'verification: OK' in line
-  code, out = _RunCLI(['-p', str(base_path), 'sss', 'verify', str(secret + 1)])
+  code, out = _RunCLI(['-p', str(base_path), 'sss', 'rawverify', str(secret + 1)])
   assert code == 0
   lines = out.splitlines()
   assert len(lines) == 3

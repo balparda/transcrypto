@@ -14,8 +14,7 @@ from unittest import mock
 
 import pytest
 
-from src.transcrypto import base
-from src.transcrypto import sss
+from src.transcrypto import base, sss
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = sss.__version__  # tests inherit version from module
@@ -26,32 +25,41 @@ __version__: str = sss.__version__  # tests inherit version from module
     (2, 821, [673], 13),
     (3, 919737471227, [824794422841, 870689553269], 1234567890),
 ])
-def test_ShamirSharedSecret(minimum: int, modulus: int, polynomial: list[int], secret: int) -> None:
+def test_ShamirSharedSecret_raw(minimum: int, modulus: int, polynomial: list[int], secret: int) -> None:
   """Test."""
   # create keys and some shares
   private = sss.ShamirSharedSecretPrivate(
       minimum=minimum, modulus=modulus, polynomial=polynomial)
   public: sss.ShamirSharedSecretPublic = sss.ShamirSharedSecretPublic.Copy(private)
   shares: list[sss.ShamirSharePrivate] = list(
-      private.Shares(secret, max_shares=minimum + 2))
+      private.RawShares(secret, max_shares=minimum + 2))
+  data = sss.ShamirShareData(
+      minimum=minimum, modulus=modulus, share_key=shares[0].share_key,
+      share_value=shares[0].share_value, encrypted_data=b'x' * 128)
   # do operations
-  assert public.RecoverSecret(shares) == secret
-  assert public.RecoverSecret(shares[1:]) == secret
-  assert public.RecoverSecret(shares[2:]) == secret
-  assert public.RecoverSecret(shares[:-1]) == secret
-  assert public.RecoverSecret(shares[:-2] + shares[:2]) == secret  # duplicate shares
-  assert private.VerifyShare(secret, shares[0])
-  assert private.VerifyShare(secret, shares[1])
-  assert not private.VerifyShare(secret + 1, shares[0])
+  assert public.RawRecoverSecret(shares) == secret
+  assert public.RawRecoverSecret(shares[1:]) == secret
+  assert public.RawRecoverSecret(shares[2:]) == secret
+  assert public.RawRecoverSecret(shares[:-1]) == secret
+  assert public.RawRecoverSecret(shares[:-2] + shares[:2]) == secret  # duplicate shares
+  assert private.RawVerifyShare(secret, shares[0])
+  assert private.RawVerifyShare(secret, shares[1])
+  assert not private.RawVerifyShare(secret + 1, shares[0])
   with pytest.raises(base.CryptoError, match='unrecoverable secret'):
-    public.RecoverSecret(shares[3:])
+    public.RawRecoverSecret(shares[3:])
   if minimum > 2:
-    assert public.RecoverSecret(shares[3:], force_recover=True) != secret
+    assert public.RawRecoverSecret(shares[3:], force_recover=True) != secret
+  with pytest.raises(base.InputError, match='invalid total_shares'):
+    private.MakeDataShares(b'msg', 1)
+  with pytest.raises(base.InputError, match='modulus too small for key operations'):
+    private.MakeDataShares(b'msg', 5)
+  with pytest.raises(base.InputError, match='modulus too small for key operations'):
+    data.RecoverData(shares)
   with pytest.raises(base.InputError, match='duplicated with conflicting value'):
     bogus_share = sss.ShamirSharePrivate(  # same key, different value
         minimum=shares[0].minimum, modulus=shares[0].modulus,
         share_key=shares[0].share_key, share_value=shares[0].share_value - 1)
-    public.RecoverSecret(shares[:-2] + [bogus_share])
+    public.RawRecoverSecret(shares[:-2] + [bogus_share])
 
 
 @mock.patch('src.transcrypto.base.RandBits', autospec=True)
@@ -70,20 +78,20 @@ def test_ShamirSharedSecret_creation(
   assert private == sss.ShamirSharedSecretPrivate(
       minimum=3, modulus=31, polynomial=[19, 23])
   with pytest.raises(base.InputError, match='invalid secret'):
-    private.Share(-1)
+    private.RawShare(-1)
   with pytest.raises(base.InputError, match='invalid share_key'):
-    private.Share(10, share_key=-1)
-  assert private.Share(10) == sss.ShamirSharePrivate(
+    private.RawShare(10, share_key=-1)
+  assert private.RawShare(10) == sss.ShamirSharePrivate(
       minimum=3, modulus=31, share_key=20, share_value=11)
   with pytest.raises(base.InputError, match='invalid max_shares'):
-    list(private.Shares(20, max_shares=2))
-  assert list(private.Shares(20, max_shares=3)) == [
+    list(private.RawShares(20, max_shares=2))
+  assert list(private.RawShares(20, max_shares=3)) == [
       sss.ShamirSharePrivate(minimum=3, modulus=31, share_key=20, share_value=21),
       sss.ShamirSharePrivate(minimum=3, modulus=31, share_key=21, share_value=22),
       sss.ShamirSharePrivate(minimum=3, modulus=31, share_key=22, share_value=7),
   ]
   private = sss.ShamirSharedSecretPrivate(minimum=3, modulus=907, polynomial=[593, 787])
-  shares: list[sss.ShamirSharePrivate] = list(private.Shares(12, max_shares=3))
+  shares: list[sss.ShamirSharePrivate] = list(private.RawShares(12, max_shares=3))
   assert shares == [
       # the 535 value will generate a share_value of 0 and will be discarded
       sss.ShamirSharePrivate(minimum=3, modulus=907, share_key=587, share_value=758),
@@ -103,6 +111,35 @@ def test_ShamirSharedSecret_creation(
   assert prime.call_args_list == [mock.call(10)] * 4
   shuffle.assert_called_once_with([19, 23])
   assert randbits.call_args_list == [mock.call(4)] * 7 + [mock.call(9)] * 4
+
+
+@pytest.mark.slow
+@pytest.mark.veryslow
+def test_ShamirSharedSecret() -> None:
+  """Test."""
+  private: sss.ShamirSharedSecretPrivate = sss.ShamirSharedSecretPrivate.New(5, 512)  # not too slow, not too fast
+  public: sss.ShamirSharedSecretPublic = sss.ShamirSharedSecretPublic.Copy(private)
+  assert private.modulus_size == public.modulus_size == 64
+  assert public.modulus.bit_length() == 512
+  for plaintext, n_shares in [  # parametrize here so we don't have to repeat key gen
+      (b'', 8),
+      (b'abc', 8),
+      (b'a0b1c2d3e4' * 10000000, 7),
+  ]:
+    shares: list[sss.ShamirShareData] = private.MakeDataShares(plaintext, n_shares)
+    assert len(shares) == n_shares
+    s_shares: list[sss.ShamirSharePrivate] = [sss.ShamirSharePrivate.CopyShare(s) for s in shares]
+    base.RandShuffle(shares)    # mix them up
+    base.RandShuffle(s_shares)  # mix them up
+    assert shares[0].RecoverData(s_shares[:5]) == plaintext
+    assert shares[1].RecoverData(shares[1:6]) == plaintext  # type:ignore
+    with pytest.raises(base.CryptoError, match='unrecoverable secret'):
+      shares[0].RecoverData(s_shares[:3])
+  with mock.patch(
+      'src.transcrypto.sss.ShamirSharedSecretPublic.RawRecoverSecret', autospec=True) as rrs:
+    rrs.return_value = 1 << 300
+    with pytest.raises(base.CryptoError, match='recovered key out of range for 256-bit key'):
+      shares[0].RecoverData(s_shares[:5])  # type:ignore
 
 
 def test_ShamirSharedSecretPublic_invalid() -> None:
@@ -138,6 +175,13 @@ def test_ShamirSharePrivate_invalid() -> None:
   with pytest.raises(base.InputError, match='invalid share'):
     sss.ShamirSharePrivate(minimum=3, modulus=7, share_key=2, share_value=7)
   sss.ShamirSharePrivate(minimum=3, modulus=7, share_key=2, share_value=6)
+
+
+def test_ShamirShareData_invalid() -> None:
+  """Test."""
+  with pytest.raises(base.InputError, match=r'AES256\+GCM SSS should have ≥32 bytes IV/CT/tag'):
+    sss.ShamirShareData(minimum=3, modulus=7, share_key=2, share_value=6, encrypted_data=b'xyz')
+  sss.ShamirShareData(minimum=3, modulus=7, share_key=2, share_value=6, encrypted_data=b'x' * 128)
 
 
 if __name__ == '__main__':

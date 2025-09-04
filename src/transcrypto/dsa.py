@@ -127,7 +127,7 @@ class DSASharedPublicKey(base.CryptoKey):
 
   @property
   def modulus_size(self) -> tuple[int, int]:
-    """Modulus size in bytes. The number of bytes used in Encrypt/Decrypt/Sign/Verify."""
+    """Modulus size in bytes. The number of bytes used in Sign/Verify."""
     return ((self.prime_modulus.bit_length() + 7) // 8,
             (self.prime_seed.bit_length() + 7) // 8)
 
