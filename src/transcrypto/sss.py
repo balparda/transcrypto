@@ -61,6 +61,7 @@ class ShamirSharedSecretPublic(base.CryptoKey):
       string representation of ShamirSharedSecretPublic
     """
     return ('ShamirSharedSecretPublic('
+            f'bits={self.modulus.bit_length()}, '
             f'minimum={self.minimum}, '
             f'modulus={base.IntToEncoded(self.modulus)})')
 
@@ -148,7 +149,8 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
     Returns:
       string representation of ShamirSharedSecretPrivate without leaking secrets
     """
-    return (f'ShamirSharedSecretPrivate({super(ShamirSharedSecretPrivate, self).__str__()}, '  # pylint: disable=super-with-arguments
+    return ('ShamirSharedSecretPrivate('
+            f'{super(ShamirSharedSecretPrivate, self).__str__()}, '  # pylint: disable=super-with-arguments
             f'polynomial=[{", ".join(base.ObfuscateSecret(i) for i in self.polynomial)}])')
 
   def Share(self, secret: int, /, *, share_key: int = 0) -> ShamirSharePrivate:
@@ -294,6 +296,7 @@ class ShamirSharePrivate(ShamirSharedSecretPublic):
     Returns:
       string representation of ShamirSharePrivate without leaking secrets
     """
-    return (f'ShamirSharePrivate({super(ShamirSharePrivate, self).__str__()}, '  # pylint: disable=super-with-arguments
+    return ('ShamirSharePrivate('
+            f'{super(ShamirSharePrivate, self).__str__()}, '  # pylint: disable=super-with-arguments
             f'share_key={base.ObfuscateSecret(self.share_key)}, '
             f'share_value={base.ObfuscateSecret(self.share_value)})')

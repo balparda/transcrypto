@@ -68,5 +68,6 @@ pythonpath = ["src"]
 addopts = ["--strict-markers"]
 markers = [
   "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+  "veryslow: marks tests as slow (deselect with '-m \"not veryslow\"')",
   "stochastic: marks tests as capable of failing even if unlikely (deselect with '-m \"not stochastic\"')"
 ]

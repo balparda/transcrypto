@@ -28,9 +28,14 @@ def test_RSA_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
   """Test."""
   with pytest.raises(base.InputError, match='invalid bit length'):
     rsa.RSAPrivateKey.New(10)
-  prime.side_effect = [17, 29, 29, 59, 31, 41,  # 2 failed tries
-                       59, 31,                  # generates the key
-                       17, 29, 29, 59, 31, 41]  # 22 failed tries for failed key generation
+  prime.side_effect = [
+      29, 43,   # attempt #1 → FAIL (φ multiple of 7)
+      29, 59,   # attempt #2 → FAIL (φ multiple of 7)
+      31, 41,   # attempt #3 → SUCCESS (11-bit modulus, gcd(7, φ) == 1)
+      # Below: two more failing attempts to trip the failure counter when max=2
+      29, 43,   # attempt #1 after patching max → FAIL
+      29, 59,   # attempt #2 after patching max → FAIL → CryptoError
+  ]
   randbits.side_effect = [31, 1000]
   private: rsa.RSAPrivateKey = rsa.RSAPrivateKey.New(11)
   with pytest.MonkeyPatch().context() as mp:
@@ -38,23 +43,24 @@ def test_RSA_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
     with pytest.raises(base.CryptoError, match='failed key generation'):
       rsa.RSAPrivateKey.New(11)
   assert private == rsa.RSAPrivateKey(
-      public_modulus=1829, encrypt_exp=7, modulus_p=31, modulus_q=59, decrypt_exp=1243,
-      remainder_p=13, remainder_q=25, q_inverse_p=10)
-  ob_pair = rsa.RSAObfuscationPair(
-      public_modulus=1829, encrypt_exp=7, random_key=1000, key_inverse=1337)
-  assert rsa.RSAObfuscationPair.New(rsa.RSAPublicKey.Copy(private)) == ob_pair
+      public_modulus=1271, encrypt_exp=7, modulus_p=31, modulus_q=41, decrypt_exp=343,
+      remainder_p=13, remainder_q=23, q_inverse_p=28)
+  ob_pair: rsa.RSAObfuscationPair = rsa.RSAObfuscationPair.New(private)
+  assert private.modulus_size == ob_pair.modulus_size == 2
+  assert ob_pair == rsa.RSAObfuscationPair(
+      public_modulus=1271, encrypt_exp=7, random_key=1000, key_inverse=469)
   assert str(private) == (
-      'RSAPrivateKey(RSAPublicKey(public_modulus=ByU=, encrypt_exp=Bw==), '
-      'modulus_p=4ff3abc9…, modulus_q=e28e547f…, decrypt_exp=6567108b…)')
+      'RSAPrivateKey(RSAPublicKey(bits=11, public_modulus=BPc=, encrypt_exp=Bw==), '
+      'modulus_p=4ff3abc9…, modulus_q=89970cf3…, decrypt_exp=b3e6c81d…)')
   assert private._DebugDump() == (
-      'RSAPrivateKey(public_modulus=1829, encrypt_exp=7, modulus_p=31, modulus_q=59, '
-      'decrypt_exp=1243, remainder_p=13, remainder_q=25, q_inverse_p=10)')
+      'RSAPrivateKey(public_modulus=1271, encrypt_exp=7, modulus_p=31, modulus_q=41, '
+      'decrypt_exp=343, remainder_p=13, remainder_q=23, q_inverse_p=28)')
   assert str(ob_pair) == (
-      'RSAObfuscationPair(RSAPublicKey(public_modulus=ByU=, encrypt_exp=Bw==), '
-      'random_key=c597618a…, key_inverse=db5f8454…)')
+      'RSAObfuscationPair(RSAPublicKey(bits=11, public_modulus=BPc=, encrypt_exp=Bw==), '
+      'random_key=c597618a…, key_inverse=ee4b2e91…)')
   assert ob_pair._DebugDump() == (
-      'RSAObfuscationPair(public_modulus=1829, encrypt_exp=7, random_key=1000, key_inverse=1337)')
-  assert prime.call_args_list == [mock.call(n) for n in (5, 5, 6, 6, 5, 5, 5, 5, 5, 5, 6, 6, 5, 5)]
+      'RSAObfuscationPair(public_modulus=1271, encrypt_exp=7, random_key=1000, key_inverse=469)')
+  assert prime.call_args_list == [mock.call(5)] * 10
   assert randbits.call_args_list == [mock.call(10)] * 2
 
 
@@ -70,7 +76,7 @@ def test_RSA_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
         (8628083, 65537, 8374570, 5137309, 2251, 3833, 4755473, 1223, 3793, 286,
          10, 4660799, 2979077, 6696343, 8467706),
     ])
-def test_RSA(  # pylint: disable=too-many-locals,too-many-arguments,too-many-positional-arguments
+def test_RSA_raw(  # pylint: disable=too-many-locals,too-many-arguments,too-many-positional-arguments
     public_modulus: int, encrypt_exp: int, random_key: int, key_inverse: int,
     modulus_p: int, modulus_q: int, decrypt_exp: int, remainder_p: int,
     remainder_q: int, q_inverse_p: int,
@@ -91,6 +97,12 @@ def test_RSA(  # pylint: disable=too-many-locals,too-many-arguments,too-many-pos
     public.RawEncrypt(0)
   with pytest.raises(base.InputError, match='invalid message'):
     public.RawEncrypt(public_modulus)
+  with pytest.raises(base.InputError, match='modulus too small for signing operations'):
+    public.Verify(b'msg', b'sig')
+  with pytest.raises(base.InputError, match='modulus too small for signing operations'):
+    private.Sign(b'msg')
+  with pytest.raises(base.CryptoError, match=r'hash output.*is out of range/invalid'):
+    private._DomainSeparatedHash(b'msg', b'aad', b's' * 64)
   cypher: int = public.RawEncrypt(message)
   with pytest.raises(base.InputError, match='invalid message'):
     ob.ObfuscateMessage(0)
@@ -119,6 +131,41 @@ def test_RSA(  # pylint: disable=too-many-locals,too-many-arguments,too-many-pos
     verify.side_effect = [True, False]
     with pytest.raises(base.CryptoError, match='failed signature recovery'):
       ob.RevealOriginalSignature(message + 1, obfuscated_signed)
+
+
+@pytest.mark.slow
+@pytest.mark.veryslow
+def test_RSA() -> None:
+  """Test."""
+  private: rsa.RSAPrivateKey = rsa.RSAPrivateKey.New(609)  # not too slow, not too fast
+  public: rsa.RSAPublicKey = rsa.RSAPublicKey.Copy(private)
+  assert private.modulus_size == public.modulus_size == 77
+  assert public.public_modulus.bit_length() == 609
+  aad: bytes | None
+  for plaintext, aad, h_dsh in [  # parametrize here so we don't have to repeat key gen
+      (b'', b'', 'bba5d24ecc975a54'),
+      (b'abc', b'', 'e0f9ec10cef8e155'),
+      (b'abcd', b'', '40b61d241baff180'),
+      (b'abc', b'z', '768d7961ca8b6dc7'),
+      (b'a0b1c2d3e4' * 10000000, b'e4d3c2b1a0' * 10000000, '5194fe1bf993ebbe'),
+  ]:
+    aad = aad if aad else None  # make sure we test both None and b''
+    ct: bytes = public.Encrypt(plaintext, associated_data=aad)
+    dsh: int = public._DomainSeparatedHash(plaintext, aad, b's' * 64)
+    sg: bytes = private.Sign(plaintext, associated_data=aad)
+    sg2: bytes = private.Sign(b'foo')
+    assert private.Decrypt(ct, associated_data=aad) == plaintext
+    with pytest.raises(base.InputError, match='invalid ciphertext length'):
+      private.Decrypt(b'v' * 108, associated_data=aad)
+    assert public.Verify(plaintext, sg, associated_data=aad)
+    assert public.Verify(b'foo', sg2)
+    assert not public.Verify(plaintext, sg + b'x', associated_data=aad)  # wrong size
+    assert not public.Verify(plaintext, sg2, associated_data=aad)        # incorrect signature
+    assert not public.Verify(plaintext, b'\x00' * (64 + 77), associated_data=aad)  # zero sig
+    assert not public.Verify(plaintext + b' ', sg, associated_data=aad)  # incorrect message
+    assert not public.Verify(b'bar', sg2)                                # incorrect message
+    assert not public.Verify(plaintext, sg, associated_data=(aad if aad else b'') + b'x')  # AAD
+    assert base.BytesToHex(base.IntToBytes(dsh))[:16] == h_dsh
 
 
 @mock.patch('src.transcrypto.base.RandBits', autospec=True)

@@ -114,6 +114,7 @@ class DSASharedPublicKey(base.CryptoKey):
       string representation of DSASharedPublicKey
     """
     return ('DSASharedPublicKey('
+            f'bits=[{self.prime_modulus.bit_length()}, {self.prime_seed.bit_length()}], '
             f'prime_modulus={base.IntToEncoded(self.prime_modulus)}, '
             f'prime_seed={base.IntToEncoded(self.prime_seed)}, '
             f'group_base={base.IntToEncoded(self.group_base)})')
@@ -172,7 +173,8 @@ class DSAPublicKey(DSASharedPublicKey):
     Returns:
       string representation of DSAPublicKey
     """
-    return (f'DSAPublicKey({super(DSAPublicKey, self).__str__()}, '  # pylint: disable=super-with-arguments
+    return ('DSAPublicKey('
+            f'{super(DSAPublicKey, self).__str__()}, '  # pylint: disable=super-with-arguments
             f'individual_base={base.IntToEncoded(self.individual_base)})')
 
   def _MakeEphemeralKey(self) -> tuple[int, int]:
@@ -262,7 +264,8 @@ class DSAPrivateKey(DSAPublicKey):
     Returns:
       string representation of DSAPrivateKey without leaking secrets
     """
-    return (f'DSAPrivateKey({super(DSAPrivateKey, self).__str__()}, '  # pylint: disable=super-with-arguments
+    return ('DSAPrivateKey('
+            f'{super(DSAPrivateKey, self).__str__()}, '  # pylint: disable=super-with-arguments
             f'decrypt_exp={base.ObfuscateSecret(self.decrypt_exp)})')
 
   def RawSign(self, message: int, /) -> tuple[int, int]:

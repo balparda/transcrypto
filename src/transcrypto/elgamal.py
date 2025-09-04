@@ -67,6 +67,7 @@ class ElGamalSharedPublicKey(base.CryptoKey):
       string representation of ElGamalSharedPublicKey
     """
     return ('ElGamalSharedPublicKey('
+            f'bits={self.prime_modulus.bit_length()}, '
             f'prime_modulus={base.IntToEncoded(self.prime_modulus)}, '
             f'group_base={base.IntToEncoded(self.group_base)})')
 
@@ -122,7 +123,8 @@ class ElGamalPublicKey(ElGamalSharedPublicKey):
     Returns:
       string representation of ElGamalPublicKey
     """
-    return (f'ElGamalPublicKey({super(ElGamalPublicKey, self).__str__()}, '  # pylint: disable=super-with-arguments
+    return ('ElGamalPublicKey('
+            f'{super(ElGamalPublicKey, self).__str__()}, '  # pylint: disable=super-with-arguments
             f'individual_base={base.IntToEncoded(self.individual_base)})')
 
   def _MakeEphemeralKey(self) -> tuple[int, int]:
@@ -241,7 +243,8 @@ class ElGamalPrivateKey(ElGamalPublicKey):
     Returns:
       string representation of ElGamalPrivateKey without leaking secrets
     """
-    return (f'ElGamalPrivateKey({super(ElGamalPrivateKey, self).__str__()}, '  # pylint: disable=super-with-arguments
+    return ('ElGamalPrivateKey('
+            f'{super(ElGamalPrivateKey, self).__str__()}, '  # pylint: disable=super-with-arguments
             f'decrypt_exp={base.ObfuscateSecret(self.decrypt_exp)})')
 
   def RawDecrypt(self, ciphertext: tuple[int, int], /) -> int:

@@ -38,7 +38,7 @@ def test_ElGamal_keys_creation(prime: mock.MagicMock, randbits: mock.MagicMock) 
   assert private == elgamal.ElGamalPrivateKey(
       prime_modulus=1783, group_base=146, individual_base=694, decrypt_exp=409)
   assert str(private) == (
-      'ElGamalPrivateKey(ElGamalPublicKey(ElGamalSharedPublicKey('
+      'ElGamalPrivateKey(ElGamalPublicKey(ElGamalSharedPublicKey(bits=11, '
       'prime_modulus=Bvc=, group_base=kg==), individual_base=ArY=), decrypt_exp=78168064…)')
   assert private._DebugDump() == (
       'ElGamalPrivateKey(prime_modulus=1783, group_base=146, individual_base=694, decrypt_exp=409)')

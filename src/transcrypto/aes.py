@@ -245,7 +245,8 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
       InputError: invalid inputs
       CryptoError: internal crypto failures, authentication failure, key mismatch, etc
     """
-    assert len(ciphertext) >= 32, 'should never happen: AES256+GCM should have ≥32 bytes IV/CT/tag'
+    if len(ciphertext) < 32:
+      raise base.InputError(f'AES256+GCM should have ≥32 bytes IV/CT/tag: {len(ciphertext)}')
     iv, tag = ciphertext[:16], ciphertext[-16:]
     decryptor: ciphers.CipherContext = ciphers.Cipher(
         algorithms.AES256(self.key256), modes.GCM(iv, tag)).decryptor()

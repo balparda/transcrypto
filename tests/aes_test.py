@@ -253,6 +253,8 @@ def test_GCMEncoder(rand_bytes: mock.MagicMock, s_key: str, pt: bytes, aad: byte
   if aad:
     with pytest.raises(base.CryptoError, match='failed decryption'):
       key.Decrypt(ct, associated_data=aad)  # should not have aad
+  with pytest.raises(base.InputError, match=r'AES256\+GCM should have ≥32 bytes IV/CT/tag'):
+    key.Decrypt(b'123', associated_data=aad)  # ct too short
   ct = key.Encrypt(pt, associated_data=aad)
   if len(aad) > 2:
     with pytest.raises(base.CryptoError, match='failed decryption'):

@@ -34,8 +34,8 @@ BytesToInt: Callable[[bytes], int] = lambda b: int.from_bytes(b, 'big', signed=F
 BytesToEncoded: Callable[[bytes], str] = lambda b: base64.urlsafe_b64encode(b).decode('ascii')
 
 HexToBytes: Callable[[str], bytes] = bytes.fromhex
-IntToBytes: Callable[[int], bytes] = lambda i: i.to_bytes(
-    (i.bit_length() + 7) // 8, 'big', signed=False)
+IntToFixedBytes: Callable[[int, int], bytes] = lambda i, n: i.to_bytes(n, 'big', signed=False)
+IntToBytes: Callable[[int], bytes] = lambda i: IntToFixedBytes(i, (i.bit_length() + 7) // 8)
 IntToEncoded: Callable[[int], str] = lambda i: BytesToEncoded(IntToBytes(i))
 EncodedToBytes: Callable[[str], bytes] = lambda e: base64.urlsafe_b64decode(e.encode('ascii'))
 
@@ -943,7 +943,7 @@ def DeSerialize(
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
-class PublicBid(CryptoKey):
+class PublicBid512(CryptoKey):
   """Public commitment to a (cryptographically secure) bid that can be revealed/validated later.
 
   Bid is computed as: public_hash = Hash512(public_key || private_key || secret_bid)
@@ -967,7 +967,7 @@ class PublicBid(CryptoKey):
     Raises:
       InputError: invalid inputs
     """
-    super(PublicBid, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
+    super(PublicBid512, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
     if len(self.public_key) != 64 or len(self.public_hash) != 64:
       raise InputError(f'invalid public_key or public_hash: {self}')
 
@@ -977,7 +977,8 @@ class PublicBid(CryptoKey):
     Returns:
       string representation of PublicBid
     """
-    return (f'PublicBid(public_key={BytesToEncoded(self.public_key)}, '
+    return ('PublicBid512('
+            f'public_key={BytesToEncoded(self.public_key)}, '
             f'public_hash={BytesToHex(self.public_hash)})')
 
   def VerifyBid(self, private_key: bytes, secret: bytes, /) -> bool:
@@ -995,7 +996,7 @@ class PublicBid(CryptoKey):
     """
     try:
       # creating the PrivateBid object will validate everything; InputError we allow to propagate
-      PrivateBid(
+      PrivateBid512(
           public_key=self.public_key, public_hash=self.public_hash,
           private_key=private_key, secret_bid=secret)
       return True  # if we got here, all is good
@@ -1003,13 +1004,13 @@ class PublicBid(CryptoKey):
       return False  # bid does not match the public commitment
 
   @classmethod
-  def Copy(cls, other: PublicBid, /) -> Self:
+  def Copy(cls, other: PublicBid512, /) -> Self:
     """Initialize a public bid by taking the public parts of a public/private bid."""
     return cls(public_key=other.public_key, public_hash=other.public_hash)
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
-class PrivateBid(PublicBid):
+class PrivateBid512(PublicBid512):
   """Private bid that can be revealed and validated against a public commitment (see PublicBid).
 
   Attributes:
@@ -1027,7 +1028,7 @@ class PrivateBid(PublicBid):
       InputError: invalid inputs
       CryptoError: bid does not match the public commitment
     """
-    super(PrivateBid, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
+    super(PrivateBid512, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
     if len(self.private_key) != 64 or len(self.secret_bid) < 1:
       raise InputError(f'invalid private_key or secret_bid: {self}')
     if self.public_hash != Hash512(self.public_key + self.private_key + self.secret_bid):
@@ -1039,7 +1040,8 @@ class PrivateBid(PublicBid):
     Returns:
       string representation of PrivateBid without leaking secrets
     """
-    return (f'PrivateBid({super(PrivateBid, self).__str__()}, '  # pylint: disable=super-with-arguments
+    return ('PrivateBid512('
+            f'{super(PrivateBid512, self).__str__()}, '  # pylint: disable=super-with-arguments
             f'private_key={ObfuscateSecret(self.private_key)}, '
             f'secret_bid={ObfuscateSecret(self.secret_bid)})')
 

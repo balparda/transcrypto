@@ -2027,13 +2027,13 @@ This is a way of bidding on some commitment (the `secret`) that can be cryptogra
 from transcrypto import base
 
 # Generate the private and public bids
-bid_priv = base.PrivateBid.New(secret)    # this one you keep private
-bid_pub = base.PublicBid.Copy(bid_priv)   # this one you publish
+bid_priv = base.PrivateBid512.New(secret)    # this one you keep private
+bid_pub = base.PublicBid512.Copy(bid_priv)   # this one you publish
 
 # Checking that a bid is genuine requires the public bid and knowing the nonce and the secret:
 print(bid_pub.VerifyBid(private_key, secret_bid))  # these come from a divulged private bid
 # of course, you want to also make sure the provided private data matches your version of it, e.g.:
-bid_pub_expected = base.PublicBid.Copy(bid_priv)
+bid_pub_expected = base.PublicBid512.Copy(bid_priv)
 print(bid_pub == bid_pub_expected)
 ```
 

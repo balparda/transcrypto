@@ -44,7 +44,7 @@ def test_LoadObj_wrong_type_raises(tmp_path: pathlib.Path) -> None:
   transcrypto._SaveObj(key, str(path), None)
   # …then try to load it expecting a completely different type.
   with pytest.raises(base.InputError, match=r'invalid type.*AESKey.*expected.*PublicBid'):
-    transcrypto._LoadObj(str(path), None, base.PublicBid)  # expecting PublicBid, got AESKey
+    transcrypto._LoadObj(str(path), None, base.PublicBid512)  # expecting PublicBid, got AESKey
 
 
 @pytest.mark.parametrize(
@@ -168,6 +168,7 @@ def test_random_prime_properties(bits: int) -> None:
 
 
 @pytest.mark.slow
+@pytest.mark.veryslow
 def test_aes_key_print_b64_matches_library(tmp_path: pathlib.Path) -> None:
   """Test AES key CLI command output matches library."""
   # CLI derives & prints b64; library derives for ground truth

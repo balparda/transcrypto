@@ -37,6 +37,7 @@
     "Adleman",
     "Algoritmos",
     "Bézout",
+    "Bleichenbacher",
     "caplog",
     "capsys",
     "coeff",
@@ -84,6 +85,7 @@
     "unpickle",
     "UNSTARTED",
     "urandom",
+    "veryslow",
     "xgcd",
     "Zstandard",
     "Zstd"

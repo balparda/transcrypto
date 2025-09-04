@@ -1156,15 +1156,15 @@ def BidCommand(
   match bid_cmd:
     case 'new':
       secret: bytes = _BytesFromText(args.secret, in_format)
-      bid_priv: base.PrivateBid = base.PrivateBid.New(secret)
-      bid_pub: base.PublicBid = base.PublicBid.Copy(bid_priv)
+      bid_priv: base.PrivateBid512 = base.PrivateBid512.New(secret)
+      bid_pub: base.PublicBid512 = base.PublicBid512.Copy(bid_priv)
       _SaveObj(bid_priv, args.key_path + '.priv', args.protect or None)
       _SaveObj(bid_pub, args.key_path + '.pub', args.protect or None)
       print(f'Bid private/public commitments saved to {args.key_path + ".priv/.pub"!r}')
     case 'verify':
-      bid_priv = _LoadObj(args.key_path + '.priv', args.protect or None, base.PrivateBid)
-      bid_pub = _LoadObj(args.key_path + '.pub', args.protect or None, base.PublicBid)
-      bid_pub_expect: base.PublicBid = base.PublicBid.Copy(bid_priv)
+      bid_priv = _LoadObj(args.key_path + '.priv', args.protect or None, base.PrivateBid512)
+      bid_pub = _LoadObj(args.key_path + '.pub', args.protect or None, base.PublicBid512)
+      bid_pub_expect: base.PublicBid512 = base.PublicBid512.Copy(bid_priv)
       print('Bid commitment: ' + (
           'OK' if (bid_pub.VerifyBid(bid_priv.private_key, bid_priv.secret_bid) and
                    bid_pub == bid_pub_expect) else 'INVALID'))

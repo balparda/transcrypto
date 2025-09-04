@@ -91,12 +91,12 @@ def test_ShamirSharedSecret_creation(
       sss.ShamirSharePrivate(minimum=3, modulus=907, share_key=341, share_value=439),
   ]
   assert str(private) == (
-      'ShamirSharedSecretPrivate(ShamirSharedSecretPublic(minimum=3, modulus=A4s=), '
+      'ShamirSharedSecretPrivate(ShamirSharedSecretPublic(bits=10, minimum=3, modulus=A4s=), '
       'polynomial=[48d0972e…, 9c72b540…])')
   assert private._DebugDump() == (
       'ShamirSharedSecretPrivate(minimum=3, modulus=907, polynomial=[593, 787])')
   assert str(shares[0]) == (
-      'ShamirSharePrivate(ShamirSharedSecretPublic(minimum=3, modulus=A4s=), '
+      'ShamirSharePrivate(ShamirSharedSecretPublic(bits=10, minimum=3, modulus=A4s=), '
       'share_key=ed467e80…, share_value=6be320c8…)')
   assert shares[0]._DebugDump() == (
       'ShamirSharePrivate(minimum=3, modulus=907, share_key=587, share_value=758)')

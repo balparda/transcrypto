@@ -737,7 +737,7 @@ def test_deserialize_no_compression_detected_branch(
         b'a',
         '711f48ea38b803f8d2026846e7a8fb637879e818f60f768594bc91f061f23c00'
         '4187183c2d8c81c3b67feb534e5cad90b3d9eae9488a525dd037eccac9512f2f',
-        'PrivateBid(PublicBid(public_key=eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4'
+        'PrivateBid512(PublicBid512(public_key=eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4'
         'eHh4eHh4eHh4eHh4eHh4eHh4eHh4eA==, public_hash=711f48ea38b803f8d2026846e7a8fb637879e818f6'
         '0f768594bc91f061f23c004187183c2d8c81c3b67feb534e5cad90b3d9eae9488a525dd037eccac9512f2f), '
         'private_key=81e396cb…, secret_bid=1f40fc92…)',
@@ -746,7 +746,7 @@ def test_deserialize_no_compression_detected_branch(
         b'secret',
         'ab13b41fe50fef61483f2ce495ca5af1e173245811ef8610023d61b0d12d3f52'
         'd9c1b92388fec771dc4601bc36c4ddffe713e64532c01eb8936e29e06d10f936',
-        'PrivateBid(PublicBid(public_key=eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4'
+        'PrivateBid512(PublicBid512(public_key=eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4'
         'eHh4eHh4eHh4eHh4eHh4eHh4eHh4eA==, public_hash=ab13b41fe50fef61483f2ce495ca5af1e173245811'
         'ef8610023d61b0d12d3f52d9c1b92388fec771dc4601bc36c4ddffe713e64532c01eb8936e29e06d10f936), '
         'private_key=81e396cb…, secret_bid=bd2b1aaf…)',
@@ -755,7 +755,7 @@ def test_deserialize_no_compression_detected_branch(
         b'longer secret value with spaces',
         '5f25720c817a89c446e51ce56e64643aa5343cb1898904ea0e45b8ad5f4caabc'
         'aba091fb7e122bfff8d8b54855fcaa27e0f962d98c8eebae3a7765393c0fdf6a',
-        'PrivateBid(PublicBid(public_key=eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4'
+        'PrivateBid512(PublicBid512(public_key=eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4'
         'eHh4eHh4eHh4eHh4eHh4eHh4eHh4eA==, public_hash=5f25720c817a89c446e51ce56e64643aa5343cb189'
         '8904ea0e45b8ad5f4caabcaba091fb7e122bfff8d8b54855fcaa27e0f962d98c8eebae3a7765393c0fdf6a), '
         'private_key=81e396cb…, secret_bid=826df62c…)',
@@ -766,8 +766,8 @@ def test_Bid_with_mock(
     randbytes: mock.MagicMock, secret: bytes, public_hash: str, bid_str: str) -> None:
   """Test."""
   randbytes.side_effect = [b'x' * 64, b'y' * 64]
-  priv: base.PrivateBid = base.PrivateBid.New(secret)
-  pub: base.PublicBid = base.PublicBid.Copy(priv)
+  priv: base.PrivateBid512 = base.PrivateBid512.New(secret)
+  pub: base.PublicBid512 = base.PublicBid512.Copy(priv)
   assert base.BytesToHex(pub.public_hash) == public_hash
   priv_s = str(priv)
   assert priv_s == bid_str
@@ -786,9 +786,9 @@ def test_Bid_with_mock(
 ])
 def test_Bid(secret: bytes) -> None:
   """Test."""
-  priv1: base.PrivateBid = base.PrivateBid.New(secret)
-  priv2: base.PrivateBid = base.PrivateBid.New(secret)
-  pub: base.PublicBid = base.PublicBid.Copy(priv1)
+  priv1: base.PrivateBid512 = base.PrivateBid512.New(secret)
+  priv2: base.PrivateBid512 = base.PrivateBid512.New(secret)
+  pub: base.PublicBid512 = base.PublicBid512.Copy(priv1)
   assert pub.VerifyBid(priv1.private_key, secret)
   assert not pub.VerifyBid(priv1.private_key, secret + b'x')
   assert not pub.VerifyBid(priv2.private_key, secret)
@@ -801,15 +801,15 @@ def test_Bid(secret: bytes) -> None:
 def test_Bid_invalid() -> None:
   """Test."""
   with pytest.raises(base.InputError, match='invalid public_key or public_hash'):
-    base.PublicBid(public_key=b'key', public_hash=b'hash')
+    base.PublicBid512(public_key=b'key', public_hash=b'hash')
   with pytest.raises(base.InputError, match='invalid private_key or secret_bid'):
-    base.PrivateBid(
+    base.PrivateBid512(
         public_key=b'k' * 64, public_hash=b'h' * 64, private_key=b'priv', secret_bid=b'secret')
   with pytest.raises(base.CryptoError, match='inconsistent bid'):
-    base.PrivateBid(
+    base.PrivateBid512(
         public_key=b'k' * 64, public_hash=b'h' * 64, private_key=b'p' * 64, secret_bid=b'secret')
   with pytest.raises(base.InputError, match='invalid secret length'):
-    base.PrivateBid.New(b'')
+    base.PrivateBid512.New(b'')
 
 
 if __name__ == '__main__':
