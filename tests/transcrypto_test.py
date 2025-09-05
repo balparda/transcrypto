@@ -172,6 +172,8 @@ def test_random_prime_properties(bits: int) -> None:
 def test_aes_key_print_b64_matches_library(tmp_path: pathlib.Path) -> None:
   """Test AES key CLI command output matches library."""
   # CLI derives & prints b64; library derives for ground truth
+  code: int
+  out: str
   code, out = _RunCLI(
       ['--out-b64', 'aes', 'key', 'correct horse battery staple'])
   assert code == 0
@@ -199,14 +201,16 @@ def test_aes_ecb_encrypthex_decrypthex_roundtrip() -> None:
   key_b64: str = base.BytesToEncoded(key_bytes)
   block_hex = '00112233445566778899aabbccddeeff'
   # Encrypt (hex → hex)
-  code, ct_hex = _RunCLI(['--b64', 'aes', 'ecb', '-k', key_b64, 'encrypt', block_hex])
+  code: int
+  out: str
+  code, out = _RunCLI(['--b64', 'aes', 'ecb', '-k', key_b64, 'encrypt', block_hex])
   assert code == 0
   assert re.fullmatch(r'[0-9a-f]{32}', block_hex)  # sanity of input
-  assert re.fullmatch(r'[0-9a-f]{32}', ct_hex)     # 16-byte block
+  assert re.fullmatch(r'[0-9a-f]{32}', out)     # 16-byte block
   # Decrypt back
-  code, pt_hex = _RunCLI(['--b64', 'aes', 'ecb', '-k', key_b64, 'decrypt', ct_hex])
+  code, out = _RunCLI(['--b64', 'aes', 'ecb', '-k', key_b64, 'decrypt', out])
   assert code == 0
-  assert pt_hex == block_hex
+  assert out == block_hex
 
 
 def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None:  # pylint: disable=redefined-outer-name
@@ -214,15 +218,17 @@ def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None: 
   plaintext = 'secret message'
   aad = 'assoc'
   # Encrypt: inputs as binary text, outputs default hex
-  code, ct_hex = _RunCLI(
+  code: int
+  out: str
+  code, out = _RunCLI(
       ['--bin', '-p', str(aes_key_file), 'aes', 'encrypt', plaintext, '-a', aad])
   assert code == 0
-  assert re.fullmatch(r'[0-9a-f]+', ct_hex) is not None
-  assert len(ct_hex) >= 32  # IV(16)+TAG(16)+ct → hex length ≥ 64; allow any ≥ minimal sanity
+  assert re.fullmatch(r'[0-9a-f]+', out) is not None
+  assert len(out) >= 32  # IV(16)+TAG(16)+ct → hex length ≥ 64; allow any ≥ minimal sanity
   # Decrypt: ciphertext hex in, ask for raw output so we can compare to original string
   code, out = _RunCLI(
       ['--hex', '-p', str(aes_key_file), '--out-bin', 'aes', 'decrypt',
-       ct_hex, '-a', base.BytesToHex(aad.encode('utf-8'))])
+       out, '-a', base.BytesToHex(aad.encode('utf-8'))])
   assert code == 0
   assert out == plaintext
 
@@ -234,30 +240,64 @@ def test_rsa_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None:
   priv_path: pathlib.Path = tmp_path / 'rsa.priv'
   pub_path: pathlib.Path = tmp_path / 'rsa.pub'
   # Key gen (small for speed)
+  code: int
+  out: str
   code, out = _RunCLI(['-p', str(base_path), 'rsa', 'new', '--bits', '512'])
   assert code == 0 and 'RSA private/public keys saved to' in out
   assert priv_path.exists()
   assert pub_path.exists()
   # Encrypt/decrypt a small message
   msg = 12345
-  code, cipher = _RunCLI(['-p', str(priv_path), 'rsa', 'rawencrypt', str(msg)])
+  code, out = _RunCLI(['-p', str(priv_path), 'rsa', 'rawencrypt', str(msg)])
   assert code == 0
-  c = int(cipher)
+  c = int(out)
   assert c > 0
-  code, plain = _RunCLI(['-p', str(priv_path), 'rsa', 'rawdecrypt', str(c)])
+  code, out = _RunCLI(['-p', str(priv_path), 'rsa', 'rawdecrypt', str(c)])
   assert code == 0
-  assert int(plain) == msg
+  assert int(out) == msg
   # Sign/verify
-  code, sig = _RunCLI(['-p', str(priv_path), 'rsa', 'rawsign', str(msg)])
+  code, out = _RunCLI(['-p', str(priv_path), 'rsa', 'rawsign', str(msg)])
   assert code == 0
-  s = int(sig)
+  s = int(out)
   assert s > 0
-  code, ok = _RunCLI(['-p', str(priv_path), 'rsa', 'rawverify', str(msg), str(s)])
-  assert code == 0
-  assert ok == 'RSA signature: OK'
-  code, ok = _RunCLI(['-p', str(priv_path), 'rsa', 'rawverify', str(msg + 1), str(s)])
-  assert code == 0
-  assert ok == 'RSA signature: INVALID'
+  code, out = _RunCLI(['-p', str(priv_path), 'rsa', 'rawverify', str(msg), str(s)])
+  assert code == 0 and out == 'RSA signature: OK'
+  code, out = _RunCLI(['-p', str(priv_path), 'rsa', 'rawverify', str(msg + 1), str(s)])
+  assert code == 0 and out == 'RSA signature: INVALID'
+
+
+@pytest.mark.slow
+def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> None:
+  """RSA safe encrypt/decrypt and sign/verify via CLI."""
+  base_path = tmp_path / 'rsa_safe'
+  priv_path = pathlib.Path(str(base_path) + '.priv')
+  pub_path = pathlib.Path(str(base_path) + '.pub')
+  # Safe signing requires k > 64 → use ≥1024-bit modulus
+  code: int
+  out: str
+  code, out = _RunCLI(['-p', str(base_path), 'rsa', 'new', '--bits', '1024'])
+  assert code == 0 and 'RSA private/public keys saved to' in out
+  assert priv_path.exists() and pub_path.exists()
+  # Encrypt (bin in → b64 out) with AAD='xyz'
+  code, out = _RunCLI(
+      ['--bin', '--out-b64', '-p', str(priv_path), 'rsa', 'encrypt', 'abcde', '-a', 'xyz'])
+  assert code == 0 and isinstance(out, str) and len(out) > 0
+  # Decrypt (b64 in → bin out) with same AAD (as base64: 'eHl6')
+  code, out = _RunCLI(['--b64', '--out-bin', '-p', str(priv_path),
+                      'rsa', 'decrypt', out, '-a', 'eHl6'])
+  assert code == 0 and out == 'abcde'
+  # Sign (bin in → b64 out) with AAD='aad'
+  code, sig_b64 = _RunCLI(['--bin', '--out-b64', '-p', str(priv_path),
+                           'rsa', 'sign', 'xyz', '-a', 'aad'])
+  assert code == 0 and isinstance(sig_b64, str) and len(sig_b64) > 0
+  # Verify OK (message='xyz' as b64 'eHl6', AAD='aad' as b64 'YWFk')
+  code, out = _RunCLI(['--b64', '-p', str(priv_path),
+                      'rsa', 'verify', 'eHl6', sig_b64, '-a', 'YWFk'])
+  assert code == 0 and out == 'RSA signature: OK'
+  # Verify INVALID with wrong message
+  code, out = _RunCLI(['--b64', '-p', str(priv_path),
+                       'rsa', 'verify', 'eLl6', sig_b64, '-a', 'YWFk'])
+  assert code == 0 and out == 'RSA signature: INVALID'
 
 
 def test_elgamal_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None:  # pylint: disable=too-many-locals
@@ -267,6 +307,8 @@ def test_elgamal_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None
   priv_path: pathlib.Path = tmp_path / 'eg.priv'
   pub_path: pathlib.Path = tmp_path / 'eg.pub'
   # Shared params & private key
+  code: int
+  out: str
   code, out = _RunCLI(['-p', str(base_path), 'elgamal', 'shared', '--bits', '64'])
   assert code == 0 and 'El-Gamal shared key saved to' in out
   assert shared_path.exists()
@@ -277,17 +319,52 @@ def test_elgamal_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None
   # Encrypt/decrypt (public can be derived from private file)
   msg = 42
   code, out = _RunCLI(['-p', str(priv_path), 'elgamal', 'rawencrypt', str(msg)])
-  assert code == 0
-  code, plain = _RunCLI(['-p', str(priv_path), 'elgamal', 'rawdecrypt', out])
-  assert code == 0
-  assert int(plain) == msg
+  assert code == 0 and len(out) > 0
+  code, out = _RunCLI(['-p', str(priv_path), 'elgamal', 'rawdecrypt', out])
+  assert code == 0 and int(out) == msg
   # Sign/verify
-  code, out = _RunCLI(['-p', str(priv_path), 'elgamal', 'rawsign', str(msg)])
-  assert code == 0
-  code, ok = _RunCLI(['-p', str(priv_path), 'elgamal', 'rawverify', str(msg), out])
-  assert code == 0 and ok == 'El-Gamal signature: OK'
-  code, ok = _RunCLI(['-p', str(priv_path), 'elgamal', 'rawverify', str(msg + 1), out])
-  assert code == 0 and ok == 'El-Gamal signature: INVALID'
+  code, sig = _RunCLI(['-p', str(priv_path), 'elgamal', 'rawsign', str(msg)])
+  assert code == 0 and len(sig) > 0
+  code, out = _RunCLI(['-p', str(priv_path), 'elgamal', 'rawverify', str(msg), sig])
+  assert code == 0 and out == 'El-Gamal signature: OK'
+  code, out = _RunCLI(['-p', str(priv_path), 'elgamal', 'rawverify', str(msg + 1), sig])
+  assert code == 0 and out == 'El-Gamal signature: INVALID'
+
+
+@pytest.mark.slow
+def test_elgamal_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> None:
+  """ElGamal safe encrypt/decrypt and sign/verify via CLI."""
+  base_path = tmp_path / 'eg_safe'
+  shared_path = pathlib.Path(str(base_path) + '.shared')
+  priv_path = pathlib.Path(str(base_path) + '.priv')
+  pub_path = pathlib.Path(str(base_path) + '.pub')
+  # Safe signing requires k > 64 → use ≥1024-bit prime
+  code: int
+  out: str
+  code, out = _RunCLI(['-p', str(base_path), 'elgamal', 'shared', '--bits', '1024'])
+  assert code == 0 and shared_path.exists() and 'El-Gamal shared key saved to' in out
+  code, out = _RunCLI(['-p', str(base_path), 'elgamal', 'new'])
+  assert (code == 0 and priv_path.exists() and pub_path.exists() and
+          'El-Gamal private/public keys saved to' in out)
+  # Encrypt (bin in → b64 out) with AAD='xyz'
+  code, out = _RunCLI(
+      ['--bin', '--out-b64', '-p', str(priv_path), 'elgamal', 'encrypt', 'abcde', '-a', 'xyz'])
+  assert code == 0 and isinstance(out, str) and len(out) > 0
+  # Decrypt (b64 in → bin out) with same AAD 'eHl6'
+  code, out = _RunCLI(['--b64', '--out-bin', '-p', str(priv_path),
+                      'elgamal', 'decrypt', out, '-a', 'eHl6'])
+  assert code == 0 and out == 'abcde'
+  # Sign (bin in → b64 out) with AAD='aad'
+  code, sig_b64 = _RunCLI(['--bin', '--out-b64', '-p', str(priv_path),
+                           'elgamal', 'sign', 'xyz', '-a', 'aad'])
+  assert code == 0 and isinstance(sig_b64, str) and len(sig_b64) > 0
+  # Verify OK and INVALID cases
+  code, out = _RunCLI(['--b64', '-p', str(priv_path),
+                      'elgamal', 'verify', 'eHl6', sig_b64, '-a', 'YWFk'])
+  assert code == 0 and out == 'El-Gamal signature: OK'
+  code, out = _RunCLI(['--b64', '-p', str(priv_path),
+                       'elgamal', 'verify', 'eLl6', sig_b64, '-a', 'YWFk'])
+  assert code == 0 and out == 'El-Gamal signature: INVALID'
 
 
 def test_dsa_sign_verify(tmp_path: pathlib.Path) -> None:
@@ -297,6 +374,8 @@ def test_dsa_sign_verify(tmp_path: pathlib.Path) -> None:
   priv_path: pathlib.Path = tmp_path / 'dsa.priv'
   pub_path: pathlib.Path = tmp_path / 'dsa.pub'
   # Small, but respect constraints: p_bits >= q_bits + 11, q_bits >= 11
+  code: int
+  out: str
   code, out = _RunCLI(
       ['-p', str(base_path), 'dsa', 'shared', '--p-bits', '64', '--q-bits', '32'])
   assert code == 0 and 'DSA shared key saved to' in out
@@ -307,11 +386,39 @@ def test_dsa_sign_verify(tmp_path: pathlib.Path) -> None:
   assert pub_path.exists()
   msg = 123456
   code, sig = _RunCLI(['-p', str(priv_path), 'dsa', 'rawsign', str(msg)])
-  assert code == 0
-  code, ok = _RunCLI(['-p', str(priv_path), 'dsa', 'rawverify', str(msg), sig])
+  assert code == 0 and len(sig) > 0
+  code, out = _RunCLI(['-p', str(priv_path), 'dsa', 'rawverify', str(msg), sig])
+  assert code == 0 and out == 'DSA signature: OK'
+  code, out = _RunCLI(['-p', str(priv_path), 'dsa', 'rawverify', str(msg + 1), sig])
+  assert code == 0 and out == 'DSA signature: INVALID'
+
+
+@pytest.mark.slow
+def test_dsa_sign_verify_safe(tmp_path: pathlib.Path) -> None:
+  """DSA safe sign/verify via CLI."""
+  base_path = tmp_path / 'dsa_safe'
+  shared_path = pathlib.Path(str(base_path) + '.shared')
+  priv_path = pathlib.Path(str(base_path) + '.priv')
+  pub_path = pathlib.Path(str(base_path) + '.pub')
+  # Safe DSA requires q > 512 bits (k > 64 bytes). Use q=544, p≥q+11 → p=1024.
+  code: int
+  out: str
+  code, out = _RunCLI(['-p', str(base_path), 'dsa', 'shared', '--p-bits', '1024', '--q-bits', '544'])
+  assert code == 0 and shared_path.exists() and 'DSA shared key saved to' in out
+  code, out = _RunCLI(['-p', str(base_path), 'dsa', 'new'])
+  assert code == 0 and priv_path.exists() and pub_path.exists()
+  assert 'DSA private/public keys saved to' in out
+  # Sign (bin in → b64 out) with AAD='aad'
+  code, sig_b64 = _RunCLI(['--bin', '--out-b64', '-p', str(priv_path),
+                           'dsa', 'sign', 'xyz', '-a', 'aad'])
+  assert code == 0 and isinstance(sig_b64, str) and len(sig_b64) > 0
+  # Verify OK (message='xyz' b64) and INVALID (wrong message)
+  code, ok = _RunCLI(['--b64', '-p', str(priv_path),
+                      'dsa', 'verify', 'eHl6', sig_b64, '-a', 'YWFk'])
   assert code == 0 and ok == 'DSA signature: OK'
-  code, ok = _RunCLI(['-p', str(priv_path), 'dsa', 'rawverify', str(msg + 1), sig])
-  assert code == 0 and ok == 'DSA signature: INVALID'
+  code, bad = _RunCLI(['--b64', '-p', str(priv_path),
+                       'dsa', 'verify', 'eLl6', sig_b64, '-a', 'YWFk'])
+  assert code == 0 and bad == 'DSA signature: INVALID'
 
 
 def test_bid_commit_verify(tmp_path: pathlib.Path) -> None:
@@ -321,6 +428,8 @@ def test_bid_commit_verify(tmp_path: pathlib.Path) -> None:
   pub_path = pathlib.Path(str(key_base) + '.pub')
   secret = 'top-secret-123'  # raw UTF-8; we'll use --bin so it’s treated as bytes
   # Create new bid (writes .priv/.pub beside key_base)
+  code: int
+  out: str
   code, out = _RunCLI(['--bin', '-p', str(key_base), 'bid', 'new', secret])
   assert code == 0 and 'Bid private/public commitments saved to' in out
   assert priv_path.exists()
@@ -337,6 +446,8 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
   priv_path = pathlib.Path(str(base_path) + '.priv')
   pub_path = pathlib.Path(str(base_path) + '.pub')
   # Generate params
+  code: int
+  out: str
   code, out = _RunCLI(['-p', str(base_path), 'sss', 'new', '3', '--bits', '128'])
   assert code == 0 and 'SSS private/public keys saved to' in out
   assert priv_path.exists() and pub_path.exists()
@@ -368,6 +479,35 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
   assert len(lines) == 3
   for line in lines:
     assert 'verification: INVALID' in line
+  # verify sss recover without any data shares → should error
+  code, out = _RunCLI(['-p', str(base_path), 'sss', 'recover'])
+  assert code == 0 and 'no data share found among the available shares' in out
+
+
+@pytest.mark.slow
+def test_sss_shares_recover_safe(tmp_path: pathlib.Path) -> None:
+  """SSS safe shares/recover for data (AEAD-wrapped)."""
+  base_path = tmp_path / 'sss_safe'
+  priv_path = pathlib.Path(str(base_path) + '.priv')
+  pub_path = pathlib.Path(str(base_path) + '.pub')
+  # Make params. AEAD path requires modulus_size > 32 → bits > 256 (use 384 for speed).
+  code: int
+  out: str
+  code, out = _RunCLI(['-p', str(base_path), 'sss', 'new', '3', '--bits', '384'])
+  assert code == 0 and priv_path.exists() and pub_path.exists()
+  assert 'SSS private/public keys saved to' in out
+  # Issue 3 data shares for secret "abcde" (bin so it's treated as bytes)
+  code, out = _RunCLI(['--bin', '-p', str(base_path), 'sss', 'shares', 'abcde', '3'])
+  assert code == 0 and 'SSS 3 individual (private) shares saved' in out
+  for i in range(1, 4):
+    assert pathlib.Path(f'{base_path}.share.{i}').exists()
+  # Recover (out as bin) → prints loaded shares then the secret
+  code, out = _RunCLI(['--out-bin', '-p', str(base_path), 'sss', 'recover'])
+  assert code == 0
+  lines: list[str] = out.splitlines()
+  assert any('Loaded SSS share' in ln for ln in lines)
+  assert lines[-2] == 'Secret:'
+  assert lines[-1] == 'abcde'
 
 
 @pytest.mark.parametrize(
