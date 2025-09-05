@@ -130,7 +130,6 @@ class RSAPublicKey(base.CryptoKey, base.Encryptor, base.Verifier):
       InputError: invalid inputs
       CryptoError: internal crypto failures
     """
-    # TODO: add to CLI
     # generate random r and encrypt it
     r: int = 0
     while not 1 < r < self.public_modulus or base.GCD(r, self.public_modulus) != 1:

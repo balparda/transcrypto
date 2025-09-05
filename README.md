@@ -73,39 +73,36 @@ Started in July/2025, by Daniel Balparda. Since version 1.0.2 it is PyPI package
       - [Humanized Sizes (IEC binary)](#humanized-sizes-iec-binary)
       - [Humanized Decimal Quantities (SI)](#humanized-decimal-quantities-si)
       - [Humanized Durations](#humanized-durations)
+      - [Execution Timing](#execution-timing)
+        - [Context manager](#context-manager)
+        - [Decorator](#decorator)
+        - [Manual use](#manual-use)
+        - [Key points](#key-points)
+      - [Serialization Pipeline](#serialization-pipeline)
+        - [Serialize](#serialize)
+        - [DeSerialize](#deserialize)
       - [Cryptographically Secure Randomness](#cryptographically-secure-randomness)
         - [Fixed-size random integers](#fixed-size-random-integers)
         - [Uniform random integers in a range](#uniform-random-integers-in-a-range)
         - [In-place secure shuffle](#in-place-secure-shuffle)
         - [Random byte strings](#random-byte-strings)
       - [Computing the Greatest Common Divisor](#computing-the-greatest-common-divisor)
+      - [Fast Modular Arithmetic](#fast-modular-arithmetic)
+        - [Chinese Remainder Theorem (CRT) – Pair](#chinese-remainder-theorem-crt--pair)
+        - [Modular Polynomials \& Lagrange Interpolation](#modular-polynomials--lagrange-interpolation)
+      - [Primality testing \& Prime generators, Mersenne primes](#primality-testing--prime-generators-mersenne-primes)
       - [Cryptographic Hashing](#cryptographic-hashing)
         - [SHA-256 hashing](#sha-256-hashing)
         - [SHA-512 hashing](#sha-512-hashing)
         - [File hashing](#file-hashing)
-      - [Execution Timing](#execution-timing)
-        - [Context manager](#context-manager)
-        - [Decorator](#decorator)
-        - [Manual use](#manual-use)
-        - [Key points](#key-points)
       - [Symmetric Encryption Interface](#symmetric-encryption-interface)
-      - [Serialization Pipeline](#serialization-pipeline)
-        - [Serialize](#serialize)
-        - [DeSerialize](#deserialize)
       - [Crypto Objects General Properties (`CryptoKey`)](#crypto-objects-general-properties-cryptokey)
-      - [Fast Modular Arithmetic](#fast-modular-arithmetic)
-      - [Chinese Remainder Theorem (CRT) – Pair](#chinese-remainder-theorem-crt--pair)
-      - [Modular Polynomials \& Lagrange Interpolation](#modular-polynomials--lagrange-interpolation)
-      - [Primality testing \& Prime generators, Mersenne primes](#primality-testing--prime-generators-mersenne-primes)
       - [AES-256 Symmetric Encryption](#aes-256-symmetric-encryption)
         - [Key creation](#key-creation)
         - [AES-256 + GCM (default)](#aes-256--gcm-default)
         - [AES-256 + ECB (unsafe, fixed block only)](#aes-256--ecb-unsafe-fixed-block-only)
       - [RSA (Rivest-Shamir-Adleman) Public Cryptography](#rsa-rivest-shamir-adleman-public-cryptography)
       - [El-Gamal Public-Key Cryptography](#el-gamal-public-key-cryptography)
-        - [Shared Public Key](#shared-public-key)
-        - [Public Key](#public-key)
-        - [Private Key](#private-key)
       - [DSA (Digital Signature Algorithm)](#dsa-digital-signature-algorithm)
         - [Security notes](#security-notes)
         - [Advanced: custom primes generator](#advanced-custom-primes-generator)
@@ -126,13 +123,13 @@ Unless required by applicable law or agreed to in writing, software distributed 
 
 ## Design assumptions / Disclaimers
 
-- The library is built to have reference, reliable, simple implementations of math and crypto primitives.
+- The library is built to have reference, reliable, simple implementations of math and crypto primitives (e.g. `RawEncrypt()`/`RawSign()` and friends plus all the low-level primality and modular arithmetic). The issue is not that the library is unsafe, it is that the library is full of places that allow you to shoot yourself in the foot if you don't know what you are doing.
+- The library also has advanced top-level methods that are cryptographically safe and might be used in real-world scenarios (e.g. `Encrypt()`/`Sign()` and friends).
 - All library methods' `int` are tailored to be efficient with arbitrarily large integers.
-- Everything **should work**, as the library is **extensively tested**, *but not necessarily the most efficient or safe for real-world cryptographic use.* For real-world crypto use *other optimized/safe libraries* that were built to be resistant to malicious attacks.
-- *All operations in this library may be vulnerable to timing attacks.*
-- There is some logging and error messages that were written to be clear but in real-life security applications could leak private secrets. Again, this library is not build to be crypto safe. It was built as a simple tested reference implementation.
+- Everything **should work**, as the library is **extensively tested**, *but not necessarily the most efficient or safe for real-world cryptographic use.* For real-world crypto you might consider *other optimized/safe libraries* that were built to be resistant to malicious attacks.
+- *All operations in this library may be vulnerable to timing attacks.* This may be a problem to your use-case or not depending on the situation.
 
-That being said, all care was taken that this is a good library with a solid implementation. *Have fun!*
+All that being said, extreme care was taken that this is a good library with a solid safe implementation. *Have fun!*
 
 ## Install
 
@@ -189,11 +186,11 @@ poetry run transcrypto <command> [sub-command] [options...]
 - **`mod`** — `poetry run transcrypto mod [-h] {inv,div,exp,poly,lagrange,crt} ...`
 - **`hash`** — `poetry run transcrypto hash [-h] {sha256,sha512,file} ...`
 - **`aes`** — `poetry run transcrypto aes [-h] {key,encrypt,decrypt,ecb} ...`
-- **`rsa`** — `poetry run transcrypto rsa [-h] {new,rawencrypt,rawdecrypt,rawsign,rawverify} ...`
-- **`elgamal`** — `poetry run transcrypto elgamal [-h] {shared,new,rawencrypt,rawdecrypt,rawsign,rawverify} ...`
-- **`dsa`** — `poetry run transcrypto dsa [-h] {shared,new,rawsign,rawverify} ...`
+- **`rsa`** — `poetry run transcrypto rsa [-h] {new,rawencrypt,encrypt,rawdecrypt,decrypt,rawsign,sign,rawverify,verify} ...`
+- **`elgamal`** — `poetry run transcrypto elgamal [-h] {shared,new,rawencrypt,encrypt,rawdecrypt,decrypt,rawsign,sign,rawverify,verify} ...`
+- **`dsa`** — `poetry run transcrypto dsa [-h] {shared,new,rawsign,sign,rawverify,verify} ...`
 - **`bid`** — `poetry run transcrypto bid [-h] {new,verify} ...`
-- **`sss`** — `poetry run transcrypto sss [-h] {new,rawshares,rawrecover,rawverify} ...`
+- **`sss`** — `poetry run transcrypto sss [-h] {new,rawshares,shares,rawrecover,recover,rawverify} ...`
 - **`doc`** — `poetry run transcrypto doc [-h] {md} ...`
 
 ```bash
@@ -832,11 +829,11 @@ $ poetry run transcrypto --b64 aes ecb -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_
 
 ### `rsa`
 
-Raw RSA (Rivest-Shamir-Adleman) asymmetric cryptography over *integers* (BEWARE: no OAEP/PSS padding or validation). These are pedagogical/raw primitives; do not use for new protocols. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
+RSA (Rivest-Shamir-Adleman) asymmetric cryptography. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
 
 ```bash
 poetry run transcrypto rsa [-h]
-                                  {new,rawencrypt,rawdecrypt,rawsign,rawverify} ...
+                                  {new,rawencrypt,encrypt,rawdecrypt,decrypt,rawsign,sign,rawverify,verify} ...
 ```
 
 #### `rsa new`
@@ -860,7 +857,7 @@ RSA private/public keys saved to 'rsa-key.priv/.pub'
 
 #### `rsa rawencrypt`
 
-Encrypt integer `message` with public key.
+Raw encrypt *integer* `message` with public key (BEWARE: no OAEP/PSS padding or validation).
 
 ```bash
 poetry run transcrypto rsa rawencrypt [-h] message
@@ -877,9 +874,29 @@ $ poetry run transcrypto -p rsa-key.pub rsa rawencrypt 999
 6354905961171348600
 ```
 
+#### `rsa encrypt`
+
+Encrypt `message` with public key.
+
+```bash
+poetry run transcrypto rsa encrypt [-h] [-a AAD] plaintext
+```
+
+| Option/Arg | Description |
+|---|---|
+| `plaintext` | Message to encrypt [type: str] |
+| `-a, --aad` | Associated data (optional; has to be separately sent to receiver/stored) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --bin --out-b64 -p rsa-key.pub rsa encrypt "abcde" -a "xyz"
+AO6knI6xwq6TGR…Qy22jiFhXi1eQ==
+```
+
 #### `rsa rawdecrypt`
 
-Decrypt integer `ciphertext` with private key.
+Raw decrypt *integer* `ciphertext` with private key (BEWARE: no OAEP/PSS padding or validation).
 
 ```bash
 poetry run transcrypto rsa rawdecrypt [-h] ciphertext
@@ -896,9 +913,29 @@ $ poetry run transcrypto -p rsa-key.priv rsa rawdecrypt 6354905961171348600
 999
 ```
 
+#### `rsa decrypt`
+
+Decrypt `ciphertext` with private key.
+
+```bash
+poetry run transcrypto rsa decrypt [-h] [-a AAD] ciphertext
+```
+
+| Option/Arg | Description |
+|---|---|
+| `ciphertext` | Ciphertext to decrypt [type: str] |
+| `-a, --aad` | Associated data (optional; has to be exactly the same as used during encryption) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --b64 --out-bin -p rsa-key.priv rsa decrypt "AO6knI6xwq6TGR…Qy22jiFhXi1eQ==" -a "eHl6"
+abcde
+```
+
 #### `rsa rawsign`
 
-Sign integer `message` with private key.
+Raw sign *integer* `message` with private key (BEWARE: no OAEP/PSS padding or validation).
 
 ```bash
 poetry run transcrypto rsa rawsign [-h] message
@@ -915,9 +952,29 @@ $ poetry run transcrypto -p rsa-key.priv rsa rawsign 999
 7632909108672871784
 ```
 
+#### `rsa sign`
+
+Sign `message` with private key.
+
+```bash
+poetry run transcrypto rsa sign [-h] [-a AAD] message
+```
+
+| Option/Arg | Description |
+|---|---|
+| `message` | Message to sign [type: str] |
+| `-a, --aad` | Associated data (optional; has to be separately sent to receiver/stored) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --bin --out-b64 -p rsa-key.priv rsa sign "xyz"
+91TS7gC6LORiL…6RD23Aejsfxlw==
+```
+
 #### `rsa rawverify`
 
-Verify integer `signature` for integer `message` with public key.
+Raw verify *integer* `signature` for *integer* `message` with public key (BEWARE: no OAEP/PSS padding or validation).
 
 ```bash
 poetry run transcrypto rsa rawverify [-h] message signature
@@ -937,15 +994,38 @@ $ poetry run transcrypto -p rsa-key.pub rsa rawverify 999 7632909108672871785
 RSA signature: INVALID
 ```
 
+#### `rsa verify`
+
+Verify `signature` for `message` with public key.
+
+```bash
+poetry run transcrypto rsa verify [-h] [-a AAD] message signature
+```
+
+| Option/Arg | Description |
+|---|---|
+| `message` | Message that was signed earlier [type: str] |
+| `signature` | Putative signature for `message` [type: str] |
+| `-a, --aad` | Associated data (optional; has to be exactly the same as used during signing) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --b64 -p rsa-key.pub rsa verify "eHl6" "91TS7gC6LORiL…6RD23Aejsfxlw=="
+RSA signature: OK
+$ poetry run transcrypto --b64 -p rsa-key.pub rsa verify "eLl6" "91TS7gC6LORiL…6RD23Aejsfxlw=="
+RSA signature: INVALID
+```
+
 ---
 
 ### `elgamal`
 
-Raw El-Gamal asymmetric cryptography over *integers* (BEWARE: no ECIES-style KEM/DEM padding or validation). These are pedagogical/raw primitives; do not use for new protocols. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
+El-Gamal asymmetric cryptography. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
 
 ```bash
 poetry run transcrypto elgamal [-h]
-                                      {shared,new,rawencrypt,rawdecrypt,rawsign,rawverify} ...
+                                      {shared,new,rawencrypt,encrypt,rawdecrypt,decrypt,rawsign,sign,rawverify,verify} ...
 ```
 
 #### `elgamal shared`
@@ -984,7 +1064,7 @@ El-Gamal private/public keys saved to 'eg-key.priv/.pub'
 
 #### `elgamal rawencrypt`
 
-Encrypt integer `message` with public key.
+Raw encrypt *integer* `message` with public key (BEWARE: no ECIES-style KEM/DEM padding or validation).
 
 ```bash
 poetry run transcrypto elgamal rawencrypt [-h] message
@@ -1001,9 +1081,29 @@ $ poetry run transcrypto -p eg-key.pub elgamal rawencrypt 999
 2948854810728206041:15945988196340032688
 ```
 
+#### `elgamal encrypt`
+
+Encrypt `message` with public key.
+
+```bash
+poetry run transcrypto elgamal encrypt [-h] [-a AAD] plaintext
+```
+
+| Option/Arg | Description |
+|---|---|
+| `plaintext` | Message to encrypt [type: str] |
+| `-a, --aad` | Associated data (optional; has to be separately sent to receiver/stored) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --bin --out-b64 -p eg-key.pub elgamal encrypt "abcde" -a "xyz"
+CdFvoQ_IIPFPZLua…kqjhcUTspISxURg==
+```
+
 #### `elgamal rawdecrypt`
 
-Decrypt integer `ciphertext` with private key.
+Raw decrypt *integer* `ciphertext` with private key (BEWARE: no ECIES-style KEM/DEM padding or validation).
 
 ```bash
 poetry run transcrypto elgamal rawdecrypt [-h] ciphertext
@@ -1020,9 +1120,29 @@ $ poetry run transcrypto -p eg-key.priv elgamal rawdecrypt 2948854810728206041:1
 999
 ```
 
+#### `elgamal decrypt`
+
+Decrypt `ciphertext` with private key.
+
+```bash
+poetry run transcrypto elgamal decrypt [-h] [-a AAD] ciphertext
+```
+
+| Option/Arg | Description |
+|---|---|
+| `ciphertext` | Ciphertext to decrypt [type: str] |
+| `-a, --aad` | Associated data (optional; has to be exactly the same as used during encryption) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --b64 --out-bin -p eg-key.priv elgamal decrypt "CdFvoQ_IIPFPZLua…kqjhcUTspISxURg==" -a "eHl6"
+abcde
+```
+
 #### `elgamal rawsign`
 
-Sign integer message with private key. Output will 2 integers in a `s1:s2` format.
+Raw sign *integer* message with private key (BEWARE: no ECIES-style KEM/DEM padding or validation). Output will 2 *integers* in a `s1:s2` format.
 
 ```bash
 poetry run transcrypto elgamal rawsign [-h] message
@@ -1039,9 +1159,29 @@ $ poetry run transcrypto -p eg-key.priv elgamal rawsign 999
 4674885853217269088:14532144906178302633
 ```
 
+#### `elgamal sign`
+
+Sign message with private key.
+
+```bash
+poetry run transcrypto elgamal sign [-h] [-a AAD] message
+```
+
+| Option/Arg | Description |
+|---|---|
+| `message` | Message to sign [type: str] |
+| `-a, --aad` | Associated data (optional; has to be separately sent to receiver/stored) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --bin --out-b64 -p eg-key.priv elgamal sign "xyz"
+Xl4hlYK8SHVGw…0fCKJE1XVzA==
+```
+
 #### `elgamal rawverify`
 
-Verify integer `signature` for integer `message` with public key.
+Raw verify *integer* `signature` for *integer* `message` with public key (BEWARE: no ECIES-style KEM/DEM padding or validation).
 
 ```bash
 poetry run transcrypto elgamal rawverify [-h] message signature
@@ -1061,14 +1201,38 @@ $ poetry run transcrypto -p eg-key.pub elgamal rawverify 999 4674885853217269088
 El-Gamal signature: INVALID
 ```
 
+#### `elgamal verify`
+
+Verify `signature` for `message` with public key.
+
+```bash
+poetry run transcrypto elgamal verify [-h] [-a AAD] message signature
+```
+
+| Option/Arg | Description |
+|---|---|
+| `message` | Message that was signed earlier [type: str] |
+| `signature` | Putative signature for `message` [type: str] |
+| `-a, --aad` | Associated data (optional; has to be exactly the same as used during signing) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --b64 -p eg-key.pub elgamal verify "eHl6" "Xl4hlYK8SHVGw…0fCKJE1XVzA=="
+El-Gamal signature: OK
+$ poetry run transcrypto --b64 -p eg-key.pub elgamal verify "eLl6" "Xl4hlYK8SHVGw…0fCKJE1XVzA=="
+El-Gamal signature: INVALID
+```
+
 ---
 
 ### `dsa`
 
-Raw DSA (Digital Signature Algorithm) asymmetric signing over *integers* (BEWARE: no ECDSA/EdDSA padding or validation). These are pedagogical/raw primitives; do not use for new protocols. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
+DSA (Digital Signature Algorithm) asymmetric signing/verifying. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
 
 ```bash
-poetry run transcrypto dsa [-h] {shared,new,rawsign,rawverify} ...
+poetry run transcrypto dsa [-h]
+                                  {shared,new,rawsign,sign,rawverify,verify} ...
 ```
 
 #### `dsa shared`
@@ -1109,7 +1273,7 @@ DSA private/public keys saved to 'dsa-key.priv/.pub'
 
 #### `dsa rawsign`
 
-Sign integer message with private key. Output will 2 integers in a `s1:s2` format.
+Raw sign *integer* message with private key (BEWARE: no ECDSA/EdDSA padding or validation). Output will 2 *integers* in a `s1:s2` format.
 
 ```bash
 poetry run transcrypto dsa rawsign [-h] message
@@ -1126,9 +1290,29 @@ $ poetry run transcrypto -p dsa-key.priv dsa rawsign 999
 2395961484:3435572290
 ```
 
+#### `dsa sign`
+
+Sign message with private key.
+
+```bash
+poetry run transcrypto dsa sign [-h] [-a AAD] message
+```
+
+| Option/Arg | Description |
+|---|---|
+| `message` | Message to sign [type: str] |
+| `-a, --aad` | Associated data (optional; has to be separately sent to receiver/stored) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --bin --out-b64 -p dsa-key.priv dsa sign "xyz"
+yq8InJVpViXh9…BD4par2XuA=
+```
+
 #### `dsa rawverify`
 
-Verify integer `signature` for integer `message` with public key.
+Raw verify *integer* `signature` for *integer* `message` with public key (BEWARE: no ECDSA/EdDSA padding or validation).
 
 ```bash
 poetry run transcrypto dsa rawverify [-h] message signature
@@ -1145,6 +1329,29 @@ poetry run transcrypto dsa rawverify [-h] message signature
 $ poetry run transcrypto -p dsa-key.pub dsa rawverify 999 2395961484:3435572290
 DSA signature: OK
 $ poetry run transcrypto -p dsa-key.pub dsa rawverify 999 2395961484:3435572291
+DSA signature: INVALID
+```
+
+#### `dsa verify`
+
+Verify `signature` for `message` with public key.
+
+```bash
+poetry run transcrypto dsa verify [-h] [-a AAD] message signature
+```
+
+| Option/Arg | Description |
+|---|---|
+| `message` | Message that was signed earlier [type: str] |
+| `signature` | Putative signature for `message` [type: str] |
+| `-a, --aad` | Associated data (optional; has to be exactly the same as used during signing) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --b64 -p dsa-key.pub dsa verify "eHl6" "yq8InJVpViXh9…BD4par2XuA="
+DSA signature: OK
+$ poetry run transcrypto --b64 -p dsa-key.pub dsa verify "eLl6" "yq8InJVpViXh9…BD4par2XuA="
 DSA signature: INVALID
 ```
 
@@ -1198,11 +1405,11 @@ tomorrow it will rain
 
 ### `sss`
 
-Raw SSS (Shamir Shared Secret) secret sharing crypto scheme over *integers* (BEWARE: no modern message wrapping, padding or validation). These are pedagogical/raw primitives; do not use for new protocols. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
+SSS (Shamir Shared Secret) secret sharing crypto scheme. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
 
 ```bash
 poetry run transcrypto sss [-h]
-                                  {new,rawshares,rawrecover,rawverify} ...
+                                  {new,rawshares,shares,rawrecover,recover,rawverify} ...
 ```
 
 #### `sss new`
@@ -1227,7 +1434,7 @@ SSS private/public keys saved to 'sss-key.priv/.pub'
 
 #### `sss rawshares`
 
-Issue `count` private shares for an integer `secret`.
+Raw shares: Issue `count` private shares for an *integer* `secret` (BEWARE: no modern message wrapping, padding or validation).
 
 ```bash
 poetry run transcrypto sss rawshares [-h] secret count
@@ -1246,9 +1453,30 @@ SSS 5 individual (private) shares saved to 'sss-key.share.1…5'
 $ rm sss-key.share.2 sss-key.share.4  # this is to simulate only having shares 1,3,5
 ```
 
+#### `sss shares`
+
+Shares: Issue `count` private shares for a `secret`.
+
+```bash
+poetry run transcrypto sss shares [-h] secret count
+```
+
+| Option/Arg | Description |
+|---|---|
+| `secret` | Secret to be protected [type: str] |
+| `count` | How many shares to produce; must be ≥ `minimum` used in `new` command or else the `secret` would become unrecoverable [type: int] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --bin -p sss-key sss shares "abcde" 5
+SSS 5 individual (private) shares saved to 'sss-key.share.1…5'
+$ rm sss-key.share.2 sss-key.share.4  # this is to simulate only having shares 1,3,5
+```
+
 #### `sss rawrecover`
 
-Recover secret from shares; will use any available shares that were found.
+Raw recover *integer* secret from shares; will use any available shares that were found (BEWARE: no modern message wrapping, padding or validation).
 
 ```bash
 poetry run transcrypto sss rawrecover [-h]
@@ -1265,9 +1493,28 @@ Secret:
 999
 ```
 
+#### `sss recover`
+
+Recover secret from shares; will use any available shares that were found.
+
+```bash
+poetry run transcrypto sss recover [-h]
+```
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --out-bin -p sss-key sss recover
+Loaded SSS share: 'sss-key.share.3'
+Loaded SSS share: 'sss-key.share.5'
+Loaded SSS share: 'sss-key.share.1'  # using only 3 shares: number 2/4 are missing
+Secret:
+abcde
+```
+
 #### `sss rawverify`
 
-Verify shares against a secret (private params).
+Raw verify shares against a secret (private params; BEWARE: no modern message wrapping, padding or validation).
 
 ```bash
 poetry run transcrypto sss rawverify [-h] secret
@@ -1275,7 +1522,7 @@ poetry run transcrypto sss rawverify [-h] secret
 
 | Option/Arg | Description |
 |---|---|
-| `secret` | Integer secret used to generate the shares, 1≤`secret`<*modulus* [type: str] |
+| `secret` | Integer secret used to generate the shares [type: str] |
 
 **Example:**
 
@@ -1380,6 +1627,144 @@ Chooses an appropriate time unit based on magnitude and formats with fixed preci
 - special case: `0 → '0.00 s'`
 - errors: negative or non-finite inputs raise `InputError`
 
+#### Execution Timing
+
+A flexible timing utility that works as a **context manager**, **decorator**, or **manual timer object**.
+
+```py
+from transcrypto import base
+import time
+```
+
+##### Context manager
+
+```py
+with base.Timer('Block timing'):
+    time.sleep(1.2)
+# → logs: "Block timing: 1.20 s" (default via logging.info)
+```
+
+Starts timing on entry, stops on exit, and reports elapsed time automatically.
+
+##### Decorator
+
+```py
+@base.Timer('Function timing')
+def slow_function():
+    time.sleep(0.8)
+
+slow_function()
+# → logs: "Function timing: 0.80 s"
+```
+
+Wraps a function so that each call is automatically timed.
+
+##### Manual use
+
+```py
+tm = base.Timer('Inline timing', emit_print=True)
+tm.Start()
+time.sleep(0.1)
+tm.Stop()   # prints: "Inline timing: 0.10 s"
+```
+
+Manual control over `Start()` and `Stop()` for precise measurement of custom intervals.
+
+##### Key points
+
+- **Label**: required, shown in output; empty labels raise `InputError`
+- **Output**:
+  - `emit_log=True` → `logging.info()` (default)
+  - `emit_print=True` → direct `print()`
+  - Both can be enabled
+- **Format**: elapsed time is shown using `HumanizedSeconds()`
+- **Safety**:
+  - Cannot start an already started timer
+  - Cannot stop an unstarted or already stopped timer
+    (raises `Error`)
+
+#### Serialization Pipeline
+
+These helpers turn arbitrary Python objects into compressed and/or encrypted binary blobs, and back again — with detailed timing and size logging.
+
+```py
+from transcrypto import base
+```
+
+##### Serialize
+
+```py
+data = {'x': 42, 'y': 'hello'}
+
+# Basic serialization
+blob = base.Serialize(data)
+
+# With compression and encryption
+blob = base.Serialize(
+    data,
+    compress=9,               # compression level (-22..22, default=3)
+    key=my_symmetric_key      # must implement SymmetricCrypto
+)
+
+# Save directly to file
+base.Serialize(data, file_path='/tmp/data.blob')
+```
+
+Serialization path:
+
+```text
+obj → pickle → (compress) → (encrypt) → (save)
+```
+
+At each stage:
+
+- Data size is measured using `HumanizedBytes`
+- Duration is timed with `Timer`
+- Results are logged once at the end
+
+Compression levels:
+
+`compress` uses `zstandard`; see table below for speed/ratio trade-offs:
+
+| Level    | Speed       | Compression ratio                 | Typical use case                        |
+| -------- | ------------| --------------------------------- | --------------------------------------- |
+| -5 to -1 | Fastest     | Poor (better than no compression) | Real-time or very latency-sensitive     |
+| 0…3      | Very fast   | Good ratio                        | Default CLI choice, safe baseline       |
+| 4…6      | Moderate    | Better ratio                      | Good compromise for general persistence |
+| 7…10     | Slower      | Marginally better ratio           | Only if storage space is precious       |
+| 11…15    | Much slower | Slight gains                      | Large archives, not for runtime use     |
+| 16…22    | Very slow   | Tiny gains                        | Archival-only, multi-GB datasets        |
+
+Errors: invalid compression level is clamped to range; other input errors raise `InputError`.
+
+##### DeSerialize
+
+```py
+# From in-memory blob
+obj = base.DeSerialize(data=blob)
+
+# From file
+obj = base.DeSerialize(file_path='/tmp/data.blob')
+
+# With decryption
+obj = base.DeSerialize(data=blob, key=my_symmetric_key)
+```
+
+Deserialization path:
+
+```text
+data/file → (decrypt) → (decompress if Zstd) → unpickle
+```
+
+- Compression is auto-detected via Zstandard magic numbers.
+- All steps are timed/logged like in `Serialize`.
+
+**Constraints & errors**:
+
+- Exactly one of `data` or `file_path` must be provided.
+- `file_path` must exist; `data` must be at least 4 bytes.
+- Wrong key or corrupted data can raise `CryptoError`.
+
 #### Cryptographically Secure Randomness
 
 These helpers live in `base` and wrap Python’s `secrets` with additional checks and guarantees for crypto use-cases.
@@ -1464,6 +1849,94 @@ Use-cases:
 - solving linear Diophantine equations
 - RSA / ECC key generation internals
 
+#### Fast Modular Arithmetic
+
+```py
+from transcrypto import modmath
+
+m = 2**256 - 189    # a large prime modulus
+
+# Inverse ──────────────────────────────
+x = 123456789
+x_inv = modmath.ModInv(x, m)
+assert (x * x_inv) % m == 1
+
+# Division (x / y) mod m ──────────────
+y = 987654321
+z = modmath.ModDiv(x, y, m)      # solves z·y ≡ x (mod m)
+assert (z * y) % m == x % m
+
+# Exponentiation ──────────────────────
+exp = modmath.ModExp(3, 10**20, m)   # ≈ log₂(y) time, handles huge exponents
+```
+
+##### Chinese Remainder Theorem (CRT) – Pair
+
+```py
+from transcrypto import modmath
+
+# Solve:
+#   x ≡ 2 (mod 3)
+#   x ≡ 3 (mod 5)
+x = modmath.CRTPair(2, 3, 3, 5)
+print(x)             # 8
+assert x % 3 == 2
+assert x % 5 == 3
+```
+
+Solves a system of two simultaneous congruences with **pairwise co-prime** moduli, returning the **least non-negative solution** `x` such that:
+
+```text
+x ≡ a1 (mod m1)
+x ≡ a2 (mod m2)
+0 ≤ x < m1 * m2
+```
+
+- **Requirements**:
+  - `m1 ≥ 2`, `m2 ≥ 2`, `m1 != m2`
+  - `gcd(m1, m2) == 1` (co-prime)
+- **Errors**:
+  - invalid modulus values → `InputError`
+  - non co-prime moduli → `ModularDivideError`
+
+This function is a 2-modulus variant; for multiple moduli, apply it iteratively or use a general CRT solver.
+
+##### Modular Polynomials & Lagrange Interpolation
+
+```py
+# f(t) = 7t³ − 3t² + 2t + 5  (coefficients constant-term first)
+coefficients = [5, 2, -3, 7]
+print(modmath.ModPolynomial(11, coefficients, 97))   # → 19
+
+# Given three points build the degree-≤2 polynomial and evaluate it.
+pts = {2: 4, 5: 3, 7: 1}
+print(modmath.ModLagrangeInterpolate(9, pts, 11))   # → 2
+```
+
+#### Primality testing & Prime generators, Mersenne primes
+
+```py
+modmath.IsPrime(2**127 - 1)              # True  (Mersenne prime)
+modmath.IsPrime(3825123056546413051)     # False (strong pseudo-prime)
+
+# Direct Miller–Rabin with custom witnesses
+modmath.MillerRabinIsPrime(961748941, witnesses={2,7,61})
+
+# Infinite iterator of primes ≥ 10⁶
+for p in modmath.PrimeGenerator(1_000_000):
+  print(p)
+  if p > 1_000_100:
+    break
+
+# Secure random 384-bit prime (for RSA/ECC experiments)
+p384 = modmath.NBitRandomPrime(384)
+
+for k, m_p, perfect in modmath.MersennePrimesGenerator(0):
+  print(f'p = {k:>8}  M = {m_p}  perfect = {perfect}')
+  if k > 10000:          # stop after a few
+    break
+```
+
 #### Cryptographic Hashing
 
 Simple, fixed-output-size wrappers over Python’s `hashlib` for common digest operations, plus file hashing.
@@ -1510,62 +1983,6 @@ Hashes a file from disk in streaming mode. By default uses SHA-256; `digest='sha
   - `full_path` must exist
 - errors: invalid digest or missing file → `InputError`
 
-#### Execution Timing
-
-A flexible timing utility that works as a **context manager**, **decorator**, or **manual timer object**.
-
-```py
-from transcrypto import base
-import time
-```
-
-##### Context manager
-
-```py
-with base.Timer('Block timing'):
-    time.sleep(1.2)
-# → logs: "Block timing: 1.20 s" (default via logging.info)
-```
-
-Starts timing on entry, stops on exit, and reports elapsed time automatically.
-
-##### Decorator
-
-```py
-@base.Timer('Function timing')
-def slow_function():
-    time.sleep(0.8)
-
-slow_function()
-# → logs: "Function timing: 0.80 s"
-```
-
-Wraps a function so that each call is automatically timed.
-
-##### Manual use
-
-```py
-tm = base.Timer('Inline timing', emit_print=True)
-tm.Start()
-time.sleep(0.1)
-tm.Stop()   # prints: "Inline timing: 0.10 s"
-```
-
-Manual control over `Start()` and `Stop()` for precise measurement of custom intervals.
-
-##### Key points
-
-- **Label**: required, shown in output; empty labels raise `InputError`
-- **Output**:
-  - `emit_log=True` → `logging.info()` (default)
-  - `emit_print=True` → direct `print()`
-  - Both can be enabled
-- **Format**: elapsed time is shown using `HumanizedSeconds()`
-- **Safety**:
-  - Cannot start an already started timer
-  - Cannot stop an unstarted or already stopped timer
-    (raises `Error`)
-
 #### Symmetric Encryption Interface
 
 `SymmetricCrypto` is an abstract base class that defines the **byte-in / byte-out** contract for symmetric ciphers.
@@ -1580,88 +1997,6 @@ class MyAES(base.SymmetricCrypto):
     def Decrypt(self, ciphertext: bytes, *, associated_data=None) -> bytes:
         ...
 ```
-
-#### Serialization Pipeline
-
-These helpers turn arbitrary Python objects into compressed and/or encrypted binary blobs, and back again — with detailed timing and size logging.
-
-```py
-from transcrypto import base
-```
-
-##### Serialize
-
-```py
-data = {'x': 42, 'y': 'hello'}
-
-# Basic serialization
-blob = base.Serialize(data)
-
-# With compression and encryption
-blob = base.Serialize(
-    data,
-    compress=9,               # compression level (-22..22, default=3)
-    key=my_symmetric_key      # must implement SymmetricCrypto
-)
-
-# Save directly to file
-base.Serialize(data, file_path='/tmp/data.blob')
-```
-
-Serialization path:
-
-```text
-obj → pickle → (compress) → (encrypt) → (save)
-```
-
-At each stage:
-
-- Data size is measured using `HumanizedBytes`
-- Duration is timed with `Timer`
-- Results are logged once at the end
-
-Compression levels:
-
-`compress` uses `zstandard`; see table below for speed/ratio trade-offs:
-
-| Level    | Speed       | Compression ratio                 | Typical use case                        |
-| -------- | ------------| --------------------------------- | --------------------------------------- |
-| -5 to -1 | Fastest     | Poor (better than no compression) | Real-time or very latency-sensitive     |
-| 0…3      | Very fast   | Good ratio                        | Default CLI choice, safe baseline       |
-| 4…6      | Moderate    | Better ratio                      | Good compromise for general persistence |
-| 7…10     | Slower      | Marginally better ratio           | Only if storage space is precious       |
-| 11…15    | Much slower | Slight gains                      | Large archives, not for runtime use     |
-| 16…22    | Very slow   | Tiny gains                        | Archival-only, multi-GB datasets        |
-
-Errors: invalid compression level is clamped to range; other input errors raise `InputError`.
-
-##### DeSerialize
-
-```py
-# From in-memory blob
-obj = base.DeSerialize(data=blob)
-
-# From file
-obj = base.DeSerialize(file_path='/tmp/data.blob')
-
-# With decryption
-obj = base.DeSerialize(data=blob, key=my_symmetric_key)
-```
-
-Deserialization path:
-
-```text
-data/file → (decrypt) → (decompress if Zstd) → unpickle
-```
-
-- Compression is auto-detected via Zstandard magic numbers.
-- All steps are timed/logged like in `Serialize`.
-
-**Constraints & errors**:
-
-- Exactly one of `data` or `file_path` must be provided.
-- `file_path` must exist; `data` must be at least 4 bytes.
-- Wrong key or corrupted data can raise `CryptoError`.
 
 #### Crypto Objects General Properties (`CryptoKey`)
 
@@ -1701,94 +2036,6 @@ print(priv == rsa.RSAPrivateKey.Load(encrypted, key=key))
 # ▶ True
 ```
 <!-- cspell:enable -->
-
-#### Fast Modular Arithmetic
-
-```py
-from transcrypto import modmath
-
-m = 2**256 - 189    # a large prime modulus
-
-# Inverse ──────────────────────────────
-x = 123456789
-x_inv = modmath.ModInv(x, m)
-assert (x * x_inv) % m == 1
-
-# Division (x / y) mod m ──────────────
-y = 987654321
-z = modmath.ModDiv(x, y, m)      # solves z·y ≡ x (mod m)
-assert (z * y) % m == x % m
-
-# Exponentiation ──────────────────────
-exp = modmath.ModExp(3, 10**20, m)   # ≈ log₂(y) time, handles huge exponents
-```
-
-#### Chinese Remainder Theorem (CRT) – Pair
-
-```py
-from transcrypto import modmath
-
-# Solve:
-#   x ≡ 2 (mod 3)
-#   x ≡ 3 (mod 5)
-x = modmath.CRTPair(2, 3, 3, 5)
-print(x)             # 8
-assert x % 3 == 2
-assert x % 5 == 3
-```
-
-Solves a system of two simultaneous congruences with **pairwise co-prime** moduli, returning the **least non-negative solution** `x` such that:
-
-```text
-x ≡ a1 (mod m1)
-x ≡ a2 (mod m2)
-0 ≤ x < m1 * m2
-```
-
-- **Requirements**:
-  - `m1 ≥ 2`, `m2 ≥ 2`, `m1 != m2`
-  - `gcd(m1, m2) == 1` (co-prime)
-- **Errors**:
-  - invalid modulus values → `InputError`
-  - non co-prime moduli → `ModularDivideError`
-
-This function is a 2-modulus variant; for multiple moduli, apply it iteratively or use a general CRT solver.
-
-#### Modular Polynomials & Lagrange Interpolation
-
-```py
-# f(t) = 7t³ − 3t² + 2t + 5  (coefficients constant-term first)
-coefficients = [5, 2, -3, 7]
-print(modmath.ModPolynomial(11, coefficients, 97))   # → 19
-
-# Given three points build the degree-≤2 polynomial and evaluate it.
-pts = {2: 4, 5: 3, 7: 1}
-print(modmath.ModLagrangeInterpolate(9, pts, 11))   # → 2
-```
-
-#### Primality testing & Prime generators, Mersenne primes
-
-```py
-modmath.IsPrime(2**127 - 1)              # True  (Mersenne prime)
-modmath.IsPrime(3825123056546413051)     # False (strong pseudo-prime)
-
-# Direct Miller–Rabin with custom witnesses
-modmath.MillerRabinIsPrime(961748941, witnesses={2,7,61})
-
-# Infinite iterator of primes ≥ 10⁶
-for p in modmath.PrimeGenerator(1_000_000):
-  print(p)
-  if p > 1_000_100:
-    break
-
-# Secure random 384-bit prime (for RSA/ECC experiments)
-p384 = modmath.NBitRandomPrime(384)
-
-for k, m_p, perfect in modmath.MersennePrimesGenerator(0):
-  print(f'p = {k:>8}  M = {m_p}  perfect = {perfect}')
-  if k > 10000:          # stop after a few
-    break
-```
 
 #### AES-256 Symmetric Encryption
 
@@ -1876,13 +2123,23 @@ priv = rsa.RSAPrivateKey.New(2048)        # 2048-bit modulus
 pub  = rsa.RSAPublicKey.Copy(priv)        # public half
 print(priv.public_modulus.bit_length())   # 2048
 
-# Encrypt & decrypt
+# Safe Encrypt & decrypt
+msg = b'xyz'
+cipher = pub.Encrypt(msg, associated_data=b'aad')
+plain  = priv.Decrypt(cipher, associated_data=b'aad')
+assert plain == msg
+
+# Safe Sign & verify
+signature = priv.Sign(msg)  # can also have associated_data, optionally
+assert pub.Verify(msg, signature)
+
+# Raw Encrypt & decrypt
 msg = 123456789  # (Zero is forbidden by design; smallest valid message is 1.)
 cipher = pub.RawEncrypt(msg)
 plain  = priv.RawDecrypt(cipher)
 assert plain == msg
 
-# Sign & verify
+# Raw Sign & verify
 signature = priv.RawSign(msg)
 assert pub.RawVerify(msg, signature)
 
@@ -1903,60 +2160,38 @@ assert pub.RawVerify(msg, sig)
 This is **raw El-Gamal** over a prime field — no padding, no hashing — and is **not** DSA.
 For real-world deployments, use a high-level library with authenticated encryption and proper encoding.
 
-##### Shared Public Key
-
 ```py
 from transcrypto import elgamal
 
-# ➊ Shared parameters (prime modulus, group base) for a group
+# Shared parameters (prime modulus, group base) for a group
 shared = elgamal.ElGamalSharedPublicKey.New(256)
 print(shared.prime_modulus)
 print(shared.group_base)
-```
 
-- `prime_modulus`: large prime `p ≥ 7`
-- `group_base`: integer `3 ≤ g < p`
-- Used to derive individual public/private keys.
-
-##### Public Key
-
-```py
-# ➋ Public key from private
+# Public key from private
 priv = elgamal.ElGamalPrivateKey.New(shared)
 pub  = elgamal.ElGamalPublicKey.Copy(priv)
 
-# Encryption
+# Safe Encrypt & decrypt
+msg = b'xyz'
+cipher = pub.Encrypt(msg, associated_data=b'aad')
+plain  = priv.Decrypt(cipher, associated_data=b'aad')
+assert plain == msg
+
+# Safe Sign & verify
+signature = priv.Sign(msg)  # can also have associated_data, optionally
+assert pub.Verify(msg, signature)
+
+# Raw Encryption
 msg = 42
 cipher = pub.RawEncrypt(msg)
 plain = priv.RawDecrypt(cipher)
 assert plain == msg
 
-# Signature verify
+# Raw Signature verify
 sig = priv.RawSign(msg)
 assert pub.RawVerify(msg, sig)
 ```
-
-- `Encrypt(message)` → `(c1, c2)`, both in `[2, p-1]`
-- `VerifySignature(message, signature)` → `True` or `False`
-- `Copy()` extracts public portion from a private key
-
-##### Private Key
-
-```py
-# ➌ Private key generation
-priv = elgamal.ElGamalPrivateKey.New(shared)
-
-# Decryption
-plain = priv.RawDecrypt(cipher)
-
-# Signing
-sig = priv.RawSign(msg)
-assert pub.RawVerify(msg, sig)
-```
-
-- `decrypt_exp`: secret exponent `3 ≤ e < p`
-- `Decrypt((c1, c2))` recovers `m`
-- `Sign(m)` returns `(s1, s2)`; both satisfy the modulus constraints
 
 Key points:
 
@@ -1981,17 +2216,22 @@ This is **raw DSA** over a prime field — **no hashing or padding**. You sign/v
 ```py
 from transcrypto import dsa
 
-# ➊ Shared parameters (p, q, g)
+# Shared parameters (p, q, g)
 shared = dsa.DSASharedPublicKey.New(p_bits=1024, q_bits=160)
 print(shared.prime_modulus)  # p
 print(shared.prime_seed)     # q  (q | p-1)
 print(shared.group_base)     # g
 
-# ➋ Individual key pair
+# Individual key pair
 priv = dsa.DSAPrivateKey.New(shared)
 pub  = dsa.DSAPublicKey.Copy(priv)
 
-# ➌ Sign & verify (message must be 1 ≤ m < q)
+# Safe Sign & verify
+msg = b'xyz'
+signature = priv.Sign(msg)  # can also have associated_data, optionally
+assert pub.Verify(msg, signature)
+
+# Raw Sign & verify (message must be 1 ≤ m < q)
 msg = 123456789 % shared.prime_seed
 sig = priv.RawSign(msg)
 assert pub.RawVerify(msg, sig)
@@ -2047,8 +2287,8 @@ This is the information-theoretic SSS but with no authentication or binding betw
 ```py
 from transcrypto import sss
 
-# ➊  Generate parameters: at least 3 of 5 shares needed,
-#     coefficients & modulus are 128-bit primes
+# Generate parameters: at least 3 of 5 shares needed,
+# coefficients & modulus are 128-bit primes
 priv = sss.ShamirSharedSecretPrivate.New(minimum_shares=3, bit_length=128)
 pub  = sss.ShamirSharedSecretPublic.Copy(priv)   # what you publish
 
@@ -2056,7 +2296,15 @@ print(f'threshold        : {pub.minimum}')
 print(f'prime mod        : {pub.modulus}')
 print(f'poly coefficients: {priv.polynomial}')         # keep these private!
 
-# Issuing shares
+# Safe Issuing shares
+
+secret = b'xyz'
+# Generate 5 shares, each has a copy of the encrypted secret
+five_shares = priv.MakeDataShares(secret, 5)
+for sh in five_shares:
+  print(sh)
+
+# Raw Issuing shares
 
 secret = 0xC0FFEE
 # Generate an unlimited stream; here we take 5
@@ -2068,8 +2316,16 @@ for sh in five_shares:
 A single share object looks like `sss.ShamirSharePrivate(minimum=3, modulus=..., share_key=42, share_value=123456789)`.
 
 ```py
-# Re-constructing the secret
+# Safe Re-constructing the secret
+secret = b'xyz'
+five_shares = priv.MakeDataShares(secret, 5)
+subset = five_shares[:3]                   # any 3 distinct shares
+recovered = subset[0].RecoverData(subset)  # each share has the encrypted data, so you ask it to join with the others
+assert recovered == secret
 
+# Raw Re-constructing the secret
+secret = 0xC0FFEE
+five_shares = list(priv.RawShares(secret, max_shares=5))
 subset = five_shares[:3]          # any 3 distinct shares
 recovered = pub.RawRecoverSecret(subset)
 assert recovered == secret

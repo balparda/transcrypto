@@ -239,7 +239,6 @@ class ElGamalPublicKey(ElGamalSharedPublicKey, base.Encryptor, base.Verifier):
       InputError: invalid inputs
       CryptoError: internal crypto failures
     """
-    # TODO: add to CLI
     # generate random r and encrypt it
     r: int = 0
     while not 1 < r < self.prime_modulus - 1:

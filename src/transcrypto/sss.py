@@ -253,7 +253,6 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
       InputError: invalid inputs
       CryptoError: internal crypto failures
     """
-    # TODO: add to CLI
     if total_shares < self.minimum:
       raise base.InputError(f'invalid total_shares: {total_shares=} < {self.minimum=}')
     k: int = self.modulus_size

@@ -34,11 +34,11 @@ poetry run transcrypto <command> [sub-command] [options...]
 - **`mod`** — `poetry run transcrypto mod [-h] {inv,div,exp,poly,lagrange,crt} ...`
 - **`hash`** — `poetry run transcrypto hash [-h] {sha256,sha512,file} ...`
 - **`aes`** — `poetry run transcrypto aes [-h] {key,encrypt,decrypt,ecb} ...`
-- **`rsa`** — `poetry run transcrypto rsa [-h] {new,rawencrypt,rawdecrypt,rawsign,rawverify} ...`
-- **`elgamal`** — `poetry run transcrypto elgamal [-h] {shared,new,rawencrypt,rawdecrypt,rawsign,rawverify} ...`
-- **`dsa`** — `poetry run transcrypto dsa [-h] {shared,new,rawsign,rawverify} ...`
+- **`rsa`** — `poetry run transcrypto rsa [-h] {new,rawencrypt,encrypt,rawdecrypt,decrypt,rawsign,sign,rawverify,verify} ...`
+- **`elgamal`** — `poetry run transcrypto elgamal [-h] {shared,new,rawencrypt,encrypt,rawdecrypt,decrypt,rawsign,sign,rawverify,verify} ...`
+- **`dsa`** — `poetry run transcrypto dsa [-h] {shared,new,rawsign,sign,rawverify,verify} ...`
 - **`bid`** — `poetry run transcrypto bid [-h] {new,verify} ...`
-- **`sss`** — `poetry run transcrypto sss [-h] {new,rawshares,rawrecover,rawverify} ...`
+- **`sss`** — `poetry run transcrypto sss [-h] {new,rawshares,shares,rawrecover,recover,rawverify} ...`
 - **`doc`** — `poetry run transcrypto doc [-h] {md} ...`
 
 ```bash
@@ -677,11 +677,11 @@ $ poetry run transcrypto --b64 aes ecb -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_
 
 ### `rsa`
 
-Raw RSA (Rivest-Shamir-Adleman) asymmetric cryptography over *integers* (BEWARE: no OAEP/PSS padding or validation). These are pedagogical/raw primitives; do not use for new protocols. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
+RSA (Rivest-Shamir-Adleman) asymmetric cryptography. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
 
 ```bash
 poetry run transcrypto rsa [-h]
-                                  {new,rawencrypt,rawdecrypt,rawsign,rawverify} ...
+                                  {new,rawencrypt,encrypt,rawdecrypt,decrypt,rawsign,sign,rawverify,verify} ...
 ```
 
 #### `rsa new`
@@ -705,7 +705,7 @@ RSA private/public keys saved to 'rsa-key.priv/.pub'
 
 #### `rsa rawencrypt`
 
-Encrypt integer `message` with public key.
+Raw encrypt *integer* `message` with public key (BEWARE: no OAEP/PSS padding or validation).
 
 ```bash
 poetry run transcrypto rsa rawencrypt [-h] message
@@ -722,9 +722,29 @@ $ poetry run transcrypto -p rsa-key.pub rsa rawencrypt 999
 6354905961171348600
 ```
 
+#### `rsa encrypt`
+
+Encrypt `message` with public key.
+
+```bash
+poetry run transcrypto rsa encrypt [-h] [-a AAD] plaintext
+```
+
+| Option/Arg | Description |
+|---|---|
+| `plaintext` | Message to encrypt [type: str] |
+| `-a, --aad` | Associated data (optional; has to be separately sent to receiver/stored) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --bin --out-b64 -p rsa-key.pub rsa encrypt "abcde" -a "xyz"
+AO6knI6xwq6TGR…Qy22jiFhXi1eQ==
+```
+
 #### `rsa rawdecrypt`
 
-Decrypt integer `ciphertext` with private key.
+Raw decrypt *integer* `ciphertext` with private key (BEWARE: no OAEP/PSS padding or validation).
 
 ```bash
 poetry run transcrypto rsa rawdecrypt [-h] ciphertext
@@ -741,9 +761,29 @@ $ poetry run transcrypto -p rsa-key.priv rsa rawdecrypt 6354905961171348600
 999
 ```
 
+#### `rsa decrypt`
+
+Decrypt `ciphertext` with private key.
+
+```bash
+poetry run transcrypto rsa decrypt [-h] [-a AAD] ciphertext
+```
+
+| Option/Arg | Description |
+|---|---|
+| `ciphertext` | Ciphertext to decrypt [type: str] |
+| `-a, --aad` | Associated data (optional; has to be exactly the same as used during encryption) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --b64 --out-bin -p rsa-key.priv rsa decrypt "AO6knI6xwq6TGR…Qy22jiFhXi1eQ==" -a "eHl6"
+abcde
+```
+
 #### `rsa rawsign`
 
-Sign integer `message` with private key.
+Raw sign *integer* `message` with private key (BEWARE: no OAEP/PSS padding or validation).
 
 ```bash
 poetry run transcrypto rsa rawsign [-h] message
@@ -760,9 +800,29 @@ $ poetry run transcrypto -p rsa-key.priv rsa rawsign 999
 7632909108672871784
 ```
 
+#### `rsa sign`
+
+Sign `message` with private key.
+
+```bash
+poetry run transcrypto rsa sign [-h] [-a AAD] message
+```
+
+| Option/Arg | Description |
+|---|---|
+| `message` | Message to sign [type: str] |
+| `-a, --aad` | Associated data (optional; has to be separately sent to receiver/stored) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --bin --out-b64 -p rsa-key.priv rsa sign "xyz"
+91TS7gC6LORiL…6RD23Aejsfxlw==
+```
+
 #### `rsa rawverify`
 
-Verify integer `signature` for integer `message` with public key.
+Raw verify *integer* `signature` for *integer* `message` with public key (BEWARE: no OAEP/PSS padding or validation).
 
 ```bash
 poetry run transcrypto rsa rawverify [-h] message signature
@@ -782,15 +842,38 @@ $ poetry run transcrypto -p rsa-key.pub rsa rawverify 999 7632909108672871785
 RSA signature: INVALID
 ```
 
+#### `rsa verify`
+
+Verify `signature` for `message` with public key.
+
+```bash
+poetry run transcrypto rsa verify [-h] [-a AAD] message signature
+```
+
+| Option/Arg | Description |
+|---|---|
+| `message` | Message that was signed earlier [type: str] |
+| `signature` | Putative signature for `message` [type: str] |
+| `-a, --aad` | Associated data (optional; has to be exactly the same as used during signing) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --b64 -p rsa-key.pub rsa verify "eHl6" "91TS7gC6LORiL…6RD23Aejsfxlw=="
+RSA signature: OK
+$ poetry run transcrypto --b64 -p rsa-key.pub rsa verify "eLl6" "91TS7gC6LORiL…6RD23Aejsfxlw=="
+RSA signature: INVALID
+```
+
 ---
 
 ### `elgamal`
 
-Raw El-Gamal asymmetric cryptography over *integers* (BEWARE: no ECIES-style KEM/DEM padding or validation). These are pedagogical/raw primitives; do not use for new protocols. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
+El-Gamal asymmetric cryptography. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
 
 ```bash
 poetry run transcrypto elgamal [-h]
-                                      {shared,new,rawencrypt,rawdecrypt,rawsign,rawverify} ...
+                                      {shared,new,rawencrypt,encrypt,rawdecrypt,decrypt,rawsign,sign,rawverify,verify} ...
 ```
 
 #### `elgamal shared`
@@ -829,7 +912,7 @@ El-Gamal private/public keys saved to 'eg-key.priv/.pub'
 
 #### `elgamal rawencrypt`
 
-Encrypt integer `message` with public key.
+Raw encrypt *integer* `message` with public key (BEWARE: no ECIES-style KEM/DEM padding or validation).
 
 ```bash
 poetry run transcrypto elgamal rawencrypt [-h] message
@@ -846,9 +929,29 @@ $ poetry run transcrypto -p eg-key.pub elgamal rawencrypt 999
 2948854810728206041:15945988196340032688
 ```
 
+#### `elgamal encrypt`
+
+Encrypt `message` with public key.
+
+```bash
+poetry run transcrypto elgamal encrypt [-h] [-a AAD] plaintext
+```
+
+| Option/Arg | Description |
+|---|---|
+| `plaintext` | Message to encrypt [type: str] |
+| `-a, --aad` | Associated data (optional; has to be separately sent to receiver/stored) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --bin --out-b64 -p eg-key.pub elgamal encrypt "abcde" -a "xyz"
+CdFvoQ_IIPFPZLua…kqjhcUTspISxURg==
+```
+
 #### `elgamal rawdecrypt`
 
-Decrypt integer `ciphertext` with private key.
+Raw decrypt *integer* `ciphertext` with private key (BEWARE: no ECIES-style KEM/DEM padding or validation).
 
 ```bash
 poetry run transcrypto elgamal rawdecrypt [-h] ciphertext
@@ -865,9 +968,29 @@ $ poetry run transcrypto -p eg-key.priv elgamal rawdecrypt 2948854810728206041:1
 999
 ```
 
+#### `elgamal decrypt`
+
+Decrypt `ciphertext` with private key.
+
+```bash
+poetry run transcrypto elgamal decrypt [-h] [-a AAD] ciphertext
+```
+
+| Option/Arg | Description |
+|---|---|
+| `ciphertext` | Ciphertext to decrypt [type: str] |
+| `-a, --aad` | Associated data (optional; has to be exactly the same as used during encryption) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --b64 --out-bin -p eg-key.priv elgamal decrypt "CdFvoQ_IIPFPZLua…kqjhcUTspISxURg==" -a "eHl6"
+abcde
+```
+
 #### `elgamal rawsign`
 
-Sign integer message with private key. Output will 2 integers in a `s1:s2` format.
+Raw sign *integer* message with private key (BEWARE: no ECIES-style KEM/DEM padding or validation). Output will 2 *integers* in a `s1:s2` format.
 
 ```bash
 poetry run transcrypto elgamal rawsign [-h] message
@@ -884,9 +1007,29 @@ $ poetry run transcrypto -p eg-key.priv elgamal rawsign 999
 4674885853217269088:14532144906178302633
 ```
 
+#### `elgamal sign`
+
+Sign message with private key.
+
+```bash
+poetry run transcrypto elgamal sign [-h] [-a AAD] message
+```
+
+| Option/Arg | Description |
+|---|---|
+| `message` | Message to sign [type: str] |
+| `-a, --aad` | Associated data (optional; has to be separately sent to receiver/stored) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --bin --out-b64 -p eg-key.priv elgamal sign "xyz"
+Xl4hlYK8SHVGw…0fCKJE1XVzA==
+```
+
 #### `elgamal rawverify`
 
-Verify integer `signature` for integer `message` with public key.
+Raw verify *integer* `signature` for *integer* `message` with public key (BEWARE: no ECIES-style KEM/DEM padding or validation).
 
 ```bash
 poetry run transcrypto elgamal rawverify [-h] message signature
@@ -906,14 +1049,38 @@ $ poetry run transcrypto -p eg-key.pub elgamal rawverify 999 4674885853217269088
 El-Gamal signature: INVALID
 ```
 
+#### `elgamal verify`
+
+Verify `signature` for `message` with public key.
+
+```bash
+poetry run transcrypto elgamal verify [-h] [-a AAD] message signature
+```
+
+| Option/Arg | Description |
+|---|---|
+| `message` | Message that was signed earlier [type: str] |
+| `signature` | Putative signature for `message` [type: str] |
+| `-a, --aad` | Associated data (optional; has to be exactly the same as used during signing) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --b64 -p eg-key.pub elgamal verify "eHl6" "Xl4hlYK8SHVGw…0fCKJE1XVzA=="
+El-Gamal signature: OK
+$ poetry run transcrypto --b64 -p eg-key.pub elgamal verify "eLl6" "Xl4hlYK8SHVGw…0fCKJE1XVzA=="
+El-Gamal signature: INVALID
+```
+
 ---
 
 ### `dsa`
 
-Raw DSA (Digital Signature Algorithm) asymmetric signing over *integers* (BEWARE: no ECDSA/EdDSA padding or validation). These are pedagogical/raw primitives; do not use for new protocols. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
+DSA (Digital Signature Algorithm) asymmetric signing/verifying. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
 
 ```bash
-poetry run transcrypto dsa [-h] {shared,new,rawsign,rawverify} ...
+poetry run transcrypto dsa [-h]
+                                  {shared,new,rawsign,sign,rawverify,verify} ...
 ```
 
 #### `dsa shared`
@@ -954,7 +1121,7 @@ DSA private/public keys saved to 'dsa-key.priv/.pub'
 
 #### `dsa rawsign`
 
-Sign integer message with private key. Output will 2 integers in a `s1:s2` format.
+Raw sign *integer* message with private key (BEWARE: no ECDSA/EdDSA padding or validation). Output will 2 *integers* in a `s1:s2` format.
 
 ```bash
 poetry run transcrypto dsa rawsign [-h] message
@@ -971,9 +1138,29 @@ $ poetry run transcrypto -p dsa-key.priv dsa rawsign 999
 2395961484:3435572290
 ```
 
+#### `dsa sign`
+
+Sign message with private key.
+
+```bash
+poetry run transcrypto dsa sign [-h] [-a AAD] message
+```
+
+| Option/Arg | Description |
+|---|---|
+| `message` | Message to sign [type: str] |
+| `-a, --aad` | Associated data (optional; has to be separately sent to receiver/stored) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --bin --out-b64 -p dsa-key.priv dsa sign "xyz"
+yq8InJVpViXh9…BD4par2XuA=
+```
+
 #### `dsa rawverify`
 
-Verify integer `signature` for integer `message` with public key.
+Raw verify *integer* `signature` for *integer* `message` with public key (BEWARE: no ECDSA/EdDSA padding or validation).
 
 ```bash
 poetry run transcrypto dsa rawverify [-h] message signature
@@ -990,6 +1177,29 @@ poetry run transcrypto dsa rawverify [-h] message signature
 $ poetry run transcrypto -p dsa-key.pub dsa rawverify 999 2395961484:3435572290
 DSA signature: OK
 $ poetry run transcrypto -p dsa-key.pub dsa rawverify 999 2395961484:3435572291
+DSA signature: INVALID
+```
+
+#### `dsa verify`
+
+Verify `signature` for `message` with public key.
+
+```bash
+poetry run transcrypto dsa verify [-h] [-a AAD] message signature
+```
+
+| Option/Arg | Description |
+|---|---|
+| `message` | Message that was signed earlier [type: str] |
+| `signature` | Putative signature for `message` [type: str] |
+| `-a, --aad` | Associated data (optional; has to be exactly the same as used during signing) [type: str] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --b64 -p dsa-key.pub dsa verify "eHl6" "yq8InJVpViXh9…BD4par2XuA="
+DSA signature: OK
+$ poetry run transcrypto --b64 -p dsa-key.pub dsa verify "eLl6" "yq8InJVpViXh9…BD4par2XuA="
 DSA signature: INVALID
 ```
 
@@ -1043,11 +1253,11 @@ tomorrow it will rain
 
 ### `sss`
 
-Raw SSS (Shamir Shared Secret) secret sharing crypto scheme over *integers* (BEWARE: no modern message wrapping, padding or validation). These are pedagogical/raw primitives; do not use for new protocols. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
+SSS (Shamir Shared Secret) secret sharing crypto scheme. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
 
 ```bash
 poetry run transcrypto sss [-h]
-                                  {new,rawshares,rawrecover,rawverify} ...
+                                  {new,rawshares,shares,rawrecover,recover,rawverify} ...
 ```
 
 #### `sss new`
@@ -1072,7 +1282,7 @@ SSS private/public keys saved to 'sss-key.priv/.pub'
 
 #### `sss rawshares`
 
-Issue `count` private shares for an integer `secret`.
+Raw shares: Issue `count` private shares for an *integer* `secret` (BEWARE: no modern message wrapping, padding or validation).
 
 ```bash
 poetry run transcrypto sss rawshares [-h] secret count
@@ -1091,9 +1301,30 @@ SSS 5 individual (private) shares saved to 'sss-key.share.1…5'
 $ rm sss-key.share.2 sss-key.share.4  # this is to simulate only having shares 1,3,5
 ```
 
+#### `sss shares`
+
+Shares: Issue `count` private shares for a `secret`.
+
+```bash
+poetry run transcrypto sss shares [-h] secret count
+```
+
+| Option/Arg | Description |
+|---|---|
+| `secret` | Secret to be protected [type: str] |
+| `count` | How many shares to produce; must be ≥ `minimum` used in `new` command or else the `secret` would become unrecoverable [type: int] |
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --bin -p sss-key sss shares "abcde" 5
+SSS 5 individual (private) shares saved to 'sss-key.share.1…5'
+$ rm sss-key.share.2 sss-key.share.4  # this is to simulate only having shares 1,3,5
+```
+
 #### `sss rawrecover`
 
-Recover secret from shares; will use any available shares that were found.
+Raw recover *integer* secret from shares; will use any available shares that were found (BEWARE: no modern message wrapping, padding or validation).
 
 ```bash
 poetry run transcrypto sss rawrecover [-h]
@@ -1110,9 +1341,28 @@ Secret:
 999
 ```
 
+#### `sss recover`
+
+Recover secret from shares; will use any available shares that were found.
+
+```bash
+poetry run transcrypto sss recover [-h]
+```
+
+**Example:**
+
+```bash
+$ poetry run transcrypto --out-bin -p sss-key sss recover
+Loaded SSS share: 'sss-key.share.3'
+Loaded SSS share: 'sss-key.share.5'
+Loaded SSS share: 'sss-key.share.1'  # using only 3 shares: number 2/4 are missing
+Secret:
+abcde
+```
+
 #### `sss rawverify`
 
-Verify shares against a secret (private params).
+Raw verify shares against a secret (private params; BEWARE: no modern message wrapping, padding or validation).
 
 ```bash
 poetry run transcrypto sss rawverify [-h] secret
@@ -1120,7 +1370,7 @@ poetry run transcrypto sss rawverify [-h] secret
 
 | Option/Arg | Description |
 |---|---|
-| `secret` | Integer secret used to generate the shares, 1≤`secret`<*modulus* [type: str] |
+| `secret` | Integer secret used to generate the shares [type: str] |
 
 **Example:**
 
