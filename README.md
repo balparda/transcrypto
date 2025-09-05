@@ -44,28 +44,40 @@ Started in July/2025, by Daniel Balparda. Since version 1.0.2 it is PyPI package
     - [`rsa`](#rsa)
       - [`rsa new`](#rsa-new)
       - [`rsa rawencrypt`](#rsa-rawencrypt)
+      - [`rsa encrypt`](#rsa-encrypt)
       - [`rsa rawdecrypt`](#rsa-rawdecrypt)
+      - [`rsa decrypt`](#rsa-decrypt)
       - [`rsa rawsign`](#rsa-rawsign)
+      - [`rsa sign`](#rsa-sign)
       - [`rsa rawverify`](#rsa-rawverify)
+      - [`rsa verify`](#rsa-verify)
     - [`elgamal`](#elgamal)
       - [`elgamal shared`](#elgamal-shared)
       - [`elgamal new`](#elgamal-new)
       - [`elgamal rawencrypt`](#elgamal-rawencrypt)
+      - [`elgamal encrypt`](#elgamal-encrypt)
       - [`elgamal rawdecrypt`](#elgamal-rawdecrypt)
+      - [`elgamal decrypt`](#elgamal-decrypt)
       - [`elgamal rawsign`](#elgamal-rawsign)
+      - [`elgamal sign`](#elgamal-sign)
       - [`elgamal rawverify`](#elgamal-rawverify)
+      - [`elgamal verify`](#elgamal-verify)
     - [`dsa`](#dsa)
       - [`dsa shared`](#dsa-shared)
       - [`dsa new`](#dsa-new)
       - [`dsa rawsign`](#dsa-rawsign)
+      - [`dsa sign`](#dsa-sign)
       - [`dsa rawverify`](#dsa-rawverify)
+      - [`dsa verify`](#dsa-verify)
     - [`bid`](#bid)
       - [`bid new`](#bid-new)
       - [`bid verify`](#bid-verify)
     - [`sss`](#sss)
       - [`sss new`](#sss-new)
       - [`sss rawshares`](#sss-rawshares)
+      - [`sss shares`](#sss-shares)
       - [`sss rawrecover`](#sss-rawrecover)
+      - [`sss recover`](#sss-recover)
       - [`sss rawverify`](#sss-rawverify)
     - [`doc`](#doc)
       - [`doc md`](#doc-md)
@@ -2488,6 +2500,8 @@ You can find the 10 top slowest tests by running:
 
 ```sh
 poetry run pytest -vvv -q --durations=10
+poetry run pytest -vvv -q --durations=10 -m "not slow"      # find slow
+poetry run pytest -vvv -q --durations=10 -m "not veryslow"  # find veryslow
 ```
 
 You can search for flaky tests by running all tests 100 times:

@@ -22,6 +22,7 @@ __version__: str = base.__version__  # tests inherit version from module
 
 
 @pytest.mark.slow
+@pytest.mark.veryslow
 def test_AESKey() -> None:
   """Test."""
   # constants that might break everything

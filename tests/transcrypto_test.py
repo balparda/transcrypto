@@ -234,6 +234,7 @@ def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None: 
 
 
 @pytest.mark.slow
+@pytest.mark.veryslow
 def test_rsa_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None:
   """Test RSA key gen, encrypt/decrypt, sign/verify via CLI."""
   base_path: pathlib.Path = tmp_path / 'rsa'
@@ -267,6 +268,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None:
 
 
 @pytest.mark.slow
+@pytest.mark.veryslow
 def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> None:
   """RSA safe encrypt/decrypt and sign/verify via CLI."""
   base_path = tmp_path / 'rsa_safe'
@@ -300,6 +302,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
   assert code == 0 and out == 'RSA signature: INVALID'
 
 
+@pytest.mark.slow
 def test_elgamal_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None:  # pylint: disable=too-many-locals
   """Test ElGamal shared/new, encrypt/decrypt, sign/verify via CLI."""
   base_path: pathlib.Path = tmp_path / 'eg'
@@ -332,6 +335,7 @@ def test_elgamal_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None
 
 
 @pytest.mark.slow
+@pytest.mark.veryslow
 def test_elgamal_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> None:
   """ElGamal safe encrypt/decrypt and sign/verify via CLI."""
   base_path = tmp_path / 'eg_safe'
@@ -367,6 +371,8 @@ def test_elgamal_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) ->
   assert code == 0 and out == 'El-Gamal signature: INVALID'
 
 
+@pytest.mark.slow
+@pytest.mark.veryslow
 def test_dsa_sign_verify(tmp_path: pathlib.Path) -> None:
   """Test DSA shared/new, sign/verify via CLI."""
   base_path: pathlib.Path = tmp_path / 'dsa'
@@ -394,6 +400,7 @@ def test_dsa_sign_verify(tmp_path: pathlib.Path) -> None:
 
 
 @pytest.mark.slow
+@pytest.mark.veryslow
 def test_dsa_sign_verify_safe(tmp_path: pathlib.Path) -> None:
   """DSA safe sign/verify via CLI."""
   base_path = tmp_path / 'dsa_safe'
@@ -485,6 +492,7 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
 
 
 @pytest.mark.slow
+@pytest.mark.veryslow
 def test_sss_shares_recover_safe(tmp_path: pathlib.Path) -> None:
   """SSS safe shares/recover for data (AEAD-wrapped)."""
   base_path = tmp_path / 'sss_safe'
