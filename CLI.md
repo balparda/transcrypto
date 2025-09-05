@@ -15,7 +15,7 @@ poetry run transcrypto <command> [sub-command] [options...]
 |---|---|
 | `-v, --verbose` | Increase verbosity (use -v/-vv/-vvv/-vvvv for ERROR/WARN/INFO/DEBUG) |
 | `--hex` | Treat inputs as hex string (default) |
-| `--b64` | Treat inputs as base64url |
+| `--b64` | Treat inputs as base64url; sometimes base64 will start with "-" and that can conflict with flags, so use "--" before positional args if needed |
 | `--bin` | Treat inputs as binary (bytes) |
 | `--out-hex` | Outputs as hex (default) |
 | `--out-b64` | Outputs as base64url |
@@ -67,13 +67,13 @@ Examples:
 
   # --- Hashing ---
   poetry run transcrypto hash sha256 xyz
-  poetry run transcrypto --b64 hash sha512 eHl6
+  poetry run transcrypto --b64 hash sha512 -- eHl6
   poetry run transcrypto hash file /etc/passwd --digest sha512
 
   # --- AES ---
   poetry run transcrypto --out-b64 aes key "correct horse battery staple"
-  poetry run transcrypto --b64 --out-b64 aes encrypt -k "<b64key>" "secret"
-  poetry run transcrypto --b64 --out-b64 aes decrypt -k "<b64key>" "<ciphertext>"
+  poetry run transcrypto --b64 --out-b64 aes encrypt -k "<b64key>" -- "secret"
+  poetry run transcrypto --b64 --out-b64 aes decrypt -k "<b64key>" -- "<ciphertext>"
   poetry run transcrypto aes ecb -k "<b64key>" encrypt "<128bithexblock>"
   poetry run transcrypto aes ecb -k "<b64key>" decrypt "<128bithexblock>"
 
@@ -84,6 +84,11 @@ Examples:
   poetry run transcrypto -p rsa-key.priv rsa rawsign <message>
   poetry run transcrypto -p rsa-key.pub rsa rawverify <message> <signature>
 
+  poetry run transcrypto --bin --out-b64 -p rsa-key.pub rsa encrypt -a <aad> <plaintext>
+  poetry run transcrypto --b64 --out-bin -p rsa-key.priv rsa decrypt -a <aad> -- <ciphertext>
+  poetry run transcrypto --bin --out-b64 -p rsa-key.priv rsa sign <message>
+  poetry run transcrypto --b64 -p rsa-key.pub rsa verify -- <message> <signature>
+
   # --- ElGamal ---
   poetry run transcrypto -p eg-key elgamal shared --bits 2048
   poetry run transcrypto -p eg-key elgamal new
@@ -92,11 +97,19 @@ Examples:
   poetry run transcrypto -p eg-key.priv elgamal rawsign <message>
   poetry run transcrypto-p eg-key.pub elgamal rawverify <message> <s1:s2>
 
+  poetry run transcrypto --bin --out-b64 -p eg-key.pub elgamal encrypt <plaintext>
+  poetry run transcrypto --b64 --out-bin -p eg-key.priv elgamal decrypt -- <ciphertext>
+  poetry run transcrypto --bin --out-b64 -p eg-key.priv elgamal sign <message>
+  poetry run transcrypto --b64 -p eg-key.pub elgamal verify -- <message> <signature>
+
   # --- DSA ---
   poetry run transcrypto -p dsa-key dsa shared --p-bits 2048 --q-bits 256
   poetry run transcrypto -p dsa-key dsa new
   poetry run transcrypto -p dsa-key.priv dsa rawsign <message>
   poetry run transcrypto -p dsa-key.pub dsa rawverify <message> <s1:s2>
+
+  poetry run transcrypto --bin --out-b64 -p dsa-key.priv dsa sign <message>
+  poetry run transcrypto --b64 -p dsa-key.pub dsa verify -- <message> <signature>
 
   # --- Public Bid ---
   poetry run transcrypto --bin bid new "tomorrow it will rain"
@@ -104,9 +117,11 @@ Examples:
 
   # --- Shamir Secret Sharing (SSS) ---
   poetry run transcrypto -p sss-key sss new 3 --bits 1024
-  poetry run transcrypto -p sss-key sss rawshares <secret> 5
+  poetry run transcrypto -p sss-key sss rawshares <secret> <n>
   poetry run transcrypto -p sss-key sss rawrecover
-  poetry run transcrypto -p sss-key sss rawverify <secret>
+  poetry run transcrypto -p sss-key sss rawverify <secret>  poetry run transcrypto --bin -p sss-key sss shares <secret> <n>
+  poetry run transcrypto --out-bin -p sss-key sss recover
+
 ```
 
 ---
@@ -501,7 +516,7 @@ poetry run transcrypto hash sha256 [-h] data
 ```bash
 $ poetry run transcrypto --bin hash sha256 xyz
 3608bca1e44ea6c4d268eb6db02260269892c0b42b86bbf1e77a6fa16c3c9282
-$ poetry run transcrypto --b64 hash sha256 eHl6  # "xyz" in base-64
+$ poetry run transcrypto --b64 hash sha256 -- eHl6  # "xyz" in base-64
 3608bca1e44ea6c4d268eb6db02260269892c0b42b86bbf1e77a6fa16c3c9282
 ```
 
@@ -522,7 +537,7 @@ poetry run transcrypto hash sha512 [-h] data
 ```bash
 $ poetry run transcrypto --bin hash sha512 xyz
 4a3ed8147e37876adc8f76328e5abcc1b470e6acfc18efea0135f983604953a58e183c1a6086e91ba3e821d926f5fdeb37761c7ca0328a963f5e92870675b728
-$ poetry run transcrypto --b64 hash sha512 eHl6  # "xyz" in base-64
+$ poetry run transcrypto --b64 hash sha512 -- eHl6  # "xyz" in base-64
 4a3ed8147e37876adc8f76328e5abcc1b470e6acfc18efea0135f983604953a58e183c1a6086e91ba3e821d926f5fdeb37761c7ca0328a963f5e92870675b728
 ```
 
@@ -594,9 +609,9 @@ poetry run transcrypto aes encrypt [-h] [-k KEY] [-a AAD] plaintext
 **Example:**
 
 ```bash
-$ poetry run transcrypto --b64 --out-b64 aes encrypt -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= AAAAAAB4eXo=
+$ poetry run transcrypto --b64 --out-b64 aes encrypt -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= -- AAAAAAB4eXo=
 F2_ZLrUw5Y8oDnbTP5t5xCUWX8WtVILLD0teyUi_37_4KHeV-YowVA==
-$ poetry run transcrypto --b64 --out-b64 aes encrypt -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= -a eHl6 AAAAAAB4eXo=
+$ poetry run transcrypto --b64 --out-b64 aes encrypt -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= -a eHl6 -- AAAAAAB4eXo=
 xOlAHPUPpeyZHId-f3VQ_QKKMxjIW0_FBo9WOfIBrzjn0VkVV6xTRA==
 ```
 
@@ -617,9 +632,9 @@ poetry run transcrypto aes decrypt [-h] [-k KEY] [-a AAD] ciphertext
 **Example:**
 
 ```bash
-$ poetry run transcrypto --b64 --out-b64 aes decrypt -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= F2_ZLrUw5Y8oDnbTP5t5xCUWX8WtVILLD0teyUi_37_4KHeV-YowVA==
+$ poetry run transcrypto --b64 --out-b64 aes decrypt -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= -- F2_ZLrUw5Y8oDnbTP5t5xCUWX8WtVILLD0teyUi_37_4KHeV-YowVA==
 AAAAAAB4eXo=
-$ poetry run transcrypto --b64 --out-b64 aes decrypt -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= -a eHl6 xOlAHPUPpeyZHId-f3VQ_QKKMxjIW0_FBo9WOfIBrzjn0VkVV6xTRA==
+$ poetry run transcrypto --b64 --out-b64 aes decrypt -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= -a eHl6 -- xOlAHPUPpeyZHId-f3VQ_QKKMxjIW0_FBo9WOfIBrzjn0VkVV6xTRA==
 AAAAAAB4eXo=
 ```
 
@@ -777,7 +792,7 @@ poetry run transcrypto rsa decrypt [-h] [-a AAD] ciphertext
 **Example:**
 
 ```bash
-$ poetry run transcrypto --b64 --out-bin -p rsa-key.priv rsa decrypt "AO6knI6xwq6TGR…Qy22jiFhXi1eQ==" -a "eHl6"
+$ poetry run transcrypto --b64 --out-bin -p rsa-key.priv rsa decrypt -a eHl6 -- AO6knI6xwq6TGR…Qy22jiFhXi1eQ== 
 abcde
 ```
 
@@ -859,9 +874,9 @@ poetry run transcrypto rsa verify [-h] [-a AAD] message signature
 **Example:**
 
 ```bash
-$ poetry run transcrypto --b64 -p rsa-key.pub rsa verify "eHl6" "91TS7gC6LORiL…6RD23Aejsfxlw=="
+$ poetry run transcrypto --b64 -p rsa-key.pub rsa verify -- eHl6 91TS7gC6LORiL…6RD23Aejsfxlw==
 RSA signature: OK
-$ poetry run transcrypto --b64 -p rsa-key.pub rsa verify "eLl6" "91TS7gC6LORiL…6RD23Aejsfxlw=="
+$ poetry run transcrypto --b64 -p rsa-key.pub rsa verify -- eLl6 91TS7gC6LORiL…6RD23Aejsfxlw==
 RSA signature: INVALID
 ```
 
@@ -984,7 +999,7 @@ poetry run transcrypto elgamal decrypt [-h] [-a AAD] ciphertext
 **Example:**
 
 ```bash
-$ poetry run transcrypto --b64 --out-bin -p eg-key.priv elgamal decrypt "CdFvoQ_IIPFPZLua…kqjhcUTspISxURg==" -a "eHl6"
+$ poetry run transcrypto --b64 --out-bin -p eg-key.priv elgamal decrypt -a eHl6 -- CdFvoQ_IIPFPZLua…kqjhcUTspISxURg==
 abcde
 ```
 
@@ -1066,9 +1081,9 @@ poetry run transcrypto elgamal verify [-h] [-a AAD] message signature
 **Example:**
 
 ```bash
-$ poetry run transcrypto --b64 -p eg-key.pub elgamal verify "eHl6" "Xl4hlYK8SHVGw…0fCKJE1XVzA=="
+$ poetry run transcrypto --b64 -p eg-key.pub elgamal verify -- eHl6 Xl4hlYK8SHVGw…0fCKJE1XVzA==
 El-Gamal signature: OK
-$ poetry run transcrypto --b64 -p eg-key.pub elgamal verify "eLl6" "Xl4hlYK8SHVGw…0fCKJE1XVzA=="
+$ poetry run transcrypto --b64 -p eg-key.pub elgamal verify -- eLl6 Xl4hlYK8SHVGw…0fCKJE1XVzA==
 El-Gamal signature: INVALID
 ```
 
@@ -1197,9 +1212,9 @@ poetry run transcrypto dsa verify [-h] [-a AAD] message signature
 **Example:**
 
 ```bash
-$ poetry run transcrypto --b64 -p dsa-key.pub dsa verify "eHl6" "yq8InJVpViXh9…BD4par2XuA="
+$ poetry run transcrypto --b64 -p dsa-key.pub dsa verify -- eHl6 yq8InJVpViXh9…BD4par2XuA=
 DSA signature: OK
-$ poetry run transcrypto --b64 -p dsa-key.pub dsa verify "eLl6" "yq8InJVpViXh9…BD4par2XuA="
+$ poetry run transcrypto --b64 -p dsa-key.pub dsa verify -- eLl6 yq8InJVpViXh9…BD4par2XuA=
 DSA signature: INVALID
 ```
 

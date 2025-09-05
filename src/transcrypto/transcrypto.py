@@ -321,12 +321,12 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
           '  poetry run transcrypto mod crt 6 7 127 13\n\n'
           '  # --- Hashing ---\n'
           '  poetry run transcrypto hash sha256 xyz\n'
-          '  poetry run transcrypto --b64 hash sha512 eHl6\n'
+          '  poetry run transcrypto --b64 hash sha512 -- eHl6\n'
           '  poetry run transcrypto hash file /etc/passwd --digest sha512\n\n'
           '  # --- AES ---\n'
           '  poetry run transcrypto --out-b64 aes key "correct horse battery staple"\n'
-          '  poetry run transcrypto --b64 --out-b64 aes encrypt -k "<b64key>" "secret"\n'
-          '  poetry run transcrypto --b64 --out-b64 aes decrypt -k "<b64key>" "<ciphertext>"\n'
+          '  poetry run transcrypto --b64 --out-b64 aes encrypt -k "<b64key>" -- "secret"\n'
+          '  poetry run transcrypto --b64 --out-b64 aes decrypt -k "<b64key>" -- "<ciphertext>"\n'
           '  poetry run transcrypto aes ecb -k "<b64key>" encrypt "<128bithexblock>"\n'    # cspell:disable-line
           '  poetry run transcrypto aes ecb -k "<b64key>" decrypt "<128bithexblock>"\n\n'  # cspell:disable-line
           '  # --- RSA ---\n'
@@ -335,6 +335,10 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
           '  poetry run transcrypto -p rsa-key.priv rsa rawdecrypt <ciphertext>\n'
           '  poetry run transcrypto -p rsa-key.priv rsa rawsign <message>\n'
           '  poetry run transcrypto -p rsa-key.pub rsa rawverify <message> <signature>\n\n'
+          '  poetry run transcrypto --bin --out-b64 -p rsa-key.pub rsa encrypt -a <aad> <plaintext>\n'
+          '  poetry run transcrypto --b64 --out-bin -p rsa-key.priv rsa decrypt -a <aad> -- <ciphertext>\n'
+          '  poetry run transcrypto --bin --out-b64 -p rsa-key.priv rsa sign <message>\n'
+          '  poetry run transcrypto --b64 -p rsa-key.pub rsa verify -- <message> <signature>\n\n'
           '  # --- ElGamal ---\n'
           '  poetry run transcrypto -p eg-key elgamal shared --bits 2048\n'
           '  poetry run transcrypto -p eg-key elgamal new\n'
@@ -342,19 +346,27 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
           '  poetry run transcrypto -p eg-key.priv elgamal rawdecrypt <c1:c2>\n'
           '  poetry run transcrypto -p eg-key.priv elgamal rawsign <message>\n'
           '  poetry run transcrypto-p eg-key.pub elgamal rawverify <message> <s1:s2>\n\n'
+          '  poetry run transcrypto --bin --out-b64 -p eg-key.pub elgamal encrypt <plaintext>\n'
+          '  poetry run transcrypto --b64 --out-bin -p eg-key.priv elgamal decrypt -- <ciphertext>\n'
+          '  poetry run transcrypto --bin --out-b64 -p eg-key.priv elgamal sign <message>\n'
+          '  poetry run transcrypto --b64 -p eg-key.pub elgamal verify -- <message> <signature>\n\n'
           '  # --- DSA ---\n'
           '  poetry run transcrypto -p dsa-key dsa shared --p-bits 2048 --q-bits 256\n'
           '  poetry run transcrypto -p dsa-key dsa new\n'
           '  poetry run transcrypto -p dsa-key.priv dsa rawsign <message>\n'
           '  poetry run transcrypto -p dsa-key.pub dsa rawverify <message> <s1:s2>\n\n'
+          '  poetry run transcrypto --bin --out-b64 -p dsa-key.priv dsa sign <message>\n'
+          '  poetry run transcrypto --b64 -p dsa-key.pub dsa verify -- <message> <signature>\n\n'
           '  # --- Public Bid ---\n'
           '  poetry run transcrypto --bin bid new "tomorrow it will rain"\n'
           '  poetry run transcrypto --out-bin bid verify\n\n'
           '  # --- Shamir Secret Sharing (SSS) ---\n'
           '  poetry run transcrypto -p sss-key sss new 3 --bits 1024\n'
-          '  poetry run transcrypto -p sss-key sss rawshares <secret> 5\n'
+          '  poetry run transcrypto -p sss-key sss rawshares <secret> <n>\n'
           '  poetry run transcrypto -p sss-key sss rawrecover\n'
           '  poetry run transcrypto -p sss-key sss rawverify <secret>'
+          '  poetry run transcrypto --bin -p sss-key sss shares <secret> <n>\n'
+          '  poetry run transcrypto --out-bin -p sss-key sss recover\n'
       ),
       formatter_class=argparse.RawTextHelpFormatter)
   sub = parser.add_subparsers(dest='command')
@@ -368,7 +380,10 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   # --hex/--b64/--bin for input mode (default hex)
   in_grp = parser.add_mutually_exclusive_group()
   in_grp.add_argument('--hex', action='store_true', help='Treat inputs as hex string (default)')
-  in_grp.add_argument('--b64', action='store_true', help='Treat inputs as base64url')
+  in_grp.add_argument(
+      '--b64', action='store_true',
+      help=('Treat inputs as base64url; sometimes base64 will start with "-" and that can '
+            'conflict with flags, so use "--" before positional args if needed'))
   in_grp.add_argument('--bin', action='store_true', help='Treat inputs as binary (bytes)')
 
   # --out-hex/--out-b64/--out-bin for output mode (default hex)
@@ -557,7 +572,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
       help='SHA-256 of input `data`.',
       epilog=('--bin hash sha256 xyz\n'
               '3608bca1e44ea6c4d268eb6db02260269892c0b42b86bbf1e77a6fa16c3c9282 $$'
-              '--b64 hash sha256 eHl6  # "xyz" in base-64\n'
+              '--b64 hash sha256 -- eHl6  # "xyz" in base-64\n'
               '3608bca1e44ea6c4d268eb6db02260269892c0b42b86bbf1e77a6fa16c3c9282'))
   p_h256.add_argument('data', type=str, help='Input data (raw text; or use --hex/--b64/--bin)')
 
@@ -568,7 +583,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
       epilog=('--bin hash sha512 xyz\n'
               '4a3ed8147e37876adc8f76328e5abcc1b470e6acfc18efea0135f983604953a5'
               '8e183c1a6086e91ba3e821d926f5fdeb37761c7ca0328a963f5e92870675b728 $$'
-              '--b64 hash sha512 eHl6  # "xyz" in base-64\n'
+              '--b64 hash sha512 -- eHl6  # "xyz" in base-64\n'
               '4a3ed8147e37876adc8f76328e5abcc1b470e6acfc18efea0135f983604953a5'
               '8e183c1a6086e91ba3e821d926f5fdeb37761c7ca0328a963f5e92870675b728'))
   p_h512.add_argument('data', type=str, help='Input data (raw text; or use --hex/--b64/--bin)')
@@ -614,10 +629,10 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
             'can use `--bin`/`--hex`/`--b64` flags. Attention: if you provide `-a`/`--aad` '
             '(associated data, AAD), you will need to provide the same AAD when decrypting '
             'and it is NOT included in the `ciphertext`/CT returned by this method!'),
-      epilog=('--b64 --out-b64 aes encrypt -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= '          # cspell:disable-line
+      epilog=('--b64 --out-b64 aes encrypt -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= -- '       # cspell:disable-line
               'AAAAAAB4eXo=\nF2_ZLrUw5Y8oDnbTP5t5xCUWX8WtVILLD0teyUi_37_4KHeV-YowVA== $$ '            # cspell:disable-line
               '--b64 --out-b64 aes encrypt -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= -a eHl6 '  # cspell:disable-line
-              'AAAAAAB4eXo=\nxOlAHPUPpeyZHId-f3VQ_QKKMxjIW0_FBo9WOfIBrzjn0VkVV6xTRA=='))              # cspell:disable-line
+              '-- AAAAAAB4eXo=\nxOlAHPUPpeyZHId-f3VQ_QKKMxjIW0_FBo9WOfIBrzjn0VkVV6xTRA=='))           # cspell:disable-line
   p_aes_enc.add_argument('plaintext', type=str, help='Input data to encrypt (PT)')
   p_aes_enc.add_argument(
       '-k', '--key', type=str, default='', help='Key if `-p`/`--key-path` wasn\'t used (32 bytes)')
@@ -632,10 +647,10 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
             '`-p`/`--key-path` keyfile. All inputs are raw, or you '
             'can use `--bin`/`--hex`/`--b64` flags. Attention: if you provided `-a`/`--aad` '
             '(associated data, AAD) during encryption, you will need to provide the same AAD now!'),
-      epilog=('--b64 --out-b64 aes decrypt -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= '      # cspell:disable-line
-              'F2_ZLrUw5Y8oDnbTP5t5xCUWX8WtVILLD0teyUi_37_4KHeV-YowVA==\nAAAAAAB4eXo= $$ '        # cspell:disable-line
-              '--b64 --out-b64 aes decrypt -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= '      # cspell:disable-line
-              '-a eHl6 xOlAHPUPpeyZHId-f3VQ_QKKMxjIW0_FBo9WOfIBrzjn0VkVV6xTRA==\nAAAAAAB4eXo='))  # cspell:disable-line
+      epilog=('--b64 --out-b64 aes decrypt -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= -- '      # cspell:disable-line
+              'F2_ZLrUw5Y8oDnbTP5t5xCUWX8WtVILLD0teyUi_37_4KHeV-YowVA==\nAAAAAAB4eXo= $$ '           # cspell:disable-line
+              '--b64 --out-b64 aes decrypt -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= '         # cspell:disable-line
+              '-a eHl6 -- xOlAHPUPpeyZHId-f3VQ_QKKMxjIW0_FBo9WOfIBrzjn0VkVV6xTRA==\nAAAAAAB4eXo='))  # cspell:disable-line
   p_aes_dec.add_argument('ciphertext', type=str, help='Input data to decrypt (CT)')
   p_aes_dec.add_argument(
       '-k', '--key', type=str, default='', help='Key if `-p`/`--key-path` wasn\'t used (32 bytes)')
@@ -724,8 +739,8 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_rsa_dec_safe: argparse.ArgumentParser = rsa_sub.add_parser(
       'decrypt',
       help='Decrypt `ciphertext` with private key.',
-      epilog=('--b64 --out-bin -p rsa-key.priv rsa decrypt "AO6knI6xwq6TGR…Qy22jiFhXi1eQ==" '
-              '-a "eHl6"\nabcde'))
+      epilog=('--b64 --out-bin -p rsa-key.priv rsa decrypt -a eHl6 -- '
+              'AO6knI6xwq6TGR…Qy22jiFhXi1eQ== \nabcde'))
   p_rsa_dec_safe.add_argument('ciphertext', type=str, help='Ciphertext to decrypt')
   p_rsa_dec_safe.add_argument(
       '-a', '--aad', type=str, default='',
@@ -763,10 +778,10 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_rsa_ver_safe: argparse.ArgumentParser = rsa_sub.add_parser(
       'verify',
       help='Verify `signature` for `message` with public key.',
-      epilog=('--b64 -p rsa-key.pub rsa verify "eHl6" '
-              '"91TS7gC6LORiL…6RD23Aejsfxlw=="\nRSA signature: OK $$ '     # cspell:disable-line
-              '--b64 -p rsa-key.pub rsa verify "eLl6" '
-              '"91TS7gC6LORiL…6RD23Aejsfxlw=="\nRSA signature: INVALID'))  # cspell:disable-line
+      epilog=('--b64 -p rsa-key.pub rsa verify -- eHl6 '
+              '91TS7gC6LORiL…6RD23Aejsfxlw==\nRSA signature: OK $$ '     # cspell:disable-line
+              '--b64 -p rsa-key.pub rsa verify -- eLl6 '
+              '91TS7gC6LORiL…6RD23Aejsfxlw==\nRSA signature: INVALID'))  # cspell:disable-line
   p_rsa_ver_safe.add_argument('message', type=str, help='Message that was signed earlier')
   p_rsa_ver_safe.add_argument('signature', type=str, help='Putative signature for `message`')
   p_rsa_ver_safe.add_argument(
@@ -814,7 +829,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_eg_enc_safe: argparse.ArgumentParser = eg_sub.add_parser(
       'encrypt',
       help='Encrypt `message` with public key.',
-      epilog=(' --bin --out-b64 -p eg-key.pub elgamal encrypt "abcde" -a "xyz"\n'
+      epilog=('--bin --out-b64 -p eg-key.pub elgamal encrypt "abcde" -a "xyz"\n'
               'CdFvoQ_IIPFPZLua…kqjhcUTspISxURg=='))  # cspell:disable-line
   p_eg_enc_safe.add_argument('plaintext', type=str, help='Message to encrypt')
   p_eg_enc_safe.add_argument(
@@ -834,8 +849,8 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_eg_dec_safe: argparse.ArgumentParser = eg_sub.add_parser(
       'decrypt',
       help='Decrypt `ciphertext` with private key.',
-      epilog=('--b64 --out-bin -p eg-key.priv elgamal decrypt '
-              '"CdFvoQ_IIPFPZLua…kqjhcUTspISxURg==" -a "eHl6"\nabcde'))  # cspell:disable-line
+      epilog=('--b64 --out-bin -p eg-key.priv elgamal decrypt -a eHl6 -- '
+              'CdFvoQ_IIPFPZLua…kqjhcUTspISxURg==\nabcde'))  # cspell:disable-line
   p_eg_dec_safe.add_argument('ciphertext', type=str, help='Ciphertext to decrypt')
   p_eg_dec_safe.add_argument(
       '-a', '--aad', type=str, default='',
@@ -877,9 +892,9 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_eg_ver_safe: argparse.ArgumentParser = eg_sub.add_parser(
       'verify',
       help='Verify `signature` for `message` with public key.',
-      epilog=('--b64 -p eg-key.pub elgamal verify "eHl6" "Xl4hlYK8SHVGw…0fCKJE1XVzA=="\n'  # cspell:disable-line
+      epilog=('--b64 -p eg-key.pub elgamal verify -- eHl6 Xl4hlYK8SHVGw…0fCKJE1XVzA==\n'  # cspell:disable-line
               'El-Gamal signature: OK $$ '
-              '--b64 -p eg-key.pub elgamal verify "eLl6" "Xl4hlYK8SHVGw…0fCKJE1XVzA=="\n'  # cspell:disable-line
+              '--b64 -p eg-key.pub elgamal verify -- eLl6 Xl4hlYK8SHVGw…0fCKJE1XVzA==\n'  # cspell:disable-line
               'El-Gamal signature: INVALID'))
   p_eg_ver_safe.add_argument('message', type=str, help='Message that was signed earlier')
   p_eg_ver_safe.add_argument('signature', type=str, help='Putative signature for `message`')
@@ -956,9 +971,9 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   p_dsa_verify_safe: argparse.ArgumentParser = dsa_sub.add_parser(
       'verify',
       help='Verify `signature` for `message` with public key.',
-      epilog=('--b64 -p dsa-key.pub dsa verify "eHl6" "yq8InJVpViXh9…BD4par2XuA="\n'
+      epilog=('--b64 -p dsa-key.pub dsa verify -- eHl6 yq8InJVpViXh9…BD4par2XuA=\n'
               'DSA signature: OK $$ '
-              '--b64 -p dsa-key.pub dsa verify "eLl6" "yq8InJVpViXh9…BD4par2XuA="\n'
+              '--b64 -p dsa-key.pub dsa verify -- eLl6 yq8InJVpViXh9…BD4par2XuA=\n'
               'DSA signature: INVALID'))
   p_dsa_verify_safe.add_argument('message', type=str, help='Message that was signed earlier')
   p_dsa_verify_safe.add_argument('signature', type=str, help='Putative signature for `message`')

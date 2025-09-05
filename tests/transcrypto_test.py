@@ -203,12 +203,12 @@ def test_aes_ecb_encrypthex_decrypthex_roundtrip() -> None:
   # Encrypt (hex → hex)
   code: int
   out: str
-  code, out = _RunCLI(['--b64', 'aes', 'ecb', '-k', key_b64, 'encrypt', block_hex])
+  code, out = _RunCLI(['--b64', 'aes', 'ecb', '-k', key_b64, 'encrypt', '--', block_hex])
   assert code == 0
   assert re.fullmatch(r'[0-9a-f]{32}', block_hex)  # sanity of input
   assert re.fullmatch(r'[0-9a-f]{32}', out)     # 16-byte block
   # Decrypt back
-  code, out = _RunCLI(['--b64', 'aes', 'ecb', '-k', key_b64, 'decrypt', out])
+  code, out = _RunCLI(['--b64', 'aes', 'ecb', '-k', key_b64, 'decrypt', '--', out])
   assert code == 0
   assert out == block_hex
 
@@ -285,20 +285,20 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
       ['--bin', '--out-b64', '-p', str(priv_path), 'rsa', 'encrypt', 'abcde', '-a', 'xyz'])
   assert code == 0 and isinstance(out, str) and len(out) > 0
   # Decrypt (b64 in → bin out) with same AAD (as base64: 'eHl6')
-  code, out = _RunCLI(['--b64', '--out-bin', '-p', str(priv_path),
-                      'rsa', 'decrypt', out, '-a', 'eHl6'])
+  code, out = _RunCLI(
+      ['--b64', '--out-bin', '-p', str(priv_path), 'rsa', 'decrypt', '-a', 'eHl6', '--', out])
   assert code == 0 and out == 'abcde'
   # Sign (bin in → b64 out) with AAD='aad'
-  code, sig_b64 = _RunCLI(['--bin', '--out-b64', '-p', str(priv_path),
-                           'rsa', 'sign', 'xyz', '-a', 'aad'])
+  code, sig_b64 = _RunCLI(
+      ['--bin', '--out-b64', '-p', str(priv_path), 'rsa', 'sign', 'xyz', '-a', 'aad'])
   assert code == 0 and isinstance(sig_b64, str) and len(sig_b64) > 0
   # Verify OK (message='xyz' as b64 'eHl6', AAD='aad' as b64 'YWFk')
-  code, out = _RunCLI(['--b64', '-p', str(priv_path),
-                      'rsa', 'verify', 'eHl6', sig_b64, '-a', 'YWFk'])
+  code, out = _RunCLI(
+      ['--b64', '-p', str(priv_path), 'rsa', 'verify', '-a', 'YWFk', '--', 'eHl6', sig_b64])
   assert code == 0 and out == 'RSA signature: OK'
   # Verify INVALID with wrong message
-  code, out = _RunCLI(['--b64', '-p', str(priv_path),
-                       'rsa', 'verify', 'eLl6', sig_b64, '-a', 'YWFk'])
+  code, out = _RunCLI(
+      ['--b64', '-p', str(priv_path), 'rsa', 'verify', '-a', 'YWFk', '--', 'eLl6', sig_b64])
   assert code == 0 and out == 'RSA signature: INVALID'
 
 
@@ -355,19 +355,19 @@ def test_elgamal_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) ->
       ['--bin', '--out-b64', '-p', str(priv_path), 'elgamal', 'encrypt', 'abcde', '-a', 'xyz'])
   assert code == 0 and isinstance(out, str) and len(out) > 0
   # Decrypt (b64 in → bin out) with same AAD 'eHl6'
-  code, out = _RunCLI(['--b64', '--out-bin', '-p', str(priv_path),
-                      'elgamal', 'decrypt', out, '-a', 'eHl6'])
+  code, out = _RunCLI(
+      ['--b64', '--out-bin', '-p', str(priv_path), 'elgamal', 'decrypt', '-a', 'eHl6', '--', out])
   assert code == 0 and out == 'abcde'
   # Sign (bin in → b64 out) with AAD='aad'
-  code, sig_b64 = _RunCLI(['--bin', '--out-b64', '-p', str(priv_path),
-                           'elgamal', 'sign', 'xyz', '-a', 'aad'])
+  code, sig_b64 = _RunCLI(
+      ['--bin', '--out-b64', '-p', str(priv_path), 'elgamal', 'sign', 'xyz', '-a', 'aad'])
   assert code == 0 and isinstance(sig_b64, str) and len(sig_b64) > 0
   # Verify OK and INVALID cases
-  code, out = _RunCLI(['--b64', '-p', str(priv_path),
-                      'elgamal', 'verify', 'eHl6', sig_b64, '-a', 'YWFk'])
+  code, out = _RunCLI(
+      ['--b64', '-p', str(priv_path), 'elgamal', 'verify', '-a', 'YWFk', '--', 'eHl6', sig_b64])
   assert code == 0 and out == 'El-Gamal signature: OK'
-  code, out = _RunCLI(['--b64', '-p', str(priv_path),
-                       'elgamal', 'verify', 'eLl6', sig_b64, '-a', 'YWFk'])
+  code, out = _RunCLI(
+      ['--b64', '-p', str(priv_path), 'elgamal', 'verify', '-a', 'YWFk', '--', 'eLl6', sig_b64])
   assert code == 0 and out == 'El-Gamal signature: INVALID'
 
 
@@ -416,15 +416,15 @@ def test_dsa_sign_verify_safe(tmp_path: pathlib.Path) -> None:
   assert code == 0 and priv_path.exists() and pub_path.exists()
   assert 'DSA private/public keys saved to' in out
   # Sign (bin in → b64 out) with AAD='aad'
-  code, sig_b64 = _RunCLI(['--bin', '--out-b64', '-p', str(priv_path),
-                           'dsa', 'sign', 'xyz', '-a', 'aad'])
+  code, sig_b64 = _RunCLI(
+      ['--bin', '--out-b64', '-p', str(priv_path), 'dsa', 'sign', 'xyz', '-a', 'aad'])
   assert code == 0 and isinstance(sig_b64, str) and len(sig_b64) > 0
   # Verify OK (message='xyz' b64) and INVALID (wrong message)
-  code, ok = _RunCLI(['--b64', '-p', str(priv_path),
-                      'dsa', 'verify', 'eHl6', sig_b64, '-a', 'YWFk'])
+  code, ok = _RunCLI(
+      ['--b64', '-p', str(priv_path), 'dsa', 'verify', '-a', 'YWFk', '--', 'eHl6', sig_b64])
   assert code == 0 and ok == 'DSA signature: OK'
-  code, bad = _RunCLI(['--b64', '-p', str(priv_path),
-                       'dsa', 'verify', 'eLl6', sig_b64, '-a', 'YWFk'])
+  code, bad = _RunCLI(
+      ['--b64', '-p', str(priv_path), 'dsa', 'verify', '-a', 'YWFk', '--', 'eHL6', sig_b64])
   assert code == 0 and bad == 'DSA signature: INVALID'
 
 
@@ -633,8 +633,8 @@ def test_aes_gcm_decrypt_wrong_aad_raises() -> None:
   assert code == 0 and re.fullmatch(r'[0-9a-f]+', out)
   # Decrypt with WRONG AAD='B' → should raise CryptoError
   code, out = _RunCLI(
-      ['--b64', 'aes', 'decrypt',
-       '"' + base.BytesToEncoded(base.HexToBytes(out)) + '"', '-k', key_b64, '-a', 'eHm6'])
+      ['--b64', 'aes', 'decrypt', '-k', key_b64, '-a', 'eHm6',
+       '--', base.BytesToEncoded(base.HexToBytes(out))])
   assert code == 0 and 'failed decryption' in out
 
 
