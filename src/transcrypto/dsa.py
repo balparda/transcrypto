@@ -17,8 +17,7 @@ import logging
 # import pdb
 from typing import Self
 
-from . import base
-from . import modmath
+from . import base, modmath
 
 __author__ = 'balparda@github.com'
 __version__: str = base.__version__  # version comes from base!
@@ -34,6 +33,13 @@ _DSA_SIGNATURE_HASH_PREFIX = b'transcrypto.DSA.Signature.1.0\x00'
 
 def NBitRandomDSAPrimes(p_bits: int, q_bits: int, /) -> tuple[int, int, int]:
   """Generates 2 random DSA primes p & q with `x_bits` size and (p-1)%q==0.
+
+  Uses an aggressive small-prime wheel sieve:
+  Before any Miller-Rabin we reject p = m·q + 1 if it is divisible by a small prime.
+  We precompute forbidden residues for m:
+  • For each small prime r (all primes up to, say, 100 000), we compute
+    m_forbidden ≡ -q⁻¹ (mod r) (because (m·q + 1) % r == 0 ⇔ m ≡ -q⁻¹ (mod r))
+  • When we iterate m, we skip values that hit any forbidden residue class.
 
   Args:
     p_bits (int): Number of guaranteed bits in `p` prime representation,
@@ -53,7 +59,21 @@ def NBitRandomDSAPrimes(p_bits: int, q_bits: int, /) -> tuple[int, int, int]:
   if p_bits < q_bits + 11:
     raise base.InputError(f'invalid p_bits length: {p_bits=}')
   # make q
-  q = modmath.NBitRandomPrime(q_bits)
+  q: int = modmath.NBitRandomPrime(q_bits)
+  # make list of small primes to use for sieving
+  approx_q_root: int = 1 << (q_bits // 2)
+  forbidden: dict[int, int] = {}  # (modulus: forbidden residue)
+  for r in modmath.PrimeGenerator(3):
+    forbidden[r] = (-modmath.ModInv(q % r, r)) % r
+    if r > 100000 or r > approx_q_root:
+      break
+
+  def _PassesSieve(m: int) -> bool:
+    for r, f in forbidden.items():
+      if m % r == f:
+        return False
+    return True
+
   # find range of multiples to use
   min_p, max_p = 2 ** (p_bits - 1), 2 ** p_bits - 1
   min_m, max_m = min_p // q + 2, max_p // q - 2
@@ -70,6 +90,11 @@ def NBitRandomDSAPrimes(p_bits: int, q_bits: int, /) -> tuple[int, int, int]:
       p: int = q * m + 1
       if p >= max_p:
         break
+      # first do a quick sieve test
+      if not _PassesSieve(m):
+        m += 2
+        continue
+      # passed sieve, do full test
       if modmath.IsPrime(p):
         return (p, q, m)  # found a suitable prime set!
       m += 2  # next multiple
@@ -394,7 +419,6 @@ class DSAPrivateKey(DSAPublicKey, base.Signer):  # pylint: disable=too-many-ance
       InputError: invalid inputs
       CryptoError: internal crypto failures
     """
-    # TODO: add to CLI
     k: int = self.modulus_size[1]  # use prime_seed size
     if k <= 64:
       raise base.InputError(f'modulus/seed too small for signing operations: {k} bytes')
