@@ -1559,7 +1559,7 @@ def main(argv: list[str] | None = None, /) -> int:  # pylint: disable=invalid-na
           case 'bytes':
             print(base.BytesToHex(base.RandBytes(args.n)))
           case 'prime':
-            print(modmath.NBitRandomPrime(args.bits))
+            print(modmath.NBitRandomPrimes(args.bits).pop())
           case _:
             raise NotImplementedError()
       case 'hash':

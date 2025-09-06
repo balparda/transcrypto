@@ -23,18 +23,18 @@ __version__: str = rsa.__version__  # tests inherit version from module
 
 
 @mock.patch('src.transcrypto.base.RandBits', autospec=True)
-@mock.patch('src.transcrypto.modmath.NBitRandomPrime', autospec=True)
+@mock.patch('src.transcrypto.modmath.NBitRandomPrimes', autospec=True)
 def test_RSA_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
   """Test."""
   with pytest.raises(base.InputError, match='invalid bit length'):
     rsa.RSAPrivateKey.New(10)
   prime.side_effect = [
-      29, 43,   # attempt #1 → FAIL (φ multiple of 7)
-      29, 59,   # attempt #2 → FAIL (φ multiple of 7)
-      31, 41,   # attempt #3 → SUCCESS (11-bit modulus, gcd(7, φ) == 1)
+      {29, 43},   # attempt #1 → FAIL (φ multiple of 7)
+      {29, 59},   # attempt #2 → FAIL (φ multiple of 7)
+      {31, 41},   # attempt #3 → SUCCESS (11-bit modulus, gcd(7, φ) == 1)
       # Below: two more failing attempts to trip the failure counter when max=2
-      29, 43,   # attempt #1 after patching max → FAIL
-      29, 59,   # attempt #2 after patching max → FAIL → CryptoError
+      {29, 43},   # attempt #1 after patching max → FAIL
+      {29, 59},   # attempt #2 after patching max → FAIL → CryptoError
   ]
   randbits.side_effect = [31, 1000]
   private: rsa.RSAPrivateKey = rsa.RSAPrivateKey.New(11)
@@ -60,7 +60,7 @@ def test_RSA_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
       'random_key=c597618a…, key_inverse=ee4b2e91…)')
   assert ob_pair._DebugDump() == (
       'RSAObfuscationPair(public_modulus=1271, encrypt_exp=7, random_key=1000, key_inverse=469)')
-  assert prime.call_args_list == [mock.call(5)] * 10
+  assert prime.call_args_list == [mock.call(6, n_primes=2)] * 5
   assert randbits.call_args_list == [mock.call(10)] * 2
 
 

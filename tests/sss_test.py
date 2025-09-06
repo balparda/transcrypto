@@ -64,7 +64,7 @@ def test_ShamirSharedSecret_raw(minimum: int, modulus: int, polynomial: list[int
 
 @mock.patch('src.transcrypto.base.RandBits', autospec=True)
 @mock.patch('src.transcrypto.base.RandShuffle', autospec=True)
-@mock.patch('src.transcrypto.modmath.NBitRandomPrime', autospec=True)
+@mock.patch('src.transcrypto.modmath.NBitRandomPrimes', autospec=True)
 def test_ShamirSharedSecret_creation(
     prime: mock.MagicMock, shuffle: mock.MagicMock, randbits: mock.MagicMock) -> None:
   """Test."""
@@ -72,7 +72,7 @@ def test_ShamirSharedSecret_creation(
     sss.ShamirSharedSecretPrivate.New(1, 10)
   with pytest.raises(base.InputError, match='invalid bit length'):
     sss.ShamirSharedSecretPrivate.New(3, 9)
-  prime.side_effect = [23, 19, 23, 31]
+  prime.side_effect = [{19, 23, 31}]
   randbits.side_effect = [19, 20, 19, 20, 21, 20, 22, 535, 587, 498, 341]
   private: sss.ShamirSharedSecretPrivate = sss.ShamirSharedSecretPrivate.New(3, 10)
   assert private == sss.ShamirSharedSecretPrivate(
@@ -108,7 +108,7 @@ def test_ShamirSharedSecret_creation(
       'share_key=ed467e80…, share_value=6be320c8…)')
   assert shares[0]._DebugDump() == (
       'ShamirSharePrivate(minimum=3, modulus=907, share_key=587, share_value=758)')
-  assert prime.call_args_list == [mock.call(10)] * 4
+  assert prime.call_args_list == [mock.call(10, n_primes=3)]
   shuffle.assert_called_once_with([19, 23])
   assert randbits.call_args_list == [mock.call(4)] * 7 + [mock.call(9)] * 4
 

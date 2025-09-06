@@ -1956,7 +1956,7 @@ for p in modmath.PrimeGenerator(1_000_000):
     break
 
 # Secure random 384-bit prime (for RSA/ECC experiments)
-p384 = modmath.NBitRandomPrime(384)
+p384 = modmath.NBitRandomPrimes(384).pop()
 
 for k, m_p, perfect in modmath.MersennePrimesGenerator(0):
   print(f'p = {k:>8}  M = {m_p}  perfect = {perfect}')
@@ -2530,3 +2530,15 @@ poetry run pytest --flake-finder --flake-runs=100
 poetry run pytest --flake-finder --flake-runs=500 -m "not veryslow"
 poetry run pytest --flake-finder --flake-runs=10000 -m "not slow"
 ```
+
+You can instrument your code to find bottlenecks:
+
+```sh
+$ source .env/bin/activate
+$ which transcrypto
+/path/to/.venv/bin/transcrypto  # place this in the command below:
+$ pyinstrument -r html -o dsa_shared.html -- /path/to/.venv/bin/transcrypto -p rsa-key rsa new
+$ deactivate
+```
+
+Hint: 85%+ is inside `MillerRabinIsPrime()`/`ModExp()`...

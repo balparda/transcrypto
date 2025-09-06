@@ -568,21 +568,19 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):  # pylint: disab
     failures: int = 0
     while True:
       try:
-        primes: list[int] = [modmath.NBitRandomPrime(bit_length // 2),
-                             modmath.NBitRandomPrime(bit_length // 2)]
-        modulus: int = primes[0] * primes[1]
-        while modulus.bit_length() != bit_length or primes[0] == primes[1]:
-          primes.remove(min(primes))
-          primes.append(modmath.NBitRandomPrime(
-              bit_length // 2 + (bit_length % 2 if modulus.bit_length() < bit_length else 0)))
-          modulus = primes[0] * primes[1]
+        primes: set[int] = set()
+        modulus: int = 0
+        p: int = 0
+        q: int = 0
+        while modulus.bit_length() != bit_length:
+          primes = modmath.NBitRandomPrimes((bit_length + 1) // 2, n_primes=2)
+          p, q = min(primes), max(primes)  # "p" is always the smaller, "q" the larger
+          modulus = p * q
         # build object
-        phi: int = (primes[0] - 1) * (primes[1] - 1)
+        phi: int = (p - 1) * (q - 1)
         prime_exp: int = (_SMALL_ENCRYPTION_EXPONENT if phi <= _BIG_ENCRYPTION_EXPONENT else
                           _BIG_ENCRYPTION_EXPONENT)
         decrypt_exp: int = modmath.ModInv(prime_exp, phi)
-        p: int = min(primes)  # "p" is always the smaller
-        q: int = max(primes)  # "q" is always the larger
         return cls(
             modulus_p=p,
             modulus_q=q,

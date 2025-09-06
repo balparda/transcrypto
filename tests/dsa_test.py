@@ -23,7 +23,7 @@ __version__: str = dsa.__version__  # tests inherit version from module
 
 @mock.patch('src.transcrypto.base.RandBits', autospec=True)
 @mock.patch('src.transcrypto.base.RandInt', autospec=True)
-@mock.patch('src.transcrypto.modmath.NBitRandomPrime', autospec=True)
+@mock.patch('src.transcrypto.modmath.NBitRandomPrimes', autospec=True)
 def test_DSA_keys_creation(
     prime: mock.MagicMock, randint: mock.MagicMock, randbits: mock.MagicMock) -> None:
   """Test."""
@@ -34,7 +34,7 @@ def test_DSA_keys_creation(
   with pytest.raises(base.InputError, match='invalid q_bit length'):
     dsa.DSAPrivateKey.New(
         dsa.DSASharedPublicKey(prime_modulus=23, prime_seed=11, group_base=8))
-  prime.side_effect = [1097, 1097]
+  prime.side_effect = [{1097}, {1097}]
   randint.side_effect = [3819, 3619, 3819, 3819]
   randbits.side_effect = [2498, 2508153, 807, 10, 10, 2508153, 10]
   group: dsa.DSASharedPublicKey = dsa.DSASharedPublicKey.NewShared(22, 11)

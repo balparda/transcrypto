@@ -22,7 +22,7 @@ __version__: str = elgamal.__version__  # tests inherit version from module
 
 
 @mock.patch('src.transcrypto.base.RandBits', autospec=True)
-@mock.patch('src.transcrypto.modmath.NBitRandomPrime', autospec=True)
+@mock.patch('src.transcrypto.modmath.NBitRandomPrimes', autospec=True)
 def test_ElGamal_keys_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
   """Test."""
   with pytest.raises(base.InputError, match='invalid bit length'):
@@ -30,7 +30,7 @@ def test_ElGamal_keys_creation(prime: mock.MagicMock, randbits: mock.MagicMock) 
   with pytest.raises(base.InputError, match='invalid bit length'):
     elgamal.ElGamalPrivateKey.New(
         elgamal.ElGamalSharedPublicKey(prime_modulus=37, group_base=8))
-  prime.side_effect = [1783]
+  prime.side_effect = [{1783}]
   randbits.side_effect = [146, 146, 409, 1546, 1546, 146, 148, 149]  # ModExp(146, 1546, 1783) == 2
   group: elgamal.ElGamalSharedPublicKey = elgamal.ElGamalSharedPublicKey.NewShared(11)
   assert group == elgamal.ElGamalSharedPublicKey(prime_modulus=1783, group_base=146)

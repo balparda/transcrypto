@@ -59,7 +59,7 @@ def NBitRandomDSAPrimes(p_bits: int, q_bits: int, /) -> tuple[int, int, int]:
   if p_bits < q_bits + 11:
     raise base.InputError(f'invalid p_bits length: {p_bits=}')
   # make q
-  q: int = modmath.NBitRandomPrime(q_bits)
+  q: int = modmath.NBitRandomPrimes(q_bits).pop()
   # make list of small primes to use for sieving
   approx_q_root: int = 1 << (q_bits // 2)
   forbidden: dict[int, int] = {}  # (modulus: forbidden residue)

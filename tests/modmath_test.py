@@ -316,17 +316,16 @@ def test_MillerRabinIsPrime_limits(n: int, witnesses: set[int], p: bool) -> None
   assert modmath.MillerRabinIsPrime(n, witnesses=witnesses) == p
 
 
-def test_COMPOSITE_60() -> None:
-  """Test."""
-  for n in modmath._FIRST_60_PRIMES:
-    assert not modmath._COMPOSITE_60 % n
-
-
+@pytest.mark.slow
+@pytest.mark.stochastic
 def test_IsPrime_basic() -> None:
   """Test."""
   for n in range(1, 283):
-    assert modmath.MillerRabinIsPrime(n) == (n in modmath._FIRST_60_PRIMES)
-    assert modmath.FermatIsPrime(n) == (n in modmath._FIRST_60_PRIMES)
+    assert modmath.MillerRabinIsPrime(n) == (n in modmath.FIRST_5K_PRIMES)
+    assert modmath.FermatIsPrime(n) == (n in modmath.FIRST_5K_PRIMES)
+  for n in range(285, 1500):
+    assert modmath.MillerRabinIsPrime(n) == (n in modmath.FIRST_5K_PRIMES)
+    assert modmath.FermatIsPrime(n, safety=15) == (n in modmath.FIRST_5K_PRIMES)
 
 
 @pytest.mark.parametrize('n, p', [
@@ -368,22 +367,34 @@ def test_PrimeGenerator() -> None:
   with pytest.raises(base.InputError, match='negative number'):
     next(modmath.PrimeGenerator(-1))
   for i, n in enumerate(modmath.PrimeGenerator(0)):
-    if i >= 60:
+    if i >= 5000:
       break
-    assert n == modmath._FIRST_60_PRIMES_SORTED[i]
+    assert n == modmath.FIRST_5K_PRIMES_SORTED[i]
   g: modmath.Generator[int, None, None] = modmath.PrimeGenerator(2 ** 100)
   assert next(g) == 2 ** 100 + 277
   assert next(g) == 2 ** 100 + 331
 
 
 @mock.patch('src.transcrypto.base.RandBits', autospec=True)
-def test_NBitRandomPrime(mock_bits: mock.MagicMock) -> None:
+def test_NBitRandomPrimes(mock_bits: mock.MagicMock) -> None:
   """Test."""
   with pytest.raises(base.InputError, match='invalid n:'):
-    modmath.NBitRandomPrime(7)
-  mock_bits.side_effect = [12345, 194]
-  assert modmath.NBitRandomPrime(8) == 197
-  assert mock_bits.call_args_list == [mock.call(8), mock.call(8)]
+    modmath.NBitRandomPrimes(7)
+  mock_bits.side_effect = [12345, 194, 194, 210, 150]
+  assert modmath.NBitRandomPrimes(8).pop() == 197
+  assert modmath.NBitRandomPrimes(8, n_primes=3) == {151, 197, 211}
+  assert mock_bits.call_args_list == [mock.call(8)] * 5
+
+
+@pytest.mark.slow
+@pytest.mark.stochastic
+def test_NBitRandomPrimes_multiple() -> None:
+  """Test."""
+  pr1: set[int] = modmath.NBitRandomPrimes(80, serial=False, n_primes=20)
+  pr2: set[int] = modmath.NBitRandomPrimes(80, serial=True, n_primes=20)
+  assert len(pr1) == len(pr2) == 20
+  pr1 = pr1.union(pr2)
+  assert len(pr1) == 40 and all(modmath.IsPrime(p) for p in pr1)
 
 
 @pytest.mark.slow
@@ -394,7 +405,7 @@ def test_MersennePrimesGenerator() -> None:
     mersenne.append(n[0])
     if i > 12:
       break
-  assert mersenne == modmath._FIRST_49_MERSENNE_SORTED[:14]
+  assert mersenne == modmath.FIRST_49_MERSENNE_SORTED[:14]
 
 
 if __name__ == '__main__':

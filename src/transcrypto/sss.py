@@ -314,9 +314,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
     if bit_length < 10:
       raise base.InputError(f'invalid bit length: {bit_length=}')
     # make the primes
-    unique_primes: set[int] = set()
-    while len(unique_primes) < minimum_shares:
-      unique_primes.add(modmath.NBitRandomPrime(bit_length))
+    unique_primes: set[int] = modmath.NBitRandomPrimes(bit_length, n_primes=minimum_shares)
     # get the largest prime for the modulus
     ordered_primes: list[int] = list(unique_primes)
     modulus: int = max(ordered_primes)

@@ -122,7 +122,7 @@ class ElGamalSharedPublicKey(base.CryptoKey):
     if bit_length < 11:
       raise base.InputError(f'invalid bit length: {bit_length=}')
     # generate random prime and number, create object (should never fail)
-    p: int = modmath.NBitRandomPrime(bit_length)
+    p: int = modmath.NBitRandomPrimes(bit_length).pop()
     g: int = 0
     while not 2 < g < p - 1:
       g = base.RandBits(bit_length)
