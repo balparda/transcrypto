@@ -30,13 +30,12 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   """Construct the CLI argument parser (kept in sync with the docs)."""
   # ========================= main parser ==========================================================
   parser: argparse.ArgumentParser = argparse.ArgumentParser(
-      prog='poetry run transcrypto',
-      description=('transcrypto: CLI for number theory, hashing, '
-                   'AES, RSA, El-Gamal, DSA, bidding, SSS, and utilities.'),
+      prog='poetry run profiler',
+      description=('profiler: CLI for TransCrypto.'),
       epilog=(
           'Examples:\n\n'
           '  # --- Randomness ---\n'
-          '  poetry run transcrypto random bits 16\n'
+          '  poetry run profiler random bits 16\n'
       ),
       formatter_class=argparse.RawTextHelpFormatter)
   sub = parser.add_subparsers(dest='command')
@@ -103,7 +102,10 @@ def main(argv: list[str] | None = None, /) -> int:  # pylint: disable=invalid-na
             args.doc_command.lower().strip() if getattr(args, 'doc_command', '') else '')
         match doc_command:
           case 'md':
-            print(_GenerateCLIMarkdown())
+            print(base.GenerateCLIMarkdown(
+                'profiler', _BuildParser(), description=(
+                    '`profiler` is a command-line utility that provides stats on TransCrypto '
+                    'performance.')))
           case _:
             raise NotImplementedError()
 

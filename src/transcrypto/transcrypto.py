@@ -28,7 +28,7 @@ import glob
 import logging
 # import pdb
 import sys
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable
 
 from . import base, modmath, rsa, sss, elgamal, dsa, aes
 
@@ -118,179 +118,6 @@ def _LoadObj(path: str, password: str | None, expect: type, /) -> Any:
     raise base.InputError(
         f'Object loaded from {path} is of invalid type {type(obj)}, expected {expect}')
   return obj
-
-
-def _FlagNames(a: argparse.Action, /) -> list[str]:
-  # Positional args have empty 'option_strings'; otherwise use them (e.g., ['-v','--verbose'])
-  if a.option_strings:
-    return list(a.option_strings)
-  if a.nargs:
-    if isinstance(a.metavar, str) and a.metavar:
-      # e.g., nargs=2, metavar='FILE'
-      return [a.metavar]
-    if isinstance(a.metavar, tuple):
-      # e.g., nargs=2, metavar=('FILE1', 'FILE2')
-      return list(a.metavar)
-  # Otherwise, it’s a positional arg with no flags, so return the destination name
-  return [a.dest]
-
-
-def _ActionIsSubparser(a: argparse.Action, /) -> bool:
-  return isinstance(a, argparse._SubParsersAction)  # type: ignore[attr-defined]  # pylint: disable=protected-access
-
-
-def _FormatDefault(a: argparse.Action, /) -> str:
-  if a.default is argparse.SUPPRESS:
-    return ''
-  if isinstance(a.default, bool):
-    return ' (default: on)' if a.default else ''
-  if a.default in (None, '', 0, False):
-    return ''
-  return f' (default: {a.default})'
-
-
-def _FormatChoices(a: argparse.Action, /) -> str:
-  return f' choices: {list(a.choices)}' if getattr(a, 'choices', None) else ''  # type:ignore
-
-
-def _FormatType(a: argparse.Action, /) -> str:
-  t: Any | None = getattr(a, 'type', None)
-  if t is None:
-    return ''
-  # Show clean type names (int, str, float); for callables, just say 'custom'
-  return f' type: {t.__name__ if hasattr(t, "__name__") else "custom"}'
-
-
-def _FormatNArgs(a: argparse.Action, /) -> str:
-  return f' nargs: {a.nargs}' if getattr(a, 'nargs', None) not in (None, 0) else ''
-
-
-def _RowsForActions(actions: Sequence[argparse.Action], /) -> list[tuple[str, str]]:
-  rows: list[tuple[str, str]] = []
-  for a in actions:
-    if _ActionIsSubparser(a):
-      continue
-    # skip the built-in help action; it’s implied
-    if getattr(a, 'help', '') == argparse.SUPPRESS or isinstance(a, argparse._HelpAction):  # type: ignore[attr-defined]  # pylint: disable=protected-access
-      continue
-    flags: str = ', '.join(_FlagNames(a))
-    meta: str = ''.join(
-        (_FormatType(a), _FormatNArgs(a), _FormatChoices(a), _FormatDefault(a))).strip()
-    desc: str = (a.help or '').strip()
-    if meta:
-      desc = f'{desc} [{meta}]' if desc else f'[{meta}]'
-    rows.append((flags, desc))
-  return rows
-
-
-def _MarkdownTable(
-    rows: Sequence[tuple[str, str]],
-    headers: tuple[str, str] = ('Option/Arg', 'Description'), /) -> str:
-  if not rows:
-    return ''
-  out: list[str] = ['| ' + headers[0] + ' | ' + headers[1] + ' |', '|---|---|']
-  for left, right in rows:
-    out.append(f'| `{left}` | {right} |')
-  return '\n'.join(out)
-
-
-def _WalkSubcommands(
-    parser: argparse.ArgumentParser, path: list[str] | None = None, /) -> list[
-    tuple[list[str], argparse.ArgumentParser, Any]]:
-  path = path or []
-  items: list[tuple[list[str], argparse.ArgumentParser, Any]] = []
-  # sub_action = None
-  name: str
-  sp: argparse.ArgumentParser
-  for action in parser._actions:  # type: ignore[attr-defined]  # pylint: disable=protected-access
-    if _ActionIsSubparser(action):
-      # sub_action = a  # type: ignore[assignment]
-      for name, sp in action.choices.items():              # type:ignore
-        items.append((path + [name], sp, action))          # type:ignore
-        items.extend(_WalkSubcommands(sp, path + [name]))  # type:ignore
-  return items
-
-
-def _HelpText(sub_parser: argparse.ArgumentParser, parent_sub_action: Any, /) -> str:
-  if parent_sub_action is not None:
-    for choice_action in parent_sub_action._choices_actions:  # type: ignore  # pylint: disable=protected-access
-      if choice_action.dest == sub_parser.prog.split()[-1]:
-        return choice_action.help or ''
-  return ''
-
-
-def _GenerateCLIMarkdown() -> str:  # pylint: disable=too-many-locals
-  """Return a Markdown doc section that reflects the current _BuildParser() tree.
-
-  Will treat epilog strings as examples, splitting on '$$' to get multiple examples.
-  """
-  parser: argparse.ArgumentParser = _BuildParser()
-  assert parser.prog == 'poetry run transcrypto', 'should never happen: module name changed?'
-  prog: str = 'transcrypto'  # no '.py' needed because poetry run has an alias
-  lines: list[str] = ['']
-  # Header + global flags
-  lines.append('## Command-Line Interface\n')
-  lines.append(
-      f'`{prog}` is a command-line utility that provides access to all core functionality '
-      'described in this documentation. It serves as a convenient wrapper over the Python APIs, '
-      'enabling **cryptographic operations**, **number theory functions**, **secure randomness '
-      'generation**, **hashing**, **AES**, **RSA**, **El-Gamal**, **DSA**, **bidding**, **SSS**, '
-      'and other utilities without writing code.\n')
-  lines.append('Invoke with:\n')
-  lines.append('```bash')
-  lines.append(f'poetry run {prog} <command> [sub-command] [options...]')
-  lines.append('```\n')
-  # Global options table
-  global_rows: list[tuple[str, str]] = _RowsForActions(parser._actions)  # type: ignore[attr-defined]  # pylint: disable=protected-access
-  if global_rows:
-    lines.append('### Global Options\n')
-    lines.append(_MarkdownTable(global_rows))
-    lines.append('')
-  # Top-level commands summary
-  lines.append('### Top-Level Commands\n')
-  # Find top-level subparsers to list available commands
-  top_subs: list[argparse.Action] = [a for a in parser._actions if _ActionIsSubparser(a)]  # type: ignore[attr-defined]  # pylint: disable=protected-access
-  for action in top_subs:
-    for name, sp in action.choices.items():  # type: ignore[union-attr]
-      help_text: str = (sp.description or ' '.join(i.strip() for i in sp.format_usage().splitlines())).strip()  # type:ignore
-      short: str = (sp.help if hasattr(sp, 'help') else '') or ''  # type:ignore
-      help_text = short or help_text                               # type:ignore
-      help_text = help_text.replace('usage: ', '').strip()  # type:ignore
-      lines.append(f'- **`{name}`** — `{help_text}`')
-  lines.append('')
-  if parser.epilog:
-    lines.append('```bash')
-    lines.append(parser.epilog)
-    lines.append('```\n')
-  # Detailed sections per (sub)command
-  for path, sub_parser, parent_sub_action in _WalkSubcommands(parser):
-    if len(path) == 1:
-      lines.append('---\n')  # horizontal rule between top-level commands
-    header: str = ' '.join(path)
-    lines.append(f'###{"" if len(path) == 1 else "#"} `{header}`')  # (header level 3 or 4)
-    # Usage block
-    help_text = _HelpText(sub_parser, parent_sub_action)
-    if help_text:
-      lines.append(f'\n{help_text}')
-    usage: str = sub_parser.format_usage().replace('usage: ', '').strip()
-    lines.append('\n```bash')
-    lines.append(str(usage))
-    lines.append('```\n')
-    # Options/args table
-    rows: list[tuple[str, str]] = _RowsForActions(sub_parser._actions)  # type: ignore[attr-defined]  # pylint: disable=protected-access
-    if rows:
-      lines.append(_MarkdownTable(rows))
-      lines.append('')
-    # Examples (if any) - stored in epilog argument
-    epilog: str = sub_parser.epilog.strip() if sub_parser.epilog else ''
-    if epilog:
-      lines.append('**Example:**\n')
-      lines.append('```bash')
-      for epilog_line in epilog.split('$$'):
-        lines.append(f'$ poetry run {prog} {epilog_line.strip()}')
-      lines.append('```\n')
-  # join all lines as the markdown string
-  return '\n'.join(lines)
 
 
 def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-statements,too-many-locals
@@ -741,7 +568,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
       'decrypt',
       help='Decrypt `ciphertext` with private key.',
       epilog=('--b64 --out-bin -p rsa-key.priv rsa decrypt -a eHl6 -- '
-              'AO6knI6xwq6TGR…Qy22jiFhXi1eQ== \nabcde'))
+              'AO6knI6xwq6TGR…Qy22jiFhXi1eQ==\nabcde'))
   p_rsa_dec_safe.add_argument('ciphertext', type=str, help='Ciphertext to decrypt')
   p_rsa_dec_safe.add_argument(
       '-a', '--aad', type=str, default='',
@@ -1605,7 +1432,14 @@ def main(argv: list[str] | None = None, /) -> int:  # pylint: disable=invalid-na
             args.doc_command.lower().strip() if getattr(args, 'doc_command', '') else '')
         match doc_command:
           case 'md':
-            print(_GenerateCLIMarkdown())
+            print(base.GenerateCLIMarkdown(
+                'transcrypto', _BuildParser(), description=(
+                    '`transcrypto` is a command-line utility that provides access to all core '
+                    'functionality described in this documentation. It serves as a convenient '
+                    'wrapper over the Python APIs, enabling **cryptographic operations**, '
+                    '**number theory functions**, **secure randomness generation**, **hashing**, '
+                    '**AES**, **RSA**, **El-Gamal**, **DSA**, **bidding**, **SSS**, '
+                    'and other utilities without writing code.')))
           case _:
             raise NotImplementedError()
 

@@ -2,7 +2,7 @@
 #
 # Copyright 2025 Daniel Balparda (balparda@github.com) - Apache-2.0 license
 #
-"""Balparda's SafeTrans(Crypto) command line interface.
+"""Balparda's SafeTrans(Crypto) command line interface: the safe version of TransCrypto.
 
 See README.md for documentation on how to use.
 
@@ -30,13 +30,13 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   """Construct the CLI argument parser (kept in sync with the docs)."""
   # ========================= main parser ==========================================================
   parser: argparse.ArgumentParser = argparse.ArgumentParser(
-      prog='poetry run transcrypto',
-      description=('transcrypto: CLI for number theory, hashing, '
+      prog='poetry run safetrans',
+      description=('safetrans: CLI for safe number theory, hashing, '
                    'AES, RSA, El-Gamal, DSA, bidding, SSS, and utilities.'),
       epilog=(
           'Examples:\n\n'
           '  # --- Randomness ---\n'
-          '  poetry run transcrypto random bits 16\n'
+          '  poetry run safetrans random bits 16\n'
       ),
       formatter_class=argparse.RawTextHelpFormatter)
   sub = parser.add_subparsers(dest='command')
@@ -103,7 +103,14 @@ def main(argv: list[str] | None = None, /) -> int:  # pylint: disable=invalid-na
             args.doc_command.lower().strip() if getattr(args, 'doc_command', '') else '')
         match doc_command:
           case 'md':
-            print(_GenerateCLIMarkdown())
+            print(base.GenerateCLIMarkdown(
+                'safetrans', _BuildParser(), description=(
+                    '`safetrans` is a command-line utility that provides ***safe*** crypto '
+                    'primitives. It serves as a convenient wrapper over the Python APIs, '
+                    'enabling only safe **cryptographic operations**, '
+                    '**number theory functions**, **secure randomness generation**, **hashing**, '
+                    '**AES**, **RSA**, **El-Gamal**, **DSA**, **bidding**, **SSS**, '
+                    'and other utilities without writing code.')))
           case _:
             raise NotImplementedError()
 

@@ -792,7 +792,7 @@ poetry run transcrypto rsa decrypt [-h] [-a AAD] ciphertext
 **Example:**
 
 ```bash
-$ poetry run transcrypto --b64 --out-bin -p rsa-key.priv rsa decrypt -a eHl6 -- AO6knI6xwq6TGR…Qy22jiFhXi1eQ== 
+$ poetry run transcrypto --b64 --out-bin -p rsa-key.priv rsa decrypt -a eHl6 -- AO6knI6xwq6TGR…Qy22jiFhXi1eQ==
 abcde
 ```
 

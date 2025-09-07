@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import argparse
 import collections
 import concurrent.futures
 import dataclasses
@@ -810,6 +811,66 @@ def test_Bid_invalid() -> None:
         public_key=b'k' * 64, public_hash=b'h' * 64, private_key=b'p' * 64, secret_bid=b'secret')
   with pytest.raises(base.InputError, match='invalid secret length'):
     base.PrivateBid512.New(b'')
+
+
+def test_rows_for_actions_metadata_branches() -> None:
+  """Build a synthetic parser to trigger _FlagNames/_Format* metadata paths."""
+  p = argparse.ArgumentParser(add_help=False)
+  # Positional arg with nargs=2 and tuple metavar → exercises tuple branch in _FlagNames
+  p.add_argument('pos', nargs=2, metavar=('FILE1', 'FILE2'))
+  p.add_argument('pos2', nargs=2, metavar='FILE3')  # also test single string metavar
+  # Boolean default True (store_true normally False) → _FormatDefault(bool True)
+  p.add_argument('--switch', action='store_true', default=True, help='flag with default true')
+  # Choices → _FormatChoices
+  p.add_argument('--color', choices=['red', 'blue'], help='choose color')
+  # Type=int and default value → _FormatType + _FormatDefault
+  p.add_argument('--num', type=int, default=7, help='number')
+  rows: list[tuple[str, str]] = base._RowsForActions(p._actions)  # type: ignore[attr-defined]
+  # Flatten for easy search
+  flat: str = '\n'.join(f'{l} :: {r}' for (l, r) in rows)
+  # Tuple metavar shows both names
+  assert 'FILE1, FILE2' in flat and 'FILE3' in flat
+  # store_true default on
+  assert '(default: on)' in flat
+  # choices listed
+  assert 'choices: [\'red\', \'blue\']' in flat or 'choices: ["red", "blue"]' in flat
+  # type int appears
+  assert 'type: int' in flat
+  # default numeric prints
+  assert '(default: 7)' in flat
+
+
+def test_markdown_table_helper() -> None:
+  """Tiny check of _MarkdownTable formatting."""
+  table: str = base._MarkdownTable([('A', 'alpha'), ('B', 'beta')])
+  assert table.splitlines()[0].startswith('| Option/Arg |')
+  assert '`A`' in table and 'alpha' in table
+  assert base._MarkdownTable([]) == ''  # empty input → empty output
+
+
+def test_rows_for_actions_cover_suppress_custom_and_help() -> None:
+  """Drive _RowsForActions metadata branches: SUPPRESS, custom type, help action."""
+  # Keep add_help=True to include the built-in -h/--help action (exercises isinstance(_HelpAction))
+  p = argparse.ArgumentParser()
+  # Arg with default=SUPPRESS → exercises that early-return in _FormatDefault
+  p.add_argument('--maybe', default=argparse.SUPPRESS, help='maybe suppressed default')
+
+  # Custom callable without __name__ → forces 'type: custom' in _FormatType
+  class _CallableNoName:  # pragma: no cover - cover is for transcrypto lines, not this helper  # pylint: disable=too-few-public-methods
+    def __call__(self, s: str) -> str:
+      return s
+
+  p.add_argument('--weird', type=_CallableNoName(), help='custom callable type')
+  # Also add one standard store_true to hit bool-default branch
+  p.add_argument('--flag', action='store_true', default=False, help='bool default false')
+  rows: list[tuple[str, str]] = base._RowsForActions(p._actions)  # type: ignore[attr-defined]
+  text: str = '\n'.join(f'{l} :: {r}' for (l, r) in rows)
+  # SUPPRESS default should not render a "(default: ...)" string
+  assert '--maybe' in text and '(default:' not in text.split('--maybe', 1)[1].splitlines()[0]
+  # Custom callable should show "type: custom"
+  assert 'type: custom' in text
+  # Built-in help action is skipped by _RowsForActions; make sure other rows exist
+  assert any('--flag' in l for (l, _r) in rows)
 
 
 if __name__ == '__main__':
