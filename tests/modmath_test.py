@@ -326,7 +326,11 @@ def test_IsPrime_basic() -> None:
     assert modmath.FermatIsPrime(n) == (n in modmath.FIRST_5K_PRIMES)
   for n in range(285, 1500):
     assert modmath.MillerRabinIsPrime(n) == (n in modmath.FIRST_5K_PRIMES)
-    assert modmath.FermatIsPrime(n, safety=15) == (n in modmath.FIRST_5K_PRIMES)
+    if n == 1105:
+      # the strong https://en.wikipedia.org/wiki/Carmichael_number number 1105
+      # (https://oeis.org/A002997/b002997.txt) will still have flakes at safety==30+!!
+      continue
+    assert modmath.FermatIsPrime(n, safety=20) == (n in modmath.FIRST_5K_PRIMES)
 
 
 @pytest.mark.parametrize('n, p', [

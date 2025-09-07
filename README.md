@@ -157,6 +157,7 @@ Known dependencies:
 
 - [zstandard](https://pypi.org/project/zstandard/) ([docs](https://python-zstandard.readthedocs.org/))
 - [cryptography](https://pypi.org/project/cryptography/) ([docs](https://cryptography.io/en/latest/))
+- [gmpy2](https://pypi.org/project/gmpy2/) ([docs](https://gmpy2.readthedocs.io/en/latest/))
 
 <!-- cspell:disable -->
 
@@ -2541,4 +2542,4 @@ $ pyinstrument -r html -o dsa_shared.html -- /path/to/.venv/bin/transcrypto -p r
 $ deactivate
 ```
 
-Hint: 85%+ is inside `MillerRabinIsPrime()`/`ModExp()`...
+Hint: 85%+ is inside `MillerRabinIsPrime()`/`gmpy2.powmod()`...
