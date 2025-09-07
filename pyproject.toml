@@ -64,6 +64,8 @@ pyinstrument = ">=5.1.1"
 
 [tool.poetry.scripts]
 transcrypto = "transcrypto.transcrypto:main"
+safetrans = "transcrypto.safetrans:main"
+profiler = "transcrypto.profiler:main"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

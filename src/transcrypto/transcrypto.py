@@ -17,6 +17,7 @@ elgamal shared|new|encrypt|decrypt|sign|verify|rawencrypt|rawdecrypt|rawsign|raw
 dsa shared|new|sign|verify|rawsign|rawverify
 bid new|verify
 sss new|shares|recover|rawshares|rawrecover|rawverify
+doc md
 """
 
 from __future__ import annotations
