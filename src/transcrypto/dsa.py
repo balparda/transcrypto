@@ -22,7 +22,7 @@ from typing import Self
 
 import gmpy2  # type:ignore
 
-from . import base, modmath
+from . import base, constants, modmath
 
 __author__ = 'balparda@github.com'
 __version__: str = base.__version__  # version comes from base!
@@ -121,7 +121,7 @@ def _PrimePSearchShard(q: int, p_bits: int) -> tuple[int | None, int | None]:
   pr: int
   forbidden: dict[int, int] = {  # (modulus: forbidden residue)
       pr: ((-modmath.ModInv(q % pr, pr)) % pr)
-      for pr in modmath.FIRST_5K_PRIMES_SORTED[1:min(5000, approx_q_root)]}  # skip pr==2
+      for pr in constants.FIRST_5K_PRIMES_SORTED[1:min(1000, approx_q_root)]}  # skip pr==2
 
   def _PassesSieve(m: int) -> bool:
     for r, f in forbidden.items():

@@ -15,7 +15,7 @@ from unittest import mock
 import gmpy2  # type:ignore
 import pytest
 
-from src.transcrypto import base, modmath
+from src.transcrypto import base, constants, modmath
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = modmath.__version__  # tests inherit version from module
@@ -322,15 +322,15 @@ def test_MillerRabinIsPrime_limits(n: int, witnesses: set[int], p: bool) -> None
 def test_IsPrime_basic() -> None:
   """Test."""
   for n in range(1, 283):
-    assert modmath.MillerRabinIsPrime(n) == (n in modmath.FIRST_5K_PRIMES)
-    assert modmath.FermatIsPrime(n) == (n in modmath.FIRST_5K_PRIMES)
+    assert modmath.MillerRabinIsPrime(n) == (n in constants.FIRST_5K_PRIMES)
+    assert modmath.FermatIsPrime(n) == (n in constants.FIRST_5K_PRIMES)
   for n in range(285, 1500):
-    assert modmath.MillerRabinIsPrime(n) == (n in modmath.FIRST_5K_PRIMES)
+    assert modmath.MillerRabinIsPrime(n) == (n in constants.FIRST_5K_PRIMES)
     if n == 1105:
       # the strong https://en.wikipedia.org/wiki/Carmichael_number number 1105
       # (https://oeis.org/A002997/b002997.txt) will still have flakes at safety==30+!!
       continue
-    assert modmath.FermatIsPrime(n, safety=20) == (n in modmath.FIRST_5K_PRIMES)
+    assert modmath.FermatIsPrime(n, safety=20) == (n in constants.FIRST_5K_PRIMES)
 
 
 @pytest.mark.parametrize('n, p', [
@@ -371,10 +371,9 @@ def test_PrimeGenerator() -> None:
   """Test."""
   with pytest.raises(base.InputError, match='negative number'):
     next(modmath.PrimeGenerator(-1))
-  for i, n in enumerate(modmath.PrimeGenerator(0)):
-    if i >= 5000:
-      break
-    assert n == modmath.FIRST_5K_PRIMES_SORTED[i]
+  primes20: list[int] = modmath.FirstNPrimesSorted(20000)
+  assert primes20[:5000] == constants.FIRST_5K_PRIMES_SORTED
+  assert primes20 == constants.FIRST_20K_PRIMES_SORTED
   g: modmath.Generator[int, None, None] = modmath.PrimeGenerator(2 ** 100)
   assert next(g) == 2 ** 100 + 277
   assert next(g) == 2 ** 100 + 331
@@ -409,7 +408,7 @@ def test_MersennePrimesGenerator() -> None:
     mersenne.append(n[0])
     if i > 12:
       break
-  assert mersenne == modmath.FIRST_49_MERSENNE_SORTED[:14]
+  assert mersenne == constants.FIRST_49_MERSENNE_SORTED[:14]
 
 
 if __name__ == '__main__':
