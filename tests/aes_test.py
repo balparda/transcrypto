@@ -14,8 +14,7 @@ from unittest import mock
 
 import pytest
 
-from src.transcrypto import base
-from src.transcrypto import aes
+from src.transcrypto import base, aes
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = base.__version__  # tests inherit version from module

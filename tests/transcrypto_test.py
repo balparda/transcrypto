@@ -233,8 +233,6 @@ def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None: 
   assert out == plaintext
 
 
-@pytest.mark.slow
-@pytest.mark.veryslow
 def test_rsa_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None:
   """Test RSA key gen, encrypt/decrypt, sign/verify via CLI."""
   base_path: pathlib.Path = tmp_path / 'rsa'
@@ -268,7 +266,6 @@ def test_rsa_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None:
 
 
 @pytest.mark.slow
-@pytest.mark.veryslow
 def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> None:
   """RSA safe encrypt/decrypt and sign/verify via CLI."""
   base_path = tmp_path / 'rsa_safe'
@@ -302,7 +299,6 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
   assert code == 0 and out == 'RSA signature: INVALID'
 
 
-@pytest.mark.slow
 def test_elgamal_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None:  # pylint: disable=too-many-locals
   """Test ElGamal shared/new, encrypt/decrypt, sign/verify via CLI."""
   base_path: pathlib.Path = tmp_path / 'eg'
@@ -335,7 +331,6 @@ def test_elgamal_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None
 
 
 @pytest.mark.slow
-@pytest.mark.veryslow
 def test_elgamal_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> None:
   """ElGamal safe encrypt/decrypt and sign/verify via CLI."""
   base_path = tmp_path / 'eg_safe'
@@ -372,7 +367,6 @@ def test_elgamal_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) ->
 
 
 @pytest.mark.slow
-@pytest.mark.veryslow
 def test_dsa_sign_verify(tmp_path: pathlib.Path) -> None:
   """Test DSA shared/new, sign/verify via CLI."""
   base_path: pathlib.Path = tmp_path / 'dsa'
@@ -400,7 +394,6 @@ def test_dsa_sign_verify(tmp_path: pathlib.Path) -> None:
 
 
 @pytest.mark.slow
-@pytest.mark.veryslow
 def test_dsa_sign_verify_safe(tmp_path: pathlib.Path) -> None:
   """DSA safe sign/verify via CLI."""
   base_path = tmp_path / 'dsa_safe'
@@ -446,7 +439,6 @@ def test_bid_commit_verify(tmp_path: pathlib.Path) -> None:
   assert code == 0 and out == 'Bid commitment: OK\nBid secret:\ntop-secret-123'
 
 
-@pytest.mark.slow
 def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
   """Test Shamir's Secret Sharing new, shares, recover, verify via CLI."""
   base_path: pathlib.Path = tmp_path / 'sss'
@@ -491,8 +483,6 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
   assert code == 0 and 'no data share found among the available shares' in out
 
 
-@pytest.mark.slow
-@pytest.mark.veryslow
 def test_sss_shares_recover_safe(tmp_path: pathlib.Path) -> None:
   """SSS safe shares/recover for data (AEAD-wrapped)."""
   base_path = tmp_path / 'sss_safe'
@@ -622,6 +612,7 @@ def test_requires_key(argv: list[str]) -> None:
   assert '-p/--key-path' in out
 
 
+@pytest.mark.slow
 def test_aes_gcm_decrypt_wrong_aad_raises() -> None:
   """Force the GCM InvalidTag path (wrong AAD) → base.CryptoError."""
   # Fixed key for repeatability
@@ -678,6 +669,7 @@ def test_rows_for_actions_cover_suppress_custom_and_help() -> None:
   assert any('--flag' in l for (l, _r) in rows)
 
 
+@pytest.mark.slow
 def test_aes_ecb_encrypt_decrypt_with_key_path(tmp_path: pathlib.Path) -> None:
   """Cover AES-ECB key selection via --key-path (elif branch)."""
   # Write a serialized AES key file

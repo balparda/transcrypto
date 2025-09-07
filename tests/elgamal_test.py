@@ -14,8 +14,7 @@ from unittest import mock
 
 import pytest
 
-from src.transcrypto import base
-from src.transcrypto import elgamal
+from src.transcrypto import base, elgamal
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = elgamal.__version__  # tests inherit version from module

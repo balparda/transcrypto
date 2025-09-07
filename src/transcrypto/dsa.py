@@ -12,10 +12,15 @@ In the future we will design a proper DSA+Hash implementation.
 
 from __future__ import annotations
 
+import concurrent.futures
 import dataclasses
 import logging
+import multiprocessing
+import os
 # import pdb
 from typing import Self
+
+import gmpy2  # type:ignore
 
 from . import base, modmath
 
@@ -24,14 +29,14 @@ __version__: str = base.__version__  # version comes from base!
 __version_tuple__: tuple[int, ...] = base.__version_tuple__
 
 
-_PRIME_MULTIPLE_SEARCH = 4096  # how many multiples of q to try before restarting
 _MAX_KEY_GENERATION_FAILURES = 15
 
 # fixed prefixes: do NOT ever change! will break all encryption and signature schemes
 _DSA_SIGNATURE_HASH_PREFIX = b'transcrypto.DSA.Signature.1.0\x00'
 
 
-def NBitRandomDSAPrimes(p_bits: int, q_bits: int, /) -> tuple[int, int, int]:
+def NBitRandomDSAPrimes(
+    p_bits: int, q_bits: int, /, *, serial: bool = True) -> tuple[int, int, int]:
   """Generates 2 random DSA primes p & q with `x_bits` size and (p-1)%q==0.
 
   Uses an aggressive small-prime wheel sieve:
@@ -41,10 +46,15 @@ def NBitRandomDSAPrimes(p_bits: int, q_bits: int, /) -> tuple[int, int, int]:
     m_forbidden ≡ -q⁻¹ (mod r) (because (m·q + 1) % r == 0 ⇔ m ≡ -q⁻¹ (mod r))
   • When we iterate m, we skip values that hit any forbidden residue class.
 
+  Method will decide if executes on one thread or many.
+
   Args:
     p_bits (int): Number of guaranteed bits in `p` prime representation,
         p_bits ≥ q_bits + 11
     q_bits (int): Number of guaranteed bits in `q` prime representation, ≥ 11
+    serial (bool, optional): True (default) will force one thread; False will allow parallelism;
+       we have temporarily disabled parallelism with a default of True because it is not making
+       things faster...
 
   Returns:
     random primes tuple (p, q, m), with p-1 a random multiple m of q, such
@@ -60,13 +70,58 @@ def NBitRandomDSAPrimes(p_bits: int, q_bits: int, /) -> tuple[int, int, int]:
     raise base.InputError(f'invalid p_bits length: {p_bits=}')
   # make q
   q: int = modmath.NBitRandomPrimes(q_bits).pop()
+  # get number of CPUs and decide if we do parallel or not
+  n_workers: int = min(4, os.cpu_count() or 1)
+  pr: int | None = None
+  m: int | None = None
+  if serial or n_workers <= 1 or p_bits < 200:
+    # do one worker
+    while pr is None or m is None or pr.bit_length() != p_bits:
+      pr, m = _PrimePSearchShard(q, p_bits)
+    return (pr, q, m)
+  # parallel: keep a small pool of bounded shards; stop on first hit
+  multiprocessing.set_start_method('fork', force=True)
+  with concurrent.futures.ProcessPoolExecutor(max_workers=n_workers) as pool:
+    workers: set[concurrent.futures.Future[tuple[int | None, int | None]]] = {
+        pool.submit(_PrimePSearchShard, q, p_bits) for _ in range(n_workers)}
+    while workers:
+      done: set[concurrent.futures.Future[tuple[int | None, int | None]]] = concurrent.futures.wait(
+          workers, return_when=concurrent.futures.FIRST_COMPLETED)[0]
+      for worker in done:
+        workers.remove(worker)
+        pr, m = worker.result()
+        if pr is not None and m is not None and pr.bit_length() == p_bits:
+          return (pr, q, m)
+        # no hit in that shard: keep the pool full with a fresh shard
+        workers.add(pool.submit(_PrimePSearchShard, q, p_bits))  # pragma: no cover
+  # can never reach this point, but leave this here; remove line from coverage
+  raise base.Error(f'could not find prime with {p_bits=}/{q_bits=} bits')  # pragma: no cover
+
+
+def _PrimePSearchShard(q: int, p_bits: int) -> tuple[int | None, int | None]:
+  """Search for a `p_bits` random prime, starting from a random point, for ~6× expected prime gap.
+
+  Args:
+    q (int): Prime `q` for DSA
+    p_bits (int): Number of guaranteed bits in prime `p` representation
+
+  Returns:
+    tuple[int | None, int | None]: either the prime `p` and multiple `m` or None if no prime found
+  """
+  q_bits: int = q.bit_length()
+  shard_len: int = max(2000, 6 * int(0.693 * p_bits))  # ~6× expected prime gap ~2^k (≈ 0.693*k)
+  # find range of multiples to use
+  min_p: int = 2 ** (p_bits - 1)
+  max_p: int = 2 ** p_bits - 1
+  min_m: int = min_p // q + 2
+  max_m: int = max_p // q - 2
+  assert max_m - min_m > 1000  # make sure we'll have options!
   # make list of small primes to use for sieving
   approx_q_root: int = 1 << (q_bits // 2)
-  forbidden: dict[int, int] = {}  # (modulus: forbidden residue)
-  for r in modmath.PrimeGenerator(3):
-    forbidden[r] = (-modmath.ModInv(q % r, r)) % r
-    if r > 100000 or r > approx_q_root:
-      break
+  pr: int
+  forbidden: dict[int, int] = {  # (modulus: forbidden residue)
+      pr: ((-modmath.ModInv(q % pr, pr)) % pr)
+      for pr in modmath.FIRST_5K_PRIMES_SORTED[1:min(5000, approx_q_root)]}  # skip pr==2
 
   def _PassesSieve(m: int) -> bool:
     for r, f in forbidden.items():
@@ -74,35 +129,23 @@ def NBitRandomDSAPrimes(p_bits: int, q_bits: int, /) -> tuple[int, int, int]:
         return False
     return True
 
-  # find range of multiples to use
-  min_p, max_p = 2 ** (p_bits - 1), 2 ** p_bits - 1
-  min_m, max_m = min_p // q + 2, max_p // q - 2
-  assert max_m - min_m > 1000  # make sure we'll have options!
-  # start searching from a random multiple
-  failures: int = 0
-  window: int = max(_PRIME_MULTIPLE_SEARCH, 2 * p_bits)
-  while True:
-    # try searching starting here
-    m: int = base.RandInt(min_m, max_m)
-    if m % 2:
-      m += 1  # make even
-    for _ in range(window):
-      p: int = q * m + 1
-      if p >= max_p:
-        break
-      # first do a quick sieve test
-      if not _PassesSieve(m):
-        m += 2
-        continue
-      # passed sieve, do full test
-      if modmath.IsPrime(p):
-        return (p, q, m)  # found a suitable prime set!
-      m += 2  # next multiple
-    # after _PRIME_MULTIPLE_SEARCH we declare this range failed
-    failures += 1
-    if failures >= _MAX_KEY_GENERATION_FAILURES:
-      raise base.CryptoError(f'failed primes generation {failures} times')
-    logging.warning(f'failed primes search: {failures}')
+  # try searching starting here
+  m: int = base.RandInt(min_m, max_m)
+  if m % 2:
+    m += 1  # make even
+  count: int = 0
+  pr = 0
+  while count < shard_len:
+    pr = q * m + 1
+    if pr > max_p:
+      break
+    # first do a quick sieve test
+    if _PassesSieve(m):
+      if modmath.IsPrime(pr):  # passed sieve, do full test
+        return (pr, m)  # found a suitable prime set!
+    count += 1
+    m += 2  # next even number
+  return (None, None)
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
@@ -203,7 +246,7 @@ class DSASharedPublicKey(base.CryptoKey):
     g: int = 0
     while g < 2:
       h: int = base.RandBits(p_bits - 1)
-      g = modmath.ModExp(h, m, p)
+      g = int(gmpy2.powmod(h, m, p))  # type:ignore  # pylint:disable=no-member
     return cls(prime_modulus=p, prime_seed=q, group_base=g)
 
 
@@ -278,10 +321,10 @@ class DSAPublicKey(DSASharedPublicKey, base.Verifier):
       raise base.InputError(f'invalid signature: {signature=}')
     # verify
     inv: int = modmath.ModInv(signature[1], self.prime_seed)
-    a: int = modmath.ModExp(
-        self.group_base, (message * inv) % self.prime_seed, self.prime_modulus)
-    b: int = modmath.ModExp(
-        self.individual_base, (signature[0] * inv) % self.prime_seed, self.prime_modulus)
+    a: int = int(gmpy2.powmod(  # type:ignore  # pylint:disable=no-member
+        self.group_base, (message * inv) % self.prime_seed, self.prime_modulus))
+    b: int = int(gmpy2.powmod(  # type:ignore  # pylint:disable=no-member
+        self.individual_base, (signature[0] * inv) % self.prime_seed, self.prime_modulus))
     return ((a * b) % self.prime_modulus) % self.prime_seed == signature[0]
 
   def Verify(
@@ -353,8 +396,7 @@ class DSAPrivateKey(DSAPublicKey, base.Signer):  # pylint: disable=too-many-ance
     if (not 2 < self.decrypt_exp < self.prime_seed or
         self.decrypt_exp in (self.group_base, self.individual_base)):
       raise base.InputError(f'invalid decrypt_exp: {self}')
-    if modmath.ModExp(
-        self.group_base, self.decrypt_exp, self.prime_modulus) != self.individual_base:
+    if gmpy2.powmod(self.group_base, self.decrypt_exp, self.prime_modulus) != self.individual_base:  # type:ignore  # pylint:disable=no-member
       raise base.CryptoError(f'inconsistent g**d % p == i: {self}')
 
   def __str__(self) -> str:
@@ -387,10 +429,11 @@ class DSAPrivateKey(DSAPublicKey, base.Signer):  # pylint: disable=too-many-ance
     if not 0 < message < self.prime_seed:
       raise base.InputError(f'invalid message: {message=}')
     # sign
-    a, b = 0, 0
+    a: int = 0
+    b: int = 0
     while a < 2 or b < 2:
       ephemeral_key, ephemeral_inv = self._MakeEphemeralKey()
-      a = modmath.ModExp(self.group_base, ephemeral_key, self.prime_modulus) % self.prime_seed
+      a = int(gmpy2.powmod(self.group_base, ephemeral_key, self.prime_modulus) % self.prime_seed)  # type:ignore  # pylint:disable=no-member
       b = (ephemeral_inv * ((message + a * self.decrypt_exp) % self.prime_seed)) % self.prime_seed
     return (a, b)
 
@@ -460,8 +503,8 @@ class DSAPrivateKey(DSAPublicKey, base.Signer):  # pylint: disable=too-many-ance
             prime_modulus=shared_key.prime_modulus,
             prime_seed=shared_key.prime_seed,
             group_base=shared_key.group_base,
-            individual_base=modmath.ModExp(
-                shared_key.group_base, decrypt_exp, shared_key.prime_modulus),
+            individual_base=int(gmpy2.powmod(  # type:ignore  # pylint:disable=no-member
+                shared_key.group_base, decrypt_exp, shared_key.prime_modulus)),
             decrypt_exp=decrypt_exp)
       except base.InputError as err:
         failures += 1

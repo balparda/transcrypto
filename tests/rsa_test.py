@@ -14,9 +14,7 @@ from unittest import mock
 
 import pytest
 
-from src.transcrypto import base
-from src.transcrypto import modmath
-from src.transcrypto import rsa
+from src.transcrypto import base, rsa
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = rsa.__version__  # tests inherit version from module
@@ -116,7 +114,7 @@ def test_RSA_raw(  # pylint: disable=too-many-locals,too-many-arguments,too-many
   with pytest.raises(base.InputError, match='invalid message'):
     private.RawDecrypt(public_modulus)
   assert private.RawDecrypt(cypher) == message
-  assert modmath.ModExp(cypher, private.decrypt_exp, private.public_modulus) == message
+  assert pow(cypher, private.decrypt_exp, private.public_modulus) == message
   signed: int = private.RawSign(message)
   obfuscated_signed: int = private.RawSign(obfuscated)
   assert (signed, obfuscated_signed) == (expected_signed, expected_obfuscated_signed)

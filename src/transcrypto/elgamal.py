@@ -23,6 +23,8 @@ import logging
 # import pdb
 from typing import Self
 
+import gmpy2  # type:ignore
+
 from . import base, modmath, aes
 
 __author__ = 'balparda@github.com'
@@ -203,8 +205,8 @@ class ElGamalPublicKey(ElGamalSharedPublicKey, base.Encryptor, base.Verifier):
     b: int = 0
     while a < 2 or b < 2:
       ephemeral_key: int = self._MakeEphemeralKey()[0]
-      a = modmath.ModExp(self.group_base, ephemeral_key, self.prime_modulus)
-      s: int = modmath.ModExp(self.individual_base, ephemeral_key, self.prime_modulus)
+      a = int(gmpy2.powmod(self.group_base, ephemeral_key, self.prime_modulus))            # type:ignore  # pylint:disable=no-member
+      s: int = int(gmpy2.powmod(self.individual_base, ephemeral_key, self.prime_modulus))  # type:ignore  # pylint:disable=no-member
       b = (message * s) % self.prime_modulus
     return (a, b)
 
@@ -278,9 +280,9 @@ class ElGamalPublicKey(ElGamalSharedPublicKey, base.Encryptor, base.Verifier):
         not 2 <= signature[1] < self.prime_modulus - 1):
       raise base.InputError(f'invalid signature: {signature=}')
     # verify
-    a: int = modmath.ModExp(self.group_base, message, self.prime_modulus)
-    b: int = modmath.ModExp(signature[0], signature[1], self.prime_modulus)
-    c: int = modmath.ModExp(self.individual_base, signature[0], self.prime_modulus)
+    a: int = int(gmpy2.powmod(self.group_base, message, self.prime_modulus))            # type:ignore  # pylint:disable=no-member
+    b: int = int(gmpy2.powmod(signature[0], signature[1], self.prime_modulus))          # type:ignore  # pylint:disable=no-member
+    c: int = int(gmpy2.powmod(self.individual_base, signature[0], self.prime_modulus))  # type:ignore  # pylint:disable=no-member
     return a == (b * c) % self.prime_modulus
 
   def Verify(
@@ -351,8 +353,7 @@ class ElGamalPrivateKey(ElGamalPublicKey, base.Decryptor, base.Signer):  # pylin
     if (not 2 < self.decrypt_exp < self.prime_modulus - 1 or
         self.decrypt_exp in (self.group_base, self.individual_base)):
       raise base.InputError(f'invalid decrypt_exp: {self}')
-    if modmath.ModExp(
-        self.group_base, self.decrypt_exp, self.prime_modulus) != self.individual_base:
+    if gmpy2.powmod(self.group_base, self.decrypt_exp, self.prime_modulus) != self.individual_base:  # type:ignore  # pylint:disable=no-member
       raise base.CryptoError(f'inconsistent g**e % p == i: {self}')
 
   def __str__(self) -> str:
@@ -385,8 +386,8 @@ class ElGamalPrivateKey(ElGamalPublicKey, base.Decryptor, base.Signer):  # pylin
         not 2 <= ciphertext[1] < self.prime_modulus):
       raise base.InputError(f'invalid message: {ciphertext=}')
     # decrypt
-    csi: int = modmath.ModExp(
-        ciphertext[0], self.prime_modulus - 1 - self.decrypt_exp, self.prime_modulus)
+    csi: int = int(
+        gmpy2.powmod(ciphertext[0], self.prime_modulus - 1 - self.decrypt_exp, self.prime_modulus))  # type:ignore  # pylint:disable=no-member
     return (ciphertext[1] * csi) % self.prime_modulus
 
   def Decrypt(self, ciphertext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
@@ -450,7 +451,7 @@ class ElGamalPrivateKey(ElGamalPublicKey, base.Decryptor, base.Signer):  # pylin
     p_1: int = self.prime_modulus - 1
     while a < 2 or b < 2:
       ephemeral_key, ephemeral_inv = self._MakeEphemeralKey()
-      a = modmath.ModExp(self.group_base, ephemeral_key, self.prime_modulus)
+      a = int(gmpy2.powmod(self.group_base, ephemeral_key, self.prime_modulus))  # type:ignore  # pylint:disable=no-member
       b = (ephemeral_inv * ((message - a * self.decrypt_exp) % p_1)) % p_1
     return (a, b)
 
@@ -519,8 +520,8 @@ class ElGamalPrivateKey(ElGamalPublicKey, base.Decryptor, base.Signer):  # pylin
         return cls(
             prime_modulus=shared_key.prime_modulus,
             group_base=shared_key.group_base,
-            individual_base=modmath.ModExp(
-                shared_key.group_base, decrypt_exp, shared_key.prime_modulus),
+            individual_base=int(gmpy2.powmod(  # type:ignore  # pylint:disable=no-member
+                shared_key.group_base, decrypt_exp, shared_key.prime_modulus)),
             decrypt_exp=decrypt_exp)
       except base.InputError as err:
         failures += 1

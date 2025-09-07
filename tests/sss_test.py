@@ -114,7 +114,6 @@ def test_ShamirSharedSecret_creation(
 
 
 @pytest.mark.slow
-@pytest.mark.veryslow
 def test_ShamirSharedSecret() -> None:
   """Test."""
   private: sss.ShamirSharedSecretPrivate = sss.ShamirSharedSecretPrivate.New(5, 512)  # not too slow, not too fast

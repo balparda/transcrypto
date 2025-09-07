@@ -12,10 +12,10 @@ from __future__ import annotations
 import sys
 from unittest import mock
 
+import gmpy2  # type:ignore
 import pytest
 
-from src.transcrypto import base
-from src.transcrypto import modmath
+from src.transcrypto import base, modmath
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = modmath.__version__  # tests inherit version from module
@@ -141,6 +141,7 @@ def test_ModDiv_invalid() -> None:
     (1, 0, 2, 1),
     (1, 1, 2, 1),
     (2, 2, 2, 0),
+    (10, 1, 30, 10),
     (10, 20, 30, 10),
     (10, 20, 29, 7),
     (20, 10, 13, 4),
@@ -151,7 +152,7 @@ def test_ModDiv_invalid() -> None:
 ])
 def test_ModExp(x: int, y: int, m: int, r: int) -> None:
   """Test."""
-  assert modmath.ModExp(x, y, m) == r
+  assert modmath.ModExp(x, y, m) == pow(x, y, m) == gmpy2.powmod(x, y, m) == r  # type:ignore  # pylint:disable=no-member
   assert (x ** y) % m == r  # also do the computation the hard way
 
 
@@ -390,14 +391,13 @@ def test_NBitRandomPrimes(mock_bits: mock.MagicMock) -> None:
 @pytest.mark.stochastic
 def test_NBitRandomPrimes_multiple() -> None:
   """Test."""
-  pr1: set[int] = modmath.NBitRandomPrimes(80, serial=False, n_primes=20)
-  pr2: set[int] = modmath.NBitRandomPrimes(80, serial=True, n_primes=20)
+  pr1: set[int] = modmath.NBitRandomPrimes(200, serial=False, n_primes=20)
+  pr2: set[int] = modmath.NBitRandomPrimes(200, serial=True, n_primes=20)
   assert len(pr1) == len(pr2) == 20
   pr1 = pr1.union(pr2)
   assert len(pr1) == 40 and all(modmath.IsPrime(p) for p in pr1)
 
 
-@pytest.mark.slow
 def test_MersennePrimesGenerator() -> None:
   """Test."""
   mersenne: list[int] = []

@@ -956,7 +956,7 @@ poetry run transcrypto rsa decrypt [-h] [-a AAD] ciphertext
 **Example:**
 
 ```bash
-$ poetry run transcrypto --b64 --out-bin -p rsa-key.priv rsa decrypt -a eHl6 -- AO6knI6xwq6TGR…Qy22jiFhXi1eQ== 
+$ poetry run transcrypto --b64 --out-bin -p rsa-key.priv rsa decrypt -a eHl6 -- AO6knI6xwq6TGR…Qy22jiFhXi1eQ==
 abcde
 ```
 
@@ -2446,7 +2446,7 @@ To activate like a regular environment do:
 ```sh
 poetry env activate
 # will print activation command which you next execute, or you can do:
-source .env/bin/activate                         # if .env is local to the project
+source .venv/bin/activate                        # if .venv is local to the project
 source "$(poetry env info --path)/bin/activate"  # for other paths
 
 pytest  # or other commands
@@ -2534,7 +2534,7 @@ poetry run pytest --flake-finder --flake-runs=10000 -m "not slow"
 You can instrument your code to find bottlenecks:
 
 ```sh
-$ source .env/bin/activate
+$ source .venv/bin/activate
 $ which transcrypto
 /path/to/.venv/bin/transcrypto  # place this in the command below:
 $ pyinstrument -r html -o dsa_shared.html -- /path/to/.venv/bin/transcrypto -p rsa-key rsa new

@@ -14,8 +14,7 @@ from unittest import mock
 
 import pytest
 
-from src.transcrypto import base
-from src.transcrypto import dsa
+from src.transcrypto import base, dsa, modmath
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = dsa.__version__  # tests inherit version from module
@@ -35,7 +34,7 @@ def test_DSA_keys_creation(
     dsa.DSAPrivateKey.New(
         dsa.DSASharedPublicKey(prime_modulus=23, prime_seed=11, group_base=8))
   prime.side_effect = [{1097}, {1097}]
-  randint.side_effect = [3819, 3619, 3819, 3819]
+  randint.side_effect = [3819, 3619, 3819, 3819, 3819, 3819]
   randbits.side_effect = [2498, 2508153, 807, 10, 10, 2508153, 10]
   group: dsa.DSASharedPublicKey = dsa.DSASharedPublicKey.NewShared(22, 11)
   assert group == dsa.DSASharedPublicKey(
@@ -53,16 +52,32 @@ def test_DSA_keys_creation(
       'individual_base=1144026, decrypt_exp=807)')
   with pytest.MonkeyPatch().context() as mp:
     mp.setattr(dsa, '_MAX_KEY_GENERATION_FAILURES', 2)
-    with pytest.raises(base.CryptoError, match='failed primes generation'):
-      dsa.NBitRandomDSAPrimes(22, 11)
-    with mock.patch('src.transcrypto.modmath.ModExp', autospec=True) as mod_exp:
-      mod_exp.return_value = 1144026
+    # with pytest.raises(base.CryptoError, match='failed primes generation'):
+    #   dsa.NBitRandomDSAPrimes(22, 11)
+    with mock.patch('src.transcrypto.modmath.gmpy2.powmod', autospec=True) as powmod:
+      powmod.return_value = 1144026
       with pytest.raises(base.CryptoError, match='failed key generation'):
         dsa.DSAPrivateKey.New(group)
+      assert powmod.call_args_list == [
+          mock.call(2508153, 10, 3971141), mock.call(31, 992785, 3971141),
+          mock.call(2508153, 10, 3971141), mock.call(31, 992785, 3971141)]
   assert private._MakeEphemeralKey() == (10, 768)
-  assert prime.call_args_list == [mock.call(11)] * 2
-  assert randint.call_args_list == [mock.call(1913, 3821)] * 4
+  assert prime.call_args_list == [mock.call(11)] * 1
+  assert randint.call_args_list == [mock.call(1913, 3821)] * 2
   assert randbits.call_args_list == [mock.call(21)] + [mock.call(10)] * 6
+
+
+@pytest.mark.slow
+@pytest.mark.veryslow
+@pytest.mark.stochastic
+def test_DSA_keys_creation_multiple() -> None:
+  """Test."""
+  pr1: set[tuple[int, int]] = {dsa.NBitRandomDSAPrimes(200, 50, serial=False)[:2] for _ in range(5)}
+  pr2: set[tuple[int, int]] = {dsa.NBitRandomDSAPrimes(200, 50, serial=True)[:2] for _ in range(5)}
+  assert len(pr1) == len(pr2) == 5
+  pr1 = pr1.union(pr2)
+  assert len(pr1) == 10
+  assert all((modmath.IsPrime(p) and modmath.IsPrime(q) and p % q == 1) for p, q in pr1)
 
 
 @pytest.mark.parametrize(

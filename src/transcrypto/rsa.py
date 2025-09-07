@@ -14,6 +14,8 @@ import logging
 # import pdb
 from typing import Self
 
+import gmpy2  # type:ignore
+
 from . import base, modmath, aes
 
 __author__ = 'balparda@github.com'
@@ -100,7 +102,7 @@ class RSAPublicKey(base.CryptoKey, base.Encryptor, base.Verifier):
     if not 0 < message < self.public_modulus:
       raise base.InputError(f'invalid message: {message=}')
     # encrypt
-    return modmath.ModExp(message, self.encrypt_exp, self.public_modulus)
+    return int(gmpy2.powmod(message, self.encrypt_exp, self.public_modulus))  # type:ignore  # pylint:disable=no-member
 
   def Encrypt(self, plaintext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
     """Encrypt `plaintext` and return `ciphertext`.
@@ -290,8 +292,8 @@ class RSAObfuscationPair(RSAPublicKey):
     if not 0 < message < self.public_modulus:
       raise base.InputError(f'invalid message: {message=}')
     # encrypt
-    return (message * modmath.ModExp(
-        self.random_key, self.encrypt_exp, self.public_modulus)) % self.public_modulus
+    return (message * int(gmpy2.powmod(  # type:ignore  # pylint:disable=no-member
+        self.random_key, self.encrypt_exp, self.public_modulus))) % self.public_modulus
 
   def RevealOriginalSignature(self, message: int, signature: int, /) -> int:
     """Recover original signature for `message` from obfuscated `signature`.
@@ -451,9 +453,9 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):  # pylint: disab
     if not 0 <= ciphertext < self.public_modulus:
       raise base.InputError(f'invalid message: {ciphertext=}')
     # decrypt using CRT (Chinese Remainder Theorem); 4x speedup; all the below is equivalent
-    # of doing: return modmath.ModExp(ciphertext, self.decrypt_exp, self.public_modulus)
-    m_p: int = modmath.ModExp(ciphertext % self.modulus_p, self.remainder_p, self.modulus_p)
-    m_q: int = modmath.ModExp(ciphertext % self.modulus_q, self.remainder_q, self.modulus_q)
+    # of doing: return pow(ciphertext, self.decrypt_exp, self.public_modulus)
+    m_p: int = int(gmpy2.powmod(ciphertext % self.modulus_p, self.remainder_p, self.modulus_p))  # type:ignore  # pylint:disable=no-member
+    m_q: int = int(gmpy2.powmod(ciphertext % self.modulus_q, self.remainder_q, self.modulus_q))  # type:ignore  # pylint:disable=no-member
     h: int = (self.q_inverse_p * (m_p - m_q)) % self.modulus_p
     return (m_q + h * self.modulus_q) % self.public_modulus
 

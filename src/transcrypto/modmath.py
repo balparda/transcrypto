@@ -13,6 +13,8 @@ import os
 # import pdb
 from typing import Generator, Reversible
 
+import gmpy2  # type:ignore
+
 from . import base
 
 __author__ = 'balparda@github.com'
@@ -157,6 +159,7 @@ def ModExp(x: int, y: int, m: int, /) -> int:
     return x
   # now both x > 1 and y > 1
   z: int = 1
+  odd: int
   while y:
     y, odd = divmod(y, 2)
     if odd:
@@ -297,7 +300,7 @@ def FermatIsPrime(n: int, /, *, safety: int = 10, witnesses: set[int] | None = N
   for w in sorted(witnesses):
     if not 2 <= w <= (n - 2):
       raise base.InputError(f'out of bounds witness: 2 ≤ {w=} ≤ {n - 2}')
-    if ModExp(w, n - 1, n) != 1:
+    if gmpy2.powmod(w, n - 1, n) != 1:  # type:ignore  # pylint:disable=no-member
       # number is proved to be composite
       return False
   # we declare the number PROBABLY a prime to the limits of this test
@@ -408,7 +411,7 @@ def MillerRabinIsPrime(n: int, /, *, witnesses: set[int] | None = None) -> bool:
   for w in sorted(witnesses if witnesses else _MillerRabinWitnesses(n)):
     if not 2 <= w <= (n - 2):
       raise base.InputError(f'out of bounds witness: 2 ≤ {w=} ≤ {n - 2}')
-    x: int = ModExp(w, r, n)
+    x: int = int(gmpy2.powmod(w, r, n))  # type:ignore  # pylint:disable=no-member
     if x not in n_limits:
       for _ in range(s):  # s >= 1 so will execute at least once
         y = (x * x) % n
@@ -468,27 +471,7 @@ def PrimeGenerator(start: int, /) -> Generator[int, None, None]:
       yield n  # found a prime
 
 
-def _PrimeSearchShard(n_bits: int) -> int | None:
-  """Search for a `n_bits` random prime, starting from a random point, for ~6× expected prime gap.
-
-  Args:
-    n_bits (int): Number of guaranteed bits in prime representation
-
-  Returns:
-    int | None: either the prime int or None if no prime found in this shard
-  """
-  shard_len: int = max(2000, 6 * int(0.693 * n_bits))  # ~6× expected prime gap ~2^k (≈ 0.693*k)
-  pr: int = base.RandBits(n_bits) | 1  # random position; make ODD
-  count: int = 0
-  while count <= shard_len and pr.bit_length() == n_bits:
-    if IsPrime(pr):
-      return pr
-    count += 1
-    pr += 2
-  return None
-
-
-def NBitRandomPrimes(n_bits: int, /, *, serial: bool = False, n_primes: int = 1) -> set[int]:
+def NBitRandomPrimes(n_bits: int, /, *, serial: bool = True, n_primes: int = 1) -> set[int]:
   """Generates a random prime with (guaranteed) `n_bits` size (i.e., first bit == 1).
 
   The fact that the first bit will be 1 means the entropy is ~ (n_bits-1) and
@@ -499,7 +482,9 @@ def NBitRandomPrimes(n_bits: int, /, *, serial: bool = False, n_primes: int = 1)
 
   Args:
     n_bits (int): Number of guaranteed bits in prime representation, n ≥ 8
-    serial (bool, optional): True will force one thread; False (default) will allow parallelism
+    serial (bool, optional): True (default) will force one thread; False will allow parallelism;
+       we have temporarily disabled parallelism with a default of True because it is not making
+       things faster...
     n_primes (int, optional): Number of required primes in the return set[int], default is 1
 
   Returns:
@@ -511,11 +496,12 @@ def NBitRandomPrimes(n_bits: int, /, *, serial: bool = False, n_primes: int = 1)
   # test inputs
   if n_bits < 8:
     raise base.InputError(f'invalid n: {n_bits=}')
+  n_primes = 1 if n_primes < 1 else n_primes
   # get number of CPUs and decide if we do parallel or not
   n_workers: int = min(4, os.cpu_count() or 1)
   pr_set: set[int] = set()
   pr: int | None = None
-  if serial or n_workers <= 1 or n_bits < 64:
+  if serial or n_workers <= 1 or n_bits < 200:
     # do one worker
     while len(pr_set) < n_primes:
       while pr is None or pr.bit_length() != n_bits:
@@ -543,6 +529,26 @@ def NBitRandomPrimes(n_bits: int, /, *, serial: bool = False, n_primes: int = 1)
         workers.add(pool.submit(_PrimeSearchShard, n_bits))
   # can never reach this point, but leave this here; remove line from coverage
   raise base.Error(f'could not find prime with {n_bits=} bits')  # pragma: no cover
+
+
+def _PrimeSearchShard(n_bits: int) -> int | None:
+  """Search for a `n_bits` random prime, starting from a random point, for ~6× expected prime gap.
+
+  Args:
+    n_bits (int): Number of guaranteed bits in prime representation
+
+  Returns:
+    int | None: either the prime int or None if no prime found in this shard
+  """
+  shard_len: int = max(2000, 6 * int(0.693 * n_bits))  # ~6× expected prime gap ~2^k (≈ 0.693*k)
+  pr: int = base.RandBits(n_bits) | 1  # random position; make ODD
+  count: int = 0
+  while count < shard_len and pr.bit_length() == n_bits:
+    if IsPrime(pr):
+      return pr
+    count += 1
+    pr += 2
+  return None
 
 
 def MersennePrimesGenerator(start: int, /) -> Generator[tuple[int, int, int], None, None]:
