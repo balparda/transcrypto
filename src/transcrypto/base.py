@@ -23,7 +23,7 @@ from typing import Any, Callable, final, MutableSequence, Protocol, runtime_chec
 import zstandard
 
 __author__ = 'balparda@github.com'
-__version__ = '1.2.0'  # 2025-09-05, Fri
+__version__ = '1.3.0'  # 2025-09-07, Sun
 __version_tuple__: tuple[int, ...] = tuple(int(v) for v in __version__.split('.'))
 
 # MIN_TM = int(  # minimum allowed timestamp
