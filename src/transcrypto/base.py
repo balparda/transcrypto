@@ -22,6 +22,9 @@ import secrets
 import time
 from typing import Any, Callable, final, MutableSequence, Protocol, runtime_checkable
 from typing import Sequence, Self, TypeVar
+
+import numpy as np
+from scipy import stats  # type:ignore
 import zstandard
 
 __author__ = 'balparda@github.com'
@@ -234,6 +237,102 @@ def HumanizedSeconds(inp_secs: int | float, /) -> str:  # pylint: disable=too-ma
   return f'{(inp_secs / (24 * 60 * 60)):0.2f} d'
 
 
+def MeasurementStats(
+    data: list[int | float], /, *,
+    confidence: float = 0.95) -> tuple[int, float, float, float, tuple[float, float], float]:
+  """Compute descriptive statistics for repeated measurements.
+
+  Given N ≥ 1 measurements, this function computes the sample mean, the
+  standard error of the mean (SEM), and the symmetric error estimate for
+  the chosen confidence interval using Student's t distribution.
+
+  Notes:
+    • If only one measurement is given, SEM and error are reported as +∞ and
+      the confidence interval is (-∞, +∞).
+    • This function assumes the underlying distribution is approximately
+      normal, or n is large enough for the Central Limit Theorem to apply.
+
+  Args:
+    data (list[int | float]): Sequence of numeric measurements.
+    confidence (float, optional): Confidence level for the interval, 0.5 <= confidence < 1;
+        defaults to 0.95 (95% confidence interval).
+
+  Returns:
+    tuple:
+      - n (int): number of measurements.
+      - mean (float): arithmetic mean of the data
+      - sem (float): standard error of the mean, sigma / √n
+      - error (float): half-width of the confidence interval (mean ± error)
+      - ci (tuple[float, float]): lower and upper confidence interval bounds
+      - confidence (float): the confidence level used
+
+  Raises:
+    InputError: if the input list is empty.
+  """
+  # test inputs
+  n: int = len(data)
+  if not n:
+    raise InputError('no data')
+  if not 0.5 <= confidence < 1.0:
+    raise InputError(f'invalid confidence: {confidence=}')
+  # solve trivial case
+  if n == 1:
+    return (n, data[0], math.inf, math.inf, (-math.inf, math.inf), confidence)
+  # call scipy for the science data
+  np_data = np.array(data)
+  mean = np.mean(np_data)
+  sem = stats.sem(np_data)  # type:ignore
+  ci = stats.t.interval(confidence, n - 1, loc=mean, scale=sem)            # type:ignore
+  t_crit = stats.t.ppf((1.0 + confidence) / 2.0, n - 1)  # type:ignore
+  error = t_crit * sem  # half-width of the CI  # type:ignore
+  return (n, float(mean), float(sem), float(error), (float(ci[0]), float(ci[1])), confidence)  # type:ignore
+
+
+def HumanizedMeasurements(
+    data: list[int | float], /, *,
+    unit: str = '', parser: Callable[[float], str] | None = None,
+    clip_negative: bool = True, confidence: float = 0.95) -> str:
+  """Render measurement statistics as a human-readable string.
+
+  Uses `MeasurementStats()` to compute mean and uncertainty, and formats the
+  result with units, sample count, and confidence interval. Negative values
+  can optionally be clipped to zero and marked with a leading “*”.
+
+  Notes:
+    • For a single measurement, error is displayed as “± ?”.
+    • The output includes the number of samples (@n) and the confidence
+      interval unless a different confidence was requested upstream.
+
+  Args:
+    data (list[int | float]): Sequence of numeric measurements.
+    unit (str, optional): Unit of measurement to append, e.g. "ms" or "s".
+      Defaults to '' (no unit).
+    parser (Callable[[float], str] | None, optional): Custom float-to-string
+      formatter. If None, values are formatted with 3 decimal places.
+    clip_negative (bool, optional): If True (default), negative values are
+      clipped to 0.0 and prefixed with '*'.
+    confidence (float, optional): Confidence level for the interval, 0.5 <= confidence < 1;
+        defaults to 0.95 (95% confidence interval).
+
+  Returns:
+    str: A formatted summary string, e.g.: '9.720 ± 1.831 ms [5.253 … 14.187]95%CI@5'
+  """
+  n: int
+  mean: float
+  error: float
+  ci: tuple[float, float]
+  conf: float
+  n, mean, _, error, ci, conf = MeasurementStats(data, confidence=confidence)
+  f: Callable[[float], str] = lambda x: (
+      ('*0' if clip_negative and x < 0.0 else f'{x:.3f}') if parser is None else
+      (("*" + parser(0.0)) if clip_negative and x < 0.0 else parser(x)))
+  if n == 1:
+    return f'{f(mean)} ±?{" " + unit if unit else ''} @1'
+  conf_pct = int(round(conf * 100))
+  return (f'{f(mean)} ± {f(error)}{" " + unit if unit else ''} '
+          f'[{f(ci[0])} … {f(ci[1])}]{conf_pct}%CI@{n}')
+
+
 class Timer:
   """An execution timing class that can be used as both a context manager and a decorator.
 
@@ -256,15 +355,13 @@ class Timer:
     print(tm)
 
   Attributes:
-    label (str): Timer label
-    emit_print (bool): If True will print() the timer, else will logging.info() the timer
-    start (float | None): Start time
-    end (float | None): End time
-    elapsed (float | None): Time delta
+    label (str, optional): Timer label
+    emit_log (bool, optional): If True (default) will logging.info() the timer, else will not
+    emit_print (bool, optional): If True will print() the timer, else (default) will not
   """
 
   def __init__(
-      self, label: str = 'Elapsed time', /, *,
+      self, label: str = '', /, *,
       emit_log: bool = True, emit_print: bool = False) -> None:
     """Initialize the Timer.
 
@@ -279,19 +376,27 @@ class Timer:
     self.emit_log: bool = emit_log
     self.emit_print: bool = emit_print
     self.label: str = label.strip()
-    if not self.label:
-      raise InputError('Empty label')
     self.start: float | None = None
     self.end: float | None = None
-    self.elapsed: float | None = None
+
+  @property
+  def elapsed(self) -> float:
+    """Elapsed time. Will be zero until a measurement is available with start/end."""
+    if self.start is None or self.end is None:
+      return 0.0
+    delta: float = self.end - self.start
+    if delta <= 0.0:
+      raise Error(f'negative/zero delta: {delta}')
+    return delta
 
   def __str__(self) -> str:
     """Current timer value."""
     if self.start is None:
-      return f'{self.label}: <UNSTARTED>'
-    if self.end is None or self.elapsed is None:
-      return f'{self.label}: <PARTIAL> {HumanizedSeconds(time.perf_counter() - self.start)}'
-    return f'{self.label}: {HumanizedSeconds(self.elapsed)}'
+      return f'{self.label}: <UNSTARTED>' if self.label else '<UNSTARTED>'
+    if self.end is None:
+      return ((f'{self.label}: ' if self.label else '') +
+              f'<PARTIAL> {HumanizedSeconds(time.perf_counter() - self.start)}')
+    return (f'{self.label}: ' if self.label else '') + f'{HumanizedSeconds(self.elapsed)}'
 
   def Start(self) -> None:
     """Start the timer."""
@@ -308,10 +413,9 @@ class Timer:
     """Stop the timer and emit logging.info with timer message."""
     if self.start is None:
       raise Error('Stopping an unstarted timer')
-    if self.end is not None or self.elapsed is not None:
+    if self.end is not None:
       raise Error('Re-stopping timer is forbidden')
     self.end = time.perf_counter()
-    self.elapsed = self.end - self.start
     message: str = str(self)
     if self.emit_log:
       logging.info(message)
@@ -1194,8 +1298,10 @@ def GenerateCLIMarkdown(  # pylint:disable=too-many-locals
   if not prog or prog not in parser.prog:
     raise InputError(f'invalid prog/parser.prog: {prog=}, {parser.prog=}')
   lines: list[str] = ['']
+  lines.append('<!-- cspell:disable -->')
+  lines.append('<!-- auto-generated; do not edit -->\n')
   # Header + global flags
-  lines.append('## Command-Line Interface\n')
+  lines.append(f'# `{prog}` Command-Line Interface\n')
   lines.append(description + '\n')
   lines.append('Invoke with:\n')
   lines.append('```bash')
@@ -1204,16 +1310,17 @@ def GenerateCLIMarkdown(  # pylint:disable=too-many-locals
   # Global options table
   global_rows: list[tuple[str, str]] = _RowsForActions(parser._actions)  # type: ignore[attr-defined]  # pylint: disable=protected-access
   if global_rows:
-    lines.append('### Global Options\n')
+    lines.append('## Global Options\n')
     lines.append(_MarkdownTable(global_rows))
     lines.append('')
   # Top-level commands summary
-  lines.append('### Top-Level Commands\n')
+  lines.append('## Top-Level Commands\n')
   # Find top-level subparsers to list available commands
   top_subs: list[argparse.Action] = [a for a in parser._actions if _ActionIsSubparser(a)]  # type: ignore[attr-defined]  # pylint: disable=protected-access
   for action in top_subs:
     for name, sp in action.choices.items():  # type: ignore[union-attr]
-      help_text: str = (sp.description or ' '.join(i.strip() for i in sp.format_usage().splitlines())).strip()  # type:ignore
+      help_text: str = (                     # type:ignore
+          sp.description or ' '.join(i.strip() for i in sp.format_usage().splitlines())).strip()  # type:ignore
       short: str = (sp.help if hasattr(sp, 'help') else '') or ''  # type:ignore
       help_text = short or help_text                               # type:ignore
       help_text = help_text.replace('usage: ', '').strip()         # type:ignore
@@ -1228,7 +1335,7 @@ def GenerateCLIMarkdown(  # pylint:disable=too-many-locals
     if len(path) == 1:
       lines.append('---\n')  # horizontal rule between top-level commands
     header: str = ' '.join(path)
-    lines.append(f'###{"" if len(path) == 1 else "#"} `{header}`')  # (header level 3 or 4)
+    lines.append(f'##{"" if len(path) == 1 else "#"} `{header}`')  # (header level 3 or 4)
     # Usage block
     help_text = _HelpText(sub_parser, parent_sub_action)
     if help_text:
@@ -1251,4 +1358,4 @@ def GenerateCLIMarkdown(  # pylint:disable=too-many-locals
         lines.append(f'$ {parser.prog} {epilog_line.strip()}')
       lines.append('```\n')
   # join all lines as the markdown string
-  return '\n'.join(lines)
+  return ('\n'.join(lines)).strip()

@@ -129,7 +129,7 @@ def test_cli_doc_md_has_header() -> None:
   assert code == 0
   # Don’t lock to the entire generated doc (it mirrors argparse & may change);
   # just verify the key header appears.
-  assert '## Command-Line Interface' in out
+  assert '# `transcrypto` Command-Line Interface' in out
 
 
 def test_rand_bits_properties() -> None:

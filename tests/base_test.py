@@ -159,6 +159,83 @@ def test_Humanized_fail() -> None:
     base.HumanizedSeconds(math.inf)
 
 
+def test_measurement_stats_failures() -> None:
+  """Tests."""
+  # no data
+  with pytest.raises(base.InputError, match='no data'):
+    base.MeasurementStats([])
+  # invalid confidence
+  with pytest.raises(base.InputError, match='invalid confidence'):
+    base.MeasurementStats([1, 2, 3], confidence=0.0)
+  with pytest.raises(base.InputError, match='invalid confidence'):
+    base.MeasurementStats([1, 2, 3], confidence=1.1)
+
+
+@pytest.mark.parametrize(
+    'data, confidence',
+    [
+        ([42], 0.95),                  # trivial one-sample case
+        ([1, 2, 3], 0.95),             # small sample
+        ([1.0, 1.5, 2.0, 2.5], 0.99),  # floats + higher confidence
+    ]
+)
+def test_measurement_stats_success(
+    data: list[int | float], confidence: float) -> None:
+  """Tests."""
+  n: int
+  mean: float
+  sem: float
+  error: float
+  ci: tuple[float, float]
+  conf: float
+  n, mean, sem, error, ci, conf = base.MeasurementStats(data, confidence=confidence)
+  assert math.isclose(conf, confidence, rel_tol=1e-12)
+  assert n == len(data)
+  if n == 1:
+    # For single sample, SEM/error = inf, CI = (-inf, inf)
+    assert sem == math.inf
+    assert error == math.inf
+    assert ci[0] == -math.inf and ci[1] == math.inf
+  else:
+    # For multi-sample, finite numbers
+    assert math.isfinite(mean)
+    assert math.isfinite(sem)
+    assert math.isfinite(error)
+    assert ci[0] <= mean <= ci[1]
+
+
+def test_humanized_failures() -> None:
+  """Tests."""
+  # no data → should bubble up InputError from MeasurementStats
+  with pytest.raises(base.InputError):
+    base.HumanizedMeasurements([])
+
+
+@pytest.mark.parametrize(
+    'data, kwargs',
+    [  # type:ignore
+        ([42], {}),                                     # single value
+        ([1, 2, 3], {}),                                # defaults
+        ([1, 2, 3], {'unit': 'ms'}),                    # with unit
+        ([1, 2, 3], {'parser': lambda x: f'{x:.1f}'}),  # custom parser
+        ([-1.0, -2.0, -3.0], {'clip_negative': True}),  # negatives clipped
+        ([1, 2, 3, 4], {'confidence': 0.99}),           # alternate confidence
+    ]
+)
+def test_humanized_success(data: list[int | float], kwargs: dict[str, str | bool | float]) -> None:
+  """Tests."""
+  result: str
+  result = base.HumanizedMeasurements(data, **kwargs)  # type:ignore
+  # Always contains '@n'
+  assert f'@{len(data)}' in result
+  # Always contains ±
+  assert '±' in result
+  # Contains confidence percent for n > 1
+  if len(data) > 1:
+    conf = int(round(kwargs.get('confidence', 0.95) * 100))  # type:ignore
+    assert f'{conf}%CI' in result
+
+
 def _mock_perf(monkeypatch: pytest.MonkeyPatch, values: list[float]) -> None:
   """Install a perf_counter that yields from `values`."""
   it = iter(values)
@@ -193,6 +270,15 @@ def test_Timer_stop_unstarted_forbidden() -> None:
   """Test."""
   t = base.Timer('X')
   with pytest.raises(base.Error, match='Stopping an unstarted timer'):
+    t.Stop()
+
+
+def test_Timer_negative_elapsed(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test."""
+  _mock_perf(monkeypatch, [1.0, 0.5])
+  t = base.Timer('X')
+  t.Start()
+  with pytest.raises(base.Error, match='negative/zero delta'):
     t.Stop()
 
 
@@ -298,12 +384,6 @@ def test_Timer_decorator_exception_propagates_and_logs(
     _h()
   msgs: list[str] = [rec.getMessage() for rec in caplog.records]
   assert msgs == ['ERR: 200.000 ms']
-
-
-def test_Timer_label_validation() -> None:
-  """Test."""
-  with pytest.raises(base.InputError, match='Empty label'):
-    base.Timer('   ')
 
 
 @pytest.mark.stochastic

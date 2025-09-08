@@ -8,7 +8,7 @@ See README.md for documentation on how to use.
 
 Notes on the layout (quick mental model):
 
-dsa shared|new|sign|verify|rawsign|rawverify
+dsa shared|new|sign|verify
 doc md
 """
 
@@ -70,9 +70,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   doc_sub.add_parser(
       'md',
       help='Emit Markdown docs for the CLI (see README.md section "Creating a New Version").',
-      epilog=('doc md > CLI.md\n'
-              '$ ./tools/inject_md_includes.py\n'
-              'inject: README.md updated with included content'))
+      epilog='doc md > safetrans.md\n<<saves file>>')
 
   return parser
 
@@ -109,7 +107,7 @@ def main(argv: list[str] | None = None, /) -> int:  # pylint: disable=invalid-na
                     'primitives. It serves as a convenient wrapper over the Python APIs, '
                     'enabling only safe **cryptographic operations**, '
                     '**number theory functions**, **secure randomness generation**, **hashing**, '
-                    '**AES**, **RSA**, **El-Gamal**, **DSA**, **bidding**, **SSS**, '
+                    '**AES**, **RSA**, **DSA**, **bidding**, **SSS**, '
                     'and other utilities without writing code.')))
           case _:
             raise NotImplementedError()

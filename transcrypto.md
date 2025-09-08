@@ -1,5 +1,7 @@
+<!-- cspell:disable -->
+<!-- auto-generated; do not edit -->
 
-## Command-Line Interface
+# `transcrypto` Command-Line Interface
 
 `transcrypto` is a command-line utility that provides access to all core functionality described in this documentation. It serves as a convenient wrapper over the Python APIs, enabling **cryptographic operations**, **number theory functions**, **secure randomness generation**, **hashing**, **AES**, **RSA**, **El-Gamal**, **DSA**, **bidding**, **SSS**, and other utilities without writing code.
 
@@ -9,7 +11,7 @@ Invoke with:
 poetry run transcrypto <command> [sub-command] [options...]
 ```
 
-### Global Options
+## Global Options
 
 | Option/Arg | Description |
 |---|---|
@@ -23,7 +25,7 @@ poetry run transcrypto <command> [sub-command] [options...]
 | `-p, --key-path` | File path to serialized key object, if key is needed for operation [type: str] |
 | `--protect` | Password to encrypt/decrypt key file if using the `-p`/`--key-path` option [type: str] |
 
-### Top-Level Commands
+## Top-Level Commands
 
 - **`random`** — `poetry run transcrypto random [-h] {bits,int,bytes,prime} ...`
 - **`isprime`** — `poetry run transcrypto isprime [-h] n`
@@ -126,7 +128,7 @@ Examples:
 
 ---
 
-### `random`
+## `random`
 
 Cryptographically secure randomness, from the OS CSPRNG.
 
@@ -134,7 +136,7 @@ Cryptographically secure randomness, from the OS CSPRNG.
 poetry run transcrypto random [-h] {bits,int,bytes,prime} ...
 ```
 
-#### `random bits`
+### `random bits`
 
 Random integer with exact bit length = `bits` (MSB will be 1).
 
@@ -153,7 +155,7 @@ $ poetry run transcrypto random bits 16
 36650
 ```
 
-#### `random int`
+### `random int`
 
 Uniform random integer in `[min, max]` range, inclusive.
 
@@ -173,7 +175,7 @@ $ poetry run transcrypto random int 1000 2000
 1628
 ```
 
-#### `random bytes`
+### `random bytes`
 
 Generates `n` cryptographically secure random bytes.
 
@@ -192,7 +194,7 @@ $ poetry run transcrypto random bytes 32
 6c6f1f88cb93c4323285a2224373d6e59c72a9c2b82e20d1c376df4ffbe9507f
 ```
 
-#### `random prime`
+### `random prime`
 
 Generate a random prime with exact bit length = `bits` (MSB will be 1).
 
@@ -213,7 +215,7 @@ $ poetry run transcrypto random prime 32
 
 ---
 
-### `isprime`
+## `isprime`
 
 Primality test with safe defaults, useful for any integer size.
 
@@ -236,7 +238,7 @@ False
 
 ---
 
-### `primegen`
+## `primegen`
 
 Generate (stream) primes ≥ `start` (prints a limited `count` by default).
 
@@ -260,7 +262,7 @@ $ poetry run transcrypto primegen 100 -c 3
 
 ---
 
-### `mersenne`
+## `mersenne`
 
 Generate (stream) Mersenne prime exponents `k`, also outputting `2^k-1` (the Mersenne prime, `M`) and `M×2^(k-1)` (the associated perfect number), starting at `min-k` and stopping once `k` > `cutoff-k`.
 
@@ -287,7 +289,7 @@ k=17  M=131071  perfect=8589869056
 
 ---
 
-### `gcd`
+## `gcd`
 
 Greatest Common Divisor (GCD) of integers `a` and `b`.
 
@@ -313,7 +315,7 @@ $ poetry run transcrypto gcd 127 13
 
 ---
 
-### `xgcd`
+## `xgcd`
 
 Extended Greatest Common Divisor (x-GCD) of integers `a` and `b`, will return `(g, x, y)` where `a×x+b×y==g`.
 
@@ -339,7 +341,7 @@ $ poetry run transcrypto xgcd 127 13
 
 ---
 
-### `mod`
+## `mod`
 
 Modular arithmetic helpers.
 
@@ -347,7 +349,7 @@ Modular arithmetic helpers.
 poetry run transcrypto mod [-h] {inv,div,exp,poly,lagrange,crt} ...
 ```
 
-#### `mod inv`
+### `mod inv`
 
 Modular inverse: find integer 0≤`i`<`m` such that `a×i ≡ 1 (mod m)`. Will only work if `gcd(a,m)==1`, else will fail with a message.
 
@@ -371,7 +373,7 @@ $ poetry run transcrypto mod inv 462 1071
 <<INVALID>> no modular inverse exists (ModularDivideError)
 ```
 
-#### `mod div`
+### `mod div`
 
 Modular division: find integer 0≤`z`<`m` such that `z×y ≡ x (mod m)`. Will only work if `gcd(y,m)==1` and `y!=0`, else will fail with a message.
 
@@ -394,7 +396,7 @@ $ poetry run transcrypto mod div 6 0 13
 <<INVALID>> no modular inverse exists (ModularDivideError)
 ```
 
-#### `mod exp`
+### `mod exp`
 
 Modular exponentiation: `a^e mod m`. Efficient, can handle huge values.
 
@@ -417,7 +419,7 @@ $ poetry run transcrypto mod exp 438 234 89854
 60622
 ```
 
-#### `mod poly`
+### `mod poly`
 
 Efficiently evaluate polynomial with `coeff` coefficients at point `x` modulo `m` (`c₀+c₁×x+c₂×x²+…+cₙ×xⁿ mod m`).
 
@@ -440,7 +442,7 @@ $ poetry run transcrypto mod poly 10 97 3 0 0 1 1
 42  # (3+1×10³+1×10⁴ ≡ 42 (mod 97))
 ```
 
-#### `mod lagrange`
+### `mod lagrange`
 
 Lagrange interpolation over modulus `m`: find the `f(x)` solution for the given `x` and `zₙ:f(zₙ)` points `pt`. The modulus `m` must be a prime.
 
@@ -463,7 +465,7 @@ $ poetry run transcrypto mod lagrange 11 97 1:1 2:4 3:9 4:16 5:25
 24  # passes through (1,1), (2,4), (3,9), (4,16), (5,25)
 ```
 
-#### `mod crt`
+### `mod crt`
 
 Solves Chinese Remainder Theorem (CRT) Pair: finds the unique integer 0≤`x`<`(m1×m2)` satisfying both `x ≡ a1 (mod m1)` and `x ≡ a2 (mod m2)`, if `gcd(m1,m2)==1`.
 
@@ -491,7 +493,7 @@ $ poetry run transcrypto mod crt 6 7 462 1071
 
 ---
 
-### `hash`
+## `hash`
 
 Cryptographic Hashing (SHA-256 / SHA-512 / file).
 
@@ -499,7 +501,7 @@ Cryptographic Hashing (SHA-256 / SHA-512 / file).
 poetry run transcrypto hash [-h] {sha256,sha512,file} ...
 ```
 
-#### `hash sha256`
+### `hash sha256`
 
 SHA-256 of input `data`.
 
@@ -520,7 +522,7 @@ $ poetry run transcrypto --b64 hash sha256 -- eHl6  # "xyz" in base-64
 3608bca1e44ea6c4d268eb6db02260269892c0b42b86bbf1e77a6fa16c3c9282
 ```
 
-#### `hash sha512`
+### `hash sha512`
 
 SHA-512 of input `data`.
 
@@ -541,7 +543,7 @@ $ poetry run transcrypto --b64 hash sha512 -- eHl6  # "xyz" in base-64
 4a3ed8147e37876adc8f76328e5abcc1b470e6acfc18efea0135f983604953a58e183c1a6086e91ba3e821d926f5fdeb37761c7ca0328a963f5e92870675b728
 ```
 
-#### `hash file`
+### `hash file`
 
 SHA-256/512 hash of file contents, defaulting to SHA-256.
 
@@ -563,7 +565,7 @@ $ poetry run transcrypto hash file /etc/passwd --digest sha512
 
 ---
 
-### `aes`
+## `aes`
 
 AES-256 operations (GCM/ECB) and key derivation. No measures are taken here to prevent timing attacks.
 
@@ -571,7 +573,7 @@ AES-256 operations (GCM/ECB) and key derivation. No measures are taken here to p
 poetry run transcrypto aes [-h] {key,encrypt,decrypt,ecb} ...
 ```
 
-#### `aes key`
+### `aes key`
 
 Derive key from a password (PBKDF2-HMAC-SHA256) with custom expensive salt and iterations. Very good/safe for simple password-to-key but not for passwords databases (because of constant salt).
 
@@ -592,7 +594,7 @@ $ poetry run transcrypto -p keyfile.out --protect hunter aes key "correct horse 
 AES key saved to 'keyfile.out'
 ```
 
-#### `aes encrypt`
+### `aes encrypt`
 
 AES-256-GCM: safely encrypt `plaintext` with `-k`/`--key` or with `-p`/`--key-path` keyfile. All inputs are raw, or you can use `--bin`/`--hex`/`--b64` flags. Attention: if you provide `-a`/`--aad` (associated data, AAD), you will need to provide the same AAD when decrypting and it is NOT included in the `ciphertext`/CT returned by this method!
 
@@ -615,7 +617,7 @@ $ poetry run transcrypto --b64 --out-b64 aes encrypt -k DbWJ_ZrknLEEIoq_NpoCQwHY
 xOlAHPUPpeyZHId-f3VQ_QKKMxjIW0_FBo9WOfIBrzjn0VkVV6xTRA==
 ```
 
-#### `aes decrypt`
+### `aes decrypt`
 
 AES-256-GCM: safely decrypt `ciphertext` with `-k`/`--key` or with `-p`/`--key-path` keyfile. All inputs are raw, or you can use `--bin`/`--hex`/`--b64` flags. Attention: if you provided `-a`/`--aad` (associated data, AAD) during encryption, you will need to provide the same AAD now!
 
@@ -638,7 +640,7 @@ $ poetry run transcrypto --b64 --out-b64 aes decrypt -k DbWJ_ZrknLEEIoq_NpoCQwHY
 AAAAAAB4eXo=
 ```
 
-#### `aes ecb`
+### `aes ecb`
 
 AES-256-ECB: encrypt/decrypt 128 bit (16 bytes) hexadecimal blocks. UNSAFE, except for specifically encrypting hash blocks which are very much expected to look random. ECB mode will have the same output for the same input (no IV/nonce is used).
 
@@ -650,7 +652,7 @@ poetry run transcrypto aes ecb [-h] [-k KEY] {encrypt,decrypt} ...
 |---|---|
 | `-k, --key` | Key if `-p`/`--key-path` wasn't used (32 bytes; raw, or you can use `--bin`/`--hex`/`--b64` flags) [type: str] |
 
-#### `aes ecb encrypt`
+### `aes ecb encrypt`
 
 AES-256-ECB: encrypt 16-bytes hex `plaintext` with `-k`/`--key` or with `-p`/`--key-path` keyfile. UNSAFE, except for specifically encrypting hash blocks.
 
@@ -669,7 +671,7 @@ $ poetry run transcrypto --b64 aes ecb -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_
 54ec742ca3da7b752e527b74e3a798d7
 ```
 
-#### `aes ecb decrypt`
+### `aes ecb decrypt`
 
 AES-256-ECB: decrypt 16-bytes hex `ciphertext` with `-k`/`--key` or with `-p`/`--key-path` keyfile. UNSAFE, except for specifically encrypting hash blocks.
 
@@ -690,7 +692,7 @@ $ poetry run transcrypto --b64 aes ecb -k DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_
 
 ---
 
-### `rsa`
+## `rsa`
 
 RSA (Rivest-Shamir-Adleman) asymmetric cryptography. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
 
@@ -699,7 +701,7 @@ poetry run transcrypto rsa [-h]
                                   {new,rawencrypt,encrypt,rawdecrypt,decrypt,rawsign,sign,rawverify,verify} ...
 ```
 
-#### `rsa new`
+### `rsa new`
 
 Generate RSA private/public key pair with `bits` modulus size (prime sizes will be `bits`/2). Requires `-p`/`--key-path` to set the basename for output files.
 
@@ -718,7 +720,7 @@ $ poetry run transcrypto -p rsa-key rsa new --bits 64  # NEVER use such a small 
 RSA private/public keys saved to 'rsa-key.priv/.pub'
 ```
 
-#### `rsa rawencrypt`
+### `rsa rawencrypt`
 
 Raw encrypt *integer* `message` with public key (BEWARE: no OAEP/PSS padding or validation).
 
@@ -737,7 +739,7 @@ $ poetry run transcrypto -p rsa-key.pub rsa rawencrypt 999
 6354905961171348600
 ```
 
-#### `rsa encrypt`
+### `rsa encrypt`
 
 Encrypt `message` with public key.
 
@@ -757,7 +759,7 @@ $ poetry run transcrypto --bin --out-b64 -p rsa-key.pub rsa encrypt "abcde" -a "
 AO6knI6xwq6TGR…Qy22jiFhXi1eQ==
 ```
 
-#### `rsa rawdecrypt`
+### `rsa rawdecrypt`
 
 Raw decrypt *integer* `ciphertext` with private key (BEWARE: no OAEP/PSS padding or validation).
 
@@ -776,7 +778,7 @@ $ poetry run transcrypto -p rsa-key.priv rsa rawdecrypt 6354905961171348600
 999
 ```
 
-#### `rsa decrypt`
+### `rsa decrypt`
 
 Decrypt `ciphertext` with private key.
 
@@ -796,7 +798,7 @@ $ poetry run transcrypto --b64 --out-bin -p rsa-key.priv rsa decrypt -a eHl6 -- 
 abcde
 ```
 
-#### `rsa rawsign`
+### `rsa rawsign`
 
 Raw sign *integer* `message` with private key (BEWARE: no OAEP/PSS padding or validation).
 
@@ -815,7 +817,7 @@ $ poetry run transcrypto -p rsa-key.priv rsa rawsign 999
 7632909108672871784
 ```
 
-#### `rsa sign`
+### `rsa sign`
 
 Sign `message` with private key.
 
@@ -835,7 +837,7 @@ $ poetry run transcrypto --bin --out-b64 -p rsa-key.priv rsa sign "xyz"
 91TS7gC6LORiL…6RD23Aejsfxlw==
 ```
 
-#### `rsa rawverify`
+### `rsa rawverify`
 
 Raw verify *integer* `signature` for *integer* `message` with public key (BEWARE: no OAEP/PSS padding or validation).
 
@@ -857,7 +859,7 @@ $ poetry run transcrypto -p rsa-key.pub rsa rawverify 999 7632909108672871785
 RSA signature: INVALID
 ```
 
-#### `rsa verify`
+### `rsa verify`
 
 Verify `signature` for `message` with public key.
 
@@ -882,7 +884,7 @@ RSA signature: INVALID
 
 ---
 
-### `elgamal`
+## `elgamal`
 
 El-Gamal asymmetric cryptography. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
 
@@ -891,7 +893,7 @@ poetry run transcrypto elgamal [-h]
                                       {shared,new,rawencrypt,encrypt,rawdecrypt,decrypt,rawsign,sign,rawverify,verify} ...
 ```
 
-#### `elgamal shared`
+### `elgamal shared`
 
 Generate a shared El-Gamal key with `bits` prime modulus size, which is the first step in key generation. The shared key can safely be used by any number of users to generate their private/public key pairs (with the `new` command). The shared keys are "public". Requires `-p`/`--key-path` to set the basename for output files.
 
@@ -910,7 +912,7 @@ $ poetry run transcrypto -p eg-key elgamal shared --bits 64  # NEVER use such a 
 El-Gamal shared key saved to 'eg-key.shared'
 ```
 
-#### `elgamal new`
+### `elgamal new`
 
 Generate an individual El-Gamal private/public key pair from a shared key.
 
@@ -925,7 +927,7 @@ $ poetry run transcrypto -p eg-key elgamal new
 El-Gamal private/public keys saved to 'eg-key.priv/.pub'
 ```
 
-#### `elgamal rawencrypt`
+### `elgamal rawencrypt`
 
 Raw encrypt *integer* `message` with public key (BEWARE: no ECIES-style KEM/DEM padding or validation).
 
@@ -944,7 +946,7 @@ $ poetry run transcrypto -p eg-key.pub elgamal rawencrypt 999
 2948854810728206041:15945988196340032688
 ```
 
-#### `elgamal encrypt`
+### `elgamal encrypt`
 
 Encrypt `message` with public key.
 
@@ -964,7 +966,7 @@ $ poetry run transcrypto --bin --out-b64 -p eg-key.pub elgamal encrypt "abcde" -
 CdFvoQ_IIPFPZLua…kqjhcUTspISxURg==
 ```
 
-#### `elgamal rawdecrypt`
+### `elgamal rawdecrypt`
 
 Raw decrypt *integer* `ciphertext` with private key (BEWARE: no ECIES-style KEM/DEM padding or validation).
 
@@ -983,7 +985,7 @@ $ poetry run transcrypto -p eg-key.priv elgamal rawdecrypt 2948854810728206041:1
 999
 ```
 
-#### `elgamal decrypt`
+### `elgamal decrypt`
 
 Decrypt `ciphertext` with private key.
 
@@ -1003,7 +1005,7 @@ $ poetry run transcrypto --b64 --out-bin -p eg-key.priv elgamal decrypt -a eHl6 
 abcde
 ```
 
-#### `elgamal rawsign`
+### `elgamal rawsign`
 
 Raw sign *integer* message with private key (BEWARE: no ECIES-style KEM/DEM padding or validation). Output will 2 *integers* in a `s1:s2` format.
 
@@ -1022,7 +1024,7 @@ $ poetry run transcrypto -p eg-key.priv elgamal rawsign 999
 4674885853217269088:14532144906178302633
 ```
 
-#### `elgamal sign`
+### `elgamal sign`
 
 Sign message with private key.
 
@@ -1042,7 +1044,7 @@ $ poetry run transcrypto --bin --out-b64 -p eg-key.priv elgamal sign "xyz"
 Xl4hlYK8SHVGw…0fCKJE1XVzA==
 ```
 
-#### `elgamal rawverify`
+### `elgamal rawverify`
 
 Raw verify *integer* `signature` for *integer* `message` with public key (BEWARE: no ECIES-style KEM/DEM padding or validation).
 
@@ -1064,7 +1066,7 @@ $ poetry run transcrypto -p eg-key.pub elgamal rawverify 999 4674885853217269088
 El-Gamal signature: INVALID
 ```
 
-#### `elgamal verify`
+### `elgamal verify`
 
 Verify `signature` for `message` with public key.
 
@@ -1089,7 +1091,7 @@ El-Gamal signature: INVALID
 
 ---
 
-### `dsa`
+## `dsa`
 
 DSA (Digital Signature Algorithm) asymmetric signing/verifying. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
 
@@ -1098,7 +1100,7 @@ poetry run transcrypto dsa [-h]
                                   {shared,new,rawsign,sign,rawverify,verify} ...
 ```
 
-#### `dsa shared`
+### `dsa shared`
 
 Generate a shared DSA key with `p-bits`/`q-bits` prime modulus sizes, which is the first step in key generation. `q-bits` should be larger than the secrets that will be protected and `p-bits` should be much larger than `q-bits` (e.g. 4096/544). The shared key can safely be used by any number of users to generate their private/public key pairs (with the `new` command). The shared keys are "public". Requires `-p`/`--key-path` to set the basename for output files.
 
@@ -1119,7 +1121,7 @@ $ poetry run transcrypto -p dsa-key dsa shared --p-bits 128 --q-bits 32  # NEVER
 DSA shared key saved to 'dsa-key.shared'
 ```
 
-#### `dsa new`
+### `dsa new`
 
 Generate an individual DSA private/public key pair from a shared key.
 
@@ -1134,7 +1136,7 @@ $ poetry run transcrypto -p dsa-key dsa new
 DSA private/public keys saved to 'dsa-key.priv/.pub'
 ```
 
-#### `dsa rawsign`
+### `dsa rawsign`
 
 Raw sign *integer* message with private key (BEWARE: no ECDSA/EdDSA padding or validation). Output will 2 *integers* in a `s1:s2` format.
 
@@ -1153,7 +1155,7 @@ $ poetry run transcrypto -p dsa-key.priv dsa rawsign 999
 2395961484:3435572290
 ```
 
-#### `dsa sign`
+### `dsa sign`
 
 Sign message with private key.
 
@@ -1173,7 +1175,7 @@ $ poetry run transcrypto --bin --out-b64 -p dsa-key.priv dsa sign "xyz"
 yq8InJVpViXh9…BD4par2XuA=
 ```
 
-#### `dsa rawverify`
+### `dsa rawverify`
 
 Raw verify *integer* `signature` for *integer* `message` with public key (BEWARE: no ECDSA/EdDSA padding or validation).
 
@@ -1195,7 +1197,7 @@ $ poetry run transcrypto -p dsa-key.pub dsa rawverify 999 2395961484:3435572291
 DSA signature: INVALID
 ```
 
-#### `dsa verify`
+### `dsa verify`
 
 Verify `signature` for `message` with public key.
 
@@ -1220,7 +1222,7 @@ DSA signature: INVALID
 
 ---
 
-### `bid`
+## `bid`
 
 Bidding on a `secret` so that you can cryptographically convince a neutral party that the `secret` that was committed to previously was not changed. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
 
@@ -1228,7 +1230,7 @@ Bidding on a `secret` so that you can cryptographically convince a neutral party
 poetry run transcrypto bid [-h] {new,verify} ...
 ```
 
-#### `bid new`
+### `bid new`
 
 Generate the bid files for `secret`. Requires `-p`/`--key-path` to set the basename for output files.
 
@@ -1247,7 +1249,7 @@ $ poetry run transcrypto --bin -p my-bid bid new "tomorrow it will rain"
 Bid private/public commitments saved to 'my-bid.priv/.pub'
 ```
 
-#### `bid verify`
+### `bid verify`
 
 Verify the bid files for correctness and reveal the `secret`. Requires `-p`/`--key-path` to set the basename for output files.
 
@@ -1266,7 +1268,7 @@ tomorrow it will rain
 
 ---
 
-### `sss`
+## `sss`
 
 SSS (Shamir Shared Secret) secret sharing crypto scheme. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see provided examples).
 
@@ -1275,7 +1277,7 @@ poetry run transcrypto sss [-h]
                                   {new,rawshares,shares,rawrecover,recover,rawverify} ...
 ```
 
-#### `sss new`
+### `sss new`
 
 Generate the private keys with `bits` prime modulus size and so that at least a `minimum` number of shares are needed to recover the secret. This key will be used to generate the shares later (with the `shares` command). Requires `-p`/`--key-path` to set the basename for output files.
 
@@ -1295,7 +1297,7 @@ $ poetry run transcrypto -p sss-key sss new 3 --bits 64  # NEVER use such a smal
 SSS private/public keys saved to 'sss-key.priv/.pub'
 ```
 
-#### `sss rawshares`
+### `sss rawshares`
 
 Raw shares: Issue `count` private shares for an *integer* `secret` (BEWARE: no modern message wrapping, padding or validation).
 
@@ -1316,7 +1318,7 @@ SSS 5 individual (private) shares saved to 'sss-key.share.1…5'
 $ rm sss-key.share.2 sss-key.share.4  # this is to simulate only having shares 1,3,5
 ```
 
-#### `sss shares`
+### `sss shares`
 
 Shares: Issue `count` private shares for a `secret`.
 
@@ -1337,7 +1339,7 @@ SSS 5 individual (private) shares saved to 'sss-key.share.1…5'
 $ rm sss-key.share.2 sss-key.share.4  # this is to simulate only having shares 1,3,5
 ```
 
-#### `sss rawrecover`
+### `sss rawrecover`
 
 Raw recover *integer* secret from shares; will use any available shares that were found (BEWARE: no modern message wrapping, padding or validation).
 
@@ -1356,7 +1358,7 @@ Secret:
 999
 ```
 
-#### `sss recover`
+### `sss recover`
 
 Recover secret from shares; will use any available shares that were found.
 
@@ -1375,7 +1377,7 @@ Secret:
 abcde
 ```
 
-#### `sss rawverify`
+### `sss rawverify`
 
 Raw verify shares against a secret (private params; BEWARE: no modern message wrapping, padding or validation).
 
@@ -1402,7 +1404,7 @@ SSS share 'sss-key.share.1' verification: INVALID
 
 ---
 
-### `doc`
+## `doc`
 
 Documentation utilities. (Not for regular use: these are developer utils.)
 
@@ -1410,7 +1412,7 @@ Documentation utilities. (Not for regular use: these are developer utils.)
 poetry run transcrypto doc [-h] {md} ...
 ```
 
-#### `doc md`
+### `doc md`
 
 Emit Markdown docs for the CLI (see README.md section "Creating a New Version").
 
@@ -1421,8 +1423,6 @@ poetry run transcrypto doc md [-h]
 **Example:**
 
 ```bash
-$ poetry run transcrypto doc md > CLI.md
-$ ./tools/inject_md_includes.py
-inject: README.md updated with included content
+$ poetry run transcrypto doc md > transcrypto.md
+<<saves file>>
 ```
-

@@ -46,7 +46,17 @@ def NBitRandomDSAPrimes(
     m_forbidden ≡ -q⁻¹ (mod r) (because (m·q + 1) % r == 0 ⇔ m ≡ -q⁻¹ (mod r))
   • When we iterate m, we skip values that hit any forbidden residue class.
 
-  Method will decide if executes on one thread or many.
+  Method will decide if executes on one thread or many. Profiling on a mac in Sept/2025:
+  $ poetry run profiler -n 40 dsa
+  Starting SERIAL DSA primes test
+  1000 → 70.039 ms ± 27.347 ms @40 [42.692 ms … 97.386 ms]98%CI
+  2000 → 538.430 ms ± 176.469 ms @40 [361.961 ms … 714.899 ms]98%CI
+  3000 → 1.61 s ± 648.324 ms @40 [965.735 ms … 2.26 s]98%CI
+  4000 → 2.79 s ± 946.415 ms @40 [1.85 s … 3.74 s]98%CI
+  5000 → 5.37 s ± 1.96 s @40 [3.41 s … 7.33 s]98%CI
+  6000 → 9.25 s ± 3.10 s @40 [6.14 s … 12.35 s]98%CI
+  7000 → 14.06 s ± 5.07 s @40 [9.00 s … 19.13 s]98%CI
+  8000 → 21.04 s ± 5.54 s @40 [15.50 s … 26.58 s]98%CI
 
   Args:
     p_bits (int): Number of guaranteed bits in `p` prime representation,

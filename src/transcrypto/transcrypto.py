@@ -937,9 +937,7 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
   doc_sub.add_parser(
       'md',
       help='Emit Markdown docs for the CLI (see README.md section "Creating a New Version").',
-      epilog=('doc md > CLI.md\n'
-              '$ ./tools/inject_md_includes.py\n'
-              'inject: README.md updated with included content'))
+      epilog='doc md > transcrypto.md\n<<saves file>>')
 
   return parser
 

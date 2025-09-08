@@ -482,6 +482,23 @@ def NBitRandomPrimes(n_bits: int, /, *, serial: bool = True, n_primes: int = 1) 
 
   Method will decide if executes on one thread or many.
 
+  $ poetry run profiler -n 100 -b 1000,11000,1000 primes  # single-threaded, Mac M2 Max, Sept/2025
+  1000 → 84.233 ms ± 18.853 ms [65.380 ms … 103.085 ms]98%CI@100
+  2000 → 406.900 ms ± 91.575 ms [315.325 ms … 498.475 ms]98%CI@100
+  3000 → 1.20 s ± 291.105 ms [907.331 ms … 1.49 s]98%CI@100
+  4000 → 2.42 s ± 490.241 ms [1.93 s … 2.91 s]98%CI@100
+  5000 → 4.78 s ± 1.02 s [3.76 s … 5.80 s]98%CI@100
+  6000 → 7.63 s ± 1.57 s [6.06 s … 9.20 s]98%CI@100
+  7000 → 13.66 s ± 3.00 s [10.66 s … 16.66 s]98%CI@100
+  8000 → 20.71 s ± 5.05 s [15.67 s … 25.76 s]98%CI@100
+  9000 → 33.12 s ± 7.61 s [25.51 s … 40.73 s]98%CI@100
+
+  $ poetry run profiler -n 30 -b 9000,11000,1000 primes  # single-threaded, Mac M2 Max, Sept/2025
+  9000 → 38.88 s ± 14.74 s [24.14 s … 53.63 s]98%CI@30
+  10000 → 41.26 s ± 22.82 s [18.44 s … 1.07 min]98%CI@30
+
+  Rule of thumb: double the bits requires ~10x execution time
+
   Args:
     n_bits (int): Number of guaranteed bits in prime representation, n ≥ 8
     serial (bool, optional): True (default) will force one thread; False will allow parallelism;
