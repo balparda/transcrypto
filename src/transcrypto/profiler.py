@@ -141,8 +141,6 @@ def main(argv: list[str] | None = None, /) -> int:  # pylint: disable=invalid-na
     confidence: int = 55 if args.confidence < 55 else args.confidence
     confidence = 99 if confidence > 99 else confidence
     args.serial = True if (not args.serial and not args.parallel) else args.serial  # make default
-    if not args.serial ^ args.parallel:
-      raise base.InputError('cannot be both serial and parallel')
     bits: tuple[int, ...] = tuple(int(x, 10) for x in args.bits.strip().split(','))
     if len(bits) != 3:
       raise base.InputError('-b/--bits should be 3 ints, like: start,stop,step; eg.: 1000,3000,500')
