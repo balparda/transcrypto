@@ -19,7 +19,7 @@ import math
 import pathlib
 import sys
 import tempfile
-from typing import Any
+from typing import Any, Callable
 from unittest import mock
 
 import pytest
@@ -57,20 +57,21 @@ def test_bytes_conversions() -> None:
 
 
 @pytest.mark.parametrize('value, message', [
-    (0, '0 B'),                   # bytes < 1024
+    (0, '0 B'),                    # bytes < 1024
     (512, '512 B'),
-    (1024, '1.00 KiB'),           # exact KiB
-    (1536, '1.50 KiB'),           # mid KiB
-    (1024 ** 2, '1.00 MiB'),      # exact MiB
-    (5 * 1024 ** 2, '5.00 MiB'),
-    (1024 ** 3, '1.00 GiB'),      # exact GiB
-    (3 * 1024 ** 3, '3.00 GiB'),
-    (1024 ** 4, '1.00 TiB'),      # exact TiB
-    (7 * 1024 ** 4, '7.00 TiB'),
-    (1024 ** 5, '1.00 PiB'),      # exact PiB
-    (2 * 1024 ** 5, '2.00 PiB'),
-    (1024 ** 6, '1.00 EiB'),      # exact EiB
-    (8 * 1024 ** 6, '8.00 EiB'),  # > EiB
+    (51.2, '51.200 B'),
+    (1024, '1.000 KiB'),           # exact KiB
+    (1536, '1.500 KiB'),           # mid KiB
+    (1024 ** 2, '1.000 MiB'),      # exact MiB
+    (5 * 1024 ** 2, '5.000 MiB'),
+    (1024 ** 3, '1.000 GiB'),      # exact GiB
+    (3 * 1024 ** 3, '3.000 GiB'),
+    (1024 ** 4, '1.000 TiB'),      # exact TiB
+    (7 * 1024 ** 4, '7.000 TiB'),
+    (1024 ** 5, '1.000 PiB'),      # exact PiB
+    (2 * 1024 ** 5, '2.000 PiB'),
+    (1024 ** 6, '1.000 EiB'),      # exact EiB
+    (8 * 1024 ** 6, '8.000 EiB'),  # > EiB
 ])
 def test_HumanizedBytes(value: int, message: str) -> None:
   """Test."""
@@ -82,36 +83,43 @@ def test_HumanizedBytes(value: int, message: str) -> None:
     (0, '0', 'Hz', '0 Hz'),
     (999, '999', 'V', '999 V'),
     # <1000 float, 4 decimal places
-    (0.5, '0.5000', 'Hz', '0.5000 Hz'),
-    (999.9999, '999.9999', 'Hz', '999.9999 Hz'),
+    (0.5, '500.000 m', 'Hz', '500.000 mHz'),
+    (999.999, '999.999', 'Hz', '999.999 Hz'),
     # k range
-    (1000, '1.00 k', 'Hz', '1.00 kHz'),
-    (1500, '1.50 k', 'Hz', '1.50 kHz'),
+    (-1000, '-1.000 k', 'Hz', '-1.000 kHz'),
+    (1500, '1.500 k', 'Hz', '1.500 kHz'),
     # M range
-    (1000 ** 2, '1.00 M', 'Hz', '1.00 MHz'),
-    (2500000, '2.50 M', 'Hz', '2.50 MHz'),
+    (1000 ** 2, '1.000 M', 'Hz', '1.000 MHz'),
+    (2500000, '2.500 M', 'Hz', '2.500 MHz'),
     # G range
-    (1000 ** 3, '1.00 G', 'Hz', '1.00 GHz'),
-    (5 * 1000 ** 3, '5.00 G', 'Hz', '5.00 GHz'),
+    (1000 ** 3, '1.000 G', 'Hz', '1.000 GHz'),
+    (5 * 1000 ** 3, '5.000 G', 'Hz', '5.000 GHz'),
     # T range
-    (1000 ** 4, '1.00 T', 'Hz', '1.00 THz'),
-    (7 * 1000 ** 4, '7.00 T', 'Hz', '7.00 THz'),
+    (-1000 ** 4, '-1.000 T', 'Hz', '-1.000 THz'),
+    (7 * 1000 ** 4, '7.000 T', 'Hz', '7.000 THz'),
     # P range
-    (1000**5, '1.00 P', 'Hz', '1.00 PHz'),
-    (3 * 1000 ** 5, '3.00 P', 'Hz', '3.00 PHz'),
+    (1000**5, '1.000 P', 'Hz', '1.000 PHz'),
+    (3 * 1000 ** 5, '3.000 P', 'Hz', '3.000 PHz'),
     # E range and above
-    (1000**6, '1.00 E', 'Hz', '1.00 EHz'),
-    (9 * 1000 ** 6, '9.00 E', 'Hz', '9.00 EHz'),
+    (-1000**6, '-1.000 E', 'Hz', '-1.000 EHz'),
+    (9 * 1000 ** 6, '9.000 E', 'Hz', '9.000 EHz'),
+    # small ranges
+    (0.05, '50.000 m', 'Hz', '50.000 mHz'),
+    (0.00005, '50.000 µ', 'Hz', '50.000 µHz'),
+    (-0.00000005, '-50.000 n', 'Hz', '-50.000 nHz'),
+    (0.00000000005, '50.000 p', 'Hz', '50.000 pHz'),
+    (-0.00000000000005, '-50.000 f', 'Hz', '-50.000 fHz'),
+    (0.00000000000000005, '50.000 a', 'Hz', '50.000 aHz'),
 ])
 def test_HumanizedDecimal(value: int | float, message: str, unit: str, unit_message: str) -> None:
   """Test."""
   assert base.HumanizedDecimal(value) == message
-  assert base.HumanizedDecimal(value, unit) == unit_message
+  assert base.HumanizedDecimal(value, unit=unit) == unit_message
 
 
 @pytest.mark.parametrize('value, message', [
     # zero
-    (0, '0.00 s'),
+    (0, '0.000 s'),
     # microseconds
     (0.0000005, '0.500 µs'),
     (0.0005, '500.000 µs'),
@@ -121,18 +129,18 @@ def test_HumanizedDecimal(value: int | float, message: str, unit: str, unit_mess
     (0.5, '500.000 ms'),
     (0.999, '999.000 ms'),
     # seconds
-    (1, '1.00 s'),
-    (59.99, '59.99 s'),   # edge just under a minute
-    (42, '42.00 s'),
+    (1, '1.000 s'),
+    (59.99, '59.990 s'),   # edge just under a minute
+    (42, '42.000 s'),
     # minutes
-    (60, '1.00 min'),
-    (3599, '59.98 min'),  # just under an hour
+    (60, '1.000 min'),
+    (3599, '59.983 min'),  # just under an hour
     # hours
-    (3600, '1.00 h'),
-    (86399, '24.00 h'),   # just under a day
+    (3600, '1.000 h'),
+    (86399, '24.000 h'),   # just under a day
     # days
-    (86400, '1.00 d'),
-    (172800, '2.00 d'),
+    (86400, '1.000 d'),
+    (172800, '2.000 d'),
 ])
 def test_HumanizedSeconds(value: int | float, message: str) -> None:
   """Test."""
@@ -144,16 +152,14 @@ def test_Humanized_fail() -> None:
   with pytest.raises(base.InputError, match='input should be >=0'):
     base.HumanizedBytes(-1)
   with pytest.raises(base.InputError, match='input should be >=0'):
-    base.HumanizedDecimal(-1)
-  with pytest.raises(base.InputError, match='input should be >=0'):
     base.HumanizedSeconds(-1)
   # NaN
-  with pytest.raises(base.InputError, match='input should be >=0'):
+  with pytest.raises(base.InputError, match='input should finite'):
     base.HumanizedDecimal(math.nan)
   with pytest.raises(base.InputError, match='input should be >=0'):
     base.HumanizedSeconds(math.nan)
   # infinity
-  with pytest.raises(base.InputError, match='input should be >=0'):
+  with pytest.raises(base.InputError, match='input should finite'):
     base.HumanizedDecimal(math.inf)
   with pytest.raises(base.InputError, match='input should be >=0'):
     base.HumanizedSeconds(math.inf)
@@ -204,7 +210,7 @@ def test_measurement_stats_success(
     assert ci[0] <= mean <= ci[1]
 
 
-def test_humanized_failures() -> None:
+def test_HumanizedMeasurements_failures() -> None:
   """Tests."""
   # no data → should bubble up InputError from MeasurementStats
   with pytest.raises(base.InputError):
@@ -217,12 +223,13 @@ def test_humanized_failures() -> None:
         ([42], {}),                                     # single value
         ([1, 2, 3], {}),                                # defaults
         ([1, 2, 3], {'unit': 'ms'}),                    # with unit
-        ([1, 2, 3], {'parser': lambda x: f'{x:.1f}'}),  # custom parser
+        ([1, 2, 3], {'parser': lambda x: f'{x:.1f}'}),  # custom parser  # type:ignore
         ([-1.0, -2.0, -3.0], {'clip_negative': True}),  # negatives clipped
         ([1, 2, 3, 4], {'confidence': 0.99}),           # alternate confidence
     ]
 )
-def test_humanized_success(data: list[int | float], kwargs: dict[str, str | bool | float]) -> None:
+def test_HumanizedMeasurements_success(
+    data: list[int | float], kwargs: dict[str, str | bool | float]) -> None:
   """Tests."""
   result: str
   result = base.HumanizedMeasurements(data, **kwargs)  # type:ignore
@@ -234,6 +241,51 @@ def test_humanized_success(data: list[int | float], kwargs: dict[str, str | bool
   if len(data) > 1:
     conf = int(round(kwargs.get('confidence', 0.95) * 100))  # type:ignore
     assert f'{conf}%CI' in result
+
+
+@pytest.mark.parametrize(
+    'data, unit, parser, confidence, out',
+    [  # type:ignore
+        ([42], '', None, 0.95, '42.0 ±? @1'),
+        ([0.0000042], 'Hz', None, 0.95, '4.2e-06Hz ±? @1'),
+        ([42000000000000000], 'Hz', base.HumanizedDecimal, 0.95, '42.000 PHz ±? @1'),
+        ([42000000000000000], '', lambda x: base.HumanizedDecimal(x, unit='Hz'), 0.95,  # type:ignore
+         '42.000 PHz ±? @1'),
+        ([1.1, 1.2, 1.3, 1.3, 1.2, 1, 0.8, 1.3], '', None, 0.95,
+         '1.1500000000000001 ± 0.14821066855207451 [1.0017893314479256 … 1.2982106685520747]95%CI@8'),
+        ([0.0000011, 0.0000012, 0.0000013, 0.0000013, 0.0000012, 0.000001, 0.0000008, 0.0000013],
+         'Hz', None, 0.95,
+         '1.15e-06Hz ± 1.4821066855207454e-07Hz [1.0017893314479255e-06Hz … '
+         '1.2982106685520745e-06Hz]95%CI@8'),
+        ([0.0000011, 0.0000012, 0.0000013, 0.0000013, 0.0000012, 0.000001, 0.0000008, 0.0000013],
+         'WH', base.HumanizedDecimal, 0.95,
+         '1.150 µWH ± 148.211 nWH [1.002 µWH … 1.298 µWH]95%CI@8'),
+        ([12100000, 12300000, 12900000, 12500000, 12400000, 12400000, 13000000, 11500000, 12100000,
+          12200000, 12600000, 12600000], 'Hz', base.HumanizedDecimal, 0.95,
+         '12.383 MHz ± 252.458 kHz [12.131 MHz … 12.636 MHz]95%CI@12'),
+        ([12100000, 12300000, 12900000, 12500000, 12400000, 12400000, 13000000, 11500000, 12100000,
+          12200000, 12600000, 12600000], '', lambda x: base.HumanizedDecimal(x, unit='Hz'), 0.95,  # type:ignore
+         '12.383 MHz ± 252.458 kHz [12.131 MHz … 12.636 MHz]95%CI@12'),
+        ([12100000, 12300000, 12900000, 12500000, 12400000, 12400000, 13000000, 11500000, 12100000,
+          12200000, 12600000, 12600000], '', lambda x: base.HumanizedDecimal(x, unit='Hz'), 0.99,  # type:ignore
+         '12.383 MHz ± 356.242 kHz [12.027 MHz … 12.740 MHz]99%CI@12'),
+        ([12100000, 12300000, 12500000, 12400000, 12400000, 13000000, 11500000, 12100000, 12200000,
+          12600000, 12600000], 'Hz', base.HumanizedDecimal, 0.98,
+         '12.336 MHz ± 316.816 kHz [12.020 MHz … 12.653 MHz]98%CI@11'),
+        ([12100000, 12300000, 12400000, 12400000, 13000000, 11500000, 12100000, 12200000, 12600000,
+          12600000], 'Hz', base.HumanizedDecimal, 0.98,
+         '12.320 MHz ± 353.900 kHz [11.966 MHz … 12.674 MHz]98%CI@10'),
+        ([-12100000, -12300000, -13000000, -11500000, -12100000, -12200000, -12600000, -12600000],
+         'Hz', base.HumanizedDecimal, 0.98,
+         '-12.300 MHz ± 474.018 kHz [-12.774 MHz … -11.826 MHz]98%CI@8'),
+    ]
+)
+def test_HumanizedMeasurements_validation(
+    data: list[int | float], unit: str, parser: Callable[[float], str] | None,
+    confidence: float, out: str) -> None:
+  """Tests."""
+  assert base.HumanizedMeasurements(
+      data, unit=unit, parser=parser, confidence=confidence, clip_negative=False) == out
 
 
 def _mock_perf(monkeypatch: pytest.MonkeyPatch, values: list[float]) -> None:
@@ -295,10 +347,10 @@ def test_Timer_stop_twice_forbidden(
   with pytest.raises(base.Error, match='Re-stopping timer is forbidden'):
     t.Stop()
   # Final string reflects final (not partial)
-  assert str(t) == 'X: 1.50 s'
+  assert str(t) == 'X: 1.500 s'
   # Logged exactly once
   msgs = [rec.getMessage() for rec in caplog.records]
-  assert msgs == ['X: 1.50 s']
+  assert msgs == ['X: 1.500 s']
 
 
 def test_Timer_context_manager_logs_and_optionally_prints(

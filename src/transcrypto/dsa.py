@@ -46,17 +46,21 @@ def NBitRandomDSAPrimes(
     m_forbidden ≡ -q⁻¹ (mod r) (because (m·q + 1) % r == 0 ⇔ m ≡ -q⁻¹ (mod r))
   • When we iterate m, we skip values that hit any forbidden residue class.
 
-  Method will decide if executes on one thread or many. Profiling on a mac in Sept/2025:
-  $ poetry run profiler -n 40 dsa
-  Starting SERIAL DSA primes test
-  1000 → 70.039 ms ± 27.347 ms @40 [42.692 ms … 97.386 ms]98%CI
-  2000 → 538.430 ms ± 176.469 ms @40 [361.961 ms … 714.899 ms]98%CI
-  3000 → 1.61 s ± 648.324 ms @40 [965.735 ms … 2.26 s]98%CI
-  4000 → 2.79 s ± 946.415 ms @40 [1.85 s … 3.74 s]98%CI
-  5000 → 5.37 s ± 1.96 s @40 [3.41 s … 7.33 s]98%CI
-  6000 → 9.25 s ± 3.10 s @40 [6.14 s … 12.35 s]98%CI
-  7000 → 14.06 s ± 5.07 s @40 [9.00 s … 19.13 s]98%CI
-  8000 → 21.04 s ± 5.54 s @40 [15.50 s … 26.58 s]98%CI
+  Method will decide if executes on one thread or many.
+
+  $ poetry run profiler -s -n 100 -b 1000,11000,1000 -c 98 dsa  # single-thread, Mac M2 Max, 2025
+  1000 → 101.069 ms ± 19.714 ms [81.354 ms … 120.783 ms]98%CI@100
+  2000 → 471.038 ms ± 98.810 ms [372.229 ms … 569.848 ms]98%CI@100
+  3000 → 1.45 s ± 253.462 ms [1.20 s … 1.70 s]98%CI@100
+  4000 → 3.09 s ± 592.267 ms [2.50 s … 3.69 s]98%CI@100
+  5000 → 5.52 s ± 1.22 s [4.30 s … 6.74 s]98%CI@100
+  6000 → 8.33 s ± 2.02 s [6.31 s … 10.35 s]98%CI@100
+  7000 → 15.76 s ± 3.55 s [12.21 s … 19.31 s]98%CI@100
+  8000 → 25.66 s ± 6.66 s [18.99 s … 32.32 s]98%CI@100
+  9000 → 35.02 s ± 8.68 s [26.34 s … 43.70 s]98%CI@100
+  10000 → 1.01 min ± 13.64 s [47.13 s … 1.24 min]98%CI@100
+
+  Rule of thumb: double the bits requires ~10x execution time
 
   Args:
     p_bits (int): Number of guaranteed bits in `p` prime representation,

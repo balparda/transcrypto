@@ -46,6 +46,22 @@ EncodedToBytes: Callable[[str], bytes] = lambda e: base64.urlsafe_b64decode(e.en
 
 PadBytesTo: Callable[[bytes, int], bytes] = lambda b, i: b.rjust((i + 7) // 8, b'\x00')
 
+# SI prefix table, powers of 1000
+_SI_PREFIXES: dict[int, str] = {
+    -6: 'a',  # atto
+    -5: 'f',  # femto
+    -4: 'p',  # pico
+    -3: 'n',  # nano
+    -2: 'µ',  # micro (unicode U+00B5)
+    -1: 'm',  # milli
+    0: '',    # base
+    1: 'k',   # kilo
+    2: 'M',   # mega
+    3: 'G',   # giga
+    4: 'T',   # tera
+    5: 'P',   # peta
+    6: 'E',   # exa
+}
 
 # these control the pickling of data, do NOT ever change, or you will break all databases
 # <https://docs.python.org/3/library/pickle.html#pickle.DEFAULT_PROTOCOL>
@@ -69,14 +85,14 @@ class CryptoError(Error):
   """Cryptographic exception (TransCrypto)."""
 
 
-def HumanizedBytes(inp_sz: int, /) -> str:  # pylint: disable=too-many-return-statements
+def HumanizedBytes(inp_sz: int | float, /) -> str:  # pylint: disable=too-many-return-statements
   """Convert a byte count into a human-readable string using binary prefixes (powers of 1024).
 
   Scales the input size by powers of 1024, returning a value with the
   appropriate IEC binary unit suffix: `B`, `KiB`, `MiB`, `GiB`, `TiB`, `PiB`, `EiB`.
 
   Args:
-    inp_sz (int): Size in bytes. Must be a non-negative integer.
+    inp_sz (int | float): Size in bytes. Must be non-negative.
 
   Returns:
     str: Formatted size string with up to two decimal places for units above bytes.
@@ -105,72 +121,79 @@ def HumanizedBytes(inp_sz: int, /) -> str:  # pylint: disable=too-many-return-st
   if inp_sz < 0:
     raise InputError(f'input should be >=0 and got {inp_sz}')
   if inp_sz < 1024:
-    return f'{inp_sz} B'
+    return f'{inp_sz} B' if isinstance(inp_sz, int) else f'{inp_sz:0.3f} B'
   if inp_sz < 1024 * 1024:
-    return f'{(inp_sz / 1024):0.2f} KiB'
+    return f'{(inp_sz / 1024):0.3f} KiB'
   if inp_sz < 1024 * 1024 * 1024:
-    return f'{(inp_sz / (1024 * 1024)):0.2f} MiB'
+    return f'{(inp_sz / (1024 * 1024)):0.3f} MiB'
   if inp_sz < 1024 * 1024 * 1024 * 1024:
-    return f'{(inp_sz / (1024 * 1024 * 1024)):0.2f} GiB'
+    return f'{(inp_sz / (1024 * 1024 * 1024)):0.3f} GiB'
   if inp_sz < 1024 * 1024 * 1024 * 1024 * 1024:
-    return f'{(inp_sz / (1024 * 1024 * 1024 * 1024)):0.2f} TiB'
+    return f'{(inp_sz / (1024 * 1024 * 1024 * 1024)):0.3f} TiB'
   if inp_sz < 1024 * 1024 * 1024 * 1024 * 1024 * 1024:
-    return f'{(inp_sz / (1024 * 1024 * 1024 * 1024 * 1024)):0.2f} PiB'
-  return f'{(inp_sz / (1024 * 1024 * 1024 * 1024 * 1024 * 1024)):0.2f} EiB'
+    return f'{(inp_sz / (1024 * 1024 * 1024 * 1024 * 1024)):0.3f} PiB'
+  return f'{(inp_sz / (1024 * 1024 * 1024 * 1024 * 1024 * 1024)):0.3f} EiB'
 
 
-def HumanizedDecimal(inp_sz: int | float, unit: str = '', /) -> str:  # pylint: disable=too-many-return-statements
-  """Convert a numeric value into a human-readable string using metric prefixes (powers of 1000).
+def HumanizedDecimal(inp_sz: int | float, /, *, unit: str = '') -> str:
+  """Convert a numeric value into a human-readable string using SI metric prefixes.
 
   Scales the input value by powers of 1000, returning a value with the
-  appropriate SI metric unit prefix: `k`, `M`, `G`, `T`, `P`, `E`. The caller
-  can optionally specify a base unit (e.g., `'Hz'`, `'m'`).
-
-  Args:
-    inp_sz (int | float): Quantity to convert. Must be finite and non-negative.
-    unit (str, optional): Base unit to append to the result (e.g., `'Hz'`).
-        If given, it will be separated by a space for values <1000 and appended
-        without a space for scaled values.
-
-  Returns:
-    str: Formatted string with up to two decimal places for scaled values
-        and up to four decimal places for small floats.
-
-  Raises:
-    InputError: If `inp_sz` is negative or not finite.
+  appropriate SI unit prefix. Supports both large multiples (kilo, mega,
+  giga, … exa) and small sub-multiples (milli, micro, nano, pico, femto, atto).
 
   Notes:
-    - Uses decimal multiples: 1 k = 1000 units.
-    - Values <1000 are returned as-is (integer) or with four decimal places (float).
-    - Unit string is stripped of surrounding whitespace before use.
+    • Uses decimal multiples: 1 k = 1000 units, 1 m = 1/1000 units.
+    • Supported large prefixes: k, M, G, T, P, E.
+    • Supported small prefixes: m, µ, n, p, f, a.
+    • Unit string is stripped of surrounding whitespace before use.
+    • Zero is returned as '0' plus unit (no prefix).
 
   Examples:
     >>> HumanizedDecimal(950)
     '950'
     >>> HumanizedDecimal(1500)
     '1.50 k'
-    >>> HumanizedDecimal(1500, ' Hz ')
-    '1.50 kHz'
-    >>> HumanizedDecimal(0.123456, 'V')
-    '0.1235 V'
+    >>> HumanizedDecimal(0.123456, unit='V')
+    '123.456 mV'
+    >>> HumanizedDecimal(3.2e-7, unit='F')
+    '320.000 nF'
+    >>> HumanizedDecimal(9.14e18, unit='Hz')
+    '9.14 EHz'
+
+  Args:
+    inp_sz (int | float): Quantity to convert. Must be finite.
+    unit (str, optional): Base unit to append to the result (e.g., 'Hz', 'm').
+        If given, it will be separated by a space for unscaled values and
+        concatenated to the prefix for scaled values.
+
+  Returns:
+    str: Formatted string with a few decimal places
+
+  Raises:
+    InputError: If `inp_sz` is not finite.
   """
-  if not math.isfinite(inp_sz) or inp_sz < 0:
-    raise InputError(f'input should be >=0 and got {inp_sz} / {unit!r}')
+  if not math.isfinite(inp_sz):
+    raise InputError(f'input should finite; got {inp_sz!r}')
   unit = unit.strip()
-  if inp_sz < 1000:
-    return (f'{inp_sz:0.4f}{" " + unit if unit else ""}' if isinstance(inp_sz, float) else
-            f'{inp_sz}{" " + unit if unit else ""}')
-  if inp_sz < 1000 * 1000:
-    return f'{(inp_sz / 1000):0.2f} k{unit}'
-  if inp_sz < 1000 * 1000 * 1000:
-    return f'{(inp_sz / (1000 * 1000)):0.2f} M{unit}'
-  if inp_sz < 1000 * 1000 * 1000 * 1000:
-    return f'{(inp_sz / (1000 * 1000 * 1000)):0.2f} G{unit}'
-  if inp_sz < 1000 * 1000 * 1000 * 1000 * 1000:
-    return f'{(inp_sz / (1000 * 1000 * 1000 * 1000)):0.2f} T{unit}'
-  if inp_sz < 1000 * 1000 * 1000 * 1000 * 1000 * 1000:
-    return f'{(inp_sz / (1000 * 1000 * 1000 * 1000 * 1000)):0.2f} P{unit}'
-  return f'{(inp_sz / (1000 * 1000 * 1000 * 1000 * 1000 * 1000)):0.2f} E{unit}'
+  pad_unit: str = ' ' + unit if unit else ''
+  if inp_sz == 0:
+    return '0' + pad_unit
+  neg: str = '-' if inp_sz < 0 else ''
+  inp_sz = abs(inp_sz)
+  # Find exponent of 1000 that keeps value in [1, 1000)
+  exp: int
+  exp = int(math.floor(math.log10(abs(inp_sz)) / 3))
+  exp = max(min(exp, max(_SI_PREFIXES)), min(_SI_PREFIXES))  # clamp to supported range
+  if not exp:
+    # No scaling: use int or 4-decimal float
+    if isinstance(inp_sz, int) or inp_sz.is_integer():
+      return f'{neg}{int(inp_sz)}{pad_unit}'
+    return f'{neg}{inp_sz:0.3f}{pad_unit}'
+  # scaled
+  scaled: float = inp_sz / (1000 ** exp)
+  prefix: str = _SI_PREFIXES[exp]
+  return f'{neg}{scaled:0.3f} {prefix}{unit}'
 
 
 def HumanizedSeconds(inp_secs: int | float, /) -> str:  # pylint: disable=too-many-return-statements
@@ -188,11 +211,7 @@ def HumanizedSeconds(inp_secs: int | float, /) -> str:  # pylint: disable=too-ma
     inp_secs (int | float): Time interval in seconds. Must be finite and non-negative.
 
   Returns:
-    str: Human-readable string with the duration and unit. Precision depends
-        on the chosen unit:
-          - µs / ms: 3 decimal places
-          - seconds ≥1: 2 decimal places
-          - minutes, hours, days: 2 decimal places
+    str: Human-readable string with the duration and unit
 
   Raises:
     InputError: If `inp_secs` is negative or not finite.
@@ -222,19 +241,19 @@ def HumanizedSeconds(inp_secs: int | float, /) -> str:  # pylint: disable=too-ma
   if not math.isfinite(inp_secs) or inp_secs < 0:
     raise InputError(f'input should be >=0 and got {inp_secs}')
   if inp_secs == 0:
-    return '0.00 s'
+    return '0.000 s'
   inp_secs = float(inp_secs)
   if inp_secs < 0.001:
     return f'{inp_secs * 1000 * 1000:0.3f} µs'
   if inp_secs < 1:
     return f'{inp_secs * 1000:0.3f} ms'
   if inp_secs < 60:
-    return f'{inp_secs:0.2f} s'
+    return f'{inp_secs:0.3f} s'
   if inp_secs < 60 * 60:
-    return f'{(inp_secs / 60):0.2f} min'
+    return f'{(inp_secs / 60):0.3f} min'
   if inp_secs < 24 * 60 * 60:
-    return f'{(inp_secs / (60 * 60)):0.2f} h'
-  return f'{(inp_secs / (24 * 60 * 60)):0.2f} d'
+    return f'{(inp_secs / (60 * 60)):0.3f} h'
+  return f'{(inp_secs / (24 * 60 * 60)):0.3f} d'
 
 
 def MeasurementStats(
@@ -277,7 +296,7 @@ def MeasurementStats(
     raise InputError(f'invalid confidence: {confidence=}')
   # solve trivial case
   if n == 1:
-    return (n, data[0], math.inf, math.inf, (-math.inf, math.inf), confidence)
+    return (n, float(data[0]), math.inf, math.inf, (-math.inf, math.inf), confidence)
   # call scipy for the science data
   np_data = np.array(data)
   mean = np.mean(np_data)
@@ -322,15 +341,15 @@ def HumanizedMeasurements(
   error: float
   ci: tuple[float, float]
   conf: float
+  unit = unit.strip()
   n, mean, _, error, ci, conf = MeasurementStats(data, confidence=confidence)
   f: Callable[[float], str] = lambda x: (
-      ('*0' if clip_negative and x < 0.0 else f'{x:.3f}') if parser is None else
-      (("*" + parser(0.0)) if clip_negative and x < 0.0 else parser(x)))
+      ('*0' if clip_negative and x < 0.0 else str(x)) if parser is None else
+      (f'*{parser(0.0)}' if clip_negative and x < 0.0 else parser(x)))
   if n == 1:
-    return f'{f(mean)} ±?{" " + unit if unit else ''} @1'
-  conf_pct = int(round(conf * 100))
-  return (f'{f(mean)} ± {f(error)}{" " + unit if unit else ''} '
-          f'[{f(ci[0])} … {f(ci[1])}]{conf_pct}%CI@{n}')
+    return f'{f(mean)}{unit} ±? @1'
+  pct = int(round(conf * 100))
+  return f'{f(mean)}{unit} ± {f(error)}{unit} [{f(ci[0])}{unit} … {f(ci[1])}{unit}]{pct}%CI@{n}'
 
 
 class Timer:
