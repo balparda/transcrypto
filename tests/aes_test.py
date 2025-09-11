@@ -15,6 +15,7 @@ from unittest import mock
 import pytest
 
 from src.transcrypto import base, aes
+from . import utils
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = base.__version__  # tests inherit version from module
@@ -36,8 +37,7 @@ def test_AESKey() -> None:
   # password hash --- the FromStaticPassword() costs ~1 second CPU time!
   key: aes.AESKey = aes.AESKey.FromStaticPassword('daniel')
   assert key.encoded == (
-      'KLUv_SBXuQIAgASVTAAAAAAAAACME3NyYy50cmFuc2NyeXB0by5hZXOUjAZBRVNLZXmUk5QpgZRdlEMg6gWMOO'
-      '735KhgFFL1aekVdqm130scXWUT3cLWHmlg07SUYWIu')
+      'KLUv_SA5yQEAeyJrZXkyNTYiOiI2Z1dNT083MzVLaGdGRkwxYWVrVmRxbTEzMHNjWFdVVDNjTFdIbWxnMDdRPSJ9')
   assert str(key) == 'AESKey(key256=d683ab04…)'
   assert key._DebugDump() == (
       'AESKey(key256=b\'\\xea\\x05\\x8c8\\xee\\xf7\\xe4\\xa8`\\x14R\\xf5i\\xe9\\x15v\\xa9\\xb5'
@@ -115,6 +115,7 @@ def test_ECBEncoder(s_key: str, pth: str, ct1: str, ct101: str) -> None:
   """Test."""
   # create based on key and test first encryption
   key = aes.AESKey(key256=base.HexToBytes(s_key))
+  utils.TestCryptoKeyEncoding(key, aes.AESKey)
   encoder: aes.AESKey.ECBEncoderClass = key.ECBEncoder()
   pt: bytes = base.HexToBytes(pth)
   ct: bytes = encoder.Encrypt(pt)

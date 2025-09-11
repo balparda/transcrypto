@@ -8,7 +8,8 @@ See README.md for documentation on how to use.
 
 Notes on the layout (quick mental model):
 
-dsa shared|new|sign|verify|rawsign|rawverify
+primes
+dsa
 doc md
 """
 

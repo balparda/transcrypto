@@ -15,6 +15,7 @@ from unittest import mock
 import pytest
 
 from src.transcrypto import base, elgamal
+from . import utils
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = elgamal.__version__  # tests inherit version from module
@@ -84,6 +85,9 @@ def test_ElGamal_raw(  # pylint: disable=too-many-arguments,too-many-positional-
       prime_modulus=prime_modulus, group_base=group_base,
       individual_base=individual_base, decrypt_exp=decrypt_exp)
   public = elgamal.ElGamalPublicKey.Copy(private)
+  utils.TestCryptoKeyEncoding(shared, elgamal.ElGamalSharedPublicKey)
+  utils.TestCryptoKeyEncoding(private, elgamal.ElGamalPrivateKey)
+  utils.TestCryptoKeyEncoding(public, elgamal.ElGamalPublicKey)
   # do public key operations
   make_ephemeral.return_value = (
       ephemeral, elgamal.modmath.ModInv(ephemeral, prime_modulus - 1))

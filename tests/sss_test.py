@@ -8,13 +8,13 @@
 
 from __future__ import annotations
 
-# import pdb
 import sys
 from unittest import mock
 
 import pytest
 
 from src.transcrypto import base, sss
+from . import utils
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = sss.__version__  # tests inherit version from module
@@ -36,6 +36,10 @@ def test_ShamirSharedSecret_raw(minimum: int, modulus: int, polynomial: list[int
   data = sss.ShamirShareData(
       minimum=minimum, modulus=modulus, share_key=shares[0].share_key,
       share_value=shares[0].share_value, encrypted_data=b'x' * 128)
+  utils.TestCryptoKeyEncoding(private, sss.ShamirSharedSecretPrivate)
+  utils.TestCryptoKeyEncoding(public, sss.ShamirSharedSecretPublic)
+  utils.TestCryptoKeyEncoding(shares[0], sss.ShamirSharePrivate)
+  utils.TestCryptoKeyEncoding(data, sss.ShamirShareData)
   # do operations
   assert public.RawRecoverSecret(shares) == secret
   assert public.RawRecoverSecret(shares[1:]) == secret

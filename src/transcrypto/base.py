@@ -13,6 +13,7 @@ import dataclasses
 # import datetime
 import functools
 import hashlib
+import json
 import logging
 import math
 import os.path
@@ -66,11 +67,24 @@ _SI_PREFIXES: dict[int, str] = {
 # these control the pickling of data, do NOT ever change, or you will break all databases
 # <https://docs.python.org/3/library/pickle.html#pickle.DEFAULT_PROTOCOL>
 _PICKLE_PROTOCOL = 4  # protocol 4 available since python v3.8 # do NOT ever change!
+PICKLE_GENERIC: Callable[[Any], bytes] = lambda o: pickle.dumps(o, protocol=_PICKLE_PROTOCOL)
+UNPICKLE_GENERIC: Callable[[bytes], Any] = pickle.loads
+JSON_PICKLE: Callable[[dict[str, Any]], bytes] = lambda d: json.dumps(
+    d, separators=(',', ':')).encode('utf-8')
+JSON_UNPICKLE: Callable[[bytes], dict[str, Any]] = lambda b: json.loads(b.decode('utf-8'))
 _PICKLE_AAD = b'transcrypto.base.Serialize.1.0'  # do NOT ever change!
 # these help find compressed files, do NOT change unless zstandard changes
 _ZSTD_MAGIC_FRAME = 0xFD2FB528
 _ZSTD_MAGIC_SKIPPABLE_MIN = 0x184D2A50
 _ZSTD_MAGIC_SKIPPABLE_MAX = 0x184D2A5F
+# JSON
+_JSON_DATACLASS_TYPES: set[str] = {
+    # native support
+    'int', 'float', 'str', 'bool',
+    'list[int]', 'list[float]', 'list[str]', 'list[bool]',
+    # need conversion/encoding
+    'bytes',
+}
 
 
 class Error(Exception):
@@ -83,6 +97,10 @@ class InputError(Error):
 
 class CryptoError(Error):
   """Cryptographic exception (TransCrypto)."""
+
+
+class ImplementationError(Error, NotImplementedError):
+  """This feature is not implemented yet (TransCrypto)."""
 
 
 def HumanizedBytes(inp_sz: int | float, /) -> str:  # pylint: disable=too-many-return-statements
@@ -718,7 +736,6 @@ class CryptoKey(abc.ABC):
       string representation of the key without leaking secrets
     """
     # every sub-class of CryptoKey has to implement its own version of __str__()
-    # TODO: make printing a part of the CLI
 
   @final
   def __repr__(self) -> str:
@@ -751,13 +768,110 @@ class CryptoKey(abc.ABC):
 
   @final
   @property
+  def _json_dict(self) -> dict[str, Any]:
+    """Dictionary representation of the object suitable for JSON conversion.
+
+    Returns:
+      dict[str, Any]: representation of the object suitable for JSON conversion
+
+    Raises:
+      ImplementationError: object has types that are not supported in JSON
+    """
+    self_dict: dict[str, Any] = dataclasses.asdict(self)
+    for field in dataclasses.fields(self):
+      # check the type is OK
+      if field.type not in _JSON_DATACLASS_TYPES:
+        raise ImplementationError(
+            f'Unsupported JSON field {field.name!r}/{field.type} not in {_JSON_DATACLASS_TYPES}')
+      # convert types that we accept but JSON does not
+      if field.type == 'bytes':
+        self_dict[field.name] = BytesToEncoded(self_dict[field.name])
+    return self_dict
+
+  @final
+  @property
+  def json(self) -> str:
+    """JSON representation of the object, tightly packed, not for humans.
+
+    Returns:
+      str: JSON representation of the object, tightly packed
+
+    Raises:
+      ImplementationError: object has types that are not supported in JSON
+    """
+    return json.dumps(self._json_dict, separators=(',', ':'))
+
+  @final
+  @property
+  def formatted_json(self) -> str:
+    """JSON representation of the object formatted for humans.
+
+    Returns:
+      str: JSON representation of the object formatted for humans
+
+    Raises:
+      ImplementationError: object has types that are not supported in JSON
+    """
+    return json.dumps(self._json_dict, indent=4, sort_keys=True)
+
+  @final
+  @classmethod
+  def _FromJSONDict(cls, json_dict: dict[str, Any], /) -> Self:
+    """Create object from JSON representation.
+
+    Args:
+      json_dict (dict[str, Any]): JSON dict
+
+    Returns:
+      a CryptoKey object ready for use
+
+    Raises:
+      InputError: unexpected type/fields
+    """
+    # check we got exactly the fields we needed
+    cls_fields: set[str] = set(f.name for f in dataclasses.fields(cls))
+    json_fields: set[str] = set(json_dict)
+    if cls_fields != json_fields:
+      raise InputError(f'JSON data decoded to unexpected fields: {cls_fields=} / {json_fields=}')
+    # reconstruct the types we meddled with inside self._json_dict
+    for field in dataclasses.fields(cls):
+      if field.type not in _JSON_DATACLASS_TYPES:
+        raise ImplementationError(
+            f'Unsupported JSON field {field.name!r}/{field.type} not in {_JSON_DATACLASS_TYPES}')
+      if field.type == 'bytes':
+        json_dict[field.name] = EncodedToBytes(json_dict[field.name])
+    # build the object
+    return cls(**json_dict)
+
+  @final
+  @classmethod
+  def FromJSON(cls, json_data: str, /) -> Self:
+    """Create object from JSON representation.
+
+    Args:
+      json_data (str): JSON string
+
+    Returns:
+      a CryptoKey object ready for use
+
+    Raises:
+      InputError: unexpected type/fields
+    """
+    # get the dict back
+    json_dict: dict[str, Any] = json.loads(json_data)
+    if not isinstance(json_dict, dict):  # type:ignore
+      raise InputError(f'JSON data decoded to unexpected type: {type(json_dict)}')
+    return cls._FromJSONDict(json_dict)
+
+  @final
+  @property
   def blob(self) -> bytes:
     """Serial (bytes) representation of the object.
 
     Returns:
       bytes, pickled, representation of the object
     """
-    return Serialize(self, compress=-2, silent=True)
+    return Serialize(self._json_dict, compress=-2, silent=True, pickler=JSON_PICKLE)
 
   @final
   @property
@@ -780,7 +894,7 @@ class CryptoKey(abc.ABC):
     Returns:
       bytes, pickled, representation of the object
     """
-    return Serialize(self, compress=-2, key=key, silent=silent)
+    return Serialize(self._json_dict, compress=-2, key=key, silent=silent, pickler=JSON_PICKLE)
 
   @final
   def Encoded(self, /, *, key: Encryptor | None = None, silent: bool = True) -> str:
@@ -814,11 +928,12 @@ class CryptoKey(abc.ABC):
     if isinstance(data, str):
       data = EncodedToBytes(data)
     # we now have bytes and we suppose it came from CryptoKey.blob()/CryptoKey.CryptoBlob()
-    obj: CryptoKey = DeSerialize(data=data, key=key, silent=silent)
-    # make sure we've got an object that makes sense
-    if not isinstance(obj, CryptoKey):  # type:ignore
-      raise InputError(f'serialized data is not a CryptoKey: {type(obj)}')
-    return obj  # type:ignore
+    try:
+      json_dict: dict[str, Any] = DeSerialize(
+          data=data, key=key, silent=silent, unpickler=JSON_UNPICKLE)
+      return cls._FromJSONDict(json_dict)
+    except Exception as err:
+      raise InputError(f'input decode error: {err}') from err
 
 
 @runtime_checkable
@@ -924,9 +1039,10 @@ class Signer(Protocol):  # pylint: disable=too-few-public-methods
     """
 
 
-def Serialize(
+def Serialize(  # pylint:disable=too-many-arguments
     python_obj: Any, /, *, file_path: str | None = None,
-    compress: int | None = 3, key: Encryptor | None = None, silent: bool = False) -> bytes:
+    compress: int | None = 3, key: Encryptor | None = None, silent: bool = False,
+    pickler: Callable[[Any], bytes] = PICKLE_GENERIC) -> bytes:
   """Serialize a Python object into a BLOB, optionally compress / encrypt / save to disk.
 
   Data path is:
@@ -954,6 +1070,9 @@ def Serialize(
         None is no compression; default is 3, which is fast, see table above for other values
     key (Encryptor, optional): if given will key.Encrypt() data before saving
     silent (bool, optional): if True will not log; default is False (will log)
+    pickler (Callable[[Any], bytes], optional): if not given, will just be the `pickle` module;
+        if given will be a method to convert any Python object to its `bytes` representation;
+        PICKLE_GENERIC is the default, but another useful value is JSON_PICKLE
 
   Returns:
     bytes: serialized binary data corresponding to obj + (compression) + (encryption)
@@ -962,7 +1081,7 @@ def Serialize(
   with Timer('Serialization complete', emit_log=False) as tm_all:
     # pickle
     with Timer('PICKLE', emit_log=False) as tm_pickle:
-      obj: bytes = pickle.dumps(python_obj, protocol=_PICKLE_PROTOCOL)
+      obj: bytes = pickler(python_obj)
     if not silent:
       messages.append(f'    {tm_pickle}, {HumanizedBytes(len(obj))}')
     # compress, if needed
@@ -994,7 +1113,8 @@ def Serialize(
 
 def DeSerialize(
     *, data: bytes | None = None, file_path: str | None = None,
-    key: Decryptor | None = None, silent: bool = False) -> Any:
+    key: Decryptor | None = None, silent: bool = False,
+    unpickler: Callable[[bytes], Any] = UNPICKLE_GENERIC) -> Any:
   """Loads (de-serializes) a BLOB back to a Python object, optionally decrypting / decompressing.
 
   Data path is:
@@ -1012,6 +1132,9 @@ def DeSerialize(
        if you use this option, `data` will be ignored
     key (Decryptor, optional): if given will key.Decrypt() data before decompressing/loading
     silent (bool, optional): if True will not log; default is False (will log)
+    pickler (Callable[[bytes], Any], optional): if not given, will just be the `pickle` module;
+        if given will be a method to convert a `bytes` representation back to a Python object;
+        UNPICKLE_GENERIC is the default, but another useful value is JSON_UNPICKLE
 
   Returns:
     De-Serialized Python object corresponding to data
@@ -1058,7 +1181,7 @@ def DeSerialize(
         messages.append('    (no compression detected)')
     # create the actual object = unpickle
     with Timer('UNPICKLE', emit_log=False) as tm_unpickle:
-      python_obj: Any = pickle.loads(obj)
+      python_obj: Any = unpickler(obj)
     if not silent:
       messages.append(f'    {tm_unpickle}')
   # log and return
@@ -1296,7 +1419,7 @@ def _HelpText(sub_parser: argparse.ArgumentParser, parent_sub_action: Any, /) ->
   return ''
 
 
-def GenerateCLIMarkdown(  # pylint:disable=too-many-locals
+def GenerateCLIMarkdown(  # pylint:disable=too-many-locals,too-many-statements
     prog: str, parser: argparse.ArgumentParser, /, *, description: str = '') -> str:  # pylint: disable=too-many-locals
   """Return a Markdown doc section that reflects the current _BuildParser() tree.
 

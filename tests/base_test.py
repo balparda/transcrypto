@@ -13,6 +13,7 @@ import collections
 import concurrent.futures
 import dataclasses
 import itertools
+import json
 import logging
 import math
 # import pdb
@@ -26,6 +27,7 @@ import pytest
 import typeguard
 
 from src.transcrypto import base, aes
+from . import utils
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = base.__version__  # tests inherit version from module
@@ -712,8 +714,8 @@ def test_ObfuscateSecret() -> None:
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
-class _ToyCrypto(base.CryptoKey):
-  """Toy class."""
+class _ToyCrypto1(base.CryptoKey):
+  """Toy class 1."""
 
   key: bytes
   secret: str
@@ -726,30 +728,91 @@ class _ToyCrypto(base.CryptoKey):
             f'modulus={base.ObfuscateSecret(self.modulus)})')
 
 
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
+class _ToyCrypto2(base.CryptoKey):
+  """Toy class 2."""
+
+  key: bytes
+  secret: str
+  modulus: int
+  poly1: list[int]
+  poly2: list[str]
+  is_x: bool
+
+  def __str__(self) -> str:
+    """String."""
+    return ''
+
+
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
+class _ToyCrypto3(base.CryptoKey):
+  """Toy class 3."""
+
+  modulus: int
+  inv: dict[str, str]
+
+  def __str__(self) -> str:
+    """String."""
+    return ''
+
+
 def test_CryptoKey_base() -> None:
   """Test."""
-  crypto = _ToyCrypto(key=b'abc', secret='cba', modulus=123)
+  crypto = _ToyCrypto1(key=b'abc', secret='cba', modulus=123)
   key = aes.AESKey(key256=b'x' * 32)
   assert str(crypto) == '_ToyCrypto(key=ddaf35a1…, secret=3b1d17bf…, modulus=c2d03c6e…)'
   assert str(crypto) == repr(crypto)
-  assert crypto._DebugDump() == '_ToyCrypto(key=b\'abc\', secret=\'cba\', modulus=123)'
-  assert crypto.blob == (
-      b'(\xb5/\xfd C\x19\x02\x00\x80\x04\x958\x00\x00\x00\x00\x00\x00\x00\x8c\x0ftests.base_test'  # cspell:disable-line
-      b'\x94\x8c\n_ToyCrypto\x94\x93\x94)\x81\x94]\x94(C\x03abc\x94\x8c\x03cba\x94K{eb.')
+  assert crypto._DebugDump() == '_ToyCrypto1(key=b\'abc\', secret=\'cba\', modulus=123)'
+  assert crypto.blob == b'(\xb5/\xfd +Y\x01\x00{"key":"YWJj","secret":"cba","modulus":123}'
   assert crypto.blob == crypto.Blob()        # Blob() with no options should be the same as blob
   assert crypto.encoded == crypto.Encoded()  # Encoded() with no options should be same as encoded
-  assert _ToyCrypto.Load(crypto.blob) == crypto
+  assert _ToyCrypto1.Load(crypto.blob) == crypto
   assert crypto.encoded == (
-      'KLUv_SBDGQIAgASVOAAAAAAAAACMD3Rlc3RzLmJhc2VfdGVzdJSMCl9Ub3lDcnlwdG-Uk5QpgZRdlCh'  # cspell:disable-line
-      'DA2FiY5SMA2NiYZRLe2ViLg==')
-  assert _ToyCrypto.Load(crypto.encoded) == crypto
+      'KLUv_SArWQEAeyJrZXkiOiJZV0pqIiwic2VjcmV0IjoiY2JhIiwibW9kdWx1cyI6MTIzfQ==')  # cspell:disable-line
+  assert _ToyCrypto1.Load(crypto.encoded) == crypto
   blob_crypto: bytes = crypto.Blob(key=key)
-  assert _ToyCrypto.Load(blob_crypto, key=key) == crypto
+  assert _ToyCrypto1.Load(blob_crypto, key=key) == crypto
   encoded_crypto: str = crypto.Encoded(key=key)
-  assert _ToyCrypto.Load(encoded_crypto, key=key) == crypto
+  assert _ToyCrypto1.Load(encoded_crypto, key=key) == crypto
   with typeguard.suppress_type_checks():
-    with pytest.raises(base.InputError, match=r'serialized data is not a CryptoKey.*dict'):
-      _ToyCrypto.Load(base.Serialize({1: 2, 3: 4}, compress=None))  # binary is a dict
+    with pytest.raises(base.InputError, match=r'input decode error.*invalid start byte'):
+      _ToyCrypto1.Load(base.Serialize({1: 2, 3: 4}, compress=None))  # binary is a dict
+    with pytest.raises(base.InputError, match='decoded to unexpected fields'):
+      _ToyCrypto1.Load(base.Serialize({1: 2, 3: 4}, compress=None, pickler=base.JSON_PICKLE))  # binary is a dict
+    with pytest.raises(base.InputError, match='JSON data decoded to unexpected type'):
+      _ToyCrypto1.FromJSON(json.dumps([1, 2]))
+  with pytest.raises(base.ImplementationError, match='Unsupported JSON field'):
+    _ = _ToyCrypto3(modulus=10, inv={'a': 'b'}).json
+  with pytest.raises(base.ImplementationError, match='Unsupported JSON field'):
+    _ToyCrypto3._FromJSONDict({'modulus': 34, 'inv': {'a': 'b'}})
+  crypto2 = _ToyCrypto2(
+      key=b'ijk5845976584', secret='abc', modulus=123,
+      poly1=[13, 17, 19], poly2=['xz', 'yz'], is_x=True)
+  assert crypto2._json_dict == {
+      'is_x': True, 'key': 'aWprNTg0NTk3NjU4NA==', 'modulus': 123,
+      'poly1': [13, 17, 19], 'poly2': ['xz', 'yz'], 'secret': 'abc'}
+  assert crypto2.json == (
+      '{"key":"aWprNTg0NTk3NjU4NA==","secret":"abc","modulus":123,'
+      '"poly1":[13,17,19],"poly2":["xz","yz"],"is_x":true}')
+  assert crypto2.formatted_json == """\
+{
+    "is_x": true,
+    "key": "aWprNTg0NTk3NjU4NA==",
+    "modulus": 123,
+    "poly1": [
+        13,
+        17,
+        19
+    ],
+    "poly2": [
+        "xz",
+        "yz"
+    ],
+    "secret": "abc"
+}"""
+  assert crypto2.encoded == (
+      'KLUv_SBucQMAeyJrZXkiOiJhV3ByTlRnME5UazNOalU0TkE9PSIsInNlY3JldCI6ImFiYyIs'
+      'Im1vZHVsdXMiOjEyMywicG9seTEiOlsxMywxNywxOV0sInBvbHkyIjpbInh6IiwieXoiXSwiaXNfeCI6dHJ1ZX0=')
 
 
 @pytest.fixture
@@ -922,6 +985,8 @@ def test_Bid(secret: bytes) -> None:
   priv1: base.PrivateBid512 = base.PrivateBid512.New(secret)
   priv2: base.PrivateBid512 = base.PrivateBid512.New(secret)
   pub: base.PublicBid512 = base.PublicBid512.Copy(priv1)
+  utils.TestCryptoKeyEncoding(priv1, base.PrivateBid512)
+  utils.TestCryptoKeyEncoding(pub, base.PublicBid512)
   assert pub.VerifyBid(priv1.private_key, secret)
   assert not pub.VerifyBid(priv1.private_key, secret + b'x')
   assert not pub.VerifyBid(priv2.private_key, secret)

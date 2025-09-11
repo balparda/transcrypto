@@ -15,6 +15,7 @@ from unittest import mock
 import pytest
 
 from src.transcrypto import base, dsa, modmath
+from . import utils
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = dsa.__version__  # tests inherit version from module
@@ -111,6 +112,9 @@ def test_DSA_raw(  # pylint: disable=too-many-arguments,too-many-positional-argu
       prime_modulus=prime_modulus, prime_seed=prime_seed, group_base=group_base,
       individual_base=individual_base, decrypt_exp=decrypt_exp)
   public = dsa.DSAPublicKey.Copy(private)
+  utils.TestCryptoKeyEncoding(shared, dsa.DSASharedPublicKey)
+  utils.TestCryptoKeyEncoding(private, dsa.DSAPrivateKey)
+  utils.TestCryptoKeyEncoding(public, dsa.DSAPublicKey)
   make_ephemeral.return_value = (ephemeral, dsa.modmath.ModInv(ephemeral, prime_seed))
   # do private key operations
   with pytest.raises(base.InputError, match='invalid message'):

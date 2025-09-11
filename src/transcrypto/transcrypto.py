@@ -10,7 +10,8 @@ Notes on the layout (quick mental model):
 
 isprime, primegen, mersenne
 gcd, xgcd, and grouped mod inv|div|exp|poly|lagrange|crt
-random bits|int|bytes|prime, hash sha256|sha512|file
+random bits|int|bytes|prime
+hash sha256|sha512|file
 aes key frompass, aes encrypt|decrypt (GCM), aes ecb encrypt|decrypt
 rsa new|encrypt|decrypt|sign|verify|rawencrypt|rawdecrypt|rawsign|rawverify
 elgamal shared|new|encrypt|decrypt|sign|verify|rawencrypt|rawdecrypt|rawsign|rawverify

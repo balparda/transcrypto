@@ -15,6 +15,7 @@ from unittest import mock
 import pytest
 
 from src.transcrypto import base, rsa
+from . import utils
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = rsa.__version__  # tests inherit version from module
@@ -90,6 +91,9 @@ def test_RSA_raw(  # pylint: disable=too-many-locals,too-many-arguments,too-many
       modulus_p=modulus_p, modulus_q=modulus_q, decrypt_exp=decrypt_exp,
       remainder_p=remainder_p, remainder_q=remainder_q, q_inverse_p=q_inverse_p)
   public: rsa.RSAPublicKey = rsa.RSAPublicKey.Copy(private)
+  utils.TestCryptoKeyEncoding(private, rsa.RSAPrivateKey)
+  utils.TestCryptoKeyEncoding(public, rsa.RSAPublicKey)
+  utils.TestCryptoKeyEncoding(ob, rsa.RSAObfuscationPair)
   # do public key operations
   with pytest.raises(base.InputError, match='invalid message'):
     public.RawEncrypt(0)
