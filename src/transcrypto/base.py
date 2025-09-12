@@ -9,8 +9,10 @@ from __future__ import annotations
 import abc
 import argparse
 import base64
+import codecs
 import dataclasses
 # import datetime
+import enum
 import functools
 import hashlib
 import json
@@ -20,6 +22,7 @@ import os.path
 import pickle
 # import pdb
 import secrets
+import sys
 import time
 from typing import Any, Callable, final, MutableSequence, Protocol, runtime_checkable
 from typing import Sequence, Self, TypeVar
@@ -67,11 +70,11 @@ _SI_PREFIXES: dict[int, str] = {
 # these control the pickling of data, do NOT ever change, or you will break all databases
 # <https://docs.python.org/3/library/pickle.html#pickle.DEFAULT_PROTOCOL>
 _PICKLE_PROTOCOL = 4  # protocol 4 available since python v3.8 # do NOT ever change!
-PICKLE_GENERIC: Callable[[Any], bytes] = lambda o: pickle.dumps(o, protocol=_PICKLE_PROTOCOL)
-UNPICKLE_GENERIC: Callable[[bytes], Any] = pickle.loads
-JSON_PICKLE: Callable[[dict[str, Any]], bytes] = lambda d: json.dumps(
+PickleGeneric: Callable[[Any], bytes] = lambda o: pickle.dumps(o, protocol=_PICKLE_PROTOCOL)
+UnpickleGeneric: Callable[[bytes], Any] = pickle.loads
+PickleJSON: Callable[[dict[str, Any]], bytes] = lambda d: json.dumps(
     d, separators=(',', ':')).encode('utf-8')
-JSON_UNPICKLE: Callable[[bytes], dict[str, Any]] = lambda b: json.loads(b.decode('utf-8'))
+UnpickleJSON: Callable[[bytes], dict[str, Any]] = lambda b: json.loads(b.decode('utf-8'))
 _PICKLE_AAD = b'transcrypto.base.Serialize.1.0'  # do NOT ever change!
 # these help find compressed files, do NOT change unless zstandard changes
 _ZSTD_MAGIC_FRAME = 0xFD2FB528
@@ -721,6 +724,134 @@ def ObfuscateSecret(data: str | bytes | int, /) -> str:
   return BytesToHex(Hash512(data))[:8] + '…'
 
 
+class CryptoInputType(enum.StrEnum):
+  """Types of inputs that can represent arbitrary bytes."""
+  # prefixes; format prefixes are all 4 bytes
+  PATH = '@'       # @path on disk → read bytes from a file
+  STDIN = '@-'     # stdin
+  HEX = 'hex:'     # hex:deadbeef → decode hex
+  BASE64 = 'b64:'  # b64:... → decode base64
+  STR = 'str:'     # str:hello → UTF-8 encode the literal
+  RAW = 'raw:'     # raw:... → byte literals via \\xNN escapes (rare but handy)
+
+
+def BytesToRaw(b: bytes, /) -> str:
+  """Convert bytes to double-quoted string with \\xNN escapes where needed.
+
+  1. map bytes 0..255 to same code points (latin1)
+  2. escape non-printables/backslash/quotes via unicode_escape
+
+  Args:
+    b (bytes): input
+
+  Returns:
+    str: double-quoted string with \\xNN escapes where needed
+  """
+  inner: str = b.decode('latin1').encode('unicode_escape').decode('ascii')
+  return f'"{inner.replace('"', r'\"')}"'
+
+
+def RawToBytes(s: str, /) -> bytes:
+  """Convert double-quoted string with \\xNN escapes where needed to bytes.
+
+  Args:
+    s (str): input (expects a double-quoted string; parses \\xNN, \n, \\ etc)
+
+  Returns:
+    bytes: data
+  """
+  if len(s) >= 2 and s[0] == s[-1] == '"':
+    s = s[1:-1]
+  # decode backslash escapes to code points, then map 0..255 -> bytes
+  return codecs.decode(s, 'unicode_escape').encode('latin1')
+
+
+def DetectInputType(data_str: str, /) -> CryptoInputType | None:
+  """Auto-detect `data_str` type, if possible.
+
+  Args:
+    data_str (str): data to process, putatively a bytes blob
+
+  Returns:
+    CryptoInputType | None: type if has a known prefix, None otherwise
+
+  Raises:
+    InputError: unexpected type or conversion error
+  """
+  data_str = data_str.strip()
+  if data_str == CryptoInputType.STDIN:
+    return CryptoInputType.STDIN
+  for t in (
+      CryptoInputType.PATH, CryptoInputType.STR, CryptoInputType.HEX,
+      CryptoInputType.BASE64, CryptoInputType.RAW):
+    if data_str.startswith(t):
+      return t
+  return None
+
+
+def BytesFromInput(data_str: str, /, *, expect: CryptoInputType | None = None) -> bytes:  # pylint:disable=too-many-return-statements
+  """Parse input `data_str` into `bytes`. May auto-detect or enforce a type of input.
+
+  Can load from disk ('@'). Can load from stdin ('@-').
+
+  Args:
+    data_str (str): data to process, putatively a bytes blob
+    expect (CryptoInputType | None, optional): If not given (None) will try to auto-detect the
+        input type by looking at the prefix on `data_str` and if none is found will suppose
+        a 'str:' was given; if one of the supported CryptoInputType is given then will enforce
+        that specific type prefix or no prefix
+
+  Returns:
+    bytes: data
+
+  Raises:
+    InputError: unexpected type or conversion error
+  """
+  data_str = data_str.strip()
+  # auto-detect
+  detected_type: CryptoInputType | None = DetectInputType(data_str)
+  expect = CryptoInputType.STR if expect is None and detected_type is None else expect
+  if detected_type is not None and expect is not None and detected_type != expect:
+    raise InputError(f'Expected type {expect=} is different from detected type {detected_type=}')
+  # now we know they don't conflict, so unify them; remove prefix if we have it
+  expect = detected_type if expect is None else expect
+  assert expect is not None, 'should never happen: type should be known here'
+  data_str = data_str[len(expect):] if data_str.startswith(expect) else data_str
+  # for every type something different will happen now
+  try:
+    match expect:
+      case CryptoInputType.STDIN:
+        # read raw bytes from stdin: prefer the binary buffer; if unavailable,
+        # fall back to text stream encoded as UTF-8 (consistent with str: policy).
+        stream = getattr(sys.stdin, 'buffer', None)
+        if stream is None:
+          text: str = sys.stdin.read()
+          if not isinstance(text, str):  # type:ignore
+            raise InputError('sys.stdin.read() produced non-text data')
+          return text.encode('utf-8')
+        data: bytes = stream.read()
+        if not isinstance(data, bytes):  # type:ignore
+          raise InputError('sys.stdin.buffer.read() produced non-binary data')
+        return data
+      case CryptoInputType.PATH:
+        if not os.path.exists(data_str):
+          raise InputError(f'cannot find file {data_str!r}')
+        with open(data_str, 'rb') as file_obj:
+          return file_obj.read()
+      case CryptoInputType.STR:
+        return data_str.encode('utf-8')
+      case CryptoInputType.HEX:
+        return HexToBytes(data_str)
+      case CryptoInputType.BASE64:
+        return EncodedToBytes(data_str)
+      case CryptoInputType.RAW:
+        return RawToBytes(data_str)
+      case _:
+        raise InputError(f'invalid type {expect!r}')
+  except Exception as err:
+    raise InputError(f'invalid input: {err}') from err
+
+
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
 class CryptoKey(abc.ABC):
   """A cryptographic key."""
@@ -871,17 +1002,7 @@ class CryptoKey(abc.ABC):
     Returns:
       bytes, pickled, representation of the object
     """
-    return Serialize(self._json_dict, compress=-2, silent=True, pickler=JSON_PICKLE)
-
-  @final
-  @property
-  def encoded(self) -> str:
-    """Base-64 representation of the object.
-
-    Returns:
-      str, pickled, base64, representation of the object
-    """
-    return BytesToEncoded(self.blob)
+    return self.Blob()
 
   @final
   def Blob(self, /, *, key: Encryptor | None = None, silent: bool = True) -> bytes:
@@ -894,7 +1015,17 @@ class CryptoKey(abc.ABC):
     Returns:
       bytes, pickled, representation of the object
     """
-    return Serialize(self._json_dict, compress=-2, key=key, silent=silent, pickler=JSON_PICKLE)
+    return Serialize(self._json_dict, compress=-2, key=key, silent=silent, pickler=PickleJSON)
+
+  @final
+  @property
+  def encoded(self) -> str:
+    """Base-64 representation of the object.
+
+    Returns:
+      str, pickled, base64, representation of the object
+    """
+    return self.Encoded()
 
   @final
   def Encoded(self, /, *, key: Encryptor | None = None, silent: bool = True) -> str:
@@ -907,7 +1038,53 @@ class CryptoKey(abc.ABC):
     Returns:
       str, pickled, base64, representation of the object
     """
-    return BytesToEncoded(self.Blob(key=key, silent=silent))
+    return CryptoInputType.BASE64 + BytesToEncoded(self.Blob(key=key, silent=silent))
+
+  @final
+  @property
+  def hex(self) -> str:
+    """Hexadecimal representation of the object.
+
+    Returns:
+      str, pickled, hexadecimal, representation of the object
+    """
+    return self.Hex()
+
+  @final
+  def Hex(self, /, *, key: Encryptor | None = None, silent: bool = True) -> str:
+    """Hexadecimal representation of the object with more options, including encryption.
+
+    Args:
+      key (Encryptor, optional): if given will key.Encrypt() data before saving
+      silent (bool, optional): if True (default) will not log
+
+    Returns:
+      str, pickled, hexadecimal, representation of the object
+    """
+    return CryptoInputType.HEX + BytesToHex(self.Blob(key=key, silent=silent))
+
+  @final
+  @property
+  def raw(self) -> str:
+    """Raw escaped binary representation of the object.
+
+    Returns:
+      str, pickled, raw escaped binary, representation of the object
+    """
+    return self.Raw()
+
+  @final
+  def Raw(self, /, *, key: Encryptor | None = None, silent: bool = True) -> str:
+    """Raw escaped binary representation of the object with more options, including encryption.
+
+    Args:
+      key (Encryptor, optional): if given will key.Encrypt() data before saving
+      silent (bool, optional): if True (default) will not log
+
+    Returns:
+      str, pickled, raw escaped binary, representation of the object
+    """
+    return CryptoInputType.RAW + BytesToRaw(self.Blob(key=key, silent=silent))
 
   @final
   @classmethod
@@ -926,11 +1103,11 @@ class CryptoKey(abc.ABC):
     """
     # if this is a string, then we suppose it is base64
     if isinstance(data, str):
-      data = EncodedToBytes(data)
+      data = BytesFromInput(data)
     # we now have bytes and we suppose it came from CryptoKey.blob()/CryptoKey.CryptoBlob()
     try:
       json_dict: dict[str, Any] = DeSerialize(
-          data=data, key=key, silent=silent, unpickler=JSON_UNPICKLE)
+          data=data, key=key, silent=silent, unpickler=UnpickleJSON)
       return cls._FromJSONDict(json_dict)
     except Exception as err:
       raise InputError(f'input decode error: {err}') from err
@@ -1042,12 +1219,12 @@ class Signer(Protocol):  # pylint: disable=too-few-public-methods
 def Serialize(  # pylint:disable=too-many-arguments
     python_obj: Any, /, *, file_path: str | None = None,
     compress: int | None = 3, key: Encryptor | None = None, silent: bool = False,
-    pickler: Callable[[Any], bytes] = PICKLE_GENERIC) -> bytes:
+    pickler: Callable[[Any], bytes] = PickleGeneric) -> bytes:
   """Serialize a Python object into a BLOB, optionally compress / encrypt / save to disk.
 
   Data path is:
 
-    `obj` => pickle => (compress) => (encrypt) => (save to `file_path`) => return
+    `obj` => [pickler] => (compress) => (encrypt) => (save to `file_path`) => return
 
   At every step of the data path the data will be measured, in bytes.
   Every data conversion will be timed. The measurements/times will be logged (once).
@@ -1072,7 +1249,7 @@ def Serialize(  # pylint:disable=too-many-arguments
     silent (bool, optional): if True will not log; default is False (will log)
     pickler (Callable[[Any], bytes], optional): if not given, will just be the `pickle` module;
         if given will be a method to convert any Python object to its `bytes` representation;
-        PICKLE_GENERIC is the default, but another useful value is JSON_PICKLE
+        PickleGeneric is the default, but another useful value is PickleJSON
 
   Returns:
     bytes: serialized binary data corresponding to obj + (compression) + (encryption)
@@ -1114,12 +1291,12 @@ def Serialize(  # pylint:disable=too-many-arguments
 def DeSerialize(
     *, data: bytes | None = None, file_path: str | None = None,
     key: Decryptor | None = None, silent: bool = False,
-    unpickler: Callable[[bytes], Any] = UNPICKLE_GENERIC) -> Any:
+    unpickler: Callable[[bytes], Any] = UnpickleGeneric) -> Any:
   """Loads (de-serializes) a BLOB back to a Python object, optionally decrypting / decompressing.
 
   Data path is:
 
-    `data` or `file_path` => (decrypt) => (decompress) => unpickle => return object
+    `data` or `file_path` => (decrypt) => (decompress) => [unpickler] => return object
 
   At every step of the data path the data will be measured, in bytes.
   Every data conversion will be timed. The measurements/times will be logged (once).
@@ -1134,7 +1311,7 @@ def DeSerialize(
     silent (bool, optional): if True will not log; default is False (will log)
     pickler (Callable[[bytes], Any], optional): if not given, will just be the `pickle` module;
         if given will be a method to convert a `bytes` representation back to a Python object;
-        UNPICKLE_GENERIC is the default, but another useful value is JSON_UNPICKLE
+        UnpickleGeneric is the default, but another useful value is UnpickleJSON
 
   Returns:
     De-Serialized Python object corresponding to data

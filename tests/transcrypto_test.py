@@ -268,7 +268,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None:
 @pytest.mark.slow
 def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> None:
   """RSA safe encrypt/decrypt and sign/verify via CLI."""
-  base_path = tmp_path / 'rsa_safe'
+  base_path: pathlib.Path = tmp_path / 'rsa_safe'
   priv_path = pathlib.Path(str(base_path) + '.priv')
   pub_path = pathlib.Path(str(base_path) + '.pub')
   # Safe signing requires k > 64 → use ≥1024-bit modulus
@@ -333,7 +333,7 @@ def test_elgamal_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None
 @pytest.mark.slow
 def test_elgamal_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> None:
   """ElGamal safe encrypt/decrypt and sign/verify via CLI."""
-  base_path = tmp_path / 'eg_safe'
+  base_path: pathlib.Path = tmp_path / 'eg_safe'
   shared_path = pathlib.Path(str(base_path) + '.shared')
   priv_path = pathlib.Path(str(base_path) + '.priv')
   pub_path = pathlib.Path(str(base_path) + '.pub')
@@ -396,7 +396,7 @@ def test_dsa_sign_verify(tmp_path: pathlib.Path) -> None:
 @pytest.mark.slow
 def test_dsa_sign_verify_safe(tmp_path: pathlib.Path) -> None:
   """DSA safe sign/verify via CLI."""
-  base_path = tmp_path / 'dsa_safe'
+  base_path: pathlib.Path = tmp_path / 'dsa_safe'
   shared_path = pathlib.Path(str(base_path) + '.shared')
   priv_path = pathlib.Path(str(base_path) + '.priv')
   pub_path = pathlib.Path(str(base_path) + '.pub')
@@ -423,7 +423,7 @@ def test_dsa_sign_verify_safe(tmp_path: pathlib.Path) -> None:
 
 def test_bid_commit_verify(tmp_path: pathlib.Path) -> None:
   """Test bidding via CLI."""
-  key_base = tmp_path / 'bid-key'
+  key_base: pathlib.Path = tmp_path / 'bid-key'
   priv_path = pathlib.Path(str(key_base) + '.priv')
   pub_path = pathlib.Path(str(key_base) + '.pub')
   secret = 'top-secret-123'  # raw UTF-8; we'll use --bin so it’s treated as bytes
@@ -485,7 +485,7 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
 
 def test_sss_shares_recover_safe(tmp_path: pathlib.Path) -> None:
   """SSS safe shares/recover for data (AEAD-wrapped)."""
-  base_path = tmp_path / 'sss_safe'
+  base_path: pathlib.Path = tmp_path / 'sss_safe'
   priv_path = pathlib.Path(str(base_path) + '.priv')
   pub_path = pathlib.Path(str(base_path) + '.pub')
   # Make params. AEAD path requires modulus_size > 32 → bits > 256 (use 384 for speed).

@@ -37,7 +37,8 @@ def test_AESKey() -> None:
   # password hash --- the FromStaticPassword() costs ~1 second CPU time!
   key: aes.AESKey = aes.AESKey.FromStaticPassword('daniel')
   assert key.encoded == (
-      'KLUv_SA5yQEAeyJrZXkyNTYiOiI2Z1dNT083MzVLaGdGRkwxYWVrVmRxbTEzMHNjWFdVVDNjTFdIbWxnMDdRPSJ9')
+      'b64:KLUv_SA5yQEAeyJrZXkyNTYiOiI2Z1dNT083MzVLaGdGRkwxYWVrVmRxbTEzM'
+      'HNjWFdVVDNjTFdIbWxnMDdRPSJ9')
   assert str(key) == 'AESKey(key256=d683ab04…)'
   assert key._DebugDump() == (
       'AESKey(key256=b\'\\xea\\x05\\x8c8\\xee\\xf7\\xe4\\xa8`\\x14R\\xf5i\\xe9\\x15v\\xa9\\xb5'

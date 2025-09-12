@@ -13,6 +13,7 @@ import collections
 import concurrent.futures
 import dataclasses
 import itertools
+import io
 import json
 import logging
 import math
@@ -713,6 +714,164 @@ def test_ObfuscateSecret() -> None:
     base.ObfuscateSecret(123.4)  # type:ignore
 
 
+def test_BytesToRaw() -> None:
+  """Test."""
+  assert base.BytesToRaw(b'abcd') == '"abcd"'
+  for i in range(256):
+    b: bytes = b'ab' + bytes([i]) + b'cd'
+    assert base.RawToBytes(base.BytesToRaw(b)) == b
+
+
+@pytest.mark.parametrize('inp, tp', [
+    ('', None),
+    ('sss', None),
+    ('@xxx', base.CryptoInputType.PATH),
+    ('@-', base.CryptoInputType.STDIN),
+    ('hex:aaaa', base.CryptoInputType.HEX),
+    ('b64:eHl6', base.CryptoInputType.BASE64),
+    ('str:sss', base.CryptoInputType.STR),
+    ('raw:"rr\\x00r"', base.CryptoInputType.RAW),
+])
+def test_DetectInputType(inp: str, tp: base.CryptoInputType | None) -> None:
+  """Test."""
+  assert base.DetectInputType(inp) == tp
+
+
+@pytest.mark.parametrize('inp, exp, b', [
+    # hex
+    ('hex:aaaa', None, b'\xaa\xaa'),
+    ('hex:aaaa', base.CryptoInputType.HEX, b'\xaa\xaa'),
+    ('aaaa', base.CryptoInputType.HEX, b'\xaa\xaa'),
+    # encoded
+    ('b64:eHl6', None, b'xyz'),
+    ('b64:eHl6', base.CryptoInputType.BASE64, b'xyz'),
+    ('eHl6', base.CryptoInputType.BASE64, b'xyz'),
+    # str
+    ('str:sss', None, b'sss'),
+    ('str:sss', base.CryptoInputType.STR, b'sss'),
+    ('sss', base.CryptoInputType.STR, b'sss'),
+    ('sss', None, b'sss'),  # the default when nothing is said
+    # raw
+    ('raw:"rr\\x00r"', None, b'rr\x00r'),
+    ('raw:"rr\\x00r"', base.CryptoInputType.RAW, b'rr\x00r'),
+    ('"rr\\x00r"', base.CryptoInputType.RAW, b'rr\x00r'),
+])
+def test_BytesFromInput(inp: str, exp: base.CryptoInputType | None, b: bytes) -> None:
+  """Test."""
+  assert base.BytesFromInput(inp, expect=exp) == b
+
+
+@pytest.mark.parametrize('inp, exp, m', [
+    ('@-', base.CryptoInputType.HEX, r'Expected type.*is different from detected type'),
+    ('@xxx', base.CryptoInputType.HEX, r'Expected type.*is different from detected type'),
+    # hex
+    ('hex:aaa', None, 'non-hexadecimal number found'),
+    ('aaa', base.CryptoInputType.HEX, 'non-hexadecimal number found'),
+    ('str:aaaa', base.CryptoInputType.HEX, r'Expected type.*is different from detected type'),
+    # encoded
+    ('b64:e^%Hll6', None, 'Invalid base64-encoded string'),
+    ('e^%Hll6', base.CryptoInputType.BASE64, 'Invalid base64-encoded string'),
+    ('hex:eHl6', base.CryptoInputType.BASE64, r'Expected type.*is different from detected type'),
+    # str
+    ('hex:sss', base.CryptoInputType.STR, r'Expected type.*is different from detected type'),
+    # raw
+    (r'raw:\u20ac', None, 'invalid input: \'latin-1\' codec can\'t encode'),
+    (r'\u20ac', base.CryptoInputType.RAW, 'invalid input: \'latin-1\' codec can\'t encode'),
+    ('hex:"rr\\x00r"', base.CryptoInputType.RAW, r'Expected type.*is different from detected type'),
+])
+def test_BytesFromInput_invalid(inp: str, exp: base.CryptoInputType | None, m: str) -> None:
+  """Test."""
+  with pytest.raises(base.InputError, match=m):
+    base.BytesFromInput(inp, expect=exp)
+
+
+def test_BytesFromInput_type() -> None:
+  """Test."""
+  with typeguard.suppress_type_checks():
+    with pytest.raises(base.InputError, match='invalid input: invalid type \'inv:\''):
+      base.BytesFromInput('sss', expect='inv:')  # type:ignore
+
+
+def test_BytesFromInput_path(tmp_path: pathlib.Path) -> None:
+  """Test."""
+  inp_path: str = str(tmp_path / 'blob.bin')
+  data = b'rr\x00r'
+  with open(inp_path, 'wb') as file_obj:
+    file_obj.write(data)
+  assert base.BytesFromInput('@' + inp_path) == data
+  assert base.BytesFromInput('@' + inp_path, expect=base.CryptoInputType.PATH) == data
+  assert base.BytesFromInput(inp_path, expect=base.CryptoInputType.PATH) == data
+  with pytest.raises(base.InputError, match='invalid input: cannot find file'):
+    base.BytesFromInput('@' + inp_path + 'xxx')
+
+
+def test_BytesFromInput_stdin_binary(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Reading from stdin.buffer (binary)."""
+
+  class _FakeStdin:  # pylint:disable=too-few-public-methods
+
+    def __init__(self, b: bytes) -> None:
+      self.buffer = io.BytesIO(b)
+
+  data = b'rr\x00r'
+  fake = _FakeStdin(data)
+  monkeypatch.setattr(sys, 'stdin', fake)
+  # Using explicit @- prefix
+  assert base.BytesFromInput('@-') == data
+  # Using expect=STDIN without the prefix should also read from stdin
+  monkeypatch.setattr(sys, 'stdin', _FakeStdin(data))
+  assert base.BytesFromInput('', expect=base.CryptoInputType.STDIN) == data
+
+
+def test_BytesFromInput_stdin_text(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Reading from text-mode stdin (no .buffer)."""
+  # Contains a non-ASCII character to ensure UTF-8 path is used
+  text = 'hé\n'
+  monkeypatch.setattr(sys, 'stdin', io.StringIO(text))
+  # With @- prefix
+  assert base.BytesFromInput('@-') == text.encode('utf-8')
+  # With expect=STDIN and no prefix
+  monkeypatch.setattr(sys, 'stdin', io.StringIO(text))
+  assert base.BytesFromInput('', expect=base.CryptoInputType.STDIN) == text.encode('utf-8')
+
+
+def test_stdin_non_text_data_text_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+  """If sys.stdin.read() returns non-str, raise."""
+
+  class _FakeStdin:  # pylint:disable=too-few-public-methods
+
+    def read(self):
+      """Read."""
+      return b'not-a-str'  # wrong type
+
+  monkeypatch.setattr(sys, 'stdin', _FakeStdin())
+  with typeguard.suppress_type_checks():
+    with pytest.raises(
+        base.InputError, match=r'invalid input: sys.stdin.read.*produced non-text data'):
+      base.BytesFromInput('@-')
+
+
+def test_stdin_non_text_data_binary(monkeypatch: pytest.MonkeyPatch) -> None:
+  """If sys.stdin.buffer.read() returns non-bytes, raise."""
+
+  class _FakeBuffer:  # pylint:disable=too-few-public-methods
+
+    def read(self):
+      """Read."""
+      return 'not-bytes'  # wrong type
+
+  class _FakeStdin:  # pylint:disable=too-few-public-methods
+
+    def __init__(self) -> None:
+      self.buffer = _FakeBuffer()
+
+  monkeypatch.setattr(sys, 'stdin', _FakeStdin())
+  with typeguard.suppress_type_checks():
+    with pytest.raises(
+        base.InputError, match=r'invalid input: sys.stdin.buffer.read.*produced non-binary data'):
+      base.BytesFromInput('@-')
+
+
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
 class _ToyCrypto1(base.CryptoKey):
   """Toy class 1."""
@@ -768,7 +927,13 @@ def test_CryptoKey_base() -> None:
   assert crypto.encoded == crypto.Encoded()  # Encoded() with no options should be same as encoded
   assert _ToyCrypto1.Load(crypto.blob) == crypto
   assert crypto.encoded == (
-      'KLUv_SArWQEAeyJrZXkiOiJZV0pqIiwic2VjcmV0IjoiY2JhIiwibW9kdWx1cyI6MTIzfQ==')  # cspell:disable-line
+      'b64:KLUv_SArWQEAeyJrZXkiOiJZV0pqIiwic2VjcmV0IjoiY2JhIiwibW9kdWx1cyI6MTIzfQ==')  # cspell:disable-line
+  assert crypto.hex == (
+      'hex:28b52ffd202b5901007b226b6579223a2259574a6a222c22736563726574223a22636'
+      '261222c226d6f64756c7573223a3132337d')
+  assert crypto.raw == (
+      'raw:"(\\xb5/\\xfd +Y\\x01\\x00{\\"key\\":\\"YWJj\\",\\"secret\\":\\"cba\\",'
+      '\\"modulus\\":123}"')
   assert _ToyCrypto1.Load(crypto.encoded) == crypto
   blob_crypto: bytes = crypto.Blob(key=key)
   assert _ToyCrypto1.Load(blob_crypto, key=key) == crypto
@@ -778,7 +943,7 @@ def test_CryptoKey_base() -> None:
     with pytest.raises(base.InputError, match=r'input decode error.*invalid start byte'):
       _ToyCrypto1.Load(base.Serialize({1: 2, 3: 4}, compress=None))  # binary is a dict
     with pytest.raises(base.InputError, match='decoded to unexpected fields'):
-      _ToyCrypto1.Load(base.Serialize({1: 2, 3: 4}, compress=None, pickler=base.JSON_PICKLE))  # binary is a dict
+      _ToyCrypto1.Load(base.Serialize({1: 2, 3: 4}, compress=None, pickler=base.PickleJSON))  # binary is a dict
     with pytest.raises(base.InputError, match='JSON data decoded to unexpected type'):
       _ToyCrypto1.FromJSON(json.dumps([1, 2]))
   with pytest.raises(base.ImplementationError, match='Unsupported JSON field'):
@@ -811,7 +976,7 @@ def test_CryptoKey_base() -> None:
     "secret": "abc"
 }"""
   assert crypto2.encoded == (
-      'KLUv_SBucQMAeyJrZXkiOiJhV3ByTlRnME5UazNOalU0TkE9PSIsInNlY3JldCI6ImFiYyIs'
+      'b64:KLUv_SBucQMAeyJrZXkiOiJhV3ByTlRnME5UazNOalU0TkE9PSIsInNlY3JldCI6ImFiYyIs'
       'Im1vZHVsdXMiOjEyMywicG9seTEiOlsxMywxNywxOV0sInBvbHkyIjpbInh6IiwieXoiXSwiaXNfeCI6dHJ1ZX0=')
 
 
