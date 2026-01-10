@@ -98,6 +98,7 @@
     "scipy",
     "Shamir",
     "transcrypto",
+    "tryfirst",
     "typeguard",
     "unitless",
     "unpickle",
