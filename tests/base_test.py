@@ -34,6 +34,14 @@ __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = base.__version__  # tests inherit version from module
 
 
+def test_time_utils() -> None:
+  """Test."""
+  assert base.MIN_TM == 946684800
+  assert base.TimeStr(base.MIN_TM) == '2000/Jan/01-00:00:00-UTC'
+  assert base.Now() > base.MIN_TM
+  assert base.StrNow() != ''
+
+
 def test_bytes_conversions() -> None:
   """Test."""
   bb: bytes = 'xyz'.encode('utf-8')
@@ -255,10 +263,11 @@ def test_HumanizedMeasurements_success(
         ([42000000000000000], '', lambda x: base.HumanizedDecimal(x, unit='Hz'), 0.95,  # type:ignore
          '42.000 PHz ±? @1'),
         ([1.1, 1.2, 1.3, 1.3, 1.2, 1, 0.8, 1.3], '', None, 0.95,
-         '1.1500000000000001 ± 0.14821066855207451 [1.0017893314479256 … 1.2982106685520747]95%CI@8'),
+         '1.1500000000000001 ± 0.1482106685520745 [1.0017893314479256 … '
+         '1.2982106685520747]95%CI@8'),
         ([0.0000011, 0.0000012, 0.0000013, 0.0000013, 0.0000012, 0.000001, 0.0000008, 0.0000013],
          'Hz', None, 0.95,
-         '1.15e-06Hz ± 1.4821066855207454e-07Hz [1.0017893314479255e-06Hz … '
+         '1.15e-06Hz ± 1.4821066855207452e-07Hz [1.0017893314479255e-06Hz … '
          '1.2982106685520745e-06Hz]95%CI@8'),
         ([0.0000011, 0.0000012, 0.0000013, 0.0000013, 0.0000012, 0.000001, 0.0000008, 0.0000013],
          'WH', base.HumanizedDecimal, 0.95,

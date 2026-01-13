@@ -32,7 +32,7 @@ from scipy import stats  # type:ignore
 import zstandard
 
 __author__ = 'balparda@github.com'
-__version__ = '1.5.0'  # 2026-01-13, Tue
+__version__ = '1.5.1'  # 2026-01-13, Tue
 __version_tuple__: tuple[int, ...] = tuple(int(v) for v in __version__.split('.'))
 
 # Data conversion utils
