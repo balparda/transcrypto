@@ -124,6 +124,12 @@ def test_ECBEncoder(s_key: str, pth: str, ct1: str, ct101: str) -> None:
   assert encoder.Decrypt(ct) == pt
   assert encoder.EncryptHex(pth) == ct1
   assert encoder.DecryptHex(ct1) == pth
+  assert encoder.EncryptHex256(pth + pth) == ct1 + ct1
+  assert encoder.DecryptHex256(ct1 + ct1) == pth + pth
+  assert encoder.EncryptHex256(pth + ('a' * 32))[:32] == ct1
+  assert encoder.DecryptHex256(ct1 + ('a' * 32))[:32] == pth
+  assert encoder.EncryptHex256(('a' * 32) + pth)[32:] == ct1
+  assert encoder.DecryptHex256(('a' * 32) + ct1)[32:] == pth
   # stacked encryptions
   for _ in range(100):  # stack 100 encryptions
     ct = encoder.Encrypt(ct)

@@ -32,7 +32,7 @@ from scipy import stats  # type:ignore
 import zstandard
 
 __author__ = 'balparda@github.com'
-__version__ = '1.3.0'  # 2025-09-07, Sun
+__version__ = '1.4.0'  # 2026-01-13, Tue
 __version_tuple__: tuple[int, ...] = tuple(int(v) for v in __version__.split('.'))
 
 # MIN_TM = int(  # minimum allowed timestamp

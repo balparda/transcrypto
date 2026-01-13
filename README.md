@@ -625,7 +625,12 @@ pt_block = ecb.Decrypt(ct_block)
 assert pt_block == block
 
 # Hex helpers
-hex_ct = ecb.EncryptHex('00112233445566778899aabbccddeeff')
+hex_ct = ecb.EncryptHex('00112233445566778899aabbccddeeff')  # 128 bits (1 block)
+hex_pt = ecb.DecryptHex(hex_ct)
+assert hex_pt == '00112233445566778899aabbccddeeff'
+hex_ct2 = ecb.EncryptHex256('00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff')
+hex_pt2 = ecb.DecryptHex256(hex_ct2)
+assert hex_pt2 == '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff'
 ```
 
 - **ECB mode**:
@@ -938,7 +943,7 @@ git clone https://github.com/balparda/transcrypto.git transcrypto
 cd transcrypto
 
 poetry env use python3.13  # creates the venv
-poetry install --sync      # HONOR the project's poetry.lock file, uninstalls stray packages
+poetry sync                # sync env to project's poetry.lock file
 poetry env info            # no-op: just to check
 
 poetry run pytest -vvv

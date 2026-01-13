@@ -178,12 +178,20 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
       return decryptor.update(ciphertext) + decryptor.finalize()
 
     def EncryptHex(self, plaintext_hex: str, /) -> str:
-      """Encrypt a 256 bits hexadecimal block, outputting also a 256 bits hexadecimal block."""
+      """Encrypt a 128 bits hexadecimal block, outputting also a 128 bits hexadecimal block."""
       return base.BytesToHex(self.Encrypt(base.HexToBytes(plaintext_hex)))
 
+    def EncryptHex256(self, plaintext_hex: str, /) -> str:
+      """Encrypt a 256 bits hexadecimal block, outputting also a 256 bits hexadecimal block."""
+      return self.EncryptHex(plaintext_hex[:32]) + self.EncryptHex(plaintext_hex[32:])
+
     def DecryptHex(self, ciphertext_hex: str, /) -> str:
-      """Decrypt a 256 bits hexadecimal block, outputting also a 256 bits hexadecimal block."""
+      """Decrypt a 128 bits hexadecimal block, outputting also a 128 bits hexadecimal block."""
       return base.BytesToHex(self.Decrypt(base.HexToBytes(ciphertext_hex)))
+
+    def DecryptHex256(self, ciphertext_hex: str, /) -> str:
+      """Decrypt a 256 bits hexadecimal block, outputting also a 256 bits hexadecimal block."""
+      return self.DecryptHex(ciphertext_hex[:32]) + self.DecryptHex(ciphertext_hex[32:])
 
   def ECBEncoder(self) -> AESKey.ECBEncoderClass:
     """Return a AESKey.ECBEncoderClass object using this key."""

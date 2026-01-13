@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "transcrypto"
-version = "1.3.0"
+version = "1.4.0"
 description = "Basic crypto primitives, not intended for actual use, but as a companion to --Criptografia, Métodos e Algoritmos--"
 readme = "README.md"
 license = "Apache-2.0"
@@ -16,7 +16,7 @@ license-files = ["LICENSE"]
 authors = [
   { name = "Daniel Balparda", email = "balparda@github.com" }
 ]
-requires-python = ">=3.13.5"  # if version changes, remember to change README.md
+requires-python = ">=3.13.5,<4.0"  # if version changes, remember to change README.md
 classifiers = [  # see: https://pypi.org/classifiers/
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.13",
