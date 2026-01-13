@@ -11,7 +11,7 @@ import argparse
 import base64
 import codecs
 import dataclasses
-# import datetime
+import datetime
 import enum
 import functools
 import hashlib
@@ -32,11 +32,10 @@ from scipy import stats  # type:ignore
 import zstandard
 
 __author__ = 'balparda@github.com'
-__version__ = '1.4.0'  # 2026-01-13, Tue
+__version__ = '1.5.0'  # 2026-01-13, Tue
 __version_tuple__: tuple[int, ...] = tuple(int(v) for v in __version__.split('.'))
 
-# MIN_TM = int(  # minimum allowed timestamp
-#     datetime.datetime(2000, 1, 1, 0, 0, 0).replace(tzinfo=datetime.timezone.utc).timestamp())
+# Data conversion utils
 
 BytesToHex: Callable[[bytes], str] = lambda b: b.hex()
 BytesToInt: Callable[[bytes], int] = lambda b: int.from_bytes(b, 'big', signed=False)
@@ -49,6 +48,16 @@ IntToEncoded: Callable[[int], str] = lambda i: BytesToEncoded(IntToBytes(i))
 EncodedToBytes: Callable[[str], bytes] = lambda e: base64.urlsafe_b64decode(e.encode('ascii'))
 
 PadBytesTo: Callable[[bytes, int], bytes] = lambda b, i: b.rjust((i + 7) // 8, b'\x00')
+
+# Time utils
+
+MIN_TM = int(
+    datetime.datetime(2000, 1, 1, 0, 0, 0).replace(tzinfo=datetime.timezone.utc).timestamp())
+TIME_FORMAT = '%Y/%b/%d-%H:%M:%S-UTC'
+TimeStr: Callable[[int | float | None], str] = lambda tm: (
+    time.strftime(TIME_FORMAT, time.gmtime(tm)) if tm else '-')
+Now: Callable[[], int] = lambda: int(time.time())
+StrNow: Callable[[], str] = lambda: TimeStr(Now())
 
 # SI prefix table, powers of 1000
 _SI_PREFIXES: dict[int, str] = {

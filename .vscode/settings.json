@@ -61,6 +61,7 @@
     "genkey",
     "giga",
     "gmpy",
+    "gmtime",
     "hashlib",
     "HMAC",
     "isprime",

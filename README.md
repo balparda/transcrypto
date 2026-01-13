@@ -966,7 +966,7 @@ deactivate
 
 ### Updating Dependencies
 
-To update `poetry.lock` file to more current versions do `poetry update`, it will ignore the current lock, update, and rewrite the `poetry.lock` file.
+To update `poetry.lock` file to more current versions do `poetry update`, it will ignore the current lock, update, and rewrite the `poetry.lock` file. If you have cache problems `poetry cache clear PyPI --all` will clean it.
 
 To add a new dependency you should do:
 
