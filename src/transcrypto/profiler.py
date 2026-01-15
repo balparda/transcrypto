@@ -16,10 +16,11 @@ doc md
 from __future__ import annotations
 
 import argparse
-import logging
 # import pdb
 import sys
 from typing import Callable
+
+from rich import console as rich_console
 
 from . import base, modmath, dsa
 
@@ -107,7 +108,8 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
 
 def _PrimeProfiler(
     prime_callable: Callable[[int], int],
-    repeats: int, n_bits_range: tuple[int, int, int], confidence: float, /) -> None:
+    repeats: int, n_bits_range: tuple[int, int, int], confidence: float,
+    console: rich_console.Console, /) -> None:
   primes: dict[int, list[float]] = {}
   for n_bits in range(*n_bits_range):
     # investigate for size n_bits
@@ -120,7 +122,7 @@ def _PrimeProfiler(
     # finished collecting n_bits-sized primes
     measurements: str = base.HumanizedMeasurements(
         primes[n_bits], parser=base.HumanizedSeconds, confidence=confidence)
-    print(f'{n_bits} → {measurements}')
+    console.print(f'{n_bits} → {measurements}')
 
 
 def main(argv: list[str] | None = None, /) -> int:  # pylint: disable=invalid-name,too-many-locals,too-many-branches,too-many-statements
@@ -129,11 +131,7 @@ def main(argv: list[str] | None = None, /) -> int:  # pylint: disable=invalid-na
   parser: argparse.ArgumentParser = _BuildParser()
   args: argparse.Namespace = parser.parse_args(argv)
   # take care of global options
-  levels: list[int] = [logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]
-  logging.basicConfig(
-      level=levels[min(args.verbose, len(levels) - 1)],  # type: ignore
-      format=getattr(base, 'LOG_FORMAT', '%(levelname)s:%(message)s'))
-  logging.captureWarnings(True)
+  console: rich_console.Console = base.InitLogging(args.verbose)
 
   try:
     # get the command, do basic checks and switch
@@ -149,16 +147,16 @@ def main(argv: list[str] | None = None, /) -> int:  # pylint: disable=invalid-na
       match command:
         # -------- Primes ----------
         case 'primes':
-          print(f'Starting {"SERIAL" if args.serial else "PARALLEL"} regular primes test')
+          console.print(f'Starting {"SERIAL" if args.serial else "PARALLEL"} regular primes test')
           _PrimeProfiler(
               lambda n: modmath.NBitRandomPrimes(n, serial=args.serial, n_primes=1).pop(),
-              repeats, bits, confidence / 100.0)
+              repeats, bits, confidence / 100.0, console)
 
         case 'dsa':
-          print(f'Starting {"SERIAL" if args.serial else "PARALLEL"} DSA primes test')
+          console.print(f'Starting {"SERIAL" if args.serial else "PARALLEL"} DSA primes test')
           _PrimeProfiler(
               lambda n: dsa.NBitRandomDSAPrimes(n, n // 2, serial=args.serial)[0],
-              repeats, bits, confidence / 100.0)
+              repeats, bits, confidence / 100.0, console)
 
         # -------- Documentation ----------
         case 'doc':
@@ -166,7 +164,7 @@ def main(argv: list[str] | None = None, /) -> int:  # pylint: disable=invalid-na
               args.doc_command.lower().strip() if getattr(args, 'doc_command', '') else '')
           match doc_command:
             case 'md':
-              print(base.GenerateCLIMarkdown(
+              console.print(base.GenerateCLIMarkdown(
                   'profiler', _BuildParser(), description=(
                       '`profiler` is a command-line utility that provides stats on TransCrypto '
                       'performance.')))
@@ -177,12 +175,12 @@ def main(argv: list[str] | None = None, /) -> int:  # pylint: disable=invalid-na
           parser.print_help()
 
     if command not in ('doc',):
-      print(f'Finished in {tmr}')
+      console.print(f'Finished in {tmr}')
 
   except NotImplementedError as err:
-    print(f'Invalid command: {err}')
+    console.print(f'Invalid command: {err}')
   except (base.Error, ValueError) as err:
-    print(str(err))
+    console.print(str(err))
 
   return 0
 

@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "transcrypto"
-version = "1.5.1"
+version = "1.6.0"
 description = "Basic crypto primitives, not intended for actual use, but as a companion to --Criptografia, Métodos e Algoritmos--"
 readme = "README.md"
 license = "Apache-2.0"
@@ -47,6 +47,7 @@ cryptography = ">=45.0.7"
 zstandard = ">=0.23.0"
 gmpy2 = "^2.2.1"
 scipy = "^1.16.1"
+rich = "^14.2.0"
 
 [tool.poetry.requires-plugins]
 poetry-plugin-export = ">=1.8"

@@ -31,6 +31,8 @@ import logging
 import sys
 from typing import Any, Iterable
 
+from rich import console as rich_console
+
 from . import base, modmath, rsa, sss, elgamal, dsa, aes
 
 __author__ = 'balparda@github.com'
@@ -944,7 +946,8 @@ def _BuildParser() -> argparse.ArgumentParser:  # pylint: disable=too-many-state
 
 
 def AESCommand(
-    args: argparse.Namespace, in_format: _StrBytesType, out_format: _StrBytesType, /) -> None:
+    args: argparse.Namespace, in_format: _StrBytesType, out_format: _StrBytesType,
+    console: rich_console.Console, /) -> None:
   """Execute `aes` command."""
   pt: bytes
   ct: bytes
@@ -965,26 +968,26 @@ def AESCommand(
       aes_key = aes.AESKey.FromStaticPassword(args.password)
       if args.key_path:
         _SaveObj(aes_key, args.key_path, args.protect or None)
-        print(f'AES key saved to {args.key_path!r}')
+        console.print(f'AES key saved to {args.key_path!r}')
       else:
-        print(_BytesToText(aes_key.key256, out_format))
+        console.print(_BytesToText(aes_key.key256, out_format))
     case 'encrypt':
       pt = _BytesFromText(args.plaintext, in_format)
       ct = aes_key.Encrypt(pt, associated_data=aad)
-      print(_BytesToText(ct, out_format))
+      console.print(_BytesToText(ct, out_format))
     case 'decrypt':
       ct = _BytesFromText(args.ciphertext, in_format)
       pt = aes_key.Decrypt(ct, associated_data=aad)
-      print(_BytesToText(pt, out_format))
+      console.print(_BytesToText(pt, out_format))
     case 'ecb':
       ecb_cmd: str = args.aes_ecb_command.lower().strip() if args.aes_ecb_command else ''
       match ecb_cmd:
         case 'encrypt':
           ecb: aes.AESKey.ECBEncoderClass = aes_key.ECBEncoder()
-          print(ecb.EncryptHex(args.plaintext))
+          console.print(ecb.EncryptHex(args.plaintext))
         case 'decrypt':
           ecb = aes_key.ECBEncoder()
-          print(ecb.DecryptHex(args.ciphertext))
+          console.print(ecb.DecryptHex(args.ciphertext))
         case _:
           raise NotImplementedError()
     case _:
@@ -992,7 +995,8 @@ def AESCommand(
 
 
 def RSACommand(
-    args: argparse.Namespace, in_format: _StrBytesType, out_format: _StrBytesType, /) -> None:
+    args: argparse.Namespace, in_format: _StrBytesType, out_format: _StrBytesType,
+    console: rich_console.Console, /) -> None:
   """Execute `rsa` command."""
   c: int
   m: int
@@ -1010,53 +1014,54 @@ def RSACommand(
       rsa_pub = rsa.RSAPublicKey.Copy(rsa_priv)
       _SaveObj(rsa_priv, args.key_path + '.priv', args.protect or None)
       _SaveObj(rsa_pub, args.key_path + '.pub', args.protect or None)
-      print(f'RSA private/public keys saved to {args.key_path + ".priv/.pub"!r}')
+      console.print(f'RSA private/public keys saved to {args.key_path + ".priv/.pub"!r}')
     case 'rawencrypt':
       rsa_pub = rsa.RSAPublicKey.Copy(
           _LoadObj(args.key_path, args.protect or None, rsa.RSAPublicKey))
       m = _ParseInt(args.message)
-      print(rsa_pub.RawEncrypt(m))
+      console.print(rsa_pub.RawEncrypt(m))
     case 'rawdecrypt':
       rsa_priv = _LoadObj(args.key_path, args.protect or None, rsa.RSAPrivateKey)
       c = _ParseInt(args.ciphertext)
-      print(rsa_priv.RawDecrypt(c))
+      console.print(rsa_priv.RawDecrypt(c))
     case 'rawsign':
       rsa_priv = _LoadObj(args.key_path, args.protect or None, rsa.RSAPrivateKey)
       m = _ParseInt(args.message)
-      print(rsa_priv.RawSign(m))
+      console.print(rsa_priv.RawSign(m))
     case 'rawverify':
       rsa_pub = rsa.RSAPublicKey.Copy(
           _LoadObj(args.key_path, args.protect or None, rsa.RSAPublicKey))
       m = _ParseInt(args.message)
       sig: int = _ParseInt(args.signature)
-      print('RSA signature: ' + ('OK' if rsa_pub.RawVerify(m, sig) else 'INVALID'))
+      console.print('RSA signature: ' + ('OK' if rsa_pub.RawVerify(m, sig) else 'INVALID'))
     case 'encrypt':
       rsa_pub = _LoadObj(args.key_path, args.protect or None, rsa.RSAPublicKey)
       pt = _BytesFromText(args.plaintext, in_format)
       ct = rsa_pub.Encrypt(pt, associated_data=aad)
-      print(_BytesToText(ct, out_format))
+      console.print(_BytesToText(ct, out_format))
     case 'decrypt':
       rsa_priv = _LoadObj(args.key_path, args.protect or None, rsa.RSAPrivateKey)
       ct = _BytesFromText(args.ciphertext, in_format)
       pt = rsa_priv.Decrypt(ct, associated_data=aad)
-      print(_BytesToText(pt, out_format))
+      console.print(_BytesToText(pt, out_format))
     case 'sign':
       rsa_priv = _LoadObj(args.key_path, args.protect or None, rsa.RSAPrivateKey)
       pt = _BytesFromText(args.message, in_format)
       ct = rsa_priv.Sign(pt, associated_data=aad)
-      print(_BytesToText(ct, out_format))
+      console.print(_BytesToText(ct, out_format))
     case 'verify':
       rsa_pub = _LoadObj(args.key_path, args.protect or None, rsa.RSAPublicKey)
       pt = _BytesFromText(args.message, in_format)
       ct = _BytesFromText(args.signature, in_format)
-      print('RSA signature: ' +
-            ('OK' if rsa_pub.Verify(pt, ct, associated_data=aad) else 'INVALID'))
+      console.print(
+          'RSA signature: ' + ('OK' if rsa_pub.Verify(pt, ct, associated_data=aad) else 'INVALID'))
     case _:
       raise NotImplementedError()
 
 
 def ElGamalCommand(  # pylint: disable=too-many-statements
-    args: argparse.Namespace, in_format: _StrBytesType, out_format: _StrBytesType, /) -> None:
+    args: argparse.Namespace, in_format: _StrBytesType, out_format: _StrBytesType,
+    console: rich_console.Console, /) -> None:
   """Execute `elgamal` command."""
   c1: str
   c2: str
@@ -1075,64 +1080,66 @@ def ElGamalCommand(  # pylint: disable=too-many-statements
       shared_eg: elgamal.ElGamalSharedPublicKey = elgamal.ElGamalSharedPublicKey.NewShared(
           args.bits)
       _SaveObj(shared_eg, args.key_path + '.shared', args.protect or None)
-      print(f'El-Gamal shared key saved to {args.key_path + ".shared"!r}')
+      console.print(f'El-Gamal shared key saved to {args.key_path + ".shared"!r}')
     case 'new':
       eg_priv = elgamal.ElGamalPrivateKey.New(
           _LoadObj(args.key_path + '.shared', args.protect or None, elgamal.ElGamalSharedPublicKey))
       eg_pub = elgamal.ElGamalPublicKey.Copy(eg_priv)
       _SaveObj(eg_priv, args.key_path + '.priv', args.protect or None)
       _SaveObj(eg_pub, args.key_path + '.pub', args.protect or None)
-      print(f'El-Gamal private/public keys saved to {args.key_path + ".priv/.pub"!r}')
+      console.print(f'El-Gamal private/public keys saved to {args.key_path + ".priv/.pub"!r}')
     case 'rawencrypt':
       eg_pub = elgamal.ElGamalPublicKey.Copy(
           _LoadObj(args.key_path, args.protect or None, elgamal.ElGamalPublicKey))
       m = _ParseInt(args.message)
       ss = eg_pub.RawEncrypt(m)
-      print(f'{ss[0]}:{ss[1]}')
+      console.print(f'{ss[0]}:{ss[1]}')
     case 'rawdecrypt':
       eg_priv = _LoadObj(args.key_path, args.protect or None, elgamal.ElGamalPrivateKey)
       c1, c2 = args.ciphertext.split(':')
       ss = (_ParseInt(c1), _ParseInt(c2))
-      print(eg_priv.RawDecrypt(ss))
+      console.print(eg_priv.RawDecrypt(ss))
     case 'rawsign':
       eg_priv = _LoadObj(args.key_path, args.protect or None, elgamal.ElGamalPrivateKey)
       m = _ParseInt(args.message)
       ss = eg_priv.RawSign(m)
-      print(f'{ss[0]}:{ss[1]}')
+      console.print(f'{ss[0]}:{ss[1]}')
     case 'rawverify':
       eg_pub = elgamal.ElGamalPublicKey.Copy(
           _LoadObj(args.key_path, args.protect or None, elgamal.ElGamalPublicKey))
       m = _ParseInt(args.message)
       c1, c2 = args.signature.split(':')
       ss = (_ParseInt(c1), _ParseInt(c2))
-      print('El-Gamal signature: ' + ('OK' if eg_pub.RawVerify(m, ss) else 'INVALID'))
+      console.print('El-Gamal signature: ' + ('OK' if eg_pub.RawVerify(m, ss) else 'INVALID'))
     case 'encrypt':
       eg_pub = _LoadObj(args.key_path, args.protect or None, elgamal.ElGamalPublicKey)
       pt = _BytesFromText(args.plaintext, in_format)
       ct = eg_pub.Encrypt(pt, associated_data=aad)
-      print(_BytesToText(ct, out_format))
+      console.print(_BytesToText(ct, out_format))
     case 'decrypt':
       eg_priv = _LoadObj(args.key_path, args.protect or None, elgamal.ElGamalPrivateKey)
       ct = _BytesFromText(args.ciphertext, in_format)
       pt = eg_priv.Decrypt(ct, associated_data=aad)
-      print(_BytesToText(pt, out_format))
+      console.print(_BytesToText(pt, out_format))
     case 'sign':
       eg_priv = _LoadObj(args.key_path, args.protect or None, elgamal.ElGamalPrivateKey)
       pt = _BytesFromText(args.message, in_format)
       ct = eg_priv.Sign(pt, associated_data=aad)
-      print(_BytesToText(ct, out_format))
+      console.print(_BytesToText(ct, out_format))
     case 'verify':
       eg_pub = _LoadObj(args.key_path, args.protect or None, elgamal.ElGamalPublicKey)
       pt = _BytesFromText(args.message, in_format)
       ct = _BytesFromText(args.signature, in_format)
-      print('El-Gamal signature: ' +
-            ('OK' if eg_pub.Verify(pt, ct, associated_data=aad) else 'INVALID'))
+      console.print(
+          'El-Gamal signature: ' + ('OK' if eg_pub.Verify(pt, ct, associated_data=aad)
+                                    else 'INVALID'))
     case _:
       raise NotImplementedError()
 
 
 def DSACommand(
-    args: argparse.Namespace, in_format: _StrBytesType, out_format: _StrBytesType, /) -> None:
+    args: argparse.Namespace, in_format: _StrBytesType, out_format: _StrBytesType,
+    console: rich_console.Console, /) -> None:
   """Execute `dsa` command."""
   c1: str
   c2: str
@@ -1151,43 +1158,44 @@ def DSACommand(
       dsa_shared: dsa.DSASharedPublicKey = dsa.DSASharedPublicKey.NewShared(
           args.p_bits, args.q_bits)
       _SaveObj(dsa_shared, args.key_path + '.shared', args.protect or None)
-      print(f'DSA shared key saved to {args.key_path + ".shared"!r}')
+      console.print(f'DSA shared key saved to {args.key_path + ".shared"!r}')
     case 'new':
       dsa_priv = dsa.DSAPrivateKey.New(
           _LoadObj(args.key_path + '.shared', args.protect or None, dsa.DSASharedPublicKey))
       dsa_pub = dsa.DSAPublicKey.Copy(dsa_priv)
       _SaveObj(dsa_priv, args.key_path + '.priv', args.protect or None)
       _SaveObj(dsa_pub, args.key_path + '.pub', args.protect or None)
-      print(f'DSA private/public keys saved to {args.key_path + ".priv/.pub"!r}')
+      console.print(f'DSA private/public keys saved to {args.key_path + ".priv/.pub"!r}')
     case 'rawsign':
       dsa_priv = _LoadObj(args.key_path, args.protect or None, dsa.DSAPrivateKey)
       m = _ParseInt(args.message) % dsa_priv.prime_seed
       ss = dsa_priv.RawSign(m)
-      print(f'{ss[0]}:{ss[1]}')
+      console.print(f'{ss[0]}:{ss[1]}')
     case 'rawverify':
       dsa_pub = dsa.DSAPublicKey.Copy(
           _LoadObj(args.key_path, args.protect or None, dsa.DSAPublicKey))
       m = _ParseInt(args.message) % dsa_pub.prime_seed
       c1, c2 = args.signature.split(':')
       ss = (_ParseInt(c1), _ParseInt(c2))
-      print('DSA signature: ' + ('OK' if dsa_pub.RawVerify(m, ss) else 'INVALID'))
+      console.print('DSA signature: ' + ('OK' if dsa_pub.RawVerify(m, ss) else 'INVALID'))
     case 'sign':
       dsa_priv = _LoadObj(args.key_path, args.protect or None, dsa.DSAPrivateKey)
       pt = _BytesFromText(args.message, in_format)
       ct = dsa_priv.Sign(pt, associated_data=aad)
-      print(_BytesToText(ct, out_format))
+      console.print(_BytesToText(ct, out_format))
     case 'verify':
       dsa_pub = _LoadObj(args.key_path, args.protect or None, dsa.DSAPublicKey)
       pt = _BytesFromText(args.message, in_format)
       ct = _BytesFromText(args.signature, in_format)
-      print('DSA signature: ' +
-            ('OK' if dsa_pub.Verify(pt, ct, associated_data=aad) else 'INVALID'))
+      console.print(
+          'DSA signature: ' + ('OK' if dsa_pub.Verify(pt, ct, associated_data=aad) else 'INVALID'))
     case _:
       raise NotImplementedError()
 
 
 def BidCommand(
-    args: argparse.Namespace, in_format: _StrBytesType, out_format: _StrBytesType, /) -> None:
+    args: argparse.Namespace, in_format: _StrBytesType, out_format: _StrBytesType,
+    console: rich_console.Console, /) -> None:
   """Execute `bid` command."""
   bid_cmd: str = args.bid_command.lower().strip() if args.bid_command else ''
   match bid_cmd:
@@ -1197,22 +1205,23 @@ def BidCommand(
       bid_pub: base.PublicBid512 = base.PublicBid512.Copy(bid_priv)
       _SaveObj(bid_priv, args.key_path + '.priv', args.protect or None)
       _SaveObj(bid_pub, args.key_path + '.pub', args.protect or None)
-      print(f'Bid private/public commitments saved to {args.key_path + ".priv/.pub"!r}')
+      console.print(f'Bid private/public commitments saved to {args.key_path + ".priv/.pub"!r}')
     case 'verify':
       bid_priv = _LoadObj(args.key_path + '.priv', args.protect or None, base.PrivateBid512)
       bid_pub = _LoadObj(args.key_path + '.pub', args.protect or None, base.PublicBid512)
       bid_pub_expect: base.PublicBid512 = base.PublicBid512.Copy(bid_priv)
-      print('Bid commitment: ' + (
+      console.print('Bid commitment: ' + (
           'OK' if (bid_pub.VerifyBid(bid_priv.private_key, bid_priv.secret_bid) and
                    bid_pub == bid_pub_expect) else 'INVALID'))
-      print('Bid secret:')
-      print(_BytesToText(bid_priv.secret_bid, out_format))
+      console.print('Bid secret:')
+      console.print(_BytesToText(bid_priv.secret_bid, out_format))
     case _:
       raise NotImplementedError()
 
 
 def SSSCommand(
-    args: argparse.Namespace, in_format: _StrBytesType, out_format: _StrBytesType, /) -> None:
+    args: argparse.Namespace, in_format: _StrBytesType, out_format: _StrBytesType,
+    console: rich_console.Console, /) -> None:
   """Execute `sss` command."""
   pt: bytes
   sss_share: sss.ShamirSharePrivate
@@ -1226,40 +1235,43 @@ def SSSCommand(
       sss_pub: sss.ShamirSharedSecretPublic = sss.ShamirSharedSecretPublic.Copy(sss_priv)
       _SaveObj(sss_priv, args.key_path + '.priv', args.protect or None)
       _SaveObj(sss_pub, args.key_path + '.pub', args.protect or None)
-      print(f'SSS private/public keys saved to {args.key_path + ".priv/.pub"!r}')
+      console.print(f'SSS private/public keys saved to {args.key_path + ".priv/.pub"!r}')
     case 'rawshares':
       sss_priv = _LoadObj(
           args.key_path + '.priv', args.protect or None, sss.ShamirSharedSecretPrivate)
       secret: int = _ParseInt(args.secret)
       for i, sss_share in enumerate(sss_priv.RawShares(secret, max_shares=args.count)):
         _SaveObj(sss_share, f'{args.key_path}.share.{i + 1}', args.protect or None)
-      print(f'SSS {args.count} individual (private) shares saved to '
-            f'{args.key_path + ".share.1…" + str(args.count)!r}')
+      console.print(
+          f'SSS {args.count} individual (private) shares saved to '
+          f'{args.key_path + ".share.1…" + str(args.count)!r}')
     case 'rawrecover':
       sss_pub = _LoadObj(args.key_path + '.pub', args.protect or None, sss.ShamirSharedSecretPublic)
       subset = []
       for fname in glob.glob(args.key_path + '.share.*'):
         sss_share = _LoadObj(fname, args.protect or None, sss.ShamirSharePrivate)
         subset.append(sss_share)
-        print(f'Loaded SSS share: {fname!r}')
-      print('Secret:')
-      print(sss_pub.RawRecoverSecret(subset))
+        console.print(f'Loaded SSS share: {fname!r}')
+      console.print('Secret:')
+      console.print(sss_pub.RawRecoverSecret(subset))
     case 'rawverify':
       sss_priv = _LoadObj(
           args.key_path + '.priv', args.protect or None, sss.ShamirSharedSecretPrivate)
       secret = _ParseInt(args.secret)
       for fname in glob.glob(args.key_path + '.share.*'):
         sss_share = _LoadObj(fname, args.protect or None, sss.ShamirSharePrivate)
-        print(f'SSS share {fname!r} verification: '
-              f'{"OK" if sss_priv.RawVerifyShare(secret, sss_share) else "INVALID"}')
+        console.print(
+            f'SSS share {fname!r} verification: '
+            f'{"OK" if sss_priv.RawVerifyShare(secret, sss_share) else "INVALID"}')
     case 'shares':
       sss_priv = _LoadObj(
           args.key_path + '.priv', args.protect or None, sss.ShamirSharedSecretPrivate)
       pt = _BytesFromText(args.secret, in_format)
       for i, data_share in enumerate(sss_priv.MakeDataShares(pt, args.count)):
         _SaveObj(data_share, f'{args.key_path}.share.{i + 1}', args.protect or None)
-      print(f'SSS {args.count} individual (private) shares saved to '
-            f'{args.key_path + ".share.1…" + str(args.count)!r}')
+      console.print(
+          f'SSS {args.count} individual (private) shares saved to '
+          f'{args.key_path + ".share.1…" + str(args.count)!r}')
     case 'recover':
       sss_pub = _LoadObj(args.key_path + '.pub', args.protect or None, sss.ShamirSharedSecretPublic)
       subset, data_share = [], None
@@ -1268,12 +1280,12 @@ def SSSCommand(
         subset.append(sss_share)
         if isinstance(sss_share, sss.ShamirShareData):
           data_share = sss_share
-        print(f'Loaded SSS share: {fname!r}')
+        console.print(f'Loaded SSS share: {fname!r}')
       if data_share is None:
         raise base.InputError('no data share found among the available shares')
       pt = data_share.RecoverData(subset)
-      print('Secret:')
-      print(_BytesToText(pt, out_format))
+      console.print('Secret:')
+      console.print(_BytesToText(pt, out_format))
     case _:
       raise NotImplementedError()
 
@@ -1284,11 +1296,7 @@ def main(argv: list[str] | None = None, /) -> int:  # pylint: disable=invalid-na
   parser: argparse.ArgumentParser = _BuildParser()
   args: argparse.Namespace = parser.parse_args(argv)
   # take care of global options
-  levels: list[int] = [logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]
-  logging.basicConfig(
-      level=levels[min(args.verbose, len(levels) - 1)],  # type: ignore
-      format=getattr(base, 'LOG_FORMAT', '%(levelname)s:%(message)s'))
-  logging.captureWarnings(True)
+  console: rich_console.Console = base.InitLogging(args.verbose, soft_wrap=True)
   in_format: _StrBytesType = _StrBytesType.FromFlags(args.hex, args.b64, args.bin)
   out_format: _StrBytesType = _StrBytesType.FromFlags(args.out_hex, args.out_b64, args.out_bin)
 
@@ -1311,51 +1319,51 @@ def main(argv: list[str] | None = None, /) -> int:  # pylint: disable=invalid-na
       # -------- primes ----------
       case 'isprime':
         n = _ParseInt(args.n)
-        print(modmath.IsPrime(n))
+        console.print(modmath.IsPrime(n))
       case 'primegen':
         start: int = _ParseInt(args.start)
         count: int = args.count
         i = 0
         for p in modmath.PrimeGenerator(start):
-          print(p)
+          console.print(p)
           i += 1
           if count and i >= count:
             break
       case 'mersenne':
         for k, m_p, perfect in modmath.MersennePrimesGenerator(args.min_k):
-          print(f'k={k}  M={m_p}  perfect={perfect}')
+          console.print(f'k={k}  M={m_p}  perfect={perfect}')
           if k > args.cutoff_k:
             break
 
       # -------- integer / modular ----------
       case 'gcd':
         a, b = _ParseInt(args.a), _ParseInt(args.b)
-        print(base.GCD(a, b))
+        console.print(base.GCD(a, b))
       case 'xgcd':
         a, b = _ParseInt(args.a), _ParseInt(args.b)
-        print(base.ExtendedGCD(a, b))
+        console.print(base.ExtendedGCD(a, b))
       case 'mod':
         mod_command: str = args.mod_command.lower().strip() if args.mod_command else ''
         match mod_command:
           case 'inv':
             a, m = _ParseInt(args.a), _ParseInt(args.m)
             try:
-              print(modmath.ModInv(a, m))
+              console.print(modmath.ModInv(a, m))
             except modmath.ModularDivideError:
-              print('<<INVALID>> no modular inverse exists (ModularDivideError)')
+              console.print('<<INVALID>> no modular inverse exists (ModularDivideError)')
           case 'div':
             x, y, m = _ParseInt(args.x), _ParseInt(args.y), _ParseInt(args.m)
             try:
-              print(modmath.ModDiv(x, y, m))
+              console.print(modmath.ModDiv(x, y, m))
             except modmath.ModularDivideError:
-              print('<<INVALID>> no modular inverse exists (ModularDivideError)')
+              console.print('<<INVALID>> no modular inverse exists (ModularDivideError)')
           case 'exp':
             a, e, m = _ParseInt(args.a), _ParseInt(args.e), _ParseInt(args.m)
-            print(modmath.ModExp(a, e, m))
+            console.print(modmath.ModExp(a, e, m))
           case 'poly':
             x, m = _ParseInt(args.x), _ParseInt(args.m)
             coeffs: list[int] = _ParseIntList(args.coeff)
-            print(modmath.ModPolynomial(x, coeffs, m))
+            console.print(modmath.ModPolynomial(x, coeffs, m))
           case 'lagrange':
             x, m = _ParseInt(args.x), _ParseInt(args.m)
             pts: dict[int, int] = {}
@@ -1364,14 +1372,14 @@ def main(argv: list[str] | None = None, /) -> int:  # pylint: disable=invalid-na
             for kv in args.pt:
               k_s, v_s = kv.split(':', 1)
               pts[_ParseInt(k_s)] = _ParseInt(v_s)
-            print(modmath.ModLagrangeInterpolate(x, pts, m))
+            console.print(modmath.ModLagrangeInterpolate(x, pts, m))
           case 'crt':
             crt_tuple: tuple[int, int, int, int] = (
                 _ParseInt(args.a1), _ParseInt(args.m1), _ParseInt(args.a2), _ParseInt(args.m2))
             try:
-              print(modmath.CRTPair(*crt_tuple))
+              console.print(modmath.CRTPair(*crt_tuple))
             except modmath.ModularDivideError:
-              print('<<INVALID>> moduli m1/m2 not co-prime (ModularDivideError)')
+              console.print('<<INVALID>> moduli m1/m2 not co-prime (ModularDivideError)')
           case _:
             raise NotImplementedError()
 
@@ -1380,13 +1388,13 @@ def main(argv: list[str] | None = None, /) -> int:  # pylint: disable=invalid-na
         rand_cmd: str = args.rand_command.lower().strip() if args.rand_command else ''
         match rand_cmd:
           case 'bits':
-            print(base.RandBits(args.bits))
+            console.print(base.RandBits(args.bits))
           case 'int':
-            print(base.RandInt(_ParseInt(args.min), _ParseInt(args.max)))
+            console.print(base.RandInt(_ParseInt(args.min), _ParseInt(args.max)))
           case 'bytes':
-            print(base.BytesToHex(base.RandBytes(args.n)))
+            console.print(base.BytesToHex(base.RandBytes(args.n)))
           case 'prime':
-            print(modmath.NBitRandomPrimes(args.bits).pop())
+            console.print(modmath.NBitRandomPrimes(args.bits).pop())
           case _:
             raise NotImplementedError()
       case 'hash':
@@ -1395,35 +1403,35 @@ def main(argv: list[str] | None = None, /) -> int:  # pylint: disable=invalid-na
           case 'sha256':
             bt = _BytesFromText(args.data, in_format)
             digest: bytes = base.Hash256(bt)
-            print(_BytesToText(digest, out_format))
+            console.print(_BytesToText(digest, out_format))
           case 'sha512':
             bt = _BytesFromText(args.data, in_format)
             digest = base.Hash512(bt)
-            print(_BytesToText(digest, out_format))
+            console.print(_BytesToText(digest, out_format))
           case 'file':
             digest = base.FileHash(args.path, digest=args.digest)
-            print(_BytesToText(digest, out_format))
+            console.print(_BytesToText(digest, out_format))
           case _:
             raise NotImplementedError()
 
       # -------- AES / RSA / El-Gamal / DSA / SSS ----------
       case 'aes':
-        AESCommand(args, in_format, out_format)
+        AESCommand(args, in_format, out_format, console)
 
       case 'rsa':
-        RSACommand(args, in_format, out_format)
+        RSACommand(args, in_format, out_format, console)
 
       case 'elgamal':
-        ElGamalCommand(args, in_format, out_format)
+        ElGamalCommand(args, in_format, out_format, console)
 
       case 'dsa':
-        DSACommand(args, in_format, out_format)
+        DSACommand(args, in_format, out_format, console)
 
       case 'bid':
-        BidCommand(args, in_format, out_format)
+        BidCommand(args, in_format, out_format, console)
 
       case 'sss':
-        SSSCommand(args, in_format, out_format)
+        SSSCommand(args, in_format, out_format, console)
 
       # -------- Documentation ----------
       case 'doc':
@@ -1431,7 +1439,7 @@ def main(argv: list[str] | None = None, /) -> int:  # pylint: disable=invalid-na
             args.doc_command.lower().strip() if getattr(args, 'doc_command', '') else '')
         match doc_command:
           case 'md':
-            print(base.GenerateCLIMarkdown(
+            console.print(base.GenerateCLIMarkdown(
                 'transcrypto', _BuildParser(), description=(
                     '`transcrypto` is a command-line utility that provides access to all core '
                     'functionality described in this documentation. It serves as a convenient '
@@ -1446,9 +1454,9 @@ def main(argv: list[str] | None = None, /) -> int:  # pylint: disable=invalid-na
         parser.print_help()
 
   except NotImplementedError as err:
-    print(f'Invalid command: {err}')
+    console.print(f'Invalid command: {err}')
   except (base.Error, ValueError) as err:
-    print(str(err))
+    console.print(str(err))
 
   return 0
 

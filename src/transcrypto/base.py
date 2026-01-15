@@ -24,15 +24,18 @@ import pickle
 import secrets
 import sys
 import time
+import threading
 from typing import Any, Callable, final, MutableSequence, Protocol, runtime_checkable
 from typing import Sequence, Self, TypeVar
 
 import numpy as np
+from rich import console as rich_console
+from rich import logging as rich_logging
 from scipy import stats  # type:ignore
 import zstandard
 
 __author__ = 'balparda@github.com'
-__version__ = '1.5.1'  # 2026-01-13, Tue
+__version__ = '1.6.0'  # 2026-01-15, Thu
 __version_tuple__: tuple[int, ...] = tuple(int(v) for v in __version__.split('.'))
 
 # Data conversion utils
@@ -58,6 +61,18 @@ TimeStr: Callable[[int | float | None], str] = lambda tm: (
     time.strftime(TIME_FORMAT, time.gmtime(tm)) if tm else '-')
 Now: Callable[[], int] = lambda: int(time.time())
 StrNow: Callable[[], str] = lambda: TimeStr(Now())
+
+# Logging
+_LOG_FORMAT_NO_PROCESS: str = '%(funcName)s: %(message)s'
+_LOG_FORMAT_WITH_PROCESS: str = '%(processName)s/' + _LOG_FORMAT_NO_PROCESS
+_LOG_FORMAT_DATETIME: str = '[%Y%m%d-%H:%M:%S]'  # e.g., [20240131-13:45:30]
+_LOG_LEVELS: list[int] = [logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]
+_LOG_COMMON_PROVIDERS: set[str] = {
+    'werkzeug',
+    'gunicorn.error', 'gunicorn.access',
+    'uvicorn', 'uvicorn.error', 'uvicorn.access',
+    'django.server',
+}
 
 # SI prefix table, powers of 1000
 _SI_PREFIXES: dict[int, str] = {
@@ -113,6 +128,75 @@ class CryptoError(Error):
 
 class ImplementationError(Error, NotImplementedError):
   """This feature is not implemented yet (TransCrypto)."""
+
+
+__console_lock = threading.RLock()
+__console_singleton: rich_console.Console | None = None
+
+
+def Console() -> rich_console.Console:
+  """Get the global console instance.
+
+  Returns:
+    rich.console.Console: The global console instance.
+  """
+  with __console_lock:
+    if __console_singleton is None:
+      return rich_console.Console()  # fallback console if InitLogging hasn't been called yet
+    return __console_singleton
+
+
+def ResetConsole() -> None:
+  """Reset the global console instance."""
+  global __console_singleton  # pylint: disable=global-statement
+  with __console_lock:
+    __console_singleton = None
+
+
+def InitLogging(
+    verbosity: int, /, *,
+    include_process: bool = False, soft_wrap: bool = False) -> rich_console.Console:
+  """Initialize logger (with RichHandler).
+
+  If you have a CLI app that uses this, its pytests should call `ResetConsole()` in a fixture, like:
+
+      from transcrypto import base
+      @pytest.fixture(autouse=True)
+      def _reset_base_logging():
+        base.ResetConsole()
+        yield
+
+  Args:
+    verbosity (int): Logging verbosity level.
+    include_process (bool, optional): Whether to include process name in log output.
+    soft_wrap (bool, optional): Whether to enable soft wrapping in the console.
+        Default is False, and it means rich will hard-wrap long lines (by adding '\n' chars).
+
+  Returns:
+    rich.console.Console: The initialized console instance.
+  """
+  global __console_singleton  # pylint: disable=global-statement
+  with __console_lock:
+    if __console_singleton is not None:
+      return __console_singleton
+    logging_level: int = _LOG_LEVELS[max(0, min(verbosity, len(_LOG_LEVELS) - 1))]
+    console = rich_console.Console(soft_wrap=soft_wrap)
+    logging.basicConfig(
+        level=logging_level,
+        format=_LOG_FORMAT_WITH_PROCESS if include_process else _LOG_FORMAT_NO_PROCESS,
+        datefmt=_LOG_FORMAT_DATETIME,
+        handlers=[rich_logging.RichHandler(  # we show name/line, but want time & level
+            console=console, rich_tracebacks=True, show_time=True, show_level=True, show_path=True)],
+        force=True)  # force=True to override any previous logging config
+    logging.captureWarnings(True)
+    for name in _LOG_COMMON_PROVIDERS:
+      log: logging.Logger = logging.getLogger(name)
+      log.handlers.clear()
+      log.propagate = True
+      log.setLevel(logging_level)
+    __console_singleton = console  # need a global statement to re-bind this one
+    logging.info(f'Logging initialized at level {logging.getLevelName(logging_level)}')
+    return console
 
 
 def HumanizedBytes(inp_sz: int | float, /) -> str:  # pylint: disable=too-many-return-statements
@@ -469,7 +553,7 @@ class Timer:
     if self.emit_log:
       logging.info(message)
     if self.emit_print:
-      print(message)
+      Console().print(message)
 
   def __exit__(
       self, unused_exc_type: type[BaseException] | None,

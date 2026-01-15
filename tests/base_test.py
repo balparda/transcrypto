@@ -23,8 +23,11 @@ import sys
 import tempfile
 from typing import Any, Callable
 from unittest import mock
+import warnings
 
 import pytest
+from rich import console as rich_console
+from rich import logging as rich_logging
 import typeguard
 
 from src.transcrypto import base, aes
@@ -32,6 +35,153 @@ from . import utils
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = base.__version__  # tests inherit version from module
+
+
+@pytest.fixture(autouse=True)
+def _reset_logging_and_singleton():
+  """
+  Prevent cross-test pollution:
+  - Restore root logger handlers/level
+  - Restore provider logger state
+  - Reset base._console_singleton
+  - Best-effort restore warnings capture plumbing
+  """
+  root = logging.getLogger()
+  saved_root_handlers = list(root.handlers)
+  saved_root_level = root.level
+  saved_providers = {}
+  for name in base._LOG_COMMON_PROVIDERS:
+    lg = logging.getLogger(name)
+    saved_providers[name] = {
+        'handlers': list(lg.handlers),
+        'propagate': lg.propagate,
+        'level': lg.level,
+    }
+  saved_showwarning = warnings.showwarning
+  saved_logging_showwarning = getattr(logging, '_showwarning', None)
+  saved_warnings_showwarning = getattr(logging, '_warnings_showwarning', None)
+  try:
+    # Clean slate for logging
+    for h in list(root.handlers):
+      root.removeHandler(h)
+    root.setLevel(logging.WARNING)
+    # Reset singleton
+    base.ResetConsole()
+    yield
+  finally:
+    # Restore root logger
+    for h in list(root.handlers):
+      root.removeHandler(h)
+    for h in saved_root_handlers:
+      root.addHandler(h)
+    root.setLevel(saved_root_level)
+    # Restore provider loggers
+    for name, st in saved_providers.items():
+      lg = logging.getLogger(name)
+      lg.handlers = st['handlers']
+      lg.propagate = st['propagate']
+      lg.setLevel(st['level'])
+    # Restore warnings plumbing (best effort)
+    warnings.showwarning = saved_showwarning
+    if saved_logging_showwarning is not None:
+      logging._showwarning = saved_logging_showwarning
+    if saved_warnings_showwarning is not None:
+      logging._warnings_showwarning = saved_warnings_showwarning
+
+
+def _expected_level(verbosity: int) -> int:
+  idx = max(0, min(verbosity, len(base._LOG_LEVELS) - 1))
+  return base._LOG_LEVELS[idx]
+
+
+def test_console_returns_fallback_when_not_initialized():
+  """Test."""
+  c1 = base.Console()
+  c2 = base.Console()
+  assert isinstance(c1, rich_console.Console)
+  # Not initialized => each call returns a fresh fallback Console
+  assert c1 is not c2
+
+
+def test_initlogging_sets_singleton_and_console_returns_it():
+  """Test."""
+  c = base.InitLogging(2, include_process=False)
+  assert isinstance(c, rich_console.Console)
+  assert base.Console() is c
+
+
+def test_initlogging_is_idempotent_options_ignored_after_first_call():
+  """Test."""
+  c1 = base.InitLogging(2, include_process=False)
+  c2 = base.InitLogging(0, include_process=True)  # should be ignored
+  assert c2 is c1
+
+
+def test_root_logger_level_is_set_and_clamped():
+  """Test."""
+  base.InitLogging(-10, include_process=False)
+  assert logging.getLogger().level == _expected_level(-10)
+  base.ResetConsole()
+  base.InitLogging(999, include_process=False)
+  assert logging.getLogger().level == _expected_level(999)
+
+
+def test_root_has_exactly_one_richhandler_bound_to_returned_console():
+  """Test."""
+  console = base.InitLogging(2, include_process=False)
+  root = logging.getLogger()
+  rich_handlers = [h for h in root.handlers if isinstance(h, rich_logging.RichHandler)]
+  assert len(rich_handlers) == 1
+  h = rich_handlers[0]
+  assert h.console is console
+  # Handler formatter should match selected format string
+  assert h.formatter is not None
+  assert h.formatter._fmt == base._LOG_FORMAT_NO_PROCESS
+
+
+def test_include_process_uses_process_format_on_first_init():
+  """Test."""
+  console = base.InitLogging(2, include_process=True)
+  assert isinstance(console, rich_console.Console)
+  h = next(h for h in logging.getLogger().handlers if isinstance(h, rich_logging.RichHandler))
+  assert h.formatter._fmt == base._LOG_FORMAT_WITH_PROCESS
+
+
+def test_common_provider_loggers_are_routed_to_root():
+  """Test."""
+  verbosity = 1
+  expected = _expected_level(verbosity)
+  base.InitLogging(verbosity, include_process=False)
+  for name in base._LOG_COMMON_PROVIDERS:
+    lg = logging.getLogger(name)
+    assert lg.handlers == []
+    assert lg.propagate is True
+    assert lg.level == expected
+
+
+def test_initlogging_emits_startup_log(monkeypatch):
+  """Test."""
+  seen = {}
+
+  def _fake_info(msg, *fake_args, **unused_kwargs):
+    # support both f-string messages and %-format
+    if fake_args:
+      msg = msg % fake_args
+    seen['msg'] = msg
+
+  monkeypatch.setattr(logging, 'info', _fake_info)
+  base.InitLogging(2, include_process=False)
+  assert 'Logging initialized at level' in seen.get('msg', '')
+
+
+def test_reinit_does_not_duplicate_handlers():
+  """Test."""
+  base.InitLogging(2, include_process=False)
+  root = logging.getLogger()
+  n1 = len(root.handlers)
+  base.InitLogging(2, include_process=False)
+  n2 = len(root.handlers)
+  assert n2 == n1
 
 
 def test_time_utils() -> None:

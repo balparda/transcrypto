@@ -693,9 +693,10 @@ If you want, I can fill in concrete implementations next (e.g., Miller–Rabin f
 from __future__ import annotations
 
 import argparse
-import logging
 # import pdb
 import sys
+
+from rich import console as rich_console
 
 from . import base
 
@@ -1185,11 +1186,7 @@ def main(argv: list[str] | None = None, /) -> int:  # pylint: disable=invalid-na
   parser: argparse.ArgumentParser = _BuildParser()
   args: argparse.Namespace = parser.parse_args(argv)
   # take care of global options
-  levels: list[int] = [logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]
-  logging.basicConfig(
-      level=levels[min(args.verbose, len(levels) - 1)],  # type: ignore
-      format=getattr(base, 'LOG_FORMAT', '%(levelname)s:%(message)s'))
-  logging.captureWarnings(True)
+  console: rich_console.Console = base.InitLogging(args.verbose, soft_wrap=True)
 
   try:
     # get the command, do basic checks and switch
@@ -1205,7 +1202,7 @@ def main(argv: list[str] | None = None, /) -> int:  # pylint: disable=invalid-na
             args.doc_command.lower().strip() if getattr(args, 'doc_command', '') else '')
         match doc_command:
           case 'md':
-            print(base.GenerateCLIMarkdown(
+            console.print(base.GenerateCLIMarkdown(
                 'safetrans', _BuildParser(), description=(
                     '`safetrans` is a command-line utility that provides ***safe*** crypto '
                     'primitives. It serves as a convenient wrapper over the Python APIs, '
@@ -1220,9 +1217,9 @@ def main(argv: list[str] | None = None, /) -> int:  # pylint: disable=invalid-na
         parser.print_help()
 
   except NotImplementedError as err:
-    print(f'Invalid command: {err}')
+    console.print(f'Invalid command: {err}')
   except (base.Error, ValueError) as err:
-    print(str(err))
+    console.print(str(err))
 
   return 0
 

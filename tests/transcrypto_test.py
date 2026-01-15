@@ -27,6 +27,12 @@ __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = transcrypto.__version__  # tests inherit version from module
 
 
+@pytest.fixture(autouse=True)
+def _reset_base_logging():
+  base.ResetConsole()
+  yield
+
+
 def _RunCLI(argv: list[str]) -> tuple[int, str]:
   """Run the CLI with argv, capture stdout, return (exit_code, stdout_stripped)."""
   buf = io.StringIO()
