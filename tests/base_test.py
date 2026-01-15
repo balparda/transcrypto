@@ -21,7 +21,7 @@ import math
 import pathlib
 import sys
 import tempfile
-from typing import Any, Callable
+from typing import Any, Callable, Generator
 from unittest import mock
 import warnings
 
@@ -38,7 +38,7 @@ __version__: str = base.__version__  # tests inherit version from module
 
 
 @pytest.fixture(autouse=True)
-def _reset_logging_and_singleton():
+def _reset_logging_and_singleton() -> Generator[None, None, None]:  # type: ignore
   """
   Prevent cross-test pollution:
   - Restore root logger handlers/level
@@ -46,20 +46,20 @@ def _reset_logging_and_singleton():
   - Reset base._console_singleton
   - Best-effort restore warnings capture plumbing
   """
-  root = logging.getLogger()
+  root: logging.Logger = logging.getLogger()
   saved_root_handlers = list(root.handlers)
   saved_root_level = root.level
-  saved_providers = {}
+  saved_providers: dict[str, dict[str, Any]] = {}
   for name in base._LOG_COMMON_PROVIDERS:
-    lg = logging.getLogger(name)
+    lg: logging.Logger = logging.getLogger(name)
     saved_providers[name] = {
         'handlers': list(lg.handlers),
         'propagate': lg.propagate,
         'level': lg.level,
     }
   saved_showwarning = warnings.showwarning
-  saved_logging_showwarning = getattr(logging, '_showwarning', None)
-  saved_warnings_showwarning = getattr(logging, '_warnings_showwarning', None)
+  saved_logging_showwarning: Any | None = getattr(logging, '_showwarning', None)
+  saved_warnings_showwarning: Any | None = getattr(logging, '_warnings_showwarning', None)
   try:
     # Clean slate for logging
     for h in list(root.handlers):
@@ -84,40 +84,40 @@ def _reset_logging_and_singleton():
     # Restore warnings plumbing (best effort)
     warnings.showwarning = saved_showwarning
     if saved_logging_showwarning is not None:
-      logging._showwarning = saved_logging_showwarning
+      logging._showwarning = saved_logging_showwarning  # type: ignore
     if saved_warnings_showwarning is not None:
-      logging._warnings_showwarning = saved_warnings_showwarning
+      logging._warnings_showwarning = saved_warnings_showwarning  # type: ignore
 
 
 def _expected_level(verbosity: int) -> int:
-  idx = max(0, min(verbosity, len(base._LOG_LEVELS) - 1))
+  idx: int = max(0, min(verbosity, len(base._LOG_LEVELS) - 1))
   return base._LOG_LEVELS[idx]
 
 
-def test_console_returns_fallback_when_not_initialized():
+def test_console_returns_fallback_when_not_initialized() -> None:
   """Test."""
-  c1 = base.Console()
-  c2 = base.Console()
+  c1: rich_console.Console = base.Console()
+  c2: rich_console.Console = base.Console()
   assert isinstance(c1, rich_console.Console)
   # Not initialized => each call returns a fresh fallback Console
   assert c1 is not c2
 
 
-def test_initlogging_sets_singleton_and_console_returns_it():
+def test_initlogging_sets_singleton_and_console_returns_it() -> None:
   """Test."""
-  c = base.InitLogging(2, include_process=False)
+  c: rich_console.Console = base.InitLogging(2, include_process=False)
   assert isinstance(c, rich_console.Console)
   assert base.Console() is c
 
 
-def test_initlogging_is_idempotent_options_ignored_after_first_call():
+def test_initlogging_is_idempotent_options_ignored_after_first_call() -> None:
   """Test."""
-  c1 = base.InitLogging(2, include_process=False)
-  c2 = base.InitLogging(0, include_process=True)  # should be ignored
+  c1: rich_console.Console = base.InitLogging(2, include_process=False)
+  c2: rich_console.Console = base.InitLogging(0, include_process=True)  # should be ignored
   assert c2 is c1
 
 
-def test_root_logger_level_is_set_and_clamped():
+def test_root_logger_level_is_set_and_clamped() -> None:
   """Test."""
   base.InitLogging(-10, include_process=False)
   assert logging.getLogger().level == _expected_level(-10)
@@ -126,28 +126,30 @@ def test_root_logger_level_is_set_and_clamped():
   assert logging.getLogger().level == _expected_level(999)
 
 
-def test_root_has_exactly_one_richhandler_bound_to_returned_console():
+def test_root_has_exactly_one_richhandler_bound_to_returned_console() -> None:
   """Test."""
-  console = base.InitLogging(2, include_process=False)
-  root = logging.getLogger()
-  rich_handlers = [h for h in root.handlers if isinstance(h, rich_logging.RichHandler)]
+  console: rich_console.Console = base.InitLogging(2, include_process=False)
+  root: logging.Logger = logging.getLogger()
+  rich_handlers: list[rich_logging.RichHandler] = [
+      h for h in root.handlers if isinstance(h, rich_logging.RichHandler)]
   assert len(rich_handlers) == 1
-  h = rich_handlers[0]
+  h: rich_logging.RichHandler = rich_handlers[0]
   assert h.console is console
   # Handler formatter should match selected format string
   assert h.formatter is not None
   assert h.formatter._fmt == base._LOG_FORMAT_NO_PROCESS
 
 
-def test_include_process_uses_process_format_on_first_init():
+def test_include_process_uses_process_format_on_first_init() -> None:
   """Test."""
   console = base.InitLogging(2, include_process=True)
   assert isinstance(console, rich_console.Console)
-  h = next(h for h in logging.getLogger().handlers if isinstance(h, rich_logging.RichHandler))
-  assert h.formatter._fmt == base._LOG_FORMAT_WITH_PROCESS
+  h: rich_logging.RichHandler = next(
+      h for h in logging.getLogger().handlers if isinstance(h, rich_logging.RichHandler))
+  assert h.formatter._fmt == base._LOG_FORMAT_WITH_PROCESS  # type: ignore
 
 
-def test_common_provider_loggers_are_routed_to_root():
+def test_common_provider_loggers_are_routed_to_root() -> None:
   """Test."""
   verbosity = 1
   expected = _expected_level(verbosity)
@@ -159,28 +161,28 @@ def test_common_provider_loggers_are_routed_to_root():
     assert lg.level == expected
 
 
-def test_initlogging_emits_startup_log(monkeypatch):
+def test_initlogging_emits_startup_log(monkeypatch: pytest.MonkeyPatch) -> None:
   """Test."""
-  seen = {}
+  seen: dict[str, str] = {}
 
-  def _fake_info(msg, *fake_args, **unused_kwargs):
+  def _fake_info(msg: str, *fake_args, **unused_kwargs) -> None:  # type: ignore
     # support both f-string messages and %-format
     if fake_args:
       msg = msg % fake_args
     seen['msg'] = msg
 
-  monkeypatch.setattr(logging, 'info', _fake_info)
+  monkeypatch.setattr(logging, 'info', _fake_info)  # type: ignore
   base.InitLogging(2, include_process=False)
   assert 'Logging initialized at level' in seen.get('msg', '')
 
 
-def test_reinit_does_not_duplicate_handlers():
+def test_reinit_does_not_duplicate_handlers() -> None:
   """Test."""
   base.InitLogging(2, include_process=False)
-  root = logging.getLogger()
-  n1 = len(root.handlers)
+  root: logging.Logger = logging.getLogger()
+  n1: int = len(root.handlers)
   base.InitLogging(2, include_process=False)
-  n2 = len(root.handlers)
+  n2: int = len(root.handlers)
   assert n2 == n1
 
 

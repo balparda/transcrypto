@@ -13,6 +13,7 @@ import io
 # import pdb
 import runpy
 import sys
+from typing import Generator
 # from unittest import mock
 
 import pytest
@@ -24,7 +25,7 @@ __version__: str = base.__version__  # tests inherit version from module
 
 
 @pytest.fixture(autouse=True)
-def _reset_base_logging():
+def _reset_base_logging() -> Generator[None, None, None]:  # type: ignore
   base.ResetConsole()
   yield
 

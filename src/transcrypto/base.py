@@ -162,7 +162,7 @@ def InitLogging(
 
       from transcrypto import base
       @pytest.fixture(autouse=True)
-      def _reset_base_logging():
+      def _reset_base_logging() -> Generator[None, None, None]:  # type: ignore
         base.ResetConsole()
         yield
 

@@ -18,6 +18,7 @@ import re
 import runpy
 import sys
 import textwrap
+from typing import Generator
 
 import pytest
 
@@ -28,7 +29,7 @@ __version__: str = transcrypto.__version__  # tests inherit version from module
 
 
 @pytest.fixture(autouse=True)
-def _reset_base_logging():
+def _reset_base_logging() -> Generator[None, None, None]:  # type: ignore
   base.ResetConsole()
   yield
 
