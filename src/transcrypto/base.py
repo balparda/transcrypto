@@ -156,7 +156,7 @@ def ResetConsole() -> None:
 def InitLogging(
     verbosity: int, /, *,
     include_process: bool = False, soft_wrap: bool = False) -> rich_console.Console:
-  """Initialize logger (with RichHandler).
+  """Initialize logger (with RichHandler) and get a rich.console.Console singleton.
 
   If you have a CLI app that uses this, its pytests should call `ResetConsole()` in a fixture, like:
 
@@ -167,7 +167,7 @@ def InitLogging(
         yield
 
   Args:
-    verbosity (int): Logging verbosity level.
+    verbosity (int): Logging verbosity level: 0==ERROR, 1==WARNING, 2==INFO, 3==DEBUG
     include_process (bool, optional): Whether to include process name in log output.
     soft_wrap (bool, optional): Whether to enable soft wrapping in the console.
         Default is False, and it means rich will hard-wrap long lines (by adding '\n' chars).
