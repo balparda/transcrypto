@@ -1,22 +1,33 @@
-# pyproject.toml  (preferred for new projects, PEP 621)
-# Copyright 2025 Daniel Balparda (balparda@github.com)
-# Apache-2.0 license
+# SPDX-FileCopyrightText: 2026 Daniel Balparda <balparda@github.com>
+# SPDX-License-Identifier: Apache-2.0
+# pyproject.toml (preferred for new projects, PEP 621)
 
+####################################################################################################
 [build-system]
-requires = ["setuptools>=80", "wheel"]
-build-backend = "setuptools.build_meta"
 
+requires = [ "poetry-core>=2.3" ]
+build-backend = "poetry.core.masonry.api"
+
+####################################################################################################
 [project]
+
 name = "transcrypto"
 version = "1.6.0"
+
 description = "Basic crypto primitives, not intended for actual use, but as a companion to --Criptografia, Métodos e Algoritmos--"
-readme = "README.md"
 license = "Apache-2.0"
-license-files = ["LICENSE"]
 authors = [
   { name = "Daniel Balparda", email = "balparda@github.com" }
 ]
-requires-python = ">=3.13.5,<4.0"  # if version changes, remember to change README.md
+
+keywords = [
+  "python",
+  "poetry",
+  "typer",
+  "rich",
+  "cli",
+  "template",
+]
 classifiers = [  # see: https://pypi.org/classifiers/
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.13",
@@ -25,55 +36,224 @@ classifiers = [  # see: https://pypi.org/classifiers/
   "Topic :: Security :: Cryptography"
 ]
 
+requires-python = ">=3.13"
+readme = "README.md"
+license-files = [ "LICENSE" ]
+
+dependencies = [
+
+  "typer>=0.21",   # if this changes, also change: [tool.poetry.dependencies] and .pre-commit-config.yaml
+  "rich>=14.2",    # if this changes, also change: .pre-commit-config.yaml
+  "platformdirs>=4.5",
+
+  # best place for project dependencies, if possible
+  # development-only dependencies go in the [tool.poetry.group.dev.dependencies] section below
+
+  "cryptography>=46.0",
+  "zstandard>=0.25",
+  "gmpy2>=2.2",
+  "scipy>=1.17",
+
+]
+
+####################################################################################################
+[project.scripts]
+
+# console scripts that will be installed when installing the package;
+# if you change/add a line here, re-run `poetry sync`
+
+transcrypto = "transcrypto.transcrypto:app"
+safetrans = "transcrypto.safetrans:app"
+profiler = "transcrypto.profiler:app"
+
+####################################################################################################
 [project.urls]
+
 Homepage = "https://github.com/balparda/transcrypto"
+Repository = "https://github.com/balparda/transcrypto"
+Issues = "https://github.com/balparda/transcrypto/issues"
+Changelog = "https://github.com/balparda/transcrypto/blob/main/CHANGELOG.md"
+
 PyPI = "https://pypi.org/project/transcrypto/"
 
-[tool.setuptools]
-package-dir = {"" = "src"}   # root package namespace lives in src/
-
-[tool.setuptools.packages.find]
-where   = ["src"]           # auto-discover every importable package inside src/
-include = ["transcrypto*"]  # avoid picking up stuff not in "transcrypto"
-
-[tool.setuptools.package-data]
-"transcrypto" = ["py.typed"]
-
+####################################################################################################
 [tool.poetry]
+
 requires-poetry = "^2.1"
 
-[tool.poetry.dependencies]
-cryptography = ">=46.0"
-zstandard = ">=0.25"
-gmpy2 = "^2.2"
-scipy = "^1.17"
-rich = "^14.2"
+packages = [{ include = "transcrypto", from = "src" }]
+include = [
+  { path = "src/transcrypto/py.typed", format = "sdist" },
+  { path = "src/transcrypto/py.typed", format = "wheel" },
+]
 
-[tool.poetry.requires-plugins]
-poetry-plugin-export = ">=1.10"
+####################################################################################################
+[tool.poetry.dependencies]
+
+# prefer to add dependencies inside the [project.dependencies] section
+
+python = "^3.13"  # if version changes, remember to change README.md
+typer = { version = "^0.21", extras = ["all"] }  # if this changes, also change: .pre-commit-config.yaml
 
 [tool.poetry.group.dev.dependencies]
-pylint = "^4.0"
-flake8 = "^7.2"
+
+ruff = "~0.14.13"  # if this changes, also change: .pre-commit-config.yaml
+mypy = "~1.19.1"   # if this changes, also change: .pre-commit-config.yaml
+pytest = "^9.0"    # if this changes, also change: .pre-commit-config.yaml
+pytest-cov = "^7.0"
+pytest-flakefinder = "^1.1"
 pyright = "^1.1"
-pytest = ">=8.4"
-pytest-pythonpath = ">=0.7"
-pytest-flakefinder = ">=1.1"
-coverage = ">=7.10"
-tomli = ">=2.2.1"
-typeguard = ">=4.4.4"
-pyinstrument = ">=5.1.1"
+pre-commit = "^4.5"
+pyinstrument = "^5.1"
+typeguard = "^4.4"
+tomli = "^2.4"
 
-[tool.poetry.scripts]
-transcrypto = "transcrypto.transcrypto:main"
-safetrans = "transcrypto.safetrans:main"
-profiler = "transcrypto.profiler:main"
+[tool.poetry.requires-plugins]
+poetry-plugin-export = "^1.10"
 
+####################################################################################################
+[tool.ruff]
+
+target-version = "py313"
+line-length = 100
+indent-width = 2
+src = [ "src", "tests", "tests_integration" ]
+
+[tool.ruff.format]
+
+quote-style = "single"
+indent-style = "space"
+docstring-code-format = true
+
+[tool.ruff.lint.flake8-quotes]
+
+inline-quotes = "single"
+
+####################################################################################################
+[tool.ruff.lint]
+
+select = [
+  "ALL",   # ALL rules --- if too strict comment this out and pick the ones you need below
+#   "E",     # pycodestyle “errors” (basic correctness-ish style checks)
+# 	"F",     # pyflakes (unused imports/vars, undefined names, etc.)
+# 	"I",     # isort rules (import sorting)
+# 	"UP",    # pyupgrade (suggest modern Python syntax)
+# 	"B",     # flake8-bugbear (common bug patterns / footguns)
+# 	"SIM",   # flake8-simplify (suggest simpler expressions)
+#   "A",     # (builtins shadowing; e.g. naming a var list)
+# 	"N",     # (naming conventions)
+# 	"S",     # (security-ish checks from Bandit; can be noisy but useful)
+# 	"DTZ",   # (timezone-naive datetime pitfalls)
+# 	"TRY",   # (exception-handling best practices)
+# 	"PERF",  # (performance footguns)
+# 	"TCH",   # (type-checking import hygiene)
+# 	"D",     # (docstring conventions / pydocstyle — only if you want docstring policing)
+]
+
+ignore = [
+  "N802",  # allow PascalCase in method names
+  "E111",  # allow 2-space indentation
+  "E114",  # allow 2-space indentation
+  "D203",  # incorrect-blank-line-before-class: may cause conflicts when used with the formatter
+  "D213",  # multi-line-summary-second-line b/c conflicts w/ multi-line-summary-first-line D212
+  "COM812",  # missing-trailing-comma: may cause conflicts when used with the formatter
+
+  "TC002",    # checks for third-party imports that are only used for type annotations
+
+  "FBT003",   # allows boolean positional value in function call
+  "PLR0913",  # Too many arguments in function definition (N > 5)
+  "PLR0917",  # Too many positional arguments (N/5)
+
+  "TRY003",  # Avoid specifying long messages outside the exception class
+  "EM101",   # Exception must not use a string literal, assign to variable first
+  "EM102",   # Exception must not use an f-string literal, assign to variable first
+
+  "TD002",   # allow TODOs without authors
+  "TD003",   # allow TODOs without bugs
+  "FIX002",  # fix the todos...  # TODO: remove this line: you usually want this
+  "PGH003",  # allow ignoring type issues without giving extra codes
+
+  "LOG015",  # allows for calls into top-level logging methods
+  "G004",    # allows logging statements to use f-string
+]
+# ignore = [ "E125", "E129", "E501"]
+
+preview = true  # if you want new features being previewed
+
+[tool.ruff.lint.per-file-ignores]
+
+"tests/**/*.py" = [ "S101" ]
+"tests_integration/**/*.py" = [ "S101" ]
+
+####################################################################################################
+[tool.mypy]
+
+python_version = "3.13"
+mypy_path = [ "src" ]
+
+warn_return_any = true
+warn_unused_configs = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unreachable = true
+show_error_codes = true
+check_untyped_defs = true
+no_implicit_reexport = true
+
+strict = true
+
+####################################################################################################
+[tool.pyright]
+
+typeCheckingMode = "strict"
+pythonVersion = "3.13"
+venvPath = "."
+venv = ".venv"
+
+include = [ "src", "tests", "tests_integration" ]
+exclude = [
+  "**/.venv",
+  "**/__pycache__",
+  "**/.mypy_cache",
+  "**/.pytest_cache",
+  "**/.ruff_cache",
+  "**/dist",
+  "**/build",
+]
+
+####################################################################################################
 [tool.pytest.ini_options]
-pythonpath = ["src"]
-addopts = ["--strict-markers"]
+
+pythonpath = [ "src" ]
+testpaths = [ "tests", "tests_integration" ]
+addopts = [
+  "-q",
+  "--strict-markers",
+]
+
 markers = [
-  "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-  "veryslow: marks tests as slow (deselect with '-m \"not veryslow\"')",
-  "stochastic: marks tests as capable of failing even if unlikely (deselect with '-m \"not stochastic\"')"
+
+  "slow: test is slow (> 0.1s)",
+  "veryslow: test is slow (> 1s)",
+  "flaky: AVOID! - test is known to be flaky",
+  "stochastic: test is capable of failing (even if very unlikely)",
+  "integration: integration test (installs wheel + runs console script)",
+
+  # define your own tags here; to run and de-select/select a tag do: `-m \"not slow\"` or `-m slow`
+  # mark python tests with decorator @pytest.mark.slow / @pytest.mark.<tag-name>
+
+]
+
+typeguard-packages = [ "transcrypto" ]
+typeguard-forward-ref-policy = "ERROR"
+typeguard-collection-check-strategy = "ALL_ITEMS"
+
+####################################################################################################
+[tool.coverage.run]
+omit = [
+  "*/__init__.py",  # keep these free of real code!
+  "*/__main__.py",
+  "*/template.py",
 ]
