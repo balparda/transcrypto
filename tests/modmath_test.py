@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import sys
 from unittest import mock
 
 import gmpy2
@@ -518,10 +517,3 @@ def test_MersennePrimesGenerator() -> None:
     if i > 12:
       break
   assert mersenne == constants.FIRST_49_MERSENNE_SORTED[:14]
-
-
-if __name__ == '__main__':
-  # run only the tests in THIS file but pass through any extra CLI flags
-  args: list[str] = sys.argv[1:] + [__file__]
-  print(f'pytest {" ".join(args)}')
-  sys.exit(pytest.main(sys.argv[1:] + [__file__]))

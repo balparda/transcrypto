@@ -53,10 +53,3 @@ def test_run_entrypoint_block(monkeypatch: pytest.MonkeyPatch) -> None:
   with pytest.raises(SystemExit) as exc:
     runpy.run_module('transcrypto.safetrans', run_name='__main__')
   assert exc.value.code == 0
-
-
-if __name__ == '__main__':
-  # run only the tests in THIS file but pass through any extra CLI flags
-  args: list[str] = sys.argv[1:] + [__file__]
-  print(f'pytest {" ".join(args)}')
-  sys.exit(pytest.main(sys.argv[1:] + [__file__]))

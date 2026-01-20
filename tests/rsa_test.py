@@ -4,13 +4,11 @@
 
 from __future__ import annotations
 
-import sys
 from unittest import mock
 
 import pytest
-from tests import utils
 
-from transcrypto import base, rsa
+from transcrypto import aes, base, rsa
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = rsa.__version__  # tests inherit version from module
@@ -134,9 +132,9 @@ def test_RSA_raw(  # pylint: disable=too-many-locals,too-many-arguments,too-many
     q_inverse_p=q_inverse_p,
   )
   public: rsa.RSAPublicKey = rsa.RSAPublicKey.Copy(private)
-  utils.TestCryptoKeyEncoding(private, rsa.RSAPrivateKey)
-  utils.TestCryptoKeyEncoding(public, rsa.RSAPublicKey)
-  utils.TestCryptoKeyEncoding(ob, rsa.RSAObfuscationPair)
+  aes._TestCryptoKeyEncoding(private, rsa.RSAPrivateKey)
+  aes._TestCryptoKeyEncoding(public, rsa.RSAPublicKey)
+  aes._TestCryptoKeyEncoding(ob, rsa.RSAObfuscationPair)
   # do public key operations
   with pytest.raises(base.InputError, match='invalid message'):
     public.RawEncrypt(0)
@@ -356,10 +354,3 @@ def test_RSAPrivateKey_invalid() -> None:
     remainder_q=25,
     q_inverse_p=16,
   )
-
-
-if __name__ == '__main__':
-  # run only the tests in THIS file but pass through any extra CLI flags
-  args: list[str] = sys.argv[1:] + [__file__]
-  print(f'pytest {" ".join(args)}')
-  sys.exit(pytest.main(sys.argv[1:] + [__file__]))

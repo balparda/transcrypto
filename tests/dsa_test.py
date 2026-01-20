@@ -4,13 +4,11 @@
 
 from __future__ import annotations
 
-import sys
 from unittest import mock
 
 import pytest
-from tests import utils
 
-from transcrypto import base, dsa, modmath
+from transcrypto import aes, base, dsa, modmath
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = dsa.__version__  # tests inherit version from module
@@ -187,9 +185,9 @@ def test_DSA_raw(  # pylint: disable=too-many-arguments,too-many-positional-argu
     decrypt_exp=decrypt_exp,
   )
   public = dsa.DSAPublicKey.Copy(private)
-  utils.TestCryptoKeyEncoding(shared, dsa.DSASharedPublicKey)
-  utils.TestCryptoKeyEncoding(private, dsa.DSAPrivateKey)
-  utils.TestCryptoKeyEncoding(public, dsa.DSAPublicKey)
+  aes._TestCryptoKeyEncoding(shared, dsa.DSASharedPublicKey)
+  aes._TestCryptoKeyEncoding(private, dsa.DSAPrivateKey)
+  aes._TestCryptoKeyEncoding(public, dsa.DSAPublicKey)
   make_ephemeral.return_value = (ephemeral, dsa.modmath.ModInv(ephemeral, prime_seed))
   # do private key operations
   with pytest.raises(base.InputError, match='invalid message'):
@@ -333,10 +331,3 @@ def test_DSAKey_invalid() -> None:
       individual_base=1144028,
       decrypt_exp=807,
     )
-
-
-if __name__ == '__main__':
-  # run only the tests in THIS file but pass through any extra CLI flags
-  args: list[str] = sys.argv[1:] + [__file__]
-  print(f'pytest {" ".join(args)}')
-  sys.exit(pytest.main(sys.argv[1:] + [__file__]))

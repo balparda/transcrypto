@@ -4,13 +4,11 @@
 
 from __future__ import annotations
 
-import sys
 from unittest import mock
 
 import pytest
-from tests import utils
 
-from transcrypto import base, elgamal
+from transcrypto import aes, base, elgamal
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = elgamal.__version__  # tests inherit version from module
@@ -148,9 +146,9 @@ def test_ElGamal_raw(  # pylint: disable=too-many-arguments,too-many-positional-
     decrypt_exp=decrypt_exp,
   )
   public = elgamal.ElGamalPublicKey.Copy(private)
-  utils.TestCryptoKeyEncoding(shared, elgamal.ElGamalSharedPublicKey)
-  utils.TestCryptoKeyEncoding(private, elgamal.ElGamalPrivateKey)
-  utils.TestCryptoKeyEncoding(public, elgamal.ElGamalPublicKey)
+  aes._TestCryptoKeyEncoding(shared, elgamal.ElGamalSharedPublicKey)
+  aes._TestCryptoKeyEncoding(private, elgamal.ElGamalPrivateKey)
+  aes._TestCryptoKeyEncoding(public, elgamal.ElGamalPublicKey)
   # do public key operations
   make_ephemeral.return_value = (ephemeral, elgamal.modmath.ModInv(ephemeral, prime_modulus - 1))
   with pytest.raises(base.InputError, match='invalid message'):
@@ -269,10 +267,3 @@ def test_ElGamalKey_invalid() -> None:
     elgamal.ElGamalPrivateKey(
       prime_modulus=1693, group_base=82, individual_base=156, decrypt_exp=1007
     )
-
-
-if __name__ == '__main__':
-  # run only the tests in THIS file but pass through any extra CLI flags
-  args: list[str] = sys.argv[1:] + [__file__]
-  print(f'pytest {" ".join(args)}')
-  sys.exit(pytest.main(sys.argv[1:] + [__file__]))

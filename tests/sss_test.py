@@ -4,13 +4,11 @@
 
 from __future__ import annotations
 
-import sys
 from unittest import mock
 
 import pytest
-from tests import utils
 
-from transcrypto import base, sss
+from transcrypto import aes, base, sss
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = sss.__version__  # tests inherit version from module
@@ -39,10 +37,10 @@ def test_ShamirSharedSecret_raw(
     share_value=shares[0].share_value,
     encrypted_data=b'x' * 128,
   )
-  utils.TestCryptoKeyEncoding(private, sss.ShamirSharedSecretPrivate)
-  utils.TestCryptoKeyEncoding(public, sss.ShamirSharedSecretPublic)
-  utils.TestCryptoKeyEncoding(shares[0], sss.ShamirSharePrivate)
-  utils.TestCryptoKeyEncoding(data, sss.ShamirShareData)
+  aes._TestCryptoKeyEncoding(private, sss.ShamirSharedSecretPrivate)
+  aes._TestCryptoKeyEncoding(public, sss.ShamirSharedSecretPublic)
+  aes._TestCryptoKeyEncoding(shares[0], sss.ShamirSharePrivate)
+  aes._TestCryptoKeyEncoding(data, sss.ShamirShareData)
   # do operations
   assert public.RawRecoverSecret(shares) == secret
   assert public.RawRecoverSecret(shares[1:]) == secret
@@ -199,10 +197,3 @@ def test_ShamirShareData_invalid() -> None:
   with pytest.raises(base.InputError, match=r'AES256\+GCM SSS should have ≥32 bytes IV/CT/tag'):
     sss.ShamirShareData(minimum=3, modulus=7, share_key=2, share_value=6, encrypted_data=b'xyz')
   sss.ShamirShareData(minimum=3, modulus=7, share_key=2, share_value=6, encrypted_data=b'x' * 128)
-
-
-if __name__ == '__main__':
-  # run only the tests in THIS file but pass through any extra CLI flags
-  args: list[str] = sys.argv[1:] + [__file__]
-  print(f'pytest {" ".join(args)}')
-  sys.exit(pytest.main(sys.argv[1:] + [__file__]))

@@ -4,11 +4,9 @@
 
 from __future__ import annotations
 
-import sys
 from unittest import mock
 
 import pytest
-from tests import utils
 
 from transcrypto import aes, base
 
@@ -124,7 +122,7 @@ def test_ECBEncoder(s_key: str, pth: str, ct1: str, ct101: str) -> None:
   """Test."""
   # create based on key and test first encryption
   key = aes.AESKey(key256=base.HexToBytes(s_key))
-  utils.TestCryptoKeyEncoding(key, aes.AESKey)
+  aes._TestCryptoKeyEncoding(key, aes.AESKey)
   encoder: aes.AESKey.ECBEncoderClass = key.ECBEncoder()
   pt: bytes = base.HexToBytes(pth)
   ct: bytes = encoder.Encrypt(pt)
@@ -313,10 +311,3 @@ def test_GCMEncoder(
     key.Decrypt(bytes(bad_ct), associated_data=aad)
   # check calls
   assert rand_bytes.call_args_list == [mock.call(16)] * 3
-
-
-if __name__ == '__main__':
-  # run only the tests in THIS file but pass through any extra CLI flags
-  args: list[str] = sys.argv[1:] + [__file__]
-  print(f'pytest {" ".join(args)}')
-  sys.exit(pytest.main(sys.argv[1:] + [__file__]))

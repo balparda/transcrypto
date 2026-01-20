@@ -25,7 +25,6 @@ import pytest
 import typeguard
 from rich import console as rich_console
 from rich import logging as rich_logging
-from tests import utils
 
 from transcrypto import aes, base
 
@@ -1477,8 +1476,8 @@ def test_Bid(secret: bytes) -> None:
   priv1: base.PrivateBid512 = base.PrivateBid512.New(secret)
   priv2: base.PrivateBid512 = base.PrivateBid512.New(secret)
   pub: base.PublicBid512 = base.PublicBid512.Copy(priv1)
-  utils.TestCryptoKeyEncoding(priv1, base.PrivateBid512)
-  utils.TestCryptoKeyEncoding(pub, base.PublicBid512)
+  aes._TestCryptoKeyEncoding(priv1, base.PrivateBid512)
+  aes._TestCryptoKeyEncoding(pub, base.PublicBid512)
   assert pub.VerifyBid(priv1.private_key, secret)
   assert not pub.VerifyBid(priv1.private_key, secret + b'x')
   assert not pub.VerifyBid(priv2.private_key, secret)
@@ -1562,10 +1561,3 @@ def test_rows_for_actions_cover_suppress_custom_and_help() -> None:
   assert 'type: custom' in text
   # Built-in help action is skipped by _RowsForActions; make sure other rows exist
   assert any('--flag' in l for (l, _r) in rows)
-
-
-if __name__ == '__main__':
-  # run only the tests in THIS file but pass through any extra CLI flags
-  args: list[str] = sys.argv[1:] + [__file__]
-  print(f'pytest {" ".join(args)}')
-  sys.exit(pytest.main(sys.argv[1:] + [__file__]))
