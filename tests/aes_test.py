@@ -41,7 +41,7 @@ def test_AESKey() -> None:
 
 
 @pytest.mark.parametrize(
-  's_key, pth, ct1, ct101',
+  ('s_key', 'pth', 'ct1', 'ct101'),
   [
     # values copied from Appendix B, page 16+ of:
     # <https://csrc.nist.gov/csrc/media/projects/cryptographic-algorithm-validation-program/documents/aes/aesavs.pdf>
@@ -155,7 +155,7 @@ def test_ECBEncoder(s_key: str, pth: str, ct1: str, ct101: str) -> None:
 
 
 @pytest.mark.parametrize(
-  's_key, pt, aad, ct1',
+  ('s_key', 'pt', 'aad', 'ct1'),
   [
     pytest.param(
       '0000000000000000000000000000000000000000000000000000000000000000',
@@ -208,8 +208,8 @@ def test_ECBEncoder(s_key: str, pth: str, ct1: str, ct101: str) -> None:
     ),
     pytest.param(
       'b43d08a447ac8609baadae4ff12918b9f68fc1653f1269222f123981ded7a92f',
-      b'abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhi012345678901234567890',
-      b'',  # cspell:disable-line
+      b'abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhi012345678901234567890',  # cspell:disable-line
+      b'',
       'I2oZ71hoQLKtVIsNWDZu_Dg_p-b-a9fqCnMXyvE3R5bh4DjMz9bgaZuV0-LBb37bhiEvOwvN101VVW5TAy'
       'VpV_jt5rCkcN4ULPGQBrcmoT7SeuCEMrxKlDsZPe8wi2CNmK_Bb7eikT_RAzwK2oOt',
       id='b43-large-1',
@@ -292,22 +292,22 @@ def test_GCMEncoder(
     key.Decrypt(b'123', associated_data=aad)  # ct too short
   ct = key.Encrypt(pt, associated_data=aad)
   if len(aad) > 2:
+    bad_aad: bytearray = bytearray(ct)
+    bad_aad[2] ^= 0x01  # flip a bit in the AAD
     with pytest.raises(base.CryptoError, match='failed decryption'):
-      bad_aad: bytearray = bytearray(ct)
-      bad_aad[2] ^= 0x01  # flip a bit in the AAD
       key.Decrypt(ct, associated_data=bytes(bad_aad))  # should not have aad
+  bad_ct: bytearray = bytearray(ct)
+  bad_ct[2] ^= 0x01  # flip a bit in the IV/nonce part
   with pytest.raises(base.CryptoError, match='failed decryption'):
-    bad_ct: bytearray = bytearray(ct)
-    bad_ct[2] ^= 0x01  # flip a bit in the IV/nonce part
     key.Decrypt(bytes(bad_ct), associated_data=aad)
   if len(ct) > 2:
-    with pytest.raises(base.CryptoError, match='failed decryption'):
-      bad_ct = bytearray(ct)
-      bad_ct[18] ^= 0x01  # flip a bit in the ciphertext part
-      key.Decrypt(bytes(bad_ct), associated_data=aad)
-  with pytest.raises(base.CryptoError, match='failed decryption'):
     bad_ct = bytearray(ct)
-    bad_ct[-2] ^= 0x01  # flip a bit in the tag part
+    bad_ct[18] ^= 0x01  # flip a bit in the ciphertext part
+    with pytest.raises(base.CryptoError, match='failed decryption'):
+      key.Decrypt(bytes(bad_ct), associated_data=aad)
+  bad_ct = bytearray(ct)
+  bad_ct[-2] ^= 0x01  # flip a bit in the tag part
+  with pytest.raises(base.CryptoError, match='failed decryption'):
     key.Decrypt(bytes(bad_ct), associated_data=aad)
   # check calls
   assert rand_bytes.call_args_list == [mock.call(16)] * 3

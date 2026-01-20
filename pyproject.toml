@@ -129,6 +129,10 @@ docstring-code-format = true
 
 inline-quotes = "single"
 
+[tool.ruff.lint.pycodestyle]
+
+ignore-overlong-task-comments = true
+
 ####################################################################################################
 [tool.ruff.lint]
 
@@ -176,14 +180,18 @@ ignore = [
   "LOG015",  # allows for calls into top-level logging methods
   "G004",    # allows logging statements to use f-string
 ]
-# ignore = [ "E125", "E129", "E501"]
+
+task-tags = ["noqa", "cspell", "type"]
 
 preview = true  # if you want new features being previewed
 
 [tool.ruff.lint.per-file-ignores]
 
-"tests/**/*.py" = [ "S101" ]
-"tests_integration/**/*.py" = [ "S101" ]
+"tests*/**/*.py" = [
+  "S101",     # Use of `assert` detected
+  "SLF001",   # Private member accessed
+  "PLR2004",  # Magic value used in comparison, consider replacing <V> with a constant variable
+]
 
 ####################################################################################################
 [tool.mypy]
@@ -221,6 +229,12 @@ exclude = [
   "**/.ruff_cache",
   "**/dist",
   "**/build",
+]
+
+executionEnvironments = [
+  # Any tests* trees: disable the private-usage diagnostic.
+  { root = "tests", reportPrivateUsage = "none" },
+  { root = "tests_integration", reportPrivateUsage = "none" },
 ]
 
 ####################################################################################################
