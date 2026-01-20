@@ -1,37 +1,30 @@
-#!/usr/bin/env python3
-#
-# Copyright 2025 Daniel Balparda (balparda@github.com) - Apache-2.0 license
-#
-# pylint: disable=invalid-name,protected-access
-# pyright: reportPrivateUsage=false
+# SPDX-FileCopyrightText: Copyright 2026 Daniel Balparda <balparda@github.com>
+# SPDX-License-Identifier: Apache-2.0
 """transcrypto.py unittest."""
 
 from __future__ import annotations
 
 import argparse
-from contextlib import redirect_stdout
 import io
 import os
 import pathlib
-# import pdb
 import re
 import runpy
 import sys
 import textwrap
-from typing import Generator
+from contextlib import redirect_stdout
 
 import pytest
 
-from src.transcrypto import aes, base, modmath, transcrypto
+from transcrypto import aes, base, modmath, transcrypto
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = transcrypto.__version__  # tests inherit version from module
 
 
 @pytest.fixture(autouse=True)
-def _reset_base_logging() -> Generator[None, None, None]:  # type: ignore
+def _reset_base_logging() -> None:  # type: ignore
   base.ResetConsole()
-  yield
 
 
 def _RunCLI(argv: list[str]) -> tuple[int, str]:
@@ -45,9 +38,9 @@ def _RunCLI(argv: list[str]) -> tuple[int, str]:
 
 def test_LoadObj_wrong_type_raises(tmp_path: pathlib.Path) -> None:
   """_LoadObj should raise if the on-disk object is not of the expected type."""
-  path: pathlib.Path = tmp_path / "obj.saved"
+  path: pathlib.Path = tmp_path / 'obj.saved'
   # Save an AESKey object…
-  key = aes.AESKey(key256=b"\x00" * 32)
+  key = aes.AESKey(key256=b'\x00' * 32)
   transcrypto._SaveObj(key, str(path), None)
   # …then try to load it expecting a completely different type.
   with pytest.raises(base.InputError, match=r'invalid type.*AESKey.*expected.*PublicBid'):
@@ -55,62 +48,74 @@ def test_LoadObj_wrong_type_raises(tmp_path: pathlib.Path) -> None:
 
 
 @pytest.mark.parametrize(
-    'argv, expected',
-    [
-        # --- primality ---
-        (['isprime', '2305843009213693951'], 'True'),
-        (['isprime', '2305843009213693953'], 'False'),
-
-        # --- gcd / xgcd ---
-        (['gcd', '462', '1071'], '21'),
-        (['xgcd', '100', '24'], '(4, 1, -4)'),
-
-        # --- modular arithmetic ---
-        (['mod', 'inv', '0x3', '11'], '4'),          # 3^-1 mod 11 = 4
-        (['mod', 'inv', '3', '9'],
-         '<<INVALID>> no modular inverse exists (ModularDivideError)'),
-        (['mod', 'div', '0o12', '4', '13'], '9'),  # z*4 ≡ 10 (mod 13) → z = 9
-        (['mod', 'div', '4', '0', '13'],
-         '<<INVALID>> no modular inverse exists (ModularDivideError)'),
-        (['mod', 'exp', '3', '20', '97'], '91'),   # 3^20 mod 97 = 91 (precomputed)
-        (['mod', 'poly', '127', '19937', '10', '30', '20', '12', '31'], '12928'),
-        (['mod', 'lagrange', '9', '5', '1:1', '3:3'], '4'),
-        (['mod', 'crt', '0b10', '3', '3', '5'], '8'),
-        (['mod', 'crt', '2', '3', '3', '0xf'],
-         '<<INVALID>> moduli m1/m2 not co-prime (ModularDivideError)'),
-
-        # --- prime generation (deterministic with -c) ---
-        (['primegen', '10', '-c', '5'], textwrap.dedent('''\
+  'argv, expected',
+  [
+    # --- primality ---
+    (['isprime', '2305843009213693951'], 'True'),
+    (['isprime', '2305843009213693953'], 'False'),
+    # --- gcd / xgcd ---
+    (['gcd', '462', '1071'], '21'),
+    (['xgcd', '100', '24'], '(4, 1, -4)'),
+    # --- modular arithmetic ---
+    (['mod', 'inv', '0x3', '11'], '4'),  # 3^-1 mod 11 = 4
+    (['mod', 'inv', '3', '9'], '<<INVALID>> no modular inverse exists (ModularDivideError)'),
+    (['mod', 'div', '0o12', '4', '13'], '9'),  # z*4 ≡ 10 (mod 13) → z = 9
+    (['mod', 'div', '4', '0', '13'], '<<INVALID>> no modular inverse exists (ModularDivideError)'),
+    (['mod', 'exp', '3', '20', '97'], '91'),  # 3^20 mod 97 = 91 (precomputed)
+    (['mod', 'poly', '127', '19937', '10', '30', '20', '12', '31'], '12928'),
+    (['mod', 'lagrange', '9', '5', '1:1', '3:3'], '4'),
+    (['mod', 'crt', '0b10', '3', '3', '5'], '8'),
+    (
+      ['mod', 'crt', '2', '3', '3', '0xf'],
+      '<<INVALID>> moduli m1/m2 not co-prime (ModularDivideError)',
+    ),
+    # --- prime generation (deterministic with -c) ---
+    (
+      ['primegen', '10', '-c', '5'],
+      textwrap.dedent("""\
             11
             13
             17
             19
-            23''').strip()),
-        (['mersenne', '--min-k', '2', '--cutoff-k', '7'], textwrap.dedent('''\
+            23""").strip(),
+    ),
+    (
+      ['mersenne', '--min-k', '2', '--cutoff-k', '7'],
+      textwrap.dedent("""\
             k=2  M=3  perfect=6
             k=3  M=7  perfect=28
             k=5  M=31  perfect=496
             k=7  M=127  perfect=8128
-            k=13  M=8191  perfect=33550336''').strip()),
-
-        # --- hashing (strings) ---
-        # SHA-256('abc')
-        (['--bin', 'hash', 'sha256', 'abc'],
-         'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'),
-        # SHA-256('abc'), hex input
-        (['--hex', 'hash', 'sha256', '616263'],
-         'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'),
-        # SHA-256('abc'), base64url output
-        (['--bin', '--out-b64', 'hash', 'sha256', 'abc'],
-         'ungWv48Bz-pBQUDeXa4iI7ADYaOWF3qctBD_YfIAFa0='),
-        # SHA-256('abc') via base64url input YWJj
-        (['--b64', 'hash', 'sha256', 'YWJj'],
-         'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'),
-        # SHA-512('abc')
-        (['--bin', 'hash', 'sha512', 'abc'],
-         'ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a'
-         '2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f'),
-    ],
+            k=13  M=8191  perfect=33550336""").strip(),
+    ),
+    # --- hashing (strings) ---
+    # SHA-256('abc')
+    (
+      ['--bin', 'hash', 'sha256', 'abc'],
+      'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    ),
+    # SHA-256('abc'), hex input
+    (
+      ['--hex', 'hash', 'sha256', '616263'],
+      'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    ),
+    # SHA-256('abc'), base64url output
+    (
+      ['--bin', '--out-b64', 'hash', 'sha256', 'abc'],
+      'ungWv48Bz-pBQUDeXa4iI7ADYaOWF3qctBD_YfIAFa0=',
+    ),
+    # SHA-256('abc') via base64url input YWJj
+    (
+      ['--b64', 'hash', 'sha256', 'YWJj'],
+      'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+    ),
+    # SHA-512('abc')
+    (
+      ['--bin', 'hash', 'sha512', 'abc'],
+      'ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a'
+      '2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f',
+    ),
+  ],
 )
 def test_cli_deterministic_pairs(argv: list[str], expected: str) -> None:
   """Test CLI commands with deterministic outputs."""
@@ -181,13 +186,11 @@ def test_aes_key_print_b64_matches_library(tmp_path: pathlib.Path) -> None:
   # CLI derives & prints b64; library derives for ground truth
   code: int
   out: str
-  code, out = _RunCLI(
-      ['--out-b64', 'aes', 'key', 'correct horse battery staple'])
+  code, out = _RunCLI(['--out-b64', 'aes', 'key', 'correct horse battery staple'])
   assert code == 0
   assert out == 'DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es='  # cspell:disable-line
   priv_path: pathlib.Path = tmp_path / 'password.priv'
-  code, out = _RunCLI(
-      ['-p', str(priv_path), 'aes', 'key', 'correct horse battery staple', ])
+  code, out = _RunCLI(['-p', str(priv_path), 'aes', 'key', 'correct horse battery staple'])
   assert code == 0
   assert 'AES key saved to' in out
   assert priv_path.exists()
@@ -213,7 +216,7 @@ def test_aes_ecb_encrypthex_decrypthex_roundtrip() -> None:
   code, out = _RunCLI(['--b64', 'aes', 'ecb', '-k', key_b64, 'encrypt', '--', block_hex])
   assert code == 0
   assert re.fullmatch(r'[0-9a-f]{32}', block_hex)  # sanity of input
-  assert re.fullmatch(r'[0-9a-f]{32}', out)     # 16-byte block
+  assert re.fullmatch(r'[0-9a-f]{32}', out)  # 16-byte block
   # Decrypt back
   code, out = _RunCLI(['--b64', 'aes', 'ecb', '-k', key_b64, 'decrypt', '--', out])
   assert code == 0
@@ -227,15 +230,24 @@ def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None: 
   # Encrypt: inputs as binary text, outputs default hex
   code: int
   out: str
-  code, out = _RunCLI(
-      ['--bin', '-p', str(aes_key_file), 'aes', 'encrypt', plaintext, '-a', aad])
+  code, out = _RunCLI(['--bin', '-p', str(aes_key_file), 'aes', 'encrypt', plaintext, '-a', aad])
   assert code == 0
   assert re.fullmatch(r'[0-9a-f]+', out) is not None
   assert len(out) >= 32  # IV(16)+TAG(16)+ct → hex length ≥ 64; allow any ≥ minimal sanity
   # Decrypt: ciphertext hex in, ask for raw output so we can compare to original string
   code, out = _RunCLI(
-      ['--hex', '-p', str(aes_key_file), '--out-bin', 'aes', 'decrypt',
-       out, '-a', base.BytesToHex(aad.encode('utf-8'))])
+    [
+      '--hex',
+      '-p',
+      str(aes_key_file),
+      '--out-bin',
+      'aes',
+      'decrypt',
+      out,
+      '-a',
+      base.BytesToHex(aad.encode('utf-8')),
+    ]
+  )
   assert code == 0
   assert out == plaintext
 
@@ -286,23 +298,28 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
   assert priv_path.exists() and pub_path.exists()
   # Encrypt (bin in → b64 out) with AAD='xyz'
   code, out = _RunCLI(
-      ['--bin', '--out-b64', '-p', str(priv_path), 'rsa', 'encrypt', 'abcde', '-a', 'xyz'])
+    ['--bin', '--out-b64', '-p', str(priv_path), 'rsa', 'encrypt', 'abcde', '-a', 'xyz']
+  )
   assert code == 0 and isinstance(out, str) and len(out) > 0
   # Decrypt (b64 in → bin out) with same AAD (as base64: 'eHl6')
   code, out = _RunCLI(
-      ['--b64', '--out-bin', '-p', str(priv_path), 'rsa', 'decrypt', '-a', 'eHl6', '--', out])
+    ['--b64', '--out-bin', '-p', str(priv_path), 'rsa', 'decrypt', '-a', 'eHl6', '--', out]
+  )
   assert code == 0 and out == 'abcde'
   # Sign (bin in → b64 out) with AAD='aad'
   code, sig_b64 = _RunCLI(
-      ['--bin', '--out-b64', '-p', str(priv_path), 'rsa', 'sign', 'xyz', '-a', 'aad'])
+    ['--bin', '--out-b64', '-p', str(priv_path), 'rsa', 'sign', 'xyz', '-a', 'aad']
+  )
   assert code == 0 and isinstance(sig_b64, str) and len(sig_b64) > 0
   # Verify OK (message='xyz' as b64 'eHl6', AAD='aad' as b64 'YWFk')
   code, out = _RunCLI(
-      ['--b64', '-p', str(priv_path), 'rsa', 'verify', '-a', 'YWFk', '--', 'eHl6', sig_b64])
+    ['--b64', '-p', str(priv_path), 'rsa', 'verify', '-a', 'YWFk', '--', 'eHl6', sig_b64]
+  )
   assert code == 0 and out == 'RSA signature: OK'
   # Verify INVALID with wrong message
   code, out = _RunCLI(
-      ['--b64', '-p', str(priv_path), 'rsa', 'verify', '-a', 'YWFk', '--', 'eLl6', sig_b64])
+    ['--b64', '-p', str(priv_path), 'rsa', 'verify', '-a', 'YWFk', '--', 'eLl6', sig_b64]
+  )
   assert code == 0 and out == 'RSA signature: INVALID'
 
 
@@ -350,26 +367,35 @@ def test_elgamal_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) ->
   code, out = _RunCLI(['-p', str(base_path), 'elgamal', 'shared', '--bits', '1024'])
   assert code == 0 and shared_path.exists() and 'El-Gamal shared key saved to' in out
   code, out = _RunCLI(['-p', str(base_path), 'elgamal', 'new'])
-  assert (code == 0 and priv_path.exists() and pub_path.exists() and
-          'El-Gamal private/public keys saved to' in out)
+  assert (
+    code == 0
+    and priv_path.exists()
+    and pub_path.exists()
+    and 'El-Gamal private/public keys saved to' in out
+  )
   # Encrypt (bin in → b64 out) with AAD='xyz'
   code, out = _RunCLI(
-      ['--bin', '--out-b64', '-p', str(priv_path), 'elgamal', 'encrypt', 'abcde', '-a', 'xyz'])
+    ['--bin', '--out-b64', '-p', str(priv_path), 'elgamal', 'encrypt', 'abcde', '-a', 'xyz']
+  )
   assert code == 0 and isinstance(out, str) and len(out) > 0
   # Decrypt (b64 in → bin out) with same AAD 'eHl6'
   code, out = _RunCLI(
-      ['--b64', '--out-bin', '-p', str(priv_path), 'elgamal', 'decrypt', '-a', 'eHl6', '--', out])
+    ['--b64', '--out-bin', '-p', str(priv_path), 'elgamal', 'decrypt', '-a', 'eHl6', '--', out]
+  )
   assert code == 0 and out == 'abcde'
   # Sign (bin in → b64 out) with AAD='aad'
   code, sig_b64 = _RunCLI(
-      ['--bin', '--out-b64', '-p', str(priv_path), 'elgamal', 'sign', 'xyz', '-a', 'aad'])
+    ['--bin', '--out-b64', '-p', str(priv_path), 'elgamal', 'sign', 'xyz', '-a', 'aad']
+  )
   assert code == 0 and isinstance(sig_b64, str) and len(sig_b64) > 0
   # Verify OK and INVALID cases
   code, out = _RunCLI(
-      ['--b64', '-p', str(priv_path), 'elgamal', 'verify', '-a', 'YWFk', '--', 'eHl6', sig_b64])
+    ['--b64', '-p', str(priv_path), 'elgamal', 'verify', '-a', 'YWFk', '--', 'eHl6', sig_b64]
+  )
   assert code == 0 and out == 'El-Gamal signature: OK'
   code, out = _RunCLI(
-      ['--b64', '-p', str(priv_path), 'elgamal', 'verify', '-a', 'YWFk', '--', 'eLl6', sig_b64])
+    ['--b64', '-p', str(priv_path), 'elgamal', 'verify', '-a', 'YWFk', '--', 'eLl6', sig_b64]
+  )
   assert code == 0 and out == 'El-Gamal signature: INVALID'
 
 
@@ -383,8 +409,7 @@ def test_dsa_sign_verify(tmp_path: pathlib.Path) -> None:
   # Small, but respect constraints: p_bits >= q_bits + 11, q_bits >= 11
   code: int
   out: str
-  code, out = _RunCLI(
-      ['-p', str(base_path), 'dsa', 'shared', '--p-bits', '64', '--q-bits', '32'])
+  code, out = _RunCLI(['-p', str(base_path), 'dsa', 'shared', '--p-bits', '64', '--q-bits', '32'])
   assert code == 0 and 'DSA shared key saved to' in out
   assert shared_path.exists()
   code, out = _RunCLI(['-p', str(base_path), 'dsa', 'new'])
@@ -410,21 +435,26 @@ def test_dsa_sign_verify_safe(tmp_path: pathlib.Path) -> None:
   # Safe DSA requires q > 512 bits (k > 64 bytes). Use q=544, p≥q+11 → p=1024.
   code: int
   out: str
-  code, out = _RunCLI(['-p', str(base_path), 'dsa', 'shared', '--p-bits', '1024', '--q-bits', '544'])
+  code, out = _RunCLI(
+    ['-p', str(base_path), 'dsa', 'shared', '--p-bits', '1024', '--q-bits', '544']
+  )
   assert code == 0 and shared_path.exists() and 'DSA shared key saved to' in out
   code, out = _RunCLI(['-p', str(base_path), 'dsa', 'new'])
   assert code == 0 and priv_path.exists() and pub_path.exists()
   assert 'DSA private/public keys saved to' in out
   # Sign (bin in → b64 out) with AAD='aad'
   code, sig_b64 = _RunCLI(
-      ['--bin', '--out-b64', '-p', str(priv_path), 'dsa', 'sign', 'xyz', '-a', 'aad'])
+    ['--bin', '--out-b64', '-p', str(priv_path), 'dsa', 'sign', 'xyz', '-a', 'aad']
+  )
   assert code == 0 and isinstance(sig_b64, str) and len(sig_b64) > 0
   # Verify OK (message='xyz' b64) and INVALID (wrong message)
   code, ok = _RunCLI(
-      ['--b64', '-p', str(priv_path), 'dsa', 'verify', '-a', 'YWFk', '--', 'eHl6', sig_b64])
+    ['--b64', '-p', str(priv_path), 'dsa', 'verify', '-a', 'YWFk', '--', 'eHl6', sig_b64]
+  )
   assert code == 0 and ok == 'DSA signature: OK'
   code, bad = _RunCLI(
-      ['--b64', '-p', str(priv_path), 'dsa', 'verify', '-a', 'YWFk', '--', 'eHL6', sig_b64])
+    ['--b64', '-p', str(priv_path), 'dsa', 'verify', '-a', 'YWFk', '--', 'eHL6', sig_b64]
+  )
   assert code == 0 and bad == 'DSA signature: INVALID'
 
 
@@ -516,20 +546,20 @@ def test_sss_shares_recover_safe(tmp_path: pathlib.Path) -> None:
 
 
 @pytest.mark.parametrize(
-    'argv',
-    [
-        ['random'],
-        ['hash'],
-        ['mod'],
-        ['aes'],
-        ['--b64', 'aes', 'ecb', '-k', 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8='],
-        ['-p', 'kkk', 'rsa'],
-        ['-p', 'kkk', 'elgamal'],
-        ['-p', 'kkk', 'dsa'],
-        ['-p', 'kkk', 'bid'],
-        ['-p', 'kkk', 'sss'],
-        ['doc'],
-    ],
+  'argv',
+  [
+    ['random'],
+    ['hash'],
+    ['mod'],
+    ['aes'],
+    ['--b64', 'aes', 'ecb', '-k', 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8='],
+    ['-p', 'kkk', 'rsa'],
+    ['-p', 'kkk', 'elgamal'],
+    ['-p', 'kkk', 'dsa'],
+    ['-p', 'kkk', 'bid'],
+    ['-p', 'kkk', 'sss'],
+    ['doc'],
+  ],
 )
 def test_not_implemented_error_paths(argv: list[str]) -> None:
   """Test CLI paths that raise NotImplementedError."""
@@ -546,23 +576,23 @@ def test_from_flags_conflict_raises() -> None:
 
 
 @pytest.mark.parametrize(
-    'mode, text, expect_hex',
-    [
-        (transcrypto._StrBytesType.RAW, 'hello', '68656c6c6f'),
-        (transcrypto._StrBytesType.HEXADECIMAL, '68656c6c6f', '68656c6c6f'),
-        (transcrypto._StrBytesType.BASE64, 'aGVsbG8=', '68656c6c6f'),
-    ],
+  'mode, text, expect_hex',
+  [
+    (transcrypto._StrBytesType.RAW, 'hello', '68656c6c6f'),
+    (transcrypto._StrBytesType.HEXADECIMAL, '68656c6c6f', '68656c6c6f'),
+    (transcrypto._StrBytesType.BASE64, 'aGVsbG8=', '68656c6c6f'),
+  ],
 )
 def test_bytes_from_to_text_modes(
-    mode: transcrypto._StrBytesType, text: str, expect_hex: str) -> None:
+  mode: transcrypto._StrBytesType, text: str, expect_hex: str
+) -> None:
   """Exercise _BytesFromText/_BytesToText in all 3 branches."""
   b: bytes = transcrypto._BytesFromText(text, mode)
   # Convert to hex using the CLI helper to normalize
   hex_out: str = transcrypto._BytesToText(b, transcrypto._StrBytesType.HEXADECIMAL)
   assert hex_out == expect_hex
   # Round-trip each mode back to itself (RAW/B64 produce readable strings)
-  s_again: str = transcrypto._BytesToText(
-      transcrypto._BytesFromText(text, mode), mode)
+  s_again: str = transcrypto._BytesToText(transcrypto._BytesFromText(text, mode), mode)
   # RAW returns original (utf-8), HEX and B64 return normalized encodings;
   # we just assert it doesn't crash and is non-empty.
   assert isinstance(s_again, str) and len(s_again) > 0
@@ -580,13 +610,13 @@ def test_walk_subcommands_includes_deep_path() -> None:
 
 
 @pytest.mark.parametrize(
-    'argv',
-    [
-        ['--bin', 'aes', 'encrypt', 'msg'],
-        ['--bin', 'aes', 'decrypt', 'msg'],
-        ['aes', 'ecb', 'encrypt', '00112233445566778899aabbccddeeff'],
-        ['rsa', 'new'],
-    ],
+  'argv',
+  [
+    ['--bin', 'aes', 'encrypt', 'msg'],
+    ['--bin', 'aes', 'decrypt', 'msg'],
+    ['aes', 'ecb', 'encrypt', '00112233445566778899aabbccddeeff'],
+    ['rsa', 'new'],
+  ],
 )
 def test_requires_key(argv: list[str]) -> None:
   """Hit the 'provide --key or --key-path' error in AES."""
@@ -603,12 +633,23 @@ def test_aes_gcm_decrypt_wrong_aad_raises() -> None:
   key_b64: str = base.BytesToEncoded(key_bytes)
   # Encrypt with AAD='A'
   code, out = _RunCLI(
-      ['--b64', '--out-hex', 'aes', 'encrypt', 'AAAAAAB4eXo=', '-k', key_b64, '-a', 'eHl6'])  # cspell:disable-line
+    ['--b64', '--out-hex', 'aes', 'encrypt', 'AAAAAAB4eXo=', '-k', key_b64, '-a', 'eHl6']
+  )  # cspell:disable-line
   assert code == 0 and re.fullmatch(r'[0-9a-f]+', out)
   # Decrypt with WRONG AAD='B' → should raise CryptoError
   code, out = _RunCLI(
-      ['--b64', 'aes', 'decrypt', '-k', key_b64, '-a', 'eHm6',
-       '--', base.BytesToEncoded(base.HexToBytes(out))])
+    [
+      '--b64',
+      'aes',
+      'decrypt',
+      '-k',
+      key_b64,
+      '-a',
+      'eHm6',
+      '--',
+      base.BytesToEncoded(base.HexToBytes(out)),
+    ]
+  )
   assert code == 0 and 'failed decryption' in out
 
 
@@ -641,7 +682,7 @@ def test_run_entrypoint_block(monkeypatch: pytest.MonkeyPatch) -> None:
   monkeypatch.setattr(sys, 'argv', ['transcrypto.py'])
   # Run the module by *name* with run_name="__main__" so relative imports work.
   with pytest.raises(SystemExit) as exc:
-    runpy.run_module('src.transcrypto.transcrypto', run_name='__main__')
+    runpy.run_module('transcrypto.transcrypto', run_name='__main__')
   assert exc.value.code == 0
 
 

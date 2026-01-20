@@ -1,33 +1,25 @@
-#!/usr/bin/env python3
-#
-# Copyright 2025 Daniel Balparda (balparda@github.com) - Apache-2.0 license
-#
-# pylint: disable=invalid-name,protected-access
-# pyright: reportPrivateUsage=false
+# SPDX-FileCopyrightText: Copyright 2026 Daniel Balparda <balparda@github.com>
+# SPDX-License-Identifier: Apache-2.0
 """profiler.py unittest."""
 
 from __future__ import annotations
 
-from contextlib import redirect_stdout
 import io
-# import pdb
 import runpy
 import sys
-from typing import Generator
-# from unittest import mock
+from contextlib import redirect_stdout
 
 import pytest
 
-from src.transcrypto import base, profiler
+from transcrypto import base, profiler
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = base.__version__  # tests inherit version from module
 
 
 @pytest.fixture(autouse=True)
-def _reset_base_logging() -> Generator[None, None, None]:  # type: ignore
+def _reset_base_logging() -> None:  # type: ignore
   base.ResetConsole()
-  yield
 
 
 def _RunCLI(argv: list[str]) -> tuple[int, str]:
@@ -72,10 +64,10 @@ def test_cli_doc_md_has_header() -> None:
 
 
 @pytest.mark.parametrize(
-    'argv',
-    [
-        ['doc'],
-    ],
+  'argv',
+  [
+    ['doc'],
+  ],
 )
 def test_not_implemented_error_paths(argv: list[str]) -> None:
   """Test CLI paths that raise NotImplementedError."""
@@ -91,7 +83,7 @@ def test_run_entrypoint_block(monkeypatch: pytest.MonkeyPatch) -> None:
   monkeypatch.setattr(sys, 'argv', ['profiler.py'])
   # Run the module by *name* with run_name="__main__" so relative imports work.
   with pytest.raises(SystemExit) as exc:
-    runpy.run_module('src.transcrypto.profiler', run_name='__main__')
+    runpy.run_module('transcrypto.profiler', run_name='__main__')
   assert exc.value.code == 0
 
 

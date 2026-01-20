@@ -1,9 +1,5 @@
-#!/usr/bin/env python3
-#
-# Copyright 2025 Daniel Balparda (balparda@github.com) - Apache-2.0 license
-#
-# pylint: disable=invalid-name,protected-access
-# pyright: reportPrivateUsage=false
+# SPDX-FileCopyrightText: Copyright 2026 Daniel Balparda <balparda@github.com>
+# SPDX-License-Identifier: Apache-2.0
 """base.py unittest."""
 
 from __future__ import annotations
@@ -12,35 +8,34 @@ import argparse
 import collections
 import concurrent.futures
 import dataclasses
-import itertools
 import io
+import itertools
 import json
 import logging
 import math
-# import pdb
 import pathlib
 import sys
 import tempfile
-from typing import Any, Callable, Generator
-from unittest import mock
 import warnings
+from collections.abc import Callable, Generator
+from typing import Any
+from unittest import mock
 
 import pytest
+import typeguard
 from rich import console as rich_console
 from rich import logging as rich_logging
-import typeguard
+from tests import utils
 
-from src.transcrypto import base, aes
-from . import utils
+from transcrypto import aes, base
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = base.__version__  # tests inherit version from module
 
 
 @pytest.fixture(autouse=True)
-def _reset_logging_and_singleton() -> Generator[None, None, None]:  # type: ignore
-  """
-  Prevent cross-test pollution:
+def _reset_logging_and_singleton() -> Generator[None]:  # type: ignore
+  """Prevent cross-test pollution:
   - Restore root logger handlers/level
   - Restore provider logger state
   - Reset base._console_singleton
@@ -53,9 +48,9 @@ def _reset_logging_and_singleton() -> Generator[None, None, None]:  # type: igno
   for name in base._LOG_COMMON_PROVIDERS:
     lg: logging.Logger = logging.getLogger(name)
     saved_providers[name] = {
-        'handlers': list(lg.handlers),
-        'propagate': lg.propagate,
-        'level': lg.level,
+      'handlers': list(lg.handlers),
+      'propagate': lg.propagate,
+      'level': lg.level,
     }
   saved_showwarning = warnings.showwarning
   saved_logging_showwarning: Any | None = getattr(logging, '_showwarning', None)
@@ -131,7 +126,8 @@ def test_root_has_exactly_one_richhandler_bound_to_returned_console() -> None:
   console: rich_console.Console = base.InitLogging(2, include_process=False)
   root: logging.Logger = logging.getLogger()
   rich_handlers: list[rich_logging.RichHandler] = [
-      h for h in root.handlers if isinstance(h, rich_logging.RichHandler)]
+    h for h in root.handlers if isinstance(h, rich_logging.RichHandler)
+  ]
   assert len(rich_handlers) == 1
   h: rich_logging.RichHandler = rich_handlers[0]
   assert h.console is console
@@ -145,7 +141,8 @@ def test_include_process_uses_process_format_on_first_init() -> None:
   console = base.InitLogging(2, include_process=True)
   assert isinstance(console, rich_console.Console)
   h: rich_logging.RichHandler = next(
-      h for h in logging.getLogger().handlers if isinstance(h, rich_logging.RichHandler))
+    h for h in logging.getLogger().handlers if isinstance(h, rich_logging.RichHandler)
+  )
   assert h.formatter._fmt == base._LOG_FORMAT_WITH_PROCESS  # type: ignore
 
 
@@ -196,7 +193,7 @@ def test_time_utils() -> None:
 
 def test_bytes_conversions() -> None:
   """Test."""
-  bb: bytes = 'xyz'.encode('utf-8')
+  bb: bytes = b'xyz'
   assert base.BytesToHex(bb) == '78797a'
   assert base.BytesToInt(bb) == 7895418
   assert base.BytesToEncoded(bb) == 'eHl6'
@@ -219,29 +216,34 @@ def test_bytes_conversions() -> None:
   assert base.EncodedToBytes('AAAAAAB4eXo=') == padded  # cspell:disable-line
 
 
-@pytest.mark.parametrize('value, message', [
-    (0, '0 B'),                    # bytes < 1024
+@pytest.mark.parametrize(
+  'value, message',
+  [
+    (0, '0 B'),  # bytes < 1024
     (512, '512 B'),
     (51.2, '51.200 B'),
-    (1024, '1.000 KiB'),           # exact KiB
-    (1536, '1.500 KiB'),           # mid KiB
-    (1024 ** 2, '1.000 MiB'),      # exact MiB
-    (5 * 1024 ** 2, '5.000 MiB'),
-    (1024 ** 3, '1.000 GiB'),      # exact GiB
-    (3 * 1024 ** 3, '3.000 GiB'),
-    (1024 ** 4, '1.000 TiB'),      # exact TiB
-    (7 * 1024 ** 4, '7.000 TiB'),
-    (1024 ** 5, '1.000 PiB'),      # exact PiB
-    (2 * 1024 ** 5, '2.000 PiB'),
-    (1024 ** 6, '1.000 EiB'),      # exact EiB
-    (8 * 1024 ** 6, '8.000 EiB'),  # > EiB
-])
+    (1024, '1.000 KiB'),  # exact KiB
+    (1536, '1.500 KiB'),  # mid KiB
+    (1024**2, '1.000 MiB'),  # exact MiB
+    (5 * 1024**2, '5.000 MiB'),
+    (1024**3, '1.000 GiB'),  # exact GiB
+    (3 * 1024**3, '3.000 GiB'),
+    (1024**4, '1.000 TiB'),  # exact TiB
+    (7 * 1024**4, '7.000 TiB'),
+    (1024**5, '1.000 PiB'),  # exact PiB
+    (2 * 1024**5, '2.000 PiB'),
+    (1024**6, '1.000 EiB'),  # exact EiB
+    (8 * 1024**6, '8.000 EiB'),  # > EiB
+  ],
+)
 def test_HumanizedBytes(value: int, message: str) -> None:
   """Test."""
   assert base.HumanizedBytes(value) == message
 
 
-@pytest.mark.parametrize('value, message, unit, unit_message', [
+@pytest.mark.parametrize(
+  'value, message, unit, unit_message',
+  [
     # <1000 integer, no unit / with unit
     (0, '0', 'Hz', '0 Hz'),
     (999, '999', 'V', '999 V'),
@@ -252,20 +254,20 @@ def test_HumanizedBytes(value: int, message: str) -> None:
     (-1000, '-1.000 k', 'Hz', '-1.000 kHz'),
     (1500, '1.500 k', 'Hz', '1.500 kHz'),
     # M range
-    (1000 ** 2, '1.000 M', 'Hz', '1.000 MHz'),
+    (1000**2, '1.000 M', 'Hz', '1.000 MHz'),
     (2500000, '2.500 M', 'Hz', '2.500 MHz'),
     # G range
-    (1000 ** 3, '1.000 G', 'Hz', '1.000 GHz'),
-    (5 * 1000 ** 3, '5.000 G', 'Hz', '5.000 GHz'),
+    (1000**3, '1.000 G', 'Hz', '1.000 GHz'),
+    (5 * 1000**3, '5.000 G', 'Hz', '5.000 GHz'),
     # T range
-    (-1000 ** 4, '-1.000 T', 'Hz', '-1.000 THz'),
-    (7 * 1000 ** 4, '7.000 T', 'Hz', '7.000 THz'),
+    (-(1000**4), '-1.000 T', 'Hz', '-1.000 THz'),
+    (7 * 1000**4, '7.000 T', 'Hz', '7.000 THz'),
     # P range
     (1000**5, '1.000 P', 'Hz', '1.000 PHz'),
-    (3 * 1000 ** 5, '3.000 P', 'Hz', '3.000 PHz'),
+    (3 * 1000**5, '3.000 P', 'Hz', '3.000 PHz'),
     # E range and above
-    (-1000**6, '-1.000 E', 'Hz', '-1.000 EHz'),
-    (9 * 1000 ** 6, '9.000 E', 'Hz', '9.000 EHz'),
+    (-(1000**6), '-1.000 E', 'Hz', '-1.000 EHz'),
+    (9 * 1000**6, '9.000 E', 'Hz', '9.000 EHz'),
     # small ranges
     (0.05, '50.000 m', 'Hz', '50.000 mHz'),
     (0.00005, '50.000 µ', 'Hz', '50.000 µHz'),
@@ -273,14 +275,17 @@ def test_HumanizedBytes(value: int, message: str) -> None:
     (0.00000000005, '50.000 p', 'Hz', '50.000 pHz'),
     (-0.00000000000005, '-50.000 f', 'Hz', '-50.000 fHz'),
     (0.00000000000000005, '50.000 a', 'Hz', '50.000 aHz'),
-])
-def test_HumanizedDecimal(value: int | float, message: str, unit: str, unit_message: str) -> None:
+  ],
+)
+def test_HumanizedDecimal(value: float, message: str, unit: str, unit_message: str) -> None:
   """Test."""
   assert base.HumanizedDecimal(value) == message
   assert base.HumanizedDecimal(value, unit=unit) == unit_message
 
 
-@pytest.mark.parametrize('value, message', [
+@pytest.mark.parametrize(
+  'value, message',
+  [
     # zero
     (0, '0.000 s'),
     # microseconds
@@ -293,19 +298,20 @@ def test_HumanizedDecimal(value: int | float, message: str, unit: str, unit_mess
     (0.999, '999.000 ms'),
     # seconds
     (1, '1.000 s'),
-    (59.99, '59.990 s'),   # edge just under a minute
+    (59.99, '59.990 s'),  # edge just under a minute
     (42, '42.000 s'),
     # minutes
     (60, '1.000 min'),
     (3599, '59.983 min'),  # just under an hour
     # hours
     (3600, '1.000 h'),
-    (86399, '24.000 h'),   # just under a day
+    (86399, '24.000 h'),  # just under a day
     # days
     (86400, '1.000 d'),
     (172800, '2.000 d'),
-])
-def test_HumanizedSeconds(value: int | float, message: str) -> None:
+  ],
+)
+def test_HumanizedSeconds(value: float, message: str) -> None:
   """Test."""
   assert base.HumanizedSeconds(value) == message
 
@@ -341,15 +347,14 @@ def test_measurement_stats_failures() -> None:
 
 
 @pytest.mark.parametrize(
-    'data, confidence',
-    [
-        ([42], 0.95),                  # trivial one-sample case
-        ([1, 2, 3], 0.95),             # small sample
-        ([1.0, 1.5, 2.0, 2.5], 0.99),  # floats + higher confidence
-    ]
+  'data, confidence',
+  [
+    ([42], 0.95),  # trivial one-sample case
+    ([1, 2, 3], 0.95),  # small sample
+    ([1.0, 1.5, 2.0, 2.5], 0.99),  # floats + higher confidence
+  ],
 )
-def test_measurement_stats_success(
-    data: list[int | float], confidence: float) -> None:
+def test_measurement_stats_success(data: list[int | float], confidence: float) -> None:
   """Tests."""
   n: int
   mean: float
@@ -381,18 +386,19 @@ def test_HumanizedMeasurements_failures() -> None:
 
 
 @pytest.mark.parametrize(
-    'data, kwargs',
-    [  # type:ignore
-        ([42], {}),                                     # single value
-        ([1, 2, 3], {}),                                # defaults
-        ([1, 2, 3], {'unit': 'ms'}),                    # with unit
-        ([1, 2, 3], {'parser': lambda x: f'{x:.1f}'}),  # custom parser  # type:ignore
-        ([-1.0, -2.0, -3.0], {'clip_negative': True}),  # negatives clipped
-        ([1, 2, 3, 4], {'confidence': 0.99}),           # alternate confidence
-    ]
+  'data, kwargs',
+  [  # type:ignore
+    ([42], {}),  # single value
+    ([1, 2, 3], {}),  # defaults
+    ([1, 2, 3], {'unit': 'ms'}),  # with unit
+    ([1, 2, 3], {'parser': lambda x: f'{x:.1f}'}),  # custom parser  # type:ignore
+    ([-1.0, -2.0, -3.0], {'clip_negative': True}),  # negatives clipped
+    ([1, 2, 3, 4], {'confidence': 0.99}),  # alternate confidence
+  ],
 )
 def test_HumanizedMeasurements_success(
-    data: list[int | float], kwargs: dict[str, str | bool | float]) -> None:
+  data: list[int | float], kwargs: dict[str, str | bool | float]
+) -> None:
   """Tests."""
   result: str
   result = base.HumanizedMeasurements(data, **kwargs)  # type:ignore
@@ -407,49 +413,160 @@ def test_HumanizedMeasurements_success(
 
 
 @pytest.mark.parametrize(
-    'data, unit, parser, confidence, out',
-    [  # type:ignore
-        ([42], '', None, 0.95, '42.0 ±? @1'),
-        ([0.0000042], 'Hz', None, 0.95, '4.2e-06Hz ±? @1'),
-        ([42000000000000000], 'Hz', base.HumanizedDecimal, 0.95, '42.000 PHz ±? @1'),
-        ([42000000000000000], '', lambda x: base.HumanizedDecimal(x, unit='Hz'), 0.95,  # type:ignore
-         '42.000 PHz ±? @1'),
-        ([1.1, 1.2, 1.3, 1.3, 1.2, 1, 0.8, 1.3], '', None, 0.95,
-         '1.1500000000000001 ± 0.1482106685520745 [1.0017893314479256 … '
-         '1.2982106685520747]95%CI@8'),
-        ([0.0000011, 0.0000012, 0.0000013, 0.0000013, 0.0000012, 0.000001, 0.0000008, 0.0000013],
-         'Hz', None, 0.95,
-         '1.15e-06Hz ± 1.4821066855207452e-07Hz [1.0017893314479255e-06Hz … '
-         '1.2982106685520745e-06Hz]95%CI@8'),
-        ([0.0000011, 0.0000012, 0.0000013, 0.0000013, 0.0000012, 0.000001, 0.0000008, 0.0000013],
-         'WH', base.HumanizedDecimal, 0.95,
-         '1.150 µWH ± 148.211 nWH [1.002 µWH … 1.298 µWH]95%CI@8'),
-        ([12100000, 12300000, 12900000, 12500000, 12400000, 12400000, 13000000, 11500000, 12100000,
-          12200000, 12600000, 12600000], 'Hz', base.HumanizedDecimal, 0.95,
-         '12.383 MHz ± 252.458 kHz [12.131 MHz … 12.636 MHz]95%CI@12'),
-        ([12100000, 12300000, 12900000, 12500000, 12400000, 12400000, 13000000, 11500000, 12100000,
-          12200000, 12600000, 12600000], '', lambda x: base.HumanizedDecimal(x, unit='Hz'), 0.95,  # type:ignore
-         '12.383 MHz ± 252.458 kHz [12.131 MHz … 12.636 MHz]95%CI@12'),
-        ([12100000, 12300000, 12900000, 12500000, 12400000, 12400000, 13000000, 11500000, 12100000,
-          12200000, 12600000, 12600000], '', lambda x: base.HumanizedDecimal(x, unit='Hz'), 0.99,  # type:ignore
-         '12.383 MHz ± 356.242 kHz [12.027 MHz … 12.740 MHz]99%CI@12'),
-        ([12100000, 12300000, 12500000, 12400000, 12400000, 13000000, 11500000, 12100000, 12200000,
-          12600000, 12600000], 'Hz', base.HumanizedDecimal, 0.98,
-         '12.336 MHz ± 316.816 kHz [12.020 MHz … 12.653 MHz]98%CI@11'),
-        ([12100000, 12300000, 12400000, 12400000, 13000000, 11500000, 12100000, 12200000, 12600000,
-          12600000], 'Hz', base.HumanizedDecimal, 0.98,
-         '12.320 MHz ± 353.900 kHz [11.966 MHz … 12.674 MHz]98%CI@10'),
-        ([-12100000, -12300000, -13000000, -11500000, -12100000, -12200000, -12600000, -12600000],
-         'Hz', base.HumanizedDecimal, 0.98,
-         '-12.300 MHz ± 474.018 kHz [-12.774 MHz … -11.826 MHz]98%CI@8'),
-    ]
+  'data, unit, parser, confidence, out',
+  [  # type:ignore
+    ([42], '', None, 0.95, '42.0 ±? @1'),
+    ([0.0000042], 'Hz', None, 0.95, '4.2e-06Hz ±? @1'),
+    ([42000000000000000], 'Hz', base.HumanizedDecimal, 0.95, '42.000 PHz ±? @1'),
+    (
+      [42000000000000000],
+      '',
+      lambda x: base.HumanizedDecimal(x, unit='Hz'),
+      0.95,  # type:ignore
+      '42.000 PHz ±? @1',
+    ),
+    (
+      [1.1, 1.2, 1.3, 1.3, 1.2, 1, 0.8, 1.3],
+      '',
+      None,
+      0.95,
+      '1.1500000000000001 ± 0.1482106685520745 [1.0017893314479256 … 1.2982106685520747]95%CI@8',
+    ),
+    (
+      [0.0000011, 0.0000012, 0.0000013, 0.0000013, 0.0000012, 0.000001, 0.0000008, 0.0000013],
+      'Hz',
+      None,
+      0.95,
+      '1.15e-06Hz ± 1.4821066855207452e-07Hz [1.0017893314479255e-06Hz … '
+      '1.2982106685520745e-06Hz]95%CI@8',
+    ),
+    (
+      [0.0000011, 0.0000012, 0.0000013, 0.0000013, 0.0000012, 0.000001, 0.0000008, 0.0000013],
+      'WH',
+      base.HumanizedDecimal,
+      0.95,
+      '1.150 µWH ± 148.211 nWH [1.002 µWH … 1.298 µWH]95%CI@8',
+    ),
+    (
+      [
+        12100000,
+        12300000,
+        12900000,
+        12500000,
+        12400000,
+        12400000,
+        13000000,
+        11500000,
+        12100000,
+        12200000,
+        12600000,
+        12600000,
+      ],
+      'Hz',
+      base.HumanizedDecimal,
+      0.95,
+      '12.383 MHz ± 252.458 kHz [12.131 MHz … 12.636 MHz]95%CI@12',
+    ),
+    (
+      [
+        12100000,
+        12300000,
+        12900000,
+        12500000,
+        12400000,
+        12400000,
+        13000000,
+        11500000,
+        12100000,
+        12200000,
+        12600000,
+        12600000,
+      ],
+      '',
+      lambda x: base.HumanizedDecimal(x, unit='Hz'),
+      0.95,  # type:ignore
+      '12.383 MHz ± 252.458 kHz [12.131 MHz … 12.636 MHz]95%CI@12',
+    ),
+    (
+      [
+        12100000,
+        12300000,
+        12900000,
+        12500000,
+        12400000,
+        12400000,
+        13000000,
+        11500000,
+        12100000,
+        12200000,
+        12600000,
+        12600000,
+      ],
+      '',
+      lambda x: base.HumanizedDecimal(x, unit='Hz'),
+      0.99,  # type:ignore
+      '12.383 MHz ± 356.242 kHz [12.027 MHz … 12.740 MHz]99%CI@12',
+    ),
+    (
+      [
+        12100000,
+        12300000,
+        12500000,
+        12400000,
+        12400000,
+        13000000,
+        11500000,
+        12100000,
+        12200000,
+        12600000,
+        12600000,
+      ],
+      'Hz',
+      base.HumanizedDecimal,
+      0.98,
+      '12.336 MHz ± 316.816 kHz [12.020 MHz … 12.653 MHz]98%CI@11',
+    ),
+    (
+      [
+        12100000,
+        12300000,
+        12400000,
+        12400000,
+        13000000,
+        11500000,
+        12100000,
+        12200000,
+        12600000,
+        12600000,
+      ],
+      'Hz',
+      base.HumanizedDecimal,
+      0.98,
+      '12.320 MHz ± 353.900 kHz [11.966 MHz … 12.674 MHz]98%CI@10',
+    ),
+    (
+      [-12100000, -12300000, -13000000, -11500000, -12100000, -12200000, -12600000, -12600000],
+      'Hz',
+      base.HumanizedDecimal,
+      0.98,
+      '-12.300 MHz ± 474.018 kHz [-12.774 MHz … -11.826 MHz]98%CI@8',
+    ),
+  ],
 )
 def test_HumanizedMeasurements_validation(
-    data: list[int | float], unit: str, parser: Callable[[float], str] | None,
-    confidence: float, out: str) -> None:
+  data: list[int | float],
+  unit: str,
+  parser: Callable[[float], str] | None,
+  confidence: float,
+  out: str,
+) -> None:
   """Tests."""
-  assert base.HumanizedMeasurements(
-      data, unit=unit, parser=parser, confidence=confidence, clip_negative=False) == out
+  assert (
+    base.HumanizedMeasurements(
+      data, unit=unit, parser=parser, confidence=confidence, clip_negative=False
+    )
+    == out
+  )
 
 
 def _mock_perf(monkeypatch: pytest.MonkeyPatch, values: list[float]) -> None:
@@ -499,7 +616,8 @@ def test_Timer_negative_elapsed(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_Timer_stop_twice_forbidden(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+  monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
   """Test."""
   # Start=1.0, Stop=2.5  → elapsed=1.5
   _mock_perf(monkeypatch, [1.0, 2.5])
@@ -518,8 +636,10 @@ def test_Timer_stop_twice_forbidden(
 
 
 def test_Timer_context_manager_logs_and_optionally_prints(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture,
-    capsys: pytest.CaptureFixture[str]) -> None:
+  monkeypatch: pytest.MonkeyPatch,
+  caplog: pytest.LogCaptureFixture,
+  capsys: pytest.CaptureFixture[str],
+) -> None:
   """Test."""
   # Enter=10.00, Exit=10.25 → 0.25 s
   _mock_perf(monkeypatch, [10.00, 10.25])
@@ -535,22 +655,23 @@ def test_Timer_context_manager_logs_and_optionally_prints(
 
 
 def test_Timer_context_manager_exception_still_times_and_logs(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+  monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
   """Test."""
   # Enter=5.0, Exit=5.3 → 0.3 s even if exception occurs
   _mock_perf(monkeypatch, [5.0, 5.3])
   caplog.set_level(logging.INFO)
 
-  with pytest.raises(base.Error):
-    with base.Timer('ERR'):
-      raise base.Error('boom')
+  with pytest.raises(base.Error), base.Timer('ERR'):
+    raise base.Error('boom')
   # Stop was called; message logged
   msgs = [rec.getMessage() for rec in caplog.records]
   assert msgs == ['ERR: 300.000 ms']
 
 
 def test_Timer_decorator_logs(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+  monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
   """Test."""
   # Start=1.00, Stop=1.40 → 0.40 s
   _mock_perf(monkeypatch, [1.00, 1.40])
@@ -566,8 +687,10 @@ def test_Timer_decorator_logs(
 
 
 def test_Timer_decorator_emit_print_true_prints_and_logs(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture,
-    capsys: pytest.CaptureFixture[str]) -> None:
+  monkeypatch: pytest.MonkeyPatch,
+  caplog: pytest.LogCaptureFixture,
+  capsys: pytest.CaptureFixture[str],
+) -> None:
   """Test."""
   # Start=2.00, Stop=2.01 → 0.01 s
   _mock_perf(monkeypatch, [2.00, 2.01])
@@ -586,7 +709,8 @@ def test_Timer_decorator_emit_print_true_prints_and_logs(
 
 
 def test_Timer_decorator_exception_propagates_and_logs(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+  monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
   """Test."""
   # Start=3.0, Stop=3.2 → 0.2 s even when raising
   _mock_perf(monkeypatch, [3.0, 3.2])
@@ -608,12 +732,10 @@ def test_RandBits() -> None:
   with pytest.raises(base.InputError, match='n_bits must be ≥ 8'):
     base.RandBits(7)
   gn: set[int] = set()
-  for _ in range(50):
-    gn.add(base.RandBits(10))
+  gn.update(base.RandBits(10) for _ in range(50))
   assert len(gn) > 30  # has a chance of 1 in 531,000 to fail
   gn = set()
-  for _ in range(20):
-    gn.add(base.RandBits(10000))
+  gn.update(base.RandBits(10000) for _ in range(20))
   assert len(gn) == 20  # has a chance of 1 in 10**3008 to fail
 
 
@@ -641,8 +763,7 @@ def test_RandInt() -> None:
   with pytest.raises(base.InputError, match='min_int must be ≥ 0, and < max_int'):
     base.RandInt(2, 2)
   gn: set[int] = set()
-  for _ in range(200):
-    gn.add(base.RandInt(10, 20))
+  gn.update(base.RandInt(10, 20) for _ in range(200))
   assert min(gn) == 10
   assert max(gn) == 20
   assert len(gn) == 11  # chance of failure of 1 in 17.26 million
@@ -689,12 +810,17 @@ def test_RandShuffle_n2_visits_both_orders() -> None:
   seq: list[int] = [1, 2, 3]
   seen: set[tuple[int, ...]] = set()
   for _ in range(200):
-    s: list[int] = seq[:]  # copy
+    s: list[int] = seq.copy()  # copy
     base.RandShuffle(s)
     seen.add(tuple(s))
   assert seen == {
-      (1, 2, 3), (3, 2, 1), (2, 3, 1),
-      (2, 1, 3), (1, 3, 2), (3, 1, 2)}  # chance of failure is 1 in 10**40
+    (1, 2, 3),
+    (3, 2, 1),
+    (2, 3, 1),
+    (2, 1, 3),
+    (1, 3, 2),
+    (3, 1, 2),
+  }  # chance of failure is 1 in 10**40
 
 
 @pytest.mark.stochastic
@@ -702,10 +828,10 @@ def test_RandShuffle_small_n_uniformity() -> None:
   """Test."""
   base_list: list[int] = [1, 2, 3]
   perms: list[tuple[int, ...]] = list(itertools.permutations(base_list))
-  counts: dict[tuple[int, ...], int] = {p: 0 for p in perms}
+  counts: dict[tuple[int, ...], int] = dict.fromkeys(perms, 0)
   N: int = 6000
   for _ in range(N):
-    s: list[int] = base_list[:]
+    s: list[int] = base_list.copy()
     base.RandShuffle(s)
     counts[tuple(s)] += 1
   # each of 6 perms should be close to N/6
@@ -727,9 +853,9 @@ def test_RandBytes() -> None:
 def test_RandBits_RandInt_RandShuffle_parallel_smoke() -> None:
   """Test."""
   with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
-    xs: list[int] = list(ex.map(lambda _: base.RandBits(256), range(200)))     # type:ignore
+    xs: list[int] = list(ex.map(lambda _: base.RandBits(256), range(200)))  # type:ignore
     ys: list[int] = list(ex.map(lambda _: base.RandInt(0, 1000), range(200)))  # type:ignore
-    zs: list[bytes] = list(ex.map(lambda _: base.RandBytes(32), range(200)))   # type:ignore
+    zs: list[bytes] = list(ex.map(lambda _: base.RandBytes(32), range(200)))  # type:ignore
     seq: list[int] = list(range(50))
     # shuffle some independent copies
     list(ex.map(lambda _: base.RandShuffle(seq[:]), range(50)))  # type:ignore
@@ -738,7 +864,7 @@ def test_RandBits_RandInt_RandShuffle_parallel_smoke() -> None:
   assert len(set(zs)) == len(zs)
 
 
-@pytest.mark.parametrize('n', [1, 17, 10 ** 12])
+@pytest.mark.parametrize('n', [1, 17, 10**12])
 def test_GCD_same_number(n: int) -> None:
   """Test."""
   assert base.GCD(n, n) == n
@@ -746,7 +872,9 @@ def test_GCD_same_number(n: int) -> None:
   assert g == n == n * (x + y)  # because x or y will be 0
 
 
-@pytest.mark.parametrize('a, b, gcd, x, y', [
+@pytest.mark.parametrize(
+  'a, b, gcd, x, y',
+  [
     (0, 1, 1, 0, 1),
     (1, 0, 1, 1, 0),
     (1, 2, 1, 1, 0),
@@ -760,7 +888,8 @@ def test_GCD_same_number(n: int) -> None:
     (367613542, 2136213, 59, 15377, -2646175),
     (2354153438, 65246322, 2, 4133449, -149139030),
     (7238649876345, 36193249381725, 7238649876345, 1, 0),
-])
+  ],
+)
 def test_GCD(a: int, b: int, gcd: int, x: int, y: int) -> None:
   """Test."""
   assert base.GCD(a, b) == gcd
@@ -768,11 +897,14 @@ def test_GCD(a: int, b: int, gcd: int, x: int, y: int) -> None:
   assert gcd == a * x + b * y
 
 
-@pytest.mark.parametrize('a, b', [
+@pytest.mark.parametrize(
+  'a, b',
+  [
     (-1, 1),
     (1, -1),
     (0, 0),
-])
+  ],
+)
 def test_GCD_negative(a: int, b: int) -> None:
   """Test."""
   with pytest.raises(base.InputError, match='negative input'):
@@ -789,47 +921,48 @@ def test_NegativeZero() -> None:
   assert 0 == -0
 
 
-@pytest.mark.parametrize('data, hash256, hash512', [
-
+@pytest.mark.parametrize(
+  'data, hash256, hash512',
+  [
     # values copied from <https://www.di-mgt.com.au/sha_testvectors.html>
-
     pytest.param(
-        '',
-        'e3b0c44298fc1c14 9afbf4c8996fb924 27ae41e4649b934c a495991b7852b855',
-        'cf83e1357eefb8bd f1542850d66d8007 d620e4050b5715dc 83f4a921d36ce9ce'
-        '47d0d13c5d85f2b0 ff8318d2877eec2f 63b931bd47417a81 a538327af927da3e',
-        id='empty'),
-
+      '',
+      'e3b0c44298fc1c14 9afbf4c8996fb924 27ae41e4649b934c a495991b7852b855',
+      'cf83e1357eefb8bd f1542850d66d8007 d620e4050b5715dc 83f4a921d36ce9ce'
+      '47d0d13c5d85f2b0 ff8318d2877eec2f 63b931bd47417a81 a538327af927da3e',
+      id='empty',
+    ),
     pytest.param(
-        'abc',
-        'ba7816bf8f01cfea 414140de5dae2223 b00361a396177a9c b410ff61f20015ad',
-        'ddaf35a193617aba cc417349ae204131 12e6fa4e89a97ea2 0a9eeee64b55d39a'
-        '2192992a274fc1a8 36ba3c23a3feebbd 454d4423643ce80e 2a9ac94fa54ca49f',
-        id='abc'),
-
+      'abc',
+      'ba7816bf8f01cfea 414140de5dae2223 b00361a396177a9c b410ff61f20015ad',
+      'ddaf35a193617aba cc417349ae204131 12e6fa4e89a97ea2 0a9eeee64b55d39a'
+      '2192992a274fc1a8 36ba3c23a3feebbd 454d4423643ce80e 2a9ac94fa54ca49f',
+      id='abc',
+    ),
     pytest.param(
-        'abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq',  # cspell:disable-line
-        '248d6a61d20638b8 e5c026930c3e6039 a33ce45964ff2167 f6ecedd419db06c1',
-        '204a8fc6dda82f0a 0ced7beb8e08a416 57c16ef468b228a8 279be331a703c335'
-        '96fd15c13b1b07f9 aa1d3bea57789ca0 31ad85c7a71dd703 54ec631238ca3445',
-        id='NIST-long-1'),
-
+      'abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq',  # cspell:disable-line
+      '248d6a61d20638b8 e5c026930c3e6039 a33ce45964ff2167 f6ecedd419db06c1',
+      '204a8fc6dda82f0a 0ced7beb8e08a416 57c16ef468b228a8 279be331a703c335'
+      '96fd15c13b1b07f9 aa1d3bea57789ca0 31ad85c7a71dd703 54ec631238ca3445',
+      id='NIST-long-1',
+    ),
     pytest.param(
-        'abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhi'
-        'jklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu',
-        'cf5b16a778af8380 036ce59e7b049237 0b249b11e8f07a51 afac45037afee9d1',
-        '8e959b75dae313da 8cf4f72814fc143f 8f7779c6eb9f7fa1 7299aeadb6889018'
-        '501d289e4900f7e4 331b99dec4b5433a c7d329eeb6dd2654 5e96e55b874be909',
-        id='NIST-long-2'),
-
+      'abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhi'
+      'jklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu',
+      'cf5b16a778af8380 036ce59e7b049237 0b249b11e8f07a51 afac45037afee9d1',
+      '8e959b75dae313da 8cf4f72814fc143f 8f7779c6eb9f7fa1 7299aeadb6889018'
+      '501d289e4900f7e4 331b99dec4b5433a c7d329eeb6dd2654 5e96e55b874be909',
+      id='NIST-long-2',
+    ),
     pytest.param(
-        'a' * 1000000,
-        'cdc76e5c9914fb92 81a1c7e284d73e67 f1809a48a497200e 046d39ccc7112cd0',
-        'e718483d0ce76964 4e2e42c7bc15b463 8e1f98b13b204428 5632a803afa973eb'
-        'de0ff244877ea60a 4cb0432ce577c31b eb009c5c2c49aa2e 4eadb217ad8cc09b',
-        id='a*1_000_000'),
-
-])
+      'a' * 1000000,
+      'cdc76e5c9914fb92 81a1c7e284d73e67 f1809a48a497200e 046d39ccc7112cd0',
+      'e718483d0ce76964 4e2e42c7bc15b463 8e1f98b13b204428 5632a803afa973eb'
+      'de0ff244877ea60a 4cb0432ce577c31b eb009c5c2c49aa2e 4eadb217ad8cc09b',
+      id='a*1_000_000',
+    ),
+  ],
+)
 def test_Hash(data: str, hash256: str, hash512: str) -> None:
   """Test."""
   bytes_data: bytes = data.encode('utf-8')
@@ -883,7 +1016,9 @@ def test_BytesToRaw() -> None:
     assert base.RawToBytes(base.BytesToRaw(b)) == b
 
 
-@pytest.mark.parametrize('inp, tp', [
+@pytest.mark.parametrize(
+  'inp, tp',
+  [
     ('', None),
     ('sss', None),
     ('@xxx', base.CryptoInputType.PATH),
@@ -892,13 +1027,16 @@ def test_BytesToRaw() -> None:
     ('b64:eHl6', base.CryptoInputType.BASE64),
     ('str:sss', base.CryptoInputType.STR),
     ('raw:"rr\\x00r"', base.CryptoInputType.RAW),
-])
+  ],
+)
 def test_DetectInputType(inp: str, tp: base.CryptoInputType | None) -> None:
   """Test."""
   assert base.DetectInputType(inp) == tp
 
 
-@pytest.mark.parametrize('inp, exp, b', [
+@pytest.mark.parametrize(
+  'inp, exp, b',
+  [
     # hex
     ('hex:aaaa', None, b'\xaa\xaa'),
     ('hex:aaaa', base.CryptoInputType.HEX, b'\xaa\xaa'),
@@ -916,13 +1054,16 @@ def test_DetectInputType(inp: str, tp: base.CryptoInputType | None) -> None:
     ('raw:"rr\\x00r"', None, b'rr\x00r'),
     ('raw:"rr\\x00r"', base.CryptoInputType.RAW, b'rr\x00r'),
     ('"rr\\x00r"', base.CryptoInputType.RAW, b'rr\x00r'),
-])
+  ],
+)
 def test_BytesFromInput(inp: str, exp: base.CryptoInputType | None, b: bytes) -> None:
   """Test."""
   assert base.BytesFromInput(inp, expect=exp) == b
 
 
-@pytest.mark.parametrize('inp, exp, m', [
+@pytest.mark.parametrize(
+  'inp, exp, m',
+  [
     ('@-', base.CryptoInputType.HEX, r'Expected type.*is different from detected type'),
     ('@xxx', base.CryptoInputType.HEX, r'Expected type.*is different from detected type'),
     # hex
@@ -936,10 +1077,11 @@ def test_BytesFromInput(inp: str, exp: base.CryptoInputType | None, b: bytes) ->
     # str
     ('hex:sss', base.CryptoInputType.STR, r'Expected type.*is different from detected type'),
     # raw
-    (r'raw:\u20ac', None, 'invalid input: \'latin-1\' codec can\'t encode'),
-    (r'\u20ac', base.CryptoInputType.RAW, 'invalid input: \'latin-1\' codec can\'t encode'),
+    (r'raw:\u20ac', None, "invalid input: 'latin-1' codec can't encode"),
+    (r'\u20ac', base.CryptoInputType.RAW, "invalid input: 'latin-1' codec can't encode"),
     ('hex:"rr\\x00r"', base.CryptoInputType.RAW, r'Expected type.*is different from detected type'),
-])
+  ],
+)
 def test_BytesFromInput_invalid(inp: str, exp: base.CryptoInputType | None, m: str) -> None:
   """Test."""
   with pytest.raises(base.InputError, match=m):
@@ -949,7 +1091,7 @@ def test_BytesFromInput_invalid(inp: str, exp: base.CryptoInputType | None, m: s
 def test_BytesFromInput_type() -> None:
   """Test."""
   with typeguard.suppress_type_checks():
-    with pytest.raises(base.InputError, match='invalid input: invalid type \'inv:\''):
+    with pytest.raises(base.InputError, match="invalid input: invalid type 'inv:'"):
       base.BytesFromInput('sss', expect='inv:')  # type:ignore
 
 
@@ -957,8 +1099,7 @@ def test_BytesFromInput_path(tmp_path: pathlib.Path) -> None:
   """Test."""
   inp_path: str = str(tmp_path / 'blob.bin')
   data = b'rr\x00r'
-  with open(inp_path, 'wb') as file_obj:
-    file_obj.write(data)
+  pathlib.Path(inp_path).write_bytes(data)
   assert base.BytesFromInput('@' + inp_path) == data
   assert base.BytesFromInput('@' + inp_path, expect=base.CryptoInputType.PATH) == data
   assert base.BytesFromInput(inp_path, expect=base.CryptoInputType.PATH) == data
@@ -970,7 +1111,6 @@ def test_BytesFromInput_stdin_binary(monkeypatch: pytest.MonkeyPatch) -> None:
   """Reading from stdin.buffer (binary)."""
 
   class _FakeStdin:  # pylint:disable=too-few-public-methods
-
     def __init__(self, b: bytes) -> None:
       self.buffer = io.BytesIO(b)
 
@@ -1000,37 +1140,38 @@ def test_stdin_non_text_data_text_fallback(monkeypatch: pytest.MonkeyPatch) -> N
   """If sys.stdin.read() returns non-str, raise."""
 
   class _FakeStdin:  # pylint:disable=too-few-public-methods
-
     def read(self):
       """Read."""
       return b'not-a-str'  # wrong type
 
   monkeypatch.setattr(sys, 'stdin', _FakeStdin())
-  with typeguard.suppress_type_checks():
-    with pytest.raises(
-        base.InputError, match=r'invalid input: sys.stdin.read.*produced non-text data'):
-      base.BytesFromInput('@-')
+  with (
+    typeguard.suppress_type_checks(),
+    pytest.raises(base.InputError, match=r'invalid input: sys.stdin.read.*produced non-text data'),
+  ):
+    base.BytesFromInput('@-')
 
 
 def test_stdin_non_text_data_binary(monkeypatch: pytest.MonkeyPatch) -> None:
   """If sys.stdin.buffer.read() returns non-bytes, raise."""
 
   class _FakeBuffer:  # pylint:disable=too-few-public-methods
-
     def read(self):
       """Read."""
       return 'not-bytes'  # wrong type
 
   class _FakeStdin:  # pylint:disable=too-few-public-methods
-
     def __init__(self) -> None:
       self.buffer = _FakeBuffer()
 
   monkeypatch.setattr(sys, 'stdin', _FakeStdin())
-  with typeguard.suppress_type_checks():
-    with pytest.raises(
-        base.InputError, match=r'invalid input: sys.stdin.buffer.read.*produced non-binary data'):
-      base.BytesFromInput('@-')
+  with (
+    typeguard.suppress_type_checks(),
+    pytest.raises(
+      base.InputError, match=r'invalid input: sys.stdin.buffer.read.*produced non-binary data'
+    ),
+  ):
+    base.BytesFromInput('@-')
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
@@ -1043,9 +1184,11 @@ class _ToyCrypto1(base.CryptoKey):
 
   def __str__(self) -> str:
     """String."""
-    return (f'_ToyCrypto(key={base.ObfuscateSecret(self.key)}, '
-            f'secret={base.ObfuscateSecret(self.secret)}, '
-            f'modulus={base.ObfuscateSecret(self.modulus)})')
+    return (
+      f'_ToyCrypto(key={base.ObfuscateSecret(self.key)}, '
+      f'secret={base.ObfuscateSecret(self.secret)}, '
+      f'modulus={base.ObfuscateSecret(self.modulus)})'
+    )
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
@@ -1082,19 +1225,21 @@ def test_CryptoKey_base() -> None:
   key = aes.AESKey(key256=b'x' * 32)
   assert str(crypto) == '_ToyCrypto(key=ddaf35a1…, secret=3b1d17bf…, modulus=c2d03c6e…)'
   assert str(crypto) == repr(crypto)
-  assert crypto._DebugDump() == '_ToyCrypto1(key=b\'abc\', secret=\'cba\', modulus=123)'
+  assert crypto._DebugDump() == "_ToyCrypto1(key=b'abc', secret='cba', modulus=123)"
   assert crypto.blob == b'(\xb5/\xfd +Y\x01\x00{"key":"YWJj","secret":"cba","modulus":123}'
-  assert crypto.blob == crypto.Blob()        # Blob() with no options should be the same as blob
+  assert crypto.blob == crypto.Blob()  # Blob() with no options should be the same as blob
   assert crypto.encoded == crypto.Encoded()  # Encoded() with no options should be same as encoded
   assert _ToyCrypto1.Load(crypto.blob) == crypto
   assert crypto.encoded == (
-      'b64:KLUv_SArWQEAeyJrZXkiOiJZV0pqIiwic2VjcmV0IjoiY2JhIiwibW9kdWx1cyI6MTIzfQ==')  # cspell:disable-line
+    'b64:KLUv_SArWQEAeyJrZXkiOiJZV0pqIiwic2VjcmV0IjoiY2JhIiwibW9kdWx1cyI6MTIzfQ=='
+  )  # cspell:disable-line
   assert crypto.hex == (
-      'hex:28b52ffd202b5901007b226b6579223a2259574a6a222c22736563726574223a22636'
-      '261222c226d6f64756c7573223a3132337d')
+    'hex:28b52ffd202b5901007b226b6579223a2259574a6a222c22736563726574223a22636'
+    '261222c226d6f64756c7573223a3132337d'
+  )
   assert crypto.raw == (
-      'raw:"(\\xb5/\\xfd +Y\\x01\\x00{\\"key\\":\\"YWJj\\",\\"secret\\":\\"cba\\",'
-      '\\"modulus\\":123}"')
+    'raw:"(\\xb5/\\xfd +Y\\x01\\x00{\\"key\\":\\"YWJj\\",\\"secret\\":\\"cba\\",\\"modulus\\":123}"'
+  )
   assert _ToyCrypto1.Load(crypto.encoded) == crypto
   blob_crypto: bytes = crypto.Blob(key=key)
   assert _ToyCrypto1.Load(blob_crypto, key=key) == crypto
@@ -1104,7 +1249,9 @@ def test_CryptoKey_base() -> None:
     with pytest.raises(base.InputError, match=r'input decode error.*invalid start byte'):
       _ToyCrypto1.Load(base.Serialize({1: 2, 3: 4}, compress=None))  # binary is a dict
     with pytest.raises(base.InputError, match='decoded to unexpected fields'):
-      _ToyCrypto1.Load(base.Serialize({1: 2, 3: 4}, compress=None, pickler=base.PickleJSON))  # binary is a dict
+      _ToyCrypto1.Load(
+        base.Serialize({1: 2, 3: 4}, compress=None, pickler=base.PickleJSON)
+      )  # binary is a dict
     with pytest.raises(base.InputError, match='JSON data decoded to unexpected type'):
       _ToyCrypto1.FromJSON(json.dumps([1, 2]))
   with pytest.raises(base.ImplementationError, match='Unsupported JSON field'):
@@ -1112,15 +1259,28 @@ def test_CryptoKey_base() -> None:
   with pytest.raises(base.ImplementationError, match='Unsupported JSON field'):
     _ToyCrypto3._FromJSONDict({'modulus': 34, 'inv': {'a': 'b'}})
   crypto2 = _ToyCrypto2(
-      key=b'ijk5845976584', secret='abc', modulus=123,
-      poly1=[13, 17, 19], poly2=['xz', 'yz'], is_x=True)
+    key=b'ijk5845976584',
+    secret='abc',
+    modulus=123,
+    poly1=[13, 17, 19],
+    poly2=['xz', 'yz'],
+    is_x=True,
+  )
   assert crypto2._json_dict == {
-      'is_x': True, 'key': 'aWprNTg0NTk3NjU4NA==', 'modulus': 123,
-      'poly1': [13, 17, 19], 'poly2': ['xz', 'yz'], 'secret': 'abc'}
+    'is_x': True,
+    'key': 'aWprNTg0NTk3NjU4NA==',
+    'modulus': 123,
+    'poly1': [13, 17, 19],
+    'poly2': ['xz', 'yz'],
+    'secret': 'abc',
+  }
   assert crypto2.json == (
-      '{"key":"aWprNTg0NTk3NjU4NA==","secret":"abc","modulus":123,'
-      '"poly1":[13,17,19],"poly2":["xz","yz"],"is_x":true}')
-  assert crypto2.formatted_json == """\
+    '{"key":"aWprNTg0NTk3NjU4NA==","secret":"abc","modulus":123,'
+    '"poly1":[13,17,19],"poly2":["xz","yz"],"is_x":true}'
+  )
+  assert (
+    crypto2.formatted_json
+    == """\
 {
     "is_x": true,
     "key": "aWprNTg0NTk3NjU4NA==",
@@ -1136,9 +1296,11 @@ def test_CryptoKey_base() -> None:
     ],
     "secret": "abc"
 }"""
+  )
   assert crypto2.encoded == (
-      'b64:KLUv_SBucQMAeyJrZXkiOiJhV3ByTlRnME5UazNOalU0TkE9PSIsInNlY3JldCI6ImFiYyIs'
-      'Im1vZHVsdXMiOjEyMywicG9seTEiOlsxMywxNywxOV0sInBvbHkyIjpbInh6IiwieXoiXSwiaXNfeCI6dHJ1ZX0=')
+    'b64:KLUv_SBucQMAeyJrZXkiOiJhV3ByTlRnME5UazNOalU0TkE9PSIsInNlY3JldCI6ImFiYyIs'
+    'Im1vZHVsdXMiOjEyMywicG9seTEiOlsxMywxNywxOV0sInBvbHkyIjpbInh6IiwieXoiXSwiaXNfeCI6dHJ1ZX0='
+  )
 
 
 @pytest.fixture
@@ -1146,14 +1308,13 @@ def sample_obj() -> dict[str, Any]:
   """Sample object fixture."""
   # moderately nested object to exercise pickle well
   return {
-      'nums': list(range(50)),
-      'nested': {'a': 1, 'b': b'bytes', 'c': None},
-      'text': 'zstd 🍰 compression test',
+    'nums': list(range(50)),
+    'nested': {'a': 1, 'b': b'bytes', 'c': None},
+    'text': 'zstd 🍰 compression test',
   }
 
 
-def test_serialize_deserialize_no_compress_no_encrypt(
-    sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
+def test_serialize_deserialize_no_compress_no_encrypt(sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
   """Test."""
   blob: bytes = base.Serialize(sample_obj, compress=None)
   # should NOT look like zstd: DeSerialize should skip decompression path
@@ -1161,8 +1322,7 @@ def test_serialize_deserialize_no_compress_no_encrypt(
   assert obj2 == sample_obj
 
 
-def test_serialize_deserialize_with_compress_negative_clamped(
-    sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
+def test_serialize_deserialize_with_compress_negative_clamped(sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
   """Test."""
   # request a very fast negative level; function clamps to >= -22 then compresses
   blob: bytes = base.Serialize(sample_obj, compress=-100)  # expect clamp to -22 internally
@@ -1171,8 +1331,7 @@ def test_serialize_deserialize_with_compress_negative_clamped(
   assert obj2 == sample_obj
 
 
-def test_serialize_deserialize_with_compress_high_clamped(
-    sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
+def test_serialize_deserialize_with_compress_high_clamped(sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
   """Test."""
   # request above max; function clamps to 22
   blob: bytes = base.Serialize(sample_obj, compress=99)
@@ -1180,8 +1339,7 @@ def test_serialize_deserialize_with_compress_high_clamped(
   assert obj2 == sample_obj
 
 
-def test_serialize_deserialize_with_encrypt_ok(
-    sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
+def test_serialize_deserialize_with_encrypt_ok(sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
   """Test."""
   key = aes.AESKey(key256=b'x' * 32)
   blob: bytes = base.Serialize(sample_obj, compress=3, key=key)
@@ -1191,7 +1349,8 @@ def test_serialize_deserialize_with_encrypt_ok(
 
 
 def test_serialize_save_and_load_from_file(
-    tmp_path: pathlib.Path, sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
+  tmp_path: pathlib.Path, sample_obj: dict[str, Any]
+) -> None:  # pylint: disable=redefined-outer-name
   """Test."""
   p: pathlib.Path = tmp_path / 'payload.bin'
   blob: bytes = base.Serialize(sample_obj, compress=3, file_path=str(p))
@@ -1218,8 +1377,7 @@ def test_deserialize_invalid_calls() -> None:
     base.DeSerialize(data=b'\x00\x01\x02')
 
 
-def test_deserialize_wrong_key_raises(
-    sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
+def test_deserialize_wrong_key_raises(sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
   """Test."""
   key_ok = aes.AESKey(key256=b'x' * 32)
   key_bad = aes.AESKey(key256=b'y' * 32)
@@ -1228,8 +1386,7 @@ def test_deserialize_wrong_key_raises(
     base.DeSerialize(data=blob, key=key_bad)
 
 
-def test_deserialize_corrupted_zstd_raises(
-    sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
+def test_deserialize_corrupted_zstd_raises(sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
   """Test."""
   # create a valid zstd-compressed blob
   blob: bytes = base.Serialize(sample_obj, compress=3)
@@ -1244,8 +1401,7 @@ def test_deserialize_corrupted_zstd_raises(
     base.DeSerialize(data=corrupted)
 
 
-def test_deserialize_no_compression_detected_branch(
-    sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
+def test_deserialize_no_compression_detected_branch(sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
   """Test."""
   # Craft a blob that is NOT zstd: disable compression
   blob: bytes = base.Serialize(sample_obj, compress=None)
@@ -1254,38 +1410,45 @@ def test_deserialize_no_compression_detected_branch(
   assert obj2 == sample_obj
 
 
-@pytest.mark.parametrize('secret, public_hash, bid_str', [
+@pytest.mark.parametrize(
+  'secret, public_hash, bid_str',
+  [
     pytest.param(
-        b'a',
-        '711f48ea38b803f8d2026846e7a8fb637879e818f60f768594bc91f061f23c00'
-        '4187183c2d8c81c3b67feb534e5cad90b3d9eae9488a525dd037eccac9512f2f',
-        'PrivateBid512(PublicBid512(public_key=eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4'
-        'eHh4eHh4eHh4eHh4eHh4eHh4eHh4eA==, public_hash=711f48ea38b803f8d2026846e7a8fb637879e818f6'
-        '0f768594bc91f061f23c004187183c2d8c81c3b67feb534e5cad90b3d9eae9488a525dd037eccac9512f2f), '
-        'private_key=81e396cb…, secret_bid=1f40fc92…)',
-        id='a'),
+      b'a',
+      '711f48ea38b803f8d2026846e7a8fb637879e818f60f768594bc91f061f23c00'
+      '4187183c2d8c81c3b67feb534e5cad90b3d9eae9488a525dd037eccac9512f2f',
+      'PrivateBid512(PublicBid512(public_key=eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4'
+      'eHh4eHh4eHh4eHh4eHh4eHh4eHh4eA==, public_hash=711f48ea38b803f8d2026846e7a8fb637879e818f6'
+      '0f768594bc91f061f23c004187183c2d8c81c3b67feb534e5cad90b3d9eae9488a525dd037eccac9512f2f), '
+      'private_key=81e396cb…, secret_bid=1f40fc92…)',
+      id='a',
+    ),
     pytest.param(
-        b'secret',
-        'ab13b41fe50fef61483f2ce495ca5af1e173245811ef8610023d61b0d12d3f52'
-        'd9c1b92388fec771dc4601bc36c4ddffe713e64532c01eb8936e29e06d10f936',
-        'PrivateBid512(PublicBid512(public_key=eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4'
-        'eHh4eHh4eHh4eHh4eHh4eHh4eHh4eA==, public_hash=ab13b41fe50fef61483f2ce495ca5af1e173245811'
-        'ef8610023d61b0d12d3f52d9c1b92388fec771dc4601bc36c4ddffe713e64532c01eb8936e29e06d10f936), '
-        'private_key=81e396cb…, secret_bid=bd2b1aaf…)',
-        id='secret'),
+      b'secret',
+      'ab13b41fe50fef61483f2ce495ca5af1e173245811ef8610023d61b0d12d3f52'
+      'd9c1b92388fec771dc4601bc36c4ddffe713e64532c01eb8936e29e06d10f936',
+      'PrivateBid512(PublicBid512(public_key=eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4'
+      'eHh4eHh4eHh4eHh4eHh4eHh4eHh4eA==, public_hash=ab13b41fe50fef61483f2ce495ca5af1e173245811'
+      'ef8610023d61b0d12d3f52d9c1b92388fec771dc4601bc36c4ddffe713e64532c01eb8936e29e06d10f936), '
+      'private_key=81e396cb…, secret_bid=bd2b1aaf…)',
+      id='secret',
+    ),
     pytest.param(
-        b'longer secret value with spaces',
-        '5f25720c817a89c446e51ce56e64643aa5343cb1898904ea0e45b8ad5f4caabc'
-        'aba091fb7e122bfff8d8b54855fcaa27e0f962d98c8eebae3a7765393c0fdf6a',
-        'PrivateBid512(PublicBid512(public_key=eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4'
-        'eHh4eHh4eHh4eHh4eHh4eHh4eHh4eA==, public_hash=5f25720c817a89c446e51ce56e64643aa5343cb189'
-        '8904ea0e45b8ad5f4caabcaba091fb7e122bfff8d8b54855fcaa27e0f962d98c8eebae3a7765393c0fdf6a), '
-        'private_key=81e396cb…, secret_bid=826df62c…)',
-        id='longer secret value with spaces'),
-])
-@mock.patch('src.transcrypto.base.RandBytes', autospec=True)
+      b'longer secret value with spaces',
+      '5f25720c817a89c446e51ce56e64643aa5343cb1898904ea0e45b8ad5f4caabc'
+      'aba091fb7e122bfff8d8b54855fcaa27e0f962d98c8eebae3a7765393c0fdf6a',
+      'PrivateBid512(PublicBid512(public_key=eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4'
+      'eHh4eHh4eHh4eHh4eHh4eHh4eHh4eA==, public_hash=5f25720c817a89c446e51ce56e64643aa5343cb189'
+      '8904ea0e45b8ad5f4caabcaba091fb7e122bfff8d8b54855fcaa27e0f962d98c8eebae3a7765393c0fdf6a), '
+      'private_key=81e396cb…, secret_bid=826df62c…)',
+      id='longer secret value with spaces',
+    ),
+  ],
+)
+@mock.patch('transcrypto.base.RandBytes', autospec=True)
 def test_Bid_with_mock(
-    randbytes: mock.MagicMock, secret: bytes, public_hash: str, bid_str: str) -> None:
+  randbytes: mock.MagicMock, secret: bytes, public_hash: str, bid_str: str
+) -> None:
   """Test."""
   randbytes.side_effect = [b'x' * 64, b'y' * 64]
   priv: base.PrivateBid512 = base.PrivateBid512.New(secret)
@@ -1301,11 +1464,14 @@ def test_Bid_with_mock(
 
 
 @pytest.mark.stochastic
-@pytest.mark.parametrize('secret', [
+@pytest.mark.parametrize(
+  'secret',
+  [
     b'a',
     b'secret',
     b'longer secret value with spaces',
-])
+  ],
+)
 def test_Bid(secret: bytes) -> None:
   """Test."""
   priv1: base.PrivateBid512 = base.PrivateBid512.New(secret)
@@ -1328,10 +1494,12 @@ def test_Bid_invalid() -> None:
     base.PublicBid512(public_key=b'key', public_hash=b'hash')
   with pytest.raises(base.InputError, match='invalid private_key or secret_bid'):
     base.PrivateBid512(
-        public_key=b'k' * 64, public_hash=b'h' * 64, private_key=b'priv', secret_bid=b'secret')
+      public_key=b'k' * 64, public_hash=b'h' * 64, private_key=b'priv', secret_bid=b'secret'
+    )
   with pytest.raises(base.CryptoError, match='inconsistent bid'):
     base.PrivateBid512(
-        public_key=b'k' * 64, public_hash=b'h' * 64, private_key=b'p' * 64, secret_bid=b'secret')
+      public_key=b'k' * 64, public_hash=b'h' * 64, private_key=b'p' * 64, secret_bid=b'secret'
+    )
   with pytest.raises(base.InputError, match='invalid secret length'):
     base.PrivateBid512.New(b'')
 
@@ -1356,7 +1524,7 @@ def test_rows_for_actions_metadata_branches() -> None:
   # store_true default on
   assert '(default: on)' in flat
   # choices listed
-  assert 'choices: [\'red\', \'blue\']' in flat or 'choices: ["red", "blue"]' in flat
+  assert "choices: ['red', 'blue']" in flat or 'choices: ["red", "blue"]' in flat
   # type int appears
   assert 'type: int' in flat
   # default numeric prints

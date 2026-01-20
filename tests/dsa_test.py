@@ -1,67 +1,70 @@
-#!/usr/bin/env python3
-#
-# Copyright 2025 Daniel Balparda (balparda@github.com) - Apache-2.0 license
-#
-# pylint: disable=invalid-name,protected-access
-# pyright: reportPrivateUsage=false
+# SPDX-FileCopyrightText: Copyright 2026 Daniel Balparda <balparda@github.com>
+# SPDX-License-Identifier: Apache-2.0
 """dsa.py unittest."""
 
 from __future__ import annotations
 
-# import pdb
 import sys
 from unittest import mock
 
 import pytest
+from tests import utils
 
-from src.transcrypto import base, dsa, modmath
-from . import utils
+from transcrypto import base, dsa, modmath
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = dsa.__version__  # tests inherit version from module
 
 
-@mock.patch('src.transcrypto.base.RandBits', autospec=True)
-@mock.patch('src.transcrypto.base.RandInt', autospec=True)
-@mock.patch('src.transcrypto.modmath.NBitRandomPrimes', autospec=True)
+@mock.patch('transcrypto.base.RandBits', autospec=True)
+@mock.patch('transcrypto.base.RandInt', autospec=True)
+@mock.patch('transcrypto.modmath.NBitRandomPrimes', autospec=True)
 def test_DSA_keys_creation(
-    prime: mock.MagicMock, randint: mock.MagicMock, randbits: mock.MagicMock) -> None:
+  prime: mock.MagicMock, randint: mock.MagicMock, randbits: mock.MagicMock
+) -> None:
   """Test."""
   with pytest.raises(base.InputError, match='invalid q_bits length'):
     dsa.DSASharedPublicKey.NewShared(22, 10)
   with pytest.raises(base.InputError, match='invalid p_bits length'):
     dsa.DSASharedPublicKey.NewShared(21, 11)
   with pytest.raises(base.InputError, match='invalid q_bit length'):
-    dsa.DSAPrivateKey.New(
-        dsa.DSASharedPublicKey(prime_modulus=23, prime_seed=11, group_base=8))
+    dsa.DSAPrivateKey.New(dsa.DSASharedPublicKey(prime_modulus=23, prime_seed=11, group_base=8))
   prime.side_effect = [{1097}, {1097}]
   randint.side_effect = [3819, 3619, 3819, 3819, 3819, 3819]
   randbits.side_effect = [2498, 2508153, 807, 10, 10, 2508153, 10]
   group: dsa.DSASharedPublicKey = dsa.DSASharedPublicKey.NewShared(22, 11)
-  assert group == dsa.DSASharedPublicKey(
-      prime_modulus=3971141, prime_seed=1097, group_base=2508153)
+  assert group == dsa.DSASharedPublicKey(prime_modulus=3971141, prime_seed=1097, group_base=2508153)
   private: dsa.DSAPrivateKey = dsa.DSAPrivateKey.New(group)
   assert private == dsa.DSAPrivateKey(
-      prime_modulus=3971141, prime_seed=1097, group_base=2508153,
-      individual_base=1144026, decrypt_exp=807)
+    prime_modulus=3971141,
+    prime_seed=1097,
+    group_base=2508153,
+    individual_base=1144026,
+    decrypt_exp=807,
+  )
   assert str(private) == (
-      'DSAPrivateKey(DSAPublicKey(DSASharedPublicKey('
-      'bits=[22, 11], prime_modulus=PJhF, prime_seed=BEk=, '
-      'group_base=JkV5), individual_base=EXTa), decrypt_exp=9444c8b9…)')
+    'DSAPrivateKey(DSAPublicKey(DSASharedPublicKey('
+    'bits=[22, 11], prime_modulus=PJhF, prime_seed=BEk=, '
+    'group_base=JkV5), individual_base=EXTa), decrypt_exp=9444c8b9…)'
+  )
   assert private._DebugDump() == (
-      'DSAPrivateKey(prime_modulus=3971141, prime_seed=1097, group_base=2508153, '
-      'individual_base=1144026, decrypt_exp=807)')
+    'DSAPrivateKey(prime_modulus=3971141, prime_seed=1097, group_base=2508153, '
+    'individual_base=1144026, decrypt_exp=807)'
+  )
   with pytest.MonkeyPatch().context() as mp:
     mp.setattr(dsa, '_MAX_KEY_GENERATION_FAILURES', 2)
     # with pytest.raises(base.CryptoError, match='failed primes generation'):
     #   dsa.NBitRandomDSAPrimes(22, 11)
-    with mock.patch('src.transcrypto.modmath.gmpy2.powmod', autospec=True) as powmod:
+    with mock.patch('transcrypto.modmath.gmpy2.powmod', autospec=True) as powmod:
       powmod.return_value = 1144026
       with pytest.raises(base.CryptoError, match='failed key generation'):
         dsa.DSAPrivateKey.New(group)
       assert powmod.call_args_list == [
-          mock.call(2508153, 10, 3971141), mock.call(31, 992785, 3971141),
-          mock.call(2508153, 10, 3971141), mock.call(31, 992785, 3971141)]
+        mock.call(2508153, 10, 3971141),
+        mock.call(31, 992785, 3971141),
+        mock.call(2508153, 10, 3971141),
+        mock.call(31, 992785, 3971141),
+      ]
   assert private._MakeEphemeralKey() == (10, 768)
   assert prime.call_args_list == [mock.call(11)] * 1
   assert randint.call_args_list == [mock.call(1913, 3821)] * 2
@@ -82,35 +85,107 @@ def test_DSA_keys_creation_multiple() -> None:
 
 
 @pytest.mark.parametrize(
-    'prime_modulus, prime_seed, group_base, individual_base, decrypt_exp, message, '
-    'ephemeral, expected_signed',
-    [
-        (3971141, 1097, 2508153, 3924338, 470, 10, 603, (387, 107)),  # one individual, message==10
-        (3971141, 1097, 2508153, 3924338, 470, 11, 603, (387, 731)),  # same ephemeral different message, first cypher is equal!
-        (3971141, 1097, 2508153, 3924338, 470, 10, 486, (170, 345)),  # different ephemeral same message, all changes
-        (3971141, 1097, 2508153, 1144026, 807, 10, 603, (387, 618)),  # another individual of the same group, first cypher is equal!
-        # same thing again, but with larger numbers:
-        (13778194025705455991, 2373232541, 6520293953707700537, 10027622456776030168, 615448826,
-         10, 2055930860, (1621446112, 1167266683)),  # one individual, message==10
-        (13778194025705455991, 2373232541, 6520293953707700537, 10027622456776030168, 615448826,
-         11, 2055930860, (1621446112, 596280744)),   # same ephemeral different message, first cypher is equal!
-        (13778194025705455991, 2373232541, 6520293953707700537, 10027622456776030168, 615448826,
-         10, 1972759958, (1552560713, 1687943019)),  # different ephemeral same message, all changes
-        (13778194025705455991, 2373232541, 6520293953707700537, 13541469208505301060, 426107211,
-         10, 2055930860, (1621446112, 1461014680)),  # another individual of the same group, first cypher is equal!
-    ])
-@mock.patch('src.transcrypto.dsa.DSAPublicKey._MakeEphemeralKey', autospec=True)
+  'prime_modulus, prime_seed, group_base, individual_base, decrypt_exp, message, '
+  'ephemeral, expected_signed',
+  [
+    (3971141, 1097, 2508153, 3924338, 470, 10, 603, (387, 107)),  # one individual, message==10
+    (
+      3971141,
+      1097,
+      2508153,
+      3924338,
+      470,
+      11,
+      603,
+      (387, 731),
+    ),  # same ephemeral different message, first cypher is equal!
+    (
+      3971141,
+      1097,
+      2508153,
+      3924338,
+      470,
+      10,
+      486,
+      (170, 345),
+    ),  # different ephemeral same message, all changes
+    (
+      3971141,
+      1097,
+      2508153,
+      1144026,
+      807,
+      10,
+      603,
+      (387, 618),
+    ),  # another individual of the same group, first cypher is equal!
+    # same thing again, but with larger numbers:
+    (
+      13778194025705455991,
+      2373232541,
+      6520293953707700537,
+      10027622456776030168,
+      615448826,
+      10,
+      2055930860,
+      (1621446112, 1167266683),
+    ),  # one individual, message==10
+    (
+      13778194025705455991,
+      2373232541,
+      6520293953707700537,
+      10027622456776030168,
+      615448826,
+      11,
+      2055930860,
+      (1621446112, 596280744),
+    ),  # same ephemeral different message, first cypher is equal!
+    (
+      13778194025705455991,
+      2373232541,
+      6520293953707700537,
+      10027622456776030168,
+      615448826,
+      10,
+      1972759958,
+      (1552560713, 1687943019),
+    ),  # different ephemeral same message, all changes
+    (
+      13778194025705455991,
+      2373232541,
+      6520293953707700537,
+      13541469208505301060,
+      426107211,
+      10,
+      2055930860,
+      (1621446112, 1461014680),
+    ),  # another individual of the same group, first cypher is equal!
+  ],
+)
+@mock.patch('transcrypto.dsa.DSAPublicKey._MakeEphemeralKey', autospec=True)
 def test_DSA_raw(  # pylint: disable=too-many-arguments,too-many-positional-arguments
-    make_ephemeral: mock.MagicMock, prime_modulus: int, prime_seed: int, group_base: int,
-    individual_base: int, decrypt_exp: int, message: int, ephemeral: int,
-    expected_signed: tuple[int, int]) -> None:
+  make_ephemeral: mock.MagicMock,
+  prime_modulus: int,
+  prime_seed: int,
+  group_base: int,
+  individual_base: int,
+  decrypt_exp: int,
+  message: int,
+  ephemeral: int,
+  expected_signed: tuple[int, int],
+) -> None:
   """Test."""
   # create keys
   shared = dsa.DSASharedPublicKey(
-      prime_modulus=prime_modulus, prime_seed=prime_seed, group_base=group_base)
+    prime_modulus=prime_modulus, prime_seed=prime_seed, group_base=group_base
+  )
   private = dsa.DSAPrivateKey(
-      prime_modulus=prime_modulus, prime_seed=prime_seed, group_base=group_base,
-      individual_base=individual_base, decrypt_exp=decrypt_exp)
+    prime_modulus=prime_modulus,
+    prime_seed=prime_seed,
+    group_base=group_base,
+    individual_base=individual_base,
+    decrypt_exp=decrypt_exp,
+  )
   public = dsa.DSAPublicKey.Copy(private)
   utils.TestCryptoKeyEncoding(shared, dsa.DSASharedPublicKey)
   utils.TestCryptoKeyEncoding(private, dsa.DSAPrivateKey)
@@ -146,31 +221,33 @@ def test_DSA_raw(  # pylint: disable=too-many-arguments,too-many-positional-argu
 @pytest.mark.veryslow
 def test_DSA() -> None:
   """Test."""
-  shared: dsa.DSASharedPublicKey = dsa.DSASharedPublicKey.NewShared(800, 609)  # not too slow, not too fast
+  shared: dsa.DSASharedPublicKey = dsa.DSASharedPublicKey.NewShared(
+    800, 609
+  )  # not too slow, not too fast
   private: dsa.DSAPrivateKey = dsa.DSAPrivateKey.New(shared)
   public: dsa.DSAPublicKey = dsa.DSAPublicKey.Copy(private)
   assert private.modulus_size == shared.modulus_size == (100, 77)
   assert public.prime_modulus.bit_length() == 800
   aad: bytes | None
   for plaintext, aad, h_dsh in [  # parametrize here so we don't have to repeat key gen
-      (b'', b'', '49ef4ca3b3b36c9c'),
-      (b'abc', b'', 'e548b51939a9f1c4'),
-      (b'abcd', b'', 'c8e8bd6106084560'),
-      (b'abc', b'z', '2d8f648a3bb059f3'),
-      (b'a0b1c2d3e4' * 10000000, b'e4d3c2b1a0' * 10000000, '47110bca1034a8ff'),
+    (b'', b'', '49ef4ca3b3b36c9c'),
+    (b'abc', b'', 'e548b51939a9f1c4'),
+    (b'abcd', b'', 'c8e8bd6106084560'),
+    (b'abc', b'z', '2d8f648a3bb059f3'),
+    (b'a0b1c2d3e4' * 10000000, b'e4d3c2b1a0' * 10000000, '47110bca1034a8ff'),
   ]:
-    aad = aad if aad else None  # make sure we test both None and b''
+    aad = aad or None  # make sure we test both None and b''
     dsh: int = public._DomainSeparatedHash(plaintext, aad, b's' * 64)
     sg: bytes = private.Sign(plaintext, associated_data=aad)
     sg2: bytes = private.Sign(b'foo')
     assert public.Verify(plaintext, sg, associated_data=aad)
     assert public.Verify(b'foo', sg2)
     assert not public.Verify(plaintext, sg + b'x', associated_data=aad)  # wrong size
-    assert not public.Verify(plaintext, sg2, associated_data=aad)        # incorrect signature
+    assert not public.Verify(plaintext, sg2, associated_data=aad)  # incorrect signature
     assert not public.Verify(plaintext, b'\x00' * (64 + 77 + 77), associated_data=aad)  # zero sig
     assert not public.Verify(plaintext + b' ', sg, associated_data=aad)  # incorrect message
-    assert not public.Verify(b'bar', sg2)                                # incorrect message
-    assert not public.Verify(plaintext, sg, associated_data=(aad if aad else b'') + b'x')  # AAD
+    assert not public.Verify(b'bar', sg2)  # incorrect message
+    assert not public.Verify(plaintext, sg, associated_data=(aad or b'') + b'x')  # AAD
     assert base.BytesToHex(base.IntToBytes(dsh))[:16] == h_dsh
 
 
@@ -194,40 +271,68 @@ def test_DSAKey_invalid() -> None:
     dsa.DSASharedPublicKey(prime_modulus=2470031, prime_seed=1777, group_base=1777)
   # DSAPublicKey
   dsa.DSAPublicKey(
-      prime_modulus=3971141, prime_seed=1097, group_base=2508153, individual_base=3924338)
+    prime_modulus=3971141, prime_seed=1097, group_base=2508153, individual_base=3924338
+  )
   with pytest.raises(base.InputError, match='invalid individual_base'):
     dsa.DSAPublicKey(
-        prime_modulus=3971141, prime_seed=1097, group_base=2508153, individual_base=2508153)
+      prime_modulus=3971141, prime_seed=1097, group_base=2508153, individual_base=2508153
+    )
   with pytest.raises(base.InputError, match='invalid individual_base'):
     dsa.DSAPublicKey(
-        prime_modulus=3971141, prime_seed=1097, group_base=2508153, individual_base=1097)
+      prime_modulus=3971141, prime_seed=1097, group_base=2508153, individual_base=1097
+    )
   with pytest.raises(base.InputError, match='invalid individual_base'):
     dsa.DSAPublicKey(
-        prime_modulus=3971141, prime_seed=1097, group_base=2508153, individual_base=3971141)
+      prime_modulus=3971141, prime_seed=1097, group_base=2508153, individual_base=3971141
+    )
   # DSAPrivateKey
   dsa.DSAPrivateKey(
-      prime_modulus=3971141, prime_seed=1097, group_base=2508153, individual_base=1144026,
-      decrypt_exp=807)
+    prime_modulus=3971141,
+    prime_seed=1097,
+    group_base=2508153,
+    individual_base=1144026,
+    decrypt_exp=807,
+  )
   with pytest.raises(base.InputError, match='invalid decrypt_exp'):
     dsa.DSAPrivateKey(
-        prime_modulus=3971141, prime_seed=1097, group_base=2508153, individual_base=1144026,
-        decrypt_exp=2)
+      prime_modulus=3971141,
+      prime_seed=1097,
+      group_base=2508153,
+      individual_base=1144026,
+      decrypt_exp=2,
+    )
   with pytest.raises(base.InputError, match='invalid decrypt_exp'):
     dsa.DSAPrivateKey(
-        prime_modulus=3971141, prime_seed=1097, group_base=2508153, individual_base=1144026,
-        decrypt_exp=1097)
+      prime_modulus=3971141,
+      prime_seed=1097,
+      group_base=2508153,
+      individual_base=1144026,
+      decrypt_exp=1097,
+    )
   with pytest.raises(base.InputError, match='invalid decrypt_exp'):
     dsa.DSAPrivateKey(
-        prime_modulus=3971141, prime_seed=1097, group_base=2508153, individual_base=1144026,
-        decrypt_exp=2508153)
+      prime_modulus=3971141,
+      prime_seed=1097,
+      group_base=2508153,
+      individual_base=1144026,
+      decrypt_exp=2508153,
+    )
   with pytest.raises(base.InputError, match='invalid decrypt_exp'):
     dsa.DSAPrivateKey(
-        prime_modulus=3971141, prime_seed=1097, group_base=2508153, individual_base=1144026,
-        decrypt_exp=1144026)
+      prime_modulus=3971141,
+      prime_seed=1097,
+      group_base=2508153,
+      individual_base=1144026,
+      decrypt_exp=1144026,
+    )
   with pytest.raises(base.CryptoError, match=r'inconsistent g.* == i'):
     dsa.DSAPrivateKey(
-        prime_modulus=3971141, prime_seed=1097, group_base=2508153, individual_base=1144028,
-        decrypt_exp=807)
+      prime_modulus=3971141,
+      prime_seed=1097,
+      group_base=2508153,
+      individual_base=1144028,
+      decrypt_exp=807,
+    )
 
 
 if __name__ == '__main__':

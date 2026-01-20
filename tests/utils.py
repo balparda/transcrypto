@@ -1,10 +1,8 @@
-#!/usr/bin/env python3
-#
-# Copyright 2025 Daniel Balparda (balparda@github.com) - Apache-2.0 license
-#
+# SPDX-FileCopyrightText: Copyright 2026 Daniel Balparda <balparda@github.com>
+# SPDX-License-Identifier: Apache-2.0
 """utils.py unittest utilities."""
 
-from src.transcrypto import base, aes
+from transcrypto import aes, base
 
 
 def TestCryptoKeyEncoding(obj: base.CryptoKey, tp: type[base.CryptoKey]) -> None:
