@@ -51,8 +51,6 @@ def test_DSA_keys_creation(
   )
   with pytest.MonkeyPatch().context() as mp:
     mp.setattr(dsa, '_MAX_KEY_GENERATION_FAILURES', 2)
-    # with pytest.raises(base.CryptoError, match='failed primes generation'):
-    #   dsa.NBitRandomDSAPrimes(22, 11)
     with mock.patch('transcrypto.modmath.gmpy2.powmod', autospec=True) as powmod:
       powmod.return_value = 1144026
       with pytest.raises(base.CryptoError, match='failed key generation'):
@@ -83,8 +81,16 @@ def test_DSA_keys_creation_multiple() -> None:
 
 
 @pytest.mark.parametrize(
-  'prime_modulus, prime_seed, group_base, individual_base, decrypt_exp, message, '
-  'ephemeral, expected_signed',
+  (
+    'prime_modulus',
+    'prime_seed',
+    'group_base',
+    'individual_base',
+    'decrypt_exp',
+    'message',
+    'ephemeral',
+    'expected_signed',
+  ),
   [
     (3971141, 1097, 2508153, 3924338, 470, 10, 603, (387, 107)),  # one individual, message==10
     (
@@ -161,7 +167,7 @@ def test_DSA_keys_creation_multiple() -> None:
   ],
 )
 @mock.patch('transcrypto.dsa.DSAPublicKey._MakeEphemeralKey', autospec=True)
-def test_DSA_raw(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+def test_DSA_raw(
   make_ephemeral: mock.MagicMock,
   prime_modulus: int,
   prime_seed: int,
@@ -188,7 +194,7 @@ def test_DSA_raw(  # pylint: disable=too-many-arguments,too-many-positional-argu
   aes._TestCryptoKeyEncoding(shared, dsa.DSASharedPublicKey)
   aes._TestCryptoKeyEncoding(private, dsa.DSAPrivateKey)
   aes._TestCryptoKeyEncoding(public, dsa.DSAPublicKey)
-  make_ephemeral.return_value = (ephemeral, dsa.modmath.ModInv(ephemeral, prime_seed))
+  make_ephemeral.return_value = (ephemeral, modmath.ModInv(ephemeral, prime_seed))
   # do private key operations
   with pytest.raises(base.InputError, match='invalid message'):
     private.RawSign(0)
@@ -234,7 +240,7 @@ def test_DSA() -> None:
     (b'abc', b'z', '2d8f648a3bb059f3'),
     (b'a0b1c2d3e4' * 10000000, b'e4d3c2b1a0' * 10000000, '47110bca1034a8ff'),
   ]:
-    aad = aad or None  # make sure we test both None and b''
+    aad = aad or None  # make sure we test both None and b''  # noqa: PLW2901
     dsh: int = public._DomainSeparatedHash(plaintext, aad, b's' * 64)
     sg: bytes = private.Sign(plaintext, associated_data=aad)
     sg2: bytes = private.Sign(b'foo')

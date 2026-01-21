@@ -69,9 +69,23 @@ def test_RSA_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
 
 
 @pytest.mark.parametrize(
-  'public_modulus, encrypt_exp, random_key, key_inverse, modulus_p, modulus_q, decrypt_exp, '
-  'remainder_p, remainder_q, q_inverse_p, '
-  'message, expected_cypher, expected_obfuscated, expected_signed, expected_obfuscated_signed',
+  (
+    'public_modulus',
+    'encrypt_exp',
+    'random_key',
+    'key_inverse',
+    'modulus_p',
+    'modulus_q',
+    'decrypt_exp',
+    'remainder_p',
+    'remainder_q',
+    'q_inverse_p',
+    'message',
+    'expected_cypher',
+    'expected_obfuscated',
+    'expected_signed',
+    'expected_obfuscated_signed',
+  ),
   [
     (1357, 7, 695, 658, 23, 59, 547, 19, 25, 16, 2, 128, 1276, 601, 1096),
     (1357, 7, 695, 658, 23, 59, 547, 19, 25, 16, 10, 267, 952, 297, 151),
@@ -96,7 +110,7 @@ def test_RSA_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
     ),
   ],
 )
-def test_RSA_raw(  # pylint: disable=too-many-locals,too-many-arguments,too-many-positional-arguments
+def test_RSA_raw(
   public_modulus: int,
   encrypt_exp: int,
   random_key: int,
@@ -192,7 +206,7 @@ def test_RSA() -> None:
     (b'abc', b'z', '768d7961ca8b6dc7'),
     (b'a0b1c2d3e4' * 10000000, b'e4d3c2b1a0' * 10000000, '5194fe1bf993ebbe'),
   ]:
-    aad = aad or None  # make sure we test both None and b''
+    aad = aad or None  # make sure we test both None and b''  # noqa: PLW2901
     ct: bytes = public.Encrypt(plaintext, associated_data=aad)
     dsh: int = public._DomainSeparatedHash(plaintext, aad, b's' * 64)
     sg: bytes = private.Sign(plaintext, associated_data=aad)

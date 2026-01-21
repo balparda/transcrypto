@@ -18,12 +18,20 @@ __version__: str = base.__version__  # tests inherit version from module
 
 
 @pytest.fixture(autouse=True)
-def _reset_base_logging() -> None:  # type: ignore
+def _reset_base_logging() -> None:  # pyright: ignore[reportUnusedFunction]
   base.ResetConsole()
 
 
 def _RunCLI(argv: list[str]) -> tuple[int, str]:
-  """Run the CLI with argv, capture stdout, return (exit_code, stdout_stripped)."""
+  """Run the CLI with argv, capture stdout, return (exit_code, stdout_stripped).
+
+  Args:
+      argv (list[str]): args
+
+  Returns:
+      tuple[int, str]: CLI return
+
+  """
   buf = io.StringIO()
   with redirect_stdout(buf):
     code: int = safetrans.main(argv)

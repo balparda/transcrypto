@@ -8,7 +8,7 @@ from unittest import mock
 
 import pytest
 
-from transcrypto import aes, base, elgamal
+from transcrypto import aes, base, elgamal, modmath
 
 __author__ = 'balparda@github.com (Daniel Balparda)'
 __version__: str = elgamal.__version__  # tests inherit version from module
@@ -47,8 +47,16 @@ def test_ElGamal_keys_creation(prime: mock.MagicMock, randbits: mock.MagicMock) 
 
 
 @pytest.mark.parametrize(
-  'prime_modulus, group_base, individual_base, decrypt_exp, message, ephemeral, '
-  'expected_cypher, expected_signed',
+  (
+    'prime_modulus',
+    'group_base',
+    'individual_base',
+    'decrypt_exp',
+    'message',
+    'ephemeral',
+    'expected_cypher',
+    'expected_signed',
+  ),
   [
     (1783, 146, 694, 409, 10, 5, (108, 1691), (108, 434)),  # one individual, message==10
     (
@@ -125,7 +133,7 @@ def test_ElGamal_keys_creation(prime: mock.MagicMock, randbits: mock.MagicMock) 
   ],
 )
 @mock.patch('transcrypto.elgamal.ElGamalPublicKey._MakeEphemeralKey', autospec=True)
-def test_ElGamal_raw(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+def test_ElGamal_raw(
   make_ephemeral: mock.MagicMock,
   prime_modulus: int,
   group_base: int,
@@ -150,7 +158,7 @@ def test_ElGamal_raw(  # pylint: disable=too-many-arguments,too-many-positional-
   aes._TestCryptoKeyEncoding(private, elgamal.ElGamalPrivateKey)
   aes._TestCryptoKeyEncoding(public, elgamal.ElGamalPublicKey)
   # do public key operations
-  make_ephemeral.return_value = (ephemeral, elgamal.modmath.ModInv(ephemeral, prime_modulus - 1))
+  make_ephemeral.return_value = (ephemeral, modmath.ModInv(ephemeral, prime_modulus - 1))
   with pytest.raises(base.InputError, match='invalid message'):
     public.RawEncrypt(0)
   with pytest.raises(base.InputError, match='invalid message'):
@@ -206,7 +214,7 @@ def test_ElGamal() -> None:
     (b'abc', b'z', '1d679318e921385d'),
     (b'a0b1c2d3e4' * 10000000, b'e4d3c2b1a0' * 10000000, '2dc8e0183a121cb9'),
   ]:
-    aad = aad or None  # make sure we test both None and b''
+    aad = aad or None  # make sure we test both None and b''  # noqa: PLW2901
     ct: bytes = public.Encrypt(plaintext, associated_data=aad)
     dsh: int = public._DomainSeparatedHash(plaintext, aad, b's' * 64)
     sg: bytes = private.Sign(plaintext, associated_data=aad)

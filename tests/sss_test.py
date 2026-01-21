@@ -15,7 +15,7 @@ __version__: str = sss.__version__  # tests inherit version from module
 
 
 @pytest.mark.parametrize(
-  'minimum, modulus, polynomial, secret',
+  ('minimum', 'modulus', 'polynomial', 'secret'),
   [
     (3, 907, [593, 787], 12),
     (2, 821, [673], 13),
@@ -60,14 +60,14 @@ def test_ShamirSharedSecret_raw(
     private.MakeDataShares(b'msg', 5)
   with pytest.raises(base.InputError, match='modulus too small for key operations'):
     data.RecoverData(shares)
+  bogus_share = sss.ShamirSharePrivate(  # same key, different value
+    minimum=shares[0].minimum,
+    modulus=shares[0].modulus,
+    share_key=shares[0].share_key,
+    share_value=shares[0].share_value - 1,
+  )
   with pytest.raises(base.InputError, match='duplicated with conflicting value'):
-    bogus_share = sss.ShamirSharePrivate(  # same key, different value
-      minimum=shares[0].minimum,
-      modulus=shares[0].modulus,
-      share_key=shares[0].share_key,
-      share_value=shares[0].share_value - 1,
-    )
-    public.RawRecoverSecret(shares[:-2] + [bogus_share])
+    public.RawRecoverSecret([*shares[:-2], bogus_share])
 
 
 @mock.patch('transcrypto.base.RandBits', autospec=True)
@@ -135,14 +135,16 @@ def test_ShamirSharedSecret() -> None:
   public: sss.ShamirSharedSecretPublic = sss.ShamirSharedSecretPublic.Copy(private)
   assert private.modulus_size == public.modulus_size == 64
   assert public.modulus.bit_length() == 512
+  shares: list[sss.ShamirShareData] = []
+  s_shares: list[sss.ShamirSharePrivate] = []
   for plaintext, n_shares in [  # parametrize here so we don't have to repeat key gen
     (b'', 8),
     (b'abc', 8),
     (b'a0b1c2d3e4' * 10000000, 7),
   ]:
-    shares: list[sss.ShamirShareData] = private.MakeDataShares(plaintext, n_shares)
+    shares = private.MakeDataShares(plaintext, n_shares)
     assert len(shares) == n_shares
-    s_shares: list[sss.ShamirSharePrivate] = [sss.ShamirSharePrivate.CopyShare(s) for s in shares]
+    s_shares = [sss.ShamirSharePrivate.CopyShare(s) for s in shares]
     base.RandShuffle(shares)  # mix them up
     base.RandShuffle(s_shares)  # mix them up
     assert shares[0].RecoverData(s_shares[:5]) == plaintext
@@ -154,7 +156,7 @@ def test_ShamirSharedSecret() -> None:
   ) as rrs:
     rrs.return_value = 1 << 300
     with pytest.raises(base.CryptoError, match='recovered key out of range for 256-bit key'):
-      shares[0].RecoverData(s_shares[:5])  # type:ignore
+      shares[0].RecoverData(s_shares[:5])
 
 
 def test_ShamirSharedSecretPublic_invalid() -> None:

@@ -223,7 +223,7 @@ def test_aes_ecb_encrypthex_decrypthex_roundtrip() -> None:
   assert out == block_hex
 
 
-def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None:  # pylint: disable=redefined-outer-name
+def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None:
   """Test AES-GCM encrypt/decrypt round trip via CLI."""
   plaintext = 'secret message'
   aad = 'assoc'
@@ -323,7 +323,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
   assert code == 0 and out == 'RSA signature: INVALID'
 
 
-def test_elgamal_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None:  # pylint: disable=too-many-locals
+def test_elgamal_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None:
   """Test ElGamal shared/new, encrypt/decrypt, sign/verify via CLI."""
   base_path: pathlib.Path = tmp_path / 'eg'
   shared_path: pathlib.Path = tmp_path / 'eg.shared'

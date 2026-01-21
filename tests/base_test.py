@@ -17,7 +17,7 @@ import pathlib
 import sys
 import tempfile
 import warnings
-from collections.abc import Callable, Generator
+from collections import abc
 from typing import Any
 from unittest import mock
 
@@ -33,7 +33,7 @@ __version__: str = base.__version__  # tests inherit version from module
 
 
 @pytest.fixture(autouse=True)
-def _reset_logging_and_singleton() -> Generator[None]:  # type: ignore
+def _reset_logging_and_singleton() -> abc.Generator[None]:  # type: ignore
   """Prevent cross-test pollution:
   - Restore root logger handlers/level
   - Restore provider logger state
@@ -555,7 +555,7 @@ def test_HumanizedMeasurements_success(
 def test_HumanizedMeasurements_validation(
   data: list[int | float],
   unit: str,
-  parser: Callable[[float], str] | None,
+  parser: abc.Callable[[float], str] | None,
   confidence: float,
   out: str,
 ) -> None:
@@ -1109,7 +1109,7 @@ def test_BytesFromInput_path(tmp_path: pathlib.Path) -> None:
 def test_BytesFromInput_stdin_binary(monkeypatch: pytest.MonkeyPatch) -> None:
   """Reading from stdin.buffer (binary)."""
 
-  class _FakeStdin:  # pylint:disable=too-few-public-methods
+  class _FakeStdin:
     def __init__(self, b: bytes) -> None:
       self.buffer = io.BytesIO(b)
 
@@ -1138,7 +1138,7 @@ def test_BytesFromInput_stdin_text(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_stdin_non_text_data_text_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
   """If sys.stdin.read() returns non-str, raise."""
 
-  class _FakeStdin:  # pylint:disable=too-few-public-methods
+  class _FakeStdin:
     def read(self):
       """Read."""
       return b'not-a-str'  # wrong type
@@ -1154,12 +1154,12 @@ def test_stdin_non_text_data_text_fallback(monkeypatch: pytest.MonkeyPatch) -> N
 def test_stdin_non_text_data_binary(monkeypatch: pytest.MonkeyPatch) -> None:
   """If sys.stdin.buffer.read() returns non-bytes, raise."""
 
-  class _FakeBuffer:  # pylint:disable=too-few-public-methods
+  class _FakeBuffer:
     def read(self):
       """Read."""
       return 'not-bytes'  # wrong type
 
-  class _FakeStdin:  # pylint:disable=too-few-public-methods
+  class _FakeStdin:
     def __init__(self) -> None:
       self.buffer = _FakeBuffer()
 
@@ -1313,7 +1313,7 @@ def sample_obj() -> dict[str, Any]:
   }
 
 
-def test_serialize_deserialize_no_compress_no_encrypt(sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
+def test_serialize_deserialize_no_compress_no_encrypt(sample_obj: dict[str, Any]) -> None:
   """Test."""
   blob: bytes = base.Serialize(sample_obj, compress=None)
   # should NOT look like zstd: DeSerialize should skip decompression path
@@ -1321,7 +1321,7 @@ def test_serialize_deserialize_no_compress_no_encrypt(sample_obj: dict[str, Any]
   assert obj2 == sample_obj
 
 
-def test_serialize_deserialize_with_compress_negative_clamped(sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
+def test_serialize_deserialize_with_compress_negative_clamped(sample_obj: dict[str, Any]) -> None:
   """Test."""
   # request a very fast negative level; function clamps to >= -22 then compresses
   blob: bytes = base.Serialize(sample_obj, compress=-100)  # expect clamp to -22 internally
@@ -1330,7 +1330,7 @@ def test_serialize_deserialize_with_compress_negative_clamped(sample_obj: dict[s
   assert obj2 == sample_obj
 
 
-def test_serialize_deserialize_with_compress_high_clamped(sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
+def test_serialize_deserialize_with_compress_high_clamped(sample_obj: dict[str, Any]) -> None:
   """Test."""
   # request above max; function clamps to 22
   blob: bytes = base.Serialize(sample_obj, compress=99)
@@ -1338,7 +1338,7 @@ def test_serialize_deserialize_with_compress_high_clamped(sample_obj: dict[str, 
   assert obj2 == sample_obj
 
 
-def test_serialize_deserialize_with_encrypt_ok(sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
+def test_serialize_deserialize_with_encrypt_ok(sample_obj: dict[str, Any]) -> None:
   """Test."""
   key = aes.AESKey(key256=b'x' * 32)
   blob: bytes = base.Serialize(sample_obj, compress=3, key=key)
@@ -1349,7 +1349,7 @@ def test_serialize_deserialize_with_encrypt_ok(sample_obj: dict[str, Any]) -> No
 
 def test_serialize_save_and_load_from_file(
   tmp_path: pathlib.Path, sample_obj: dict[str, Any]
-) -> None:  # pylint: disable=redefined-outer-name
+) -> None:
   """Test."""
   p: pathlib.Path = tmp_path / 'payload.bin'
   blob: bytes = base.Serialize(sample_obj, compress=3, file_path=str(p))
@@ -1376,7 +1376,7 @@ def test_deserialize_invalid_calls() -> None:
     base.DeSerialize(data=b'\x00\x01\x02')
 
 
-def test_deserialize_wrong_key_raises(sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
+def test_deserialize_wrong_key_raises(sample_obj: dict[str, Any]) -> None:
   """Test."""
   key_ok = aes.AESKey(key256=b'x' * 32)
   key_bad = aes.AESKey(key256=b'y' * 32)
@@ -1385,7 +1385,7 @@ def test_deserialize_wrong_key_raises(sample_obj: dict[str, Any]) -> None:  # py
     base.DeSerialize(data=blob, key=key_bad)
 
 
-def test_deserialize_corrupted_zstd_raises(sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
+def test_deserialize_corrupted_zstd_raises(sample_obj: dict[str, Any]) -> None:
   """Test."""
   # create a valid zstd-compressed blob
   blob: bytes = base.Serialize(sample_obj, compress=3)
@@ -1400,7 +1400,7 @@ def test_deserialize_corrupted_zstd_raises(sample_obj: dict[str, Any]) -> None: 
     base.DeSerialize(data=corrupted)
 
 
-def test_deserialize_no_compression_detected_branch(sample_obj: dict[str, Any]) -> None:  # pylint: disable=redefined-outer-name
+def test_deserialize_no_compression_detected_branch(sample_obj: dict[str, Any]) -> None:
   """Test."""
   # Craft a blob that is NOT zstd: disable compression
   blob: bytes = base.Serialize(sample_obj, compress=None)
@@ -1546,7 +1546,7 @@ def test_rows_for_actions_cover_suppress_custom_and_help() -> None:
   p.add_argument('--maybe', default=argparse.SUPPRESS, help='maybe suppressed default')
 
   # Custom callable without __name__ → forces 'type: custom' in _FormatType
-  class _CallableNoName:  # pragma: no cover - cover is for transcrypto lines, not this helper  # pylint: disable=too-few-public-methods
+  class _CallableNoName:  # pragma: no cover - cover is for transcrypto lines, not this helper
     def __call__(self, s: str) -> str:
       return s
 

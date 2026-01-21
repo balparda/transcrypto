@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from unittest import mock
 
-import gmpy2
+import gmpy2  # type: ignore
 import pytest
 
 from transcrypto import base, constants, modmath
@@ -16,7 +16,7 @@ __version__: str = modmath.__version__  # tests inherit version from module
 
 
 @pytest.mark.parametrize(
-  'x, m, y',
+  ('x', 'm', 'y'),
   [
     (1, 2, 1),
     (3, 2, 1),
@@ -72,7 +72,7 @@ def test_ModInv_invalid() -> None:
 
 
 @pytest.mark.parametrize(
-  'x, y, m, z',
+  ('x', 'y', 'm', 'z'),
   [
     (1, 1, 2, 1),
     (-1, 1, 2, 1),
@@ -96,12 +96,12 @@ def test_ModDiv(x: int, y: int, m: int, z: int) -> None:
   """Test."""
   assert modmath.ModDiv(x, y, m) == z
   if x:
-    assert modmath.ModDiv(y, x, m) == modmath.ModInv(z, m)  # pylint: disable=arguments-out-of-order
+    assert modmath.ModDiv(y, x, m) == modmath.ModInv(z, m)
   assert (z * y) % m == x % m  # check the division!
 
 
 @pytest.mark.parametrize(
-  'a1, m1, a2, m2, x',
+  ('a1', 'm1', 'a2', 'm2', 'x'),
   [
     (10, 3, 22, 5, 7),
     (-2, 3, -3, 5, 7),
@@ -114,7 +114,7 @@ def test_ModDiv(x: int, y: int, m: int, z: int) -> None:
 def test_CRTPair(a1: int, m1: int, a2: int, m2: int, x: int) -> None:
   """Test."""
   assert modmath.CRTPair(a1, m1, a2, m2) == x
-  assert modmath.CRTPair(a2, m2, a1, m1) == x  # pylint: disable=arguments-out-of-order
+  assert modmath.CRTPair(a2, m2, a1, m1) == x
   # check the relationships
   assert x % m1 == a1 % m1
   assert x % m2 == a2 % m2
@@ -141,7 +141,7 @@ def test_ModDiv_invalid() -> None:
 
 
 @pytest.mark.parametrize(
-  'x, y, m, r',
+  ('x', 'y', 'm', 'r'),
   [
     # do NOT use x or y > 2500 or so!!
     (0, 0, 2, 1),
@@ -161,7 +161,7 @@ def test_ModDiv_invalid() -> None:
 )
 def test_ModExp(x: int, y: int, m: int, r: int) -> None:
   """Test."""
-  assert modmath.ModExp(x, y, m) == pow(x, y, m) == gmpy2.powmod(x, y, m) == r  # type:ignore  # pylint:disable=no-member
+  assert modmath.ModExp(x, y, m) == pow(x, y, m) == gmpy2.powmod(x, y, m) == r
   assert (x**y) % m == r  # also do the computation the hard way
 
 
