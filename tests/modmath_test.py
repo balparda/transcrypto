@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from collections import abc
 from unittest import mock
 
 import gmpy2  # type: ignore
@@ -166,7 +167,7 @@ def test_ModExp(x: int, y: int, m: int, r: int) -> None:
 
 
 @pytest.mark.parametrize(
-  'x, y, m, r',
+  ('x', 'y', 'm', 'r'),
   [
     # these numbers are too big to do x ** y directly!
     (34872647, 374534539, 3948756, 2070395),
@@ -202,7 +203,7 @@ def test_ModExp_ModInv_modulus(m: int) -> None:
 
 
 @pytest.mark.parametrize(
-  'x, p, m, y',
+  ('x', 'p', 'm', 'y'),
   [
     (1, [0], 19937, 0),  # f(x) = 0
     (1, [1], 19937, 1),  # f(x) = 1
@@ -241,7 +242,7 @@ def test_ModPolynomial_invalid() -> None:
 
 
 @pytest.mark.parametrize(
-  'x, p, m, y',
+  ('x', 'p', 'm', 'y'),
   [
     (1, {2: 2, 3: 3}, 5, 1),
     (1, {-1: -1, 3: 3}, 5, 1),
@@ -258,7 +259,7 @@ def test_ModLagrangeInterpolate(x: int, p: dict[int, int], m: int, y: int) -> No
 
 
 @pytest.mark.parametrize(
-  'x, p, m, mess',
+  ('x', 'p', 'm', 'mess'),
   [
     (1, {2: 2, 3: 3}, 1, 'invalid modulus'),
     (1, {}, 5, 'invalid points'),
@@ -273,7 +274,7 @@ def test_ModLagrangeInterpolate_invalid(x: int, p: dict[int, int], m: int, mess:
 
 
 @pytest.mark.parametrize(
-  'n, witnesses, p',
+  ('n', 'witnesses', 'p'),
   [
     # incorrect result because (2**340)%341==1 so 2 is a false witness for 341 (not a prime =11*31)
     # <https://en.wikipedia.org/wiki/Fermat_pseudoprime>
@@ -302,7 +303,7 @@ def test_FermatIsPrime_invalid() -> None:
 
 
 @pytest.mark.parametrize(
-  'n, witnesses',
+  ('n', 'witnesses'),
   [
     pytest.param(2**10, {2}, id='2**10'),
     pytest.param(2**20, {31, 73}, id='2**20'),
@@ -405,10 +406,10 @@ def test_MillerRabinSR() -> None:
 
 
 @pytest.mark.parametrize(
-  'n, witnesses, p',
+  ('n', 'witnesses', 'p'),
   [
     (341, {2}, False),  # correct here when incorrect in Fermat
-    # incorrect result because (2**2046)%2047==1 so 2 is a false witness for 2047 (not a prime =23*89)
+    # incorrect result because (2**2046)%2047==1 so 2 is a false witness for 2047 (not prime =23*89)
     # <https://en.wikipedia.org/wiki/Strong_pseudoprime>
     (2047, {2}, True),  # incorrect: 2 is a false witness
     (2047, {3}, False),  # correct:   3 is not a false witness
@@ -439,7 +440,7 @@ def test_IsPrime_basic() -> None:
 
 
 @pytest.mark.parametrize(
-  'n, p',
+  ('n', 'p'),
   [
     pytest.param(8911, False),  # strong pseudo-prime
     pytest.param(9881, False),  # strong pseudo-prime
@@ -482,7 +483,7 @@ def test_PrimeGenerator() -> None:
   primes20: list[int] = modmath.FirstNPrimesSorted(20000)
   assert primes20[:5000] == constants.FIRST_5K_PRIMES_SORTED
   assert primes20 == constants.FIRST_20K_PRIMES_SORTED
-  g: modmath.Generator[int, None, None] = modmath.PrimeGenerator(2**100)
+  g: abc.Generator[int] = modmath.PrimeGenerator(2**100)
   assert next(g) == 2**100 + 277
   assert next(g) == 2**100 + 331
 

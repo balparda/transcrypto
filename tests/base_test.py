@@ -16,6 +16,7 @@ import math
 import pathlib
 import sys
 import tempfile
+import time
 import warnings
 from collections import abc
 from typing import Any
@@ -23,6 +24,7 @@ from unittest import mock
 
 import pytest
 import typeguard
+import zstandard
 from rich import console as rich_console
 from rich import logging as rich_logging
 
@@ -33,8 +35,9 @@ __version__: str = base.__version__  # tests inherit version from module
 
 
 @pytest.fixture(autouse=True)
-def _reset_logging_and_singleton() -> abc.Generator[None]:  # type: ignore
-  """Prevent cross-test pollution:
+def _reset_logging_and_singleton() -> abc.Generator[None]:  # pyright: ignore[reportUnusedFunction]
+  """Prevent cross-test pollution.
+
   - Restore root logger handlers/level
   - Restore provider logger state
   - Reset base._console_singleton
@@ -161,13 +164,13 @@ def test_initlogging_emits_startup_log(monkeypatch: pytest.MonkeyPatch) -> None:
   """Test."""
   seen: dict[str, str] = {}
 
-  def _fake_info(msg: str, *fake_args, **unused_kwargs) -> None:  # type: ignore
+  def _fake_info(msg: str, *fake_args: Any, **unused_kwargs: Any) -> None:  # noqa: ANN401, ARG001
     # support both f-string messages and %-format
     if fake_args:
-      msg = msg % fake_args
+      msg %= fake_args
     seen['msg'] = msg
 
-  monkeypatch.setattr(logging, 'info', _fake_info)  # type: ignore
+  monkeypatch.setattr(logging, 'info', _fake_info)
   base.InitLogging(2, include_process=False)
   assert 'Logging initialized at level' in seen.get('msg', '')
 
@@ -187,7 +190,7 @@ def test_time_utils() -> None:
   assert base.MIN_TM == 946684800
   assert base.TimeStr(base.MIN_TM) == '2000/Jan/01-00:00:00-UTC'
   assert base.Now() > base.MIN_TM
-  assert base.StrNow() != ''
+  assert base.StrNow()
 
 
 def test_bytes_conversions() -> None:
@@ -216,7 +219,7 @@ def test_bytes_conversions() -> None:
 
 
 @pytest.mark.parametrize(
-  'value, message',
+  ('value', 'message'),
   [
     (0, '0 B'),  # bytes < 1024
     (512, '512 B'),
@@ -241,7 +244,7 @@ def test_HumanizedBytes(value: int, message: str) -> None:
 
 
 @pytest.mark.parametrize(
-  'value, message, unit, unit_message',
+  ('value', 'message', 'unit', 'unit_message'),
   [
     # <1000 integer, no unit / with unit
     (0, '0', 'Hz', '0 Hz'),
@@ -269,7 +272,7 @@ def test_HumanizedBytes(value: int, message: str) -> None:
     (9 * 1000**6, '9.000 E', 'Hz', '9.000 EHz'),
     # small ranges
     (0.05, '50.000 m', 'Hz', '50.000 mHz'),
-    (0.00005, '50.000 µ', 'Hz', '50.000 µHz'),
+    (0.00005, '50.000 µ', 'Hz', '50.000 µHz'),  # noqa: RUF001
     (-0.00000005, '-50.000 n', 'Hz', '-50.000 nHz'),
     (0.00000000005, '50.000 p', 'Hz', '50.000 pHz'),
     (-0.00000000000005, '-50.000 f', 'Hz', '-50.000 fHz'),
@@ -283,14 +286,14 @@ def test_HumanizedDecimal(value: float, message: str, unit: str, unit_message: s
 
 
 @pytest.mark.parametrize(
-  'value, message',
+  ('value', 'message'),
   [
     # zero
     (0, '0.000 s'),
     # microseconds
-    (0.0000005, '0.500 µs'),
-    (0.0005, '500.000 µs'),
-    (0.000999, '999.000 µs'),
+    (0.0000005, '0.500 µs'),  # noqa: RUF001
+    (0.0005, '500.000 µs'),  # noqa: RUF001
+    (0.000999, '999.000 µs'),  # noqa: RUF001
     # milliseconds
     (0.001, '1.000 ms'),
     (0.5, '500.000 ms'),
@@ -346,7 +349,7 @@ def test_measurement_stats_failures() -> None:
 
 
 @pytest.mark.parametrize(
-  'data, confidence',
+  ('data', 'confidence'),
   [
     ([42], 0.95),  # trivial one-sample case
     ([1, 2, 3], 0.95),  # small sample
@@ -385,8 +388,8 @@ def test_HumanizedMeasurements_failures() -> None:
 
 
 @pytest.mark.parametrize(
-  'data, kwargs',
-  [  # type:ignore
+  ('data', 'kwargs'),
+  [
     ([42], {}),  # single value
     ([1, 2, 3], {}),  # defaults
     ([1, 2, 3], {'unit': 'ms'}),  # with unit
@@ -407,21 +410,21 @@ def test_HumanizedMeasurements_success(
   assert '±' in result
   # Contains confidence percent for n > 1
   if len(data) > 1:
-    conf = int(round(kwargs.get('confidence', 0.95) * 100))  # type:ignore
+    conf: int = round(kwargs.get('confidence', 0.95) * 100)  # type:ignore
     assert f'{conf}%CI' in result
 
 
 @pytest.mark.parametrize(
-  'data, unit, parser, confidence, out',
-  [  # type:ignore
+  ('data', 'unit', 'parser', 'confidence', 'out'),
+  [
     ([42], '', None, 0.95, '42.0 ±? @1'),
     ([0.0000042], 'Hz', None, 0.95, '4.2e-06Hz ±? @1'),
     ([42000000000000000], 'Hz', base.HumanizedDecimal, 0.95, '42.000 PHz ±? @1'),
     (
       [42000000000000000],
       '',
-      lambda x: base.HumanizedDecimal(x, unit='Hz'),
-      0.95,  # type:ignore
+      lambda x: base.HumanizedDecimal(x, unit='Hz'),  # pyright: ignore
+      0.95,
       '42.000 PHz ±? @1',
     ),
     (
@@ -436,15 +439,17 @@ def test_HumanizedMeasurements_success(
       'Hz',
       None,
       0.95,
-      '1.15e-06Hz ± 1.4821066855207452e-07Hz [1.0017893314479255e-06Hz … '
-      '1.2982106685520745e-06Hz]95%CI@8',
+      (
+        '1.15e-06Hz ± 1.4821066855207452e-07Hz [1.0017893314479255e-06Hz … '
+        '1.2982106685520745e-06Hz]95%CI@8'
+      ),
     ),
     (
       [0.0000011, 0.0000012, 0.0000013, 0.0000013, 0.0000012, 0.000001, 0.0000008, 0.0000013],
       'WH',
       base.HumanizedDecimal,
       0.95,
-      '1.150 µWH ± 148.211 nWH [1.002 µWH … 1.298 µWH]95%CI@8',
+      '1.150 µWH ± 148.211 nWH [1.002 µWH … 1.298 µWH]95%CI@8',  # noqa: RUF001
     ),
     (
       [
@@ -482,8 +487,8 @@ def test_HumanizedMeasurements_success(
         12600000,
       ],
       '',
-      lambda x: base.HumanizedDecimal(x, unit='Hz'),
-      0.95,  # type:ignore
+      lambda x: base.HumanizedDecimal(x, unit='Hz'),  # pyright: ignore
+      0.95,
       '12.383 MHz ± 252.458 kHz [12.131 MHz … 12.636 MHz]95%CI@12',
     ),
     (
@@ -502,8 +507,8 @@ def test_HumanizedMeasurements_success(
         12600000,
       ],
       '',
-      lambda x: base.HumanizedDecimal(x, unit='Hz'),
-      0.99,  # type:ignore
+      lambda x: base.HumanizedDecimal(x, unit='Hz'),  # pyright: ignore
+      0.99,
       '12.383 MHz ± 356.242 kHz [12.027 MHz … 12.740 MHz]99%CI@12',
     ),
     (
@@ -571,7 +576,7 @@ def test_HumanizedMeasurements_validation(
 def _mock_perf(monkeypatch: pytest.MonkeyPatch, values: list[float]) -> None:
   """Install a perf_counter that yields from `values`."""
   it = iter(values)
-  monkeypatch.setattr(base.time, 'perf_counter', lambda: next(it))
+  monkeypatch.setattr(time, 'perf_counter', lambda: next(it))
 
 
 def test_Timer_str_unstarted() -> None:
@@ -656,7 +661,7 @@ def test_Timer_context_manager_logs_and_optionally_prints(
 def test_Timer_context_manager_exception_still_times_and_logs(
   monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-  """Test."""
+  """Test."""  # noqa: DOC501
   # Enter=5.0, Exit=5.3 → 0.3 s even if exception occurs
   _mock_perf(monkeypatch, [5.0, 5.3])
   caplog.set_level(logging.INFO)
@@ -772,11 +777,11 @@ def test_RandInt() -> None:
 @pytest.mark.slow
 def test_RandInt_uniform_small_range() -> None:
   """Test."""
-  N: int = 30000
-  counts: collections.Counter[int] = collections.Counter(base.RandInt(10, 20) for _ in range(N))
+  n: int = 30000
+  counts: collections.Counter[int] = collections.Counter(base.RandInt(10, 20) for _ in range(n))
   # each should be close to N/11
   for c in counts.values():
-    assert abs(c - N / 11) < 0.1 * N / 11  # chance of failure of 1 in 10 million
+    assert abs(c - n / 11) < 0.1 * n / 11  # chance of failure of 1 in 10 million
 
 
 @pytest.mark.stochastic
@@ -828,14 +833,14 @@ def test_RandShuffle_small_n_uniformity() -> None:
   base_list: list[int] = [1, 2, 3]
   perms: list[tuple[int, ...]] = list(itertools.permutations(base_list))
   counts: dict[tuple[int, ...], int] = dict.fromkeys(perms, 0)
-  N: int = 6000
-  for _ in range(N):
+  n: int = 6000
+  for _ in range(n):
     s: list[int] = base_list.copy()
     base.RandShuffle(s)
     counts[tuple(s)] += 1
   # each of 6 perms should be close to N/6
   for c in counts.values():
-    assert abs(c - N / 6) < 0.2 * (N / 6)  # chance of failure in any of 6 deviates is 1 in 10**11
+    assert abs(c - n / 6) < 0.2 * (n / 6)  # chance of failure in any of 6 deviates is 1 in 10**11
 
 
 @pytest.mark.stochastic
@@ -845,19 +850,19 @@ def test_RandBytes() -> None:
     base.RandBytes(0)
   assert len(base.RandBytes(1)) == 1
   assert len(base.RandBytes(1000)) == 1000
-  assert len(set(base.RandBytes(32) for _ in range(100))) == 100  # chance of failure is 1 in 10**74
+  assert len({base.RandBytes(32) for _ in range(100)}) == 100  # chance of failure is 1 in 10**74
 
 
 @pytest.mark.stochastic
 def test_RandBits_RandInt_RandShuffle_parallel_smoke() -> None:
   """Test."""
   with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
-    xs: list[int] = list(ex.map(lambda _: base.RandBits(256), range(200)))  # type:ignore
-    ys: list[int] = list(ex.map(lambda _: base.RandInt(0, 1000), range(200)))  # type:ignore
-    zs: list[bytes] = list(ex.map(lambda _: base.RandBytes(32), range(200)))  # type:ignore
+    xs: list[int] = list(ex.map(lambda _: base.RandBits(256), range(200)))  # pyright: ignore
+    ys: list[int] = list(ex.map(lambda _: base.RandInt(0, 1000), range(200)))  # pyright: ignore
+    zs: list[bytes] = list(ex.map(lambda _: base.RandBytes(32), range(200)))  # pyright: ignore
     seq: list[int] = list(range(50))
     # shuffle some independent copies
-    list(ex.map(lambda _: base.RandShuffle(seq[:]), range(50)))  # type:ignore
+    list(ex.map(lambda _: base.RandShuffle(seq[:]), range(50)))  # pyright: ignore
   assert len(set(xs)) == len(xs)
   assert all(0 <= y <= 1000 for y in ys)  # chance of failure in any of 200 draws is 1 in 10**73
   assert len(set(zs)) == len(zs)
@@ -872,7 +877,7 @@ def test_GCD_same_number(n: int) -> None:
 
 
 @pytest.mark.parametrize(
-  'a, b, gcd, x, y',
+  ('a', 'b', 'gcd', 'x', 'y'),
   [
     (0, 1, 1, 0, 1),
     (1, 0, 1, 1, 0),
@@ -897,7 +902,7 @@ def test_GCD(a: int, b: int, gcd: int, x: int, y: int) -> None:
 
 
 @pytest.mark.parametrize(
-  'a, b',
+  ('a', 'b'),
   [
     (-1, 1),
     (1, -1),
@@ -914,14 +919,14 @@ def test_GCD_negative(a: int, b: int) -> None:
 
 def test_NegativeZero() -> None:
   """Test."""
-  assert base.GCD(-0, 5) == 5  # Python’s -0 is 0
+  assert base.GCD(-0, 5) == 5  # Python's -0 is 0
   g, x, y = base.ExtendedGCD(-0, 5)
   assert g == 5 and 5 * y == 5 and not x
   assert 0 == -0
 
 
 @pytest.mark.parametrize(
-  'data, hash256, hash512',
+  ('data', 'hash256', 'hash512'),
   [
     # values copied from <https://www.di-mgt.com.au/sha_testvectors.html>
     pytest.param(
@@ -1016,7 +1021,7 @@ def test_BytesToRaw() -> None:
 
 
 @pytest.mark.parametrize(
-  'inp, tp',
+  ('inp', 'tp'),
   [
     ('', None),
     ('sss', None),
@@ -1034,7 +1039,7 @@ def test_DetectInputType(inp: str, tp: base.CryptoInputType | None) -> None:
 
 
 @pytest.mark.parametrize(
-  'inp, exp, b',
+  ('inp', 'exp', 'b'),
   [
     # hex
     ('hex:aaaa', None, b'\xaa\xaa'),
@@ -1061,7 +1066,7 @@ def test_BytesFromInput(inp: str, exp: base.CryptoInputType | None, b: bytes) ->
 
 
 @pytest.mark.parametrize(
-  'inp, exp, m',
+  ('inp', 'exp', 'm'),
   [
     ('@-', base.CryptoInputType.HEX, r'Expected type.*is different from detected type'),
     ('@xxx', base.CryptoInputType.HEX, r'Expected type.*is different from detected type'),
@@ -1089,9 +1094,11 @@ def test_BytesFromInput_invalid(inp: str, exp: base.CryptoInputType | None, m: s
 
 def test_BytesFromInput_type() -> None:
   """Test."""
-  with typeguard.suppress_type_checks():
-    with pytest.raises(base.InputError, match="invalid input: invalid type 'inv:'"):
-      base.BytesFromInput('sss', expect='inv:')  # type:ignore
+  with (
+    typeguard.suppress_type_checks(),
+    pytest.raises(base.InputError, match="invalid input: invalid type 'inv:'"),
+  ):
+    base.BytesFromInput('sss', expect='inv:')  # type:ignore
 
 
 def test_BytesFromInput_path(tmp_path: pathlib.Path) -> None:
@@ -1139,8 +1146,7 @@ def test_stdin_non_text_data_text_fallback(monkeypatch: pytest.MonkeyPatch) -> N
   """If sys.stdin.read() returns non-str, raise."""
 
   class _FakeStdin:
-    def read(self):
-      """Read."""
+    def read(self) -> bytes:  # noqa: PLR6301
       return b'not-a-str'  # wrong type
 
   monkeypatch.setattr(sys, 'stdin', _FakeStdin())
@@ -1155,8 +1161,7 @@ def test_stdin_non_text_data_binary(monkeypatch: pytest.MonkeyPatch) -> None:
   """If sys.stdin.buffer.read() returns non-bytes, raise."""
 
   class _FakeBuffer:
-    def read(self):
-      """Read."""
+    def read(self) -> str:  # noqa: PLR6301
       return 'not-bytes'  # wrong type
 
   class _FakeStdin:
@@ -1182,7 +1187,6 @@ class _ToyCrypto1(base.CryptoKey):
   modulus: int
 
   def __str__(self) -> str:
-    """String."""
     return (
       f'_ToyCrypto(key={base.ObfuscateSecret(self.key)}, '
       f'secret={base.ObfuscateSecret(self.secret)}, '
@@ -1202,7 +1206,6 @@ class _ToyCrypto2(base.CryptoKey):
   is_x: bool
 
   def __str__(self) -> str:
-    """String."""
     return ''
 
 
@@ -1214,13 +1217,12 @@ class _ToyCrypto3(base.CryptoKey):
   inv: dict[str, str]
 
   def __str__(self) -> str:
-    """String."""
     return ''
 
 
 def test_CryptoKey_base() -> None:
   """Test."""
-  crypto = _ToyCrypto1(key=b'abc', secret='cba', modulus=123)
+  crypto = _ToyCrypto1(key=b'abc', secret='cba', modulus=123)  # noqa: S106
   key = aes.AESKey(key256=b'x' * 32)
   assert str(crypto) == '_ToyCrypto(key=ddaf35a1…, secret=3b1d17bf…, modulus=c2d03c6e…)'
   assert str(crypto) == repr(crypto)
@@ -1229,9 +1231,12 @@ def test_CryptoKey_base() -> None:
   assert crypto.blob == crypto.Blob()  # Blob() with no options should be the same as blob
   assert crypto.encoded == crypto.Encoded()  # Encoded() with no options should be same as encoded
   assert _ToyCrypto1.Load(crypto.blob) == crypto
-  assert crypto.encoded == (
-    'b64:KLUv_SArWQEAeyJrZXkiOiJZV0pqIiwic2VjcmV0IjoiY2JhIiwibW9kdWx1cyI6MTIzfQ=='
-  )  # cspell:disable-line
+  assert (
+    crypto.encoded
+    == (
+      'b64:KLUv_SArWQEAeyJrZXkiOiJZV0pqIiwic2VjcmV0IjoiY2JhIiwibW9kdWx1cyI6MTIzfQ=='  # cspell:disable-line
+    )
+  )
   assert crypto.hex == (
     'hex:28b52ffd202b5901007b226b6579223a2259574a6a222c22736563726574223a22636'
     '261222c226d6f64756c7573223a3132337d'
@@ -1259,7 +1264,7 @@ def test_CryptoKey_base() -> None:
     _ToyCrypto3._FromJSONDict({'modulus': 34, 'inv': {'a': 'b'}})
   crypto2 = _ToyCrypto2(
     key=b'ijk5845976584',
-    secret='abc',
+    secret='abc',  # noqa: S106
     modulus=123,
     poly1=[13, 17, 19],
     poly2=['xz', 'yz'],
@@ -1304,7 +1309,12 @@ def test_CryptoKey_base() -> None:
 
 @pytest.fixture
 def sample_obj() -> dict[str, Any]:
-  """Sample object fixture."""
+  """Sample object fixture.
+
+  Returns:
+      dict[str, Any]: sample object
+
+  """
   # moderately nested object to exercise pickle well
   return {
     'nums': list(range(50)),
@@ -1396,7 +1406,7 @@ def test_deserialize_corrupted_zstd_raises(sample_obj: dict[str, Any]) -> None:
   mutable[10] ^= 0xFF
   corrupted = bytes(mutable)
   # DeSerialize should detect zstd via magic, attempt to decompress, and zstd should error
-  with pytest.raises(base.zstandard.ZstdError):
+  with pytest.raises(zstandard.ZstdError):
     base.DeSerialize(data=corrupted)
 
 
@@ -1410,7 +1420,7 @@ def test_deserialize_no_compression_detected_branch(sample_obj: dict[str, Any]) 
 
 
 @pytest.mark.parametrize(
-  'secret, public_hash, bid_str',
+  ('secret', 'public_hash', 'bid_str'),
   [
     pytest.param(
       b'a',
@@ -1515,9 +1525,9 @@ def test_rows_for_actions_metadata_branches() -> None:
   p.add_argument('--color', choices=['red', 'blue'], help='choose color')
   # Type=int and default value → _FormatType + _FormatDefault
   p.add_argument('--num', type=int, default=7, help='number')
-  rows: list[tuple[str, str]] = base._RowsForActions(p._actions)  # type: ignore[attr-defined]
+  rows: list[tuple[str, str]] = base._RowsForActions(p._actions)
   # Flatten for easy search
-  flat: str = '\n'.join(f'{l} :: {r}' for (l, r) in rows)
+  flat: str = '\n'.join(f'{ln} :: {r}' for (ln, r) in rows)
   # Tuple metavar shows both names
   assert 'FILE1, FILE2' in flat and 'FILE3' in flat
   # store_true default on
@@ -1535,7 +1545,7 @@ def test_markdown_table_helper() -> None:
   table: str = base._MarkdownTable([('A', 'alpha'), ('B', 'beta')])
   assert table.splitlines()[0].startswith('| Option/Arg |')
   assert '`A`' in table and 'alpha' in table
-  assert base._MarkdownTable([]) == ''  # empty input → empty output
+  assert not base._MarkdownTable([])  # empty input → empty output
 
 
 def test_rows_for_actions_cover_suppress_custom_and_help() -> None:
@@ -1553,11 +1563,11 @@ def test_rows_for_actions_cover_suppress_custom_and_help() -> None:
   p.add_argument('--weird', type=_CallableNoName(), help='custom callable type')
   # Also add one standard store_true to hit bool-default branch
   p.add_argument('--flag', action='store_true', default=False, help='bool default false')
-  rows: list[tuple[str, str]] = base._RowsForActions(p._actions)  # type: ignore[attr-defined]
-  text: str = '\n'.join(f'{l} :: {r}' for (l, r) in rows)
+  rows: list[tuple[str, str]] = base._RowsForActions(p._actions)
+  text: str = '\n'.join(f'{ln} :: {r}' for (ln, r) in rows)
   # SUPPRESS default should not render a "(default: ...)" string
   assert '--maybe' in text and '(default:' not in text.split('--maybe', 1)[1].splitlines()[0]
   # Custom callable should show "type: custom"
   assert 'type: custom' in text
   # Built-in help action is skipped by _RowsForActions; make sure other rows exist
-  assert any('--flag' in l for (l, _r) in rows)
+  assert any('--flag' in ln for (ln, _r) in rows)
