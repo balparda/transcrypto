@@ -23,12 +23,20 @@ __version__: str = transcrypto.__version__  # tests inherit version from module
 
 
 @pytest.fixture(autouse=True)
-def _reset_base_logging() -> None:  # type: ignore
+def _reset_base_logging() -> None:  # pyright: ignore[reportUnusedFunction]
   base.ResetConsole()
 
 
 def _RunCLI(argv: list[str]) -> tuple[int, str]:
-  """Run the CLI with argv, capture stdout, return (exit_code, stdout_stripped)."""
+  """Run the CLI with argv, capture stdout, return (exit_code, stdout_stripped).
+
+  Args:
+      argv (list[str]): args
+
+  Returns:
+      tuple[int, str]: CLI return
+
+  """
   buf = io.StringIO()
   with redirect_stdout(buf):
     code: int = transcrypto.main(argv)
@@ -48,7 +56,7 @@ def test_LoadObj_wrong_type_raises(tmp_path: pathlib.Path) -> None:
 
 
 @pytest.mark.parametrize(
-  'argv, expected',
+  ('argv', 'expected'),
   [
     # --- primality ---
     (['isprime', '2305843009213693951'], 'True'),
@@ -89,31 +97,28 @@ def test_LoadObj_wrong_type_raises(tmp_path: pathlib.Path) -> None:
             k=13  M=8191  perfect=33550336""").strip(),
     ),
     # --- hashing (strings) ---
-    # SHA-256('abc')
-    (
+    (  # SHA-256('abc')
       ['--bin', 'hash', 'sha256', 'abc'],
       'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
     ),
-    # SHA-256('abc'), hex input
-    (
+    (  # SHA-256('abc'), hex input
       ['--hex', 'hash', 'sha256', '616263'],
       'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
     ),
-    # SHA-256('abc'), base64url output
-    (
+    (  # SHA-256('abc'), base64url output
       ['--bin', '--out-b64', 'hash', 'sha256', 'abc'],
       'ungWv48Bz-pBQUDeXa4iI7ADYaOWF3qctBD_YfIAFa0=',
     ),
-    # SHA-256('abc') via base64url input YWJj
-    (
+    (  # SHA-256('abc') via base64url input YWJj
       ['--b64', 'hash', 'sha256', 'YWJj'],
       'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
     ),
-    # SHA-512('abc')
-    (
+    (  # SHA-512('abc')
       ['--bin', 'hash', 'sha512', 'abc'],
-      'ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a'
-      '2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f',
+      (
+        'ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a'
+        '2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f'
+      ),
     ),
   ],
 )
@@ -131,15 +136,16 @@ def test_cli_hash_file(tmp_path: pathlib.Path) -> None:
   p.write_text('hello', encoding='utf-8')
   code, out = _RunCLI(['hash', 'file', str(p)])
   assert code == 0
-  # SHA-256('hello')
-  assert out == '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824'
+  assert (  # SHA-256('hello')
+    out == '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824'
+  )
 
 
 def test_cli_doc_md_has_header() -> None:
   """Test CLI doc md command output has expected header."""
   code, out = _RunCLI(['doc', 'md'])
   assert code == 0
-  # Don’t lock to the entire generated doc (it mirrors argparse & may change);
+  # Don't lock to the entire generated doc (it mirrors argparse & may change);
   # just verify the key header appears.
   assert '# `transcrypto` Command-Line Interface' in out
 
@@ -198,7 +204,15 @@ def test_aes_key_print_b64_matches_library(tmp_path: pathlib.Path) -> None:
 
 @pytest.fixture
 def aes_key_file(tmp_path: pathlib.Path) -> pathlib.Path:
-  """Create a random AES-256 key and serialize it to disk for CLI to consume."""
+  """Create a random AES-256 key and serialize it to disk for CLI to consume.
+
+  Args:
+      tmp_path (pathlib.Path): temp path
+
+  Returns:
+      pathlib.Path: blob path
+
+  """
   key = aes.AESKey(key256=os.urandom(32))
   blob_path: pathlib.Path = tmp_path / 'aes_key.bin'
   _: bytes = base.Serialize(key, file_path=str(blob_path))  # no password
@@ -463,7 +477,7 @@ def test_bid_commit_verify(tmp_path: pathlib.Path) -> None:
   key_base: pathlib.Path = tmp_path / 'bid-key'
   priv_path = pathlib.Path(str(key_base) + '.priv')
   pub_path = pathlib.Path(str(key_base) + '.pub')
-  secret = 'top-secret-123'  # raw UTF-8; we'll use --bin so it’s treated as bytes
+  secret = 'top-secret-123'  # raw UTF-8; we'll use --bin so it's treated as bytes  # noqa: S105
   # Create new bid (writes .priv/.pub beside key_base)
   code: int
   out: str
@@ -576,7 +590,7 @@ def test_from_flags_conflict_raises() -> None:
 
 
 @pytest.mark.parametrize(
-  'mode, text, expect_hex',
+  ('mode', 'text', 'expect_hex'),
   [
     (transcrypto._StrBytesType.RAW, 'hello', '68656c6c6f'),
     (transcrypto._StrBytesType.HEXADECIMAL, '68656c6c6f', '68656c6c6f'),
@@ -606,7 +620,7 @@ def test_walk_subcommands_includes_deep_path() -> None:
   paths: list[str] = [' '.join(p[0]) for p in base._WalkSubcommands(parser)]
   # A representative deep path present in your CLI
   assert 'aes ecb encrypt' in paths
-  assert base._HelpText(parser, None) == ''
+  assert not base._HelpText(parser, None)
 
 
 @pytest.mark.parametrize(
@@ -633,8 +647,18 @@ def test_aes_gcm_decrypt_wrong_aad_raises() -> None:
   key_b64: str = base.BytesToEncoded(key_bytes)
   # Encrypt with AAD='A'
   code, out = _RunCLI(
-    ['--b64', '--out-hex', 'aes', 'encrypt', 'AAAAAAB4eXo=', '-k', key_b64, '-a', 'eHl6']
-  )  # cspell:disable-line
+    [
+      '--b64',
+      '--out-hex',
+      'aes',
+      'encrypt',
+      'AAAAAAB4eXo=',  # cspell:disable-line
+      '-k',
+      key_b64,
+      '-a',
+      'eHl6',
+    ]
+  )
   assert code == 0 and re.fullmatch(r'[0-9a-f]+', out)
   # Decrypt with WRONG AAD='B' → should raise CryptoError
   code, out = _RunCLI(
