@@ -10,12 +10,11 @@ import pathlib
 import re
 import sys
 
-
 INCLUDE_BLOCK_RE = re.compile(
-    r'(?P<prefix><!-- INCLUDE:(?P<path>[^>]+)\s+START\s*-->)'
-    r'(.*?)'
-    r'(?P<suffix><!-- INCLUDE:(?P=path)\s+END\s*-->)',
-    flags=re.DOTALL | re.IGNORECASE,
+  r'(?P<prefix><!-- INCLUDE:(?P<path>[^>]+)\s+START\s*-->)'
+  r'(.*?)'
+  r'(?P<suffix><!-- INCLUDE:(?P=path)\s+END\s*-->)',
+  flags=re.DOTALL | re.IGNORECASE,
 )
 
 
@@ -50,12 +49,12 @@ def _InjectIncludes(readme_path: str = 'README.md', repo_root: str = '.') -> int
   if new == orig:
     # no blocks found OR no change; tell the user what happened
     if '<!-- INCLUDE:' not in orig:
-      print('inject: no INCLUDE blocks found; nothing to do')
+      print('inject: no INCLUDE blocks found; nothing to do')  # noqa: T201
     else:
-      print('inject: INCLUDE blocks present but up-to-date')
+      print('inject: INCLUDE blocks present but up-to-date')  # noqa: T201
     return 0
   _Write(readme, new)
-  print('inject: README.md updated with included content')
+  print('inject: README.md updated with included content')  # noqa: T201
   return 0
 
 
