@@ -208,11 +208,11 @@ def InitLogging(
     # set level
     logging_level: int = _LOG_LEVELS.get(min(verbosity, 3), logging.ERROR)
     # respect NO_COLOR unless the caller has already decided (treat env presence as "disable color")
-    no_color: bool
-    if os.getenv('NO_COLOR') is None and color is None:
-      no_color = False  # enable color by default
-    else:
-      no_color = (os.getenv('NO_COLOR') is not None) if color is None else (not color)
+    no_color: bool = (
+      False
+      if (os.getenv('NO_COLOR') is None and color is None)
+      else ((os.getenv('NO_COLOR') is not None) if color is None else (not color))
+    )
     # create console and configure logging
     console = rich_console.Console(soft_wrap=soft_wrap, no_color=no_color)
     logging.basicConfig(
