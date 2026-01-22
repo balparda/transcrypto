@@ -40,10 +40,6 @@ from rich import console as rich_console
 from rich import logging as rich_logging
 from scipy import stats
 
-__author__ = 'balparda@github.com'
-__version__ = '1.6.0'  # 2026-01-15, Thu
-__version_tuple__: tuple[int, ...] = tuple(int(v) for v in __version__.split('.'))
-
 # Data conversion utils
 
 BytesToHex: Callable[[bytes], str] = lambda b: b.hex()

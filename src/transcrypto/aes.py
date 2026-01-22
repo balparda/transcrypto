@@ -27,11 +27,6 @@ from cryptography.hazmat.primitives.kdf import pbkdf2 as hazmat_pbkdf2
 
 from . import base
 
-__author__ = 'balparda@github.com'
-__version__: str = base.__version__  # version comes from base!
-__version_tuple__: tuple[int, ...] = base.__version_tuple__
-
-
 # these fixed salt/iterations are for password->key generation only; NEVER use them to
 # build a database of passwords because it would not be safe; NEVER change them or the
 # keys will change and previous databases/encryptions will become inconsistent/unreadable!

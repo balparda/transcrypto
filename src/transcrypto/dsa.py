@@ -21,11 +21,6 @@ import gmpy2
 
 from . import base, constants, modmath
 
-__author__ = 'balparda@github.com'
-__version__: str = base.__version__  # version comes from base!
-__version_tuple__: tuple[int, ...] = base.__version_tuple__
-
-
 _MAX_KEY_GENERATION_FAILURES = 15
 
 # fixed prefixes: do NOT ever change! will break all encryption and signature schemes

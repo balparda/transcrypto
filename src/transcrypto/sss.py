@@ -14,11 +14,6 @@ from typing import Self
 
 from . import aes, base, modmath
 
-__author__ = 'balparda@github.com'
-__version__: str = base.__version__  # version comes from base!
-__version_tuple__: tuple[int, ...] = base.__version_tuple__
-
-
 # fixed prefixes: do NOT ever change! will break all encryption and signature schemes
 _SSS_ENCRYPTION_AAD_PREFIX = b'transcrypto.SSS.Sharing.1.0\x00'
 

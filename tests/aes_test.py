@@ -10,9 +10,6 @@ import pytest
 
 from transcrypto import aes, base
 
-__author__ = 'balparda@github.com (Daniel Balparda)'
-__version__: str = base.__version__  # tests inherit version from module
-
 
 @pytest.mark.slow
 @pytest.mark.veryslow

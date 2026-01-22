@@ -10,9 +10,6 @@ import pytest
 
 from transcrypto import aes, base, rsa
 
-__author__ = 'balparda@github.com (Daniel Balparda)'
-__version__: str = rsa.__version__  # tests inherit version from module
-
 
 @mock.patch('transcrypto.base.RandBits', autospec=True)
 @mock.patch('transcrypto.modmath.NBitRandomPrimes', autospec=True)

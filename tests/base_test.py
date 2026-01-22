@@ -30,9 +30,6 @@ from rich import logging as rich_logging
 
 from transcrypto import aes, base
 
-__author__ = 'balparda@github.com (Daniel Balparda)'
-__version__: str = base.__version__  # tests inherit version from module
-
 
 @pytest.fixture(autouse=True)
 def _reset_logging_and_singleton() -> abc.Generator[None]:  # pyright: ignore[reportUnusedFunction]

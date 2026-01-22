@@ -21,10 +21,6 @@ from rich import console as rich_console
 
 from . import base, dsa, modmath
 
-__author__ = 'balparda@github.com'
-__version__: str = base.__version__  # version comes from base!
-__version_tuple__: tuple[int, ...] = base.__version_tuple__
-
 
 def _BuildParser() -> argparse.ArgumentParser:
   """Construct the CLI argument parser (kept in sync with the docs).

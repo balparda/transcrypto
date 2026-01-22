@@ -12,9 +12,6 @@ import pytest
 
 from transcrypto import base, constants, modmath
 
-__author__ = 'balparda@github.com (Daniel Balparda)'
-__version__: str = modmath.__version__  # tests inherit version from module
-
 
 @pytest.mark.parametrize(
   ('x', 'm', 'y'),

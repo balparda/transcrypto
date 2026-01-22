@@ -10,9 +10,6 @@ import pytest
 
 from transcrypto import aes, base, sss
 
-__author__ = 'balparda@github.com (Daniel Balparda)'
-__version__: str = sss.__version__  # tests inherit version from module
-
 
 @pytest.mark.parametrize(
   ('minimum', 'modulus', 'polynomial', 'secret'),

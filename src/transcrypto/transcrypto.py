@@ -33,11 +33,6 @@ from rich import console as rich_console
 
 from . import aes, base, dsa, elgamal, modmath, rsa, sss
 
-__author__ = 'balparda@github.com'
-__version__: str = base.__version__  # version comes from base!
-__version_tuple__: tuple[int, ...] = base.__version_tuple__
-
-
 _NULL_AES_KEY = aes.AESKey(key256=b'\x00' * 32)
 
 

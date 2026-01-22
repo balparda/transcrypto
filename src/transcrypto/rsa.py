@@ -15,11 +15,6 @@ import gmpy2
 
 from . import aes, base, modmath
 
-__author__ = 'balparda@github.com'
-__version__: str = base.__version__  # version comes from base!
-__version_tuple__: tuple[int, ...] = base.__version_tuple__
-
-
 _SMALL_ENCRYPTION_EXPONENT = 7
 _BIG_ENCRYPTION_EXPONENT = 2**16 + 1  # 65537
 

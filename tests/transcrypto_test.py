@@ -18,9 +18,6 @@ import pytest
 
 from transcrypto import aes, base, modmath, transcrypto
 
-__author__ = 'balparda@github.com (Daniel Balparda)'
-__version__: str = transcrypto.__version__  # tests inherit version from module
-
 
 @pytest.fixture(autouse=True)
 def _reset_base_logging() -> None:  # pyright: ignore[reportUnusedFunction]

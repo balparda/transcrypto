@@ -731,10 +731,6 @@ from rich import console as rich_console
 
 from . import base
 
-__author__ = 'balparda@github.com'
-__version__: str = base.__version__  # version comes from base!
-__version_tuple__: tuple[int, ...] = base.__version_tuple__
-
 
 def _BuildParser() -> argparse.ArgumentParser:  # noqa: PLR0914, PLR0915
   """Construct the CLI argument parser (kept in sync with the docs).
