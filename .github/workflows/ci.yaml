@@ -44,4 +44,4 @@ jobs:
         run: poetry run mypy src
 
       - name: Tests w/ typeguard & Coverage
-        run: poetry run pytest --typeguard-packages=mycli --cov=src --cov-report=term-missing -q tests
+        run: poetry run pytest --typeguard-packages=transcrypto --cov=src --cov-report=term-missing -q tests

@@ -183,7 +183,7 @@ def InitLogging(
 
   If you have a CLI app that uses this, its pytests should call `ResetConsole()` in a fixture, like:
 
-      from mycli import logging
+      from transcrypto import logging
       @pytest.fixture(autouse=True)
       def _reset_base_logging() -> Generator[None, None, None]:  # type: ignore
         logging.ResetConsole()
