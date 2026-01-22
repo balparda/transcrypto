@@ -50,9 +50,9 @@ dependencies = [
   # development-only dependencies go in the [tool.poetry.group.dev.dependencies] section below
 
   "cryptography>=46.0",
-  "zstandard>=0.25",
   "gmpy2>=2.2",
   "scipy>=1.17",
+  "zstandard>=0.25",
 
 ]
 
@@ -107,6 +107,8 @@ pre-commit = "^4.5"
 pyinstrument = "^5.1"
 typeguard = "^4.4"
 tomli = "^2.4"
+gmpy2-stubs = "^2.2"
+scipy-stubs = "^1.17"
 
 [tool.poetry.requires-plugins]
 poetry-plugin-export = "^1.10"
@@ -175,6 +177,7 @@ ignore = [
   "TC002",    # checks for third-party imports that are only used for type annotations
   "TC003",    # Move standard library import `collections.abc` into a type-checking block
 
+  "E731",     # Do not assign a `lambda` expression, use a `def`
   "FBT001",   # Boolean-typed positional argument in function definition
   "FBT003",   # allows boolean positional value in function call
   "PLR0913",  # Too many arguments in function definition (N > 5)
