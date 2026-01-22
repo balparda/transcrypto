@@ -1068,8 +1068,8 @@ def test_BytesFromInput(inp: str, exp: base.CryptoInputType | None, b: bytes) ->
     ('@-', base.CryptoInputType.HEX, r'Expected type.*is different from detected type'),
     ('@xxx', base.CryptoInputType.HEX, r'Expected type.*is different from detected type'),
     # hex
-    ('hex:aaa', None, 'non-hexadecimal number found'),
-    ('aaa', base.CryptoInputType.HEX, 'non-hexadecimal number found'),
+    ('hex:aaa', None, r'fromhex\(\) arg'),
+    ('aaa', base.CryptoInputType.HEX, r'fromhex\(\) arg'),
     ('str:aaaa', base.CryptoInputType.HEX, r'Expected type.*is different from detected type'),
     # encoded
     ('b64:e^%Hll6', None, 'Invalid base64-encoded string'),

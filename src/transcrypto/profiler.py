@@ -81,7 +81,7 @@ def _BuildParser() -> argparse.ArgumentParser:
     default=98,
     help=(
       'Confidence level to evaluate measurements at as int percentage points [50,99], '
-      'inclusive, representing 50% to 99%'
+      'inclusive, representing 50%% to 99%%'
     ),
   )
 
