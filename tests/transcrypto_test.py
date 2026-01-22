@@ -474,17 +474,17 @@ def test_bid_commit_verify(tmp_path: pathlib.Path) -> None:
   key_base: pathlib.Path = tmp_path / 'bid-key'
   priv_path = pathlib.Path(str(key_base) + '.priv')
   pub_path = pathlib.Path(str(key_base) + '.pub')
-  secret = 'top-secret-123'  # raw UTF-8; we'll use --bin so it's treated as bytes  # noqa: S105
+  bid_message = 'bid-message-123'  # raw UTF-8; we'll use --bin so it's treated as bytes
   # Create new bid (writes .priv/.pub beside key_base)
   code: int
   out: str
-  code, out = _RunCLI(['--bin', '-p', str(key_base), 'bid', 'new', secret])
+  code, out = _RunCLI(['--bin', '-p', str(key_base), 'bid', 'new', bid_message])
   assert code == 0 and 'Bid private/public commitments saved to' in out
   assert priv_path.exists()
   assert pub_path.exists()
   # Verify: should print OK and echo the secret back
   code, out = _RunCLI(['--out-bin', '-p', str(key_base), 'bid', 'verify'])
-  assert code == 0 and out == 'Bid commitment: OK\nBid secret:\ntop-secret-123'
+  assert code == 0 and out == 'Bid commitment: OK\nBid secret:\nbid-message-123'
 
 
 def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
@@ -499,8 +499,8 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
   assert code == 0 and 'SSS private/public keys saved to' in out
   assert priv_path.exists() and pub_path.exists()
   # Issue 3 shares for a known secret
-  secret = 999
-  code, out = _RunCLI(['-p', str(base_path), 'sss', 'rawshares', str(secret), '3'])
+  sss_message = 999
+  code, out = _RunCLI(['-p', str(base_path), 'sss', 'rawshares', str(sss_message), '3'])
   assert code == 0
   assert 'SSS 3 individual (private) shares saved to' in out and '1…3' in out
   for i in range(3):
@@ -512,15 +512,15 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
   lines: list[str] = out.splitlines()
   assert len(lines) == 5
   assert 'Loaded SSS share' in lines[0]
-  assert int(lines[-1]) == secret
+  assert int(lines[-1]) == sss_message
   # Verify a share against the same secret with private key
-  code, out = _RunCLI(['-p', str(base_path), 'sss', 'rawverify', str(secret)])
+  code, out = _RunCLI(['-p', str(base_path), 'sss', 'rawverify', str(sss_message)])
   assert code == 0
   lines = out.splitlines()
   assert len(lines) == 3
   for line in lines:
     assert 'verification: OK' in line
-  code, out = _RunCLI(['-p', str(base_path), 'sss', 'rawverify', str(secret + 1)])
+  code, out = _RunCLI(['-p', str(base_path), 'sss', 'rawverify', str(sss_message + 1)])
   assert code == 0
   lines = out.splitlines()
   assert len(lines) == 3
