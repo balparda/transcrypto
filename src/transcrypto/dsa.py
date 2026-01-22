@@ -1,7 +1,5 @@
-#!/usr/bin/env python3
-#
-# Copyright 2025 Daniel Balparda (balparda@github.com) - Apache-2.0 license
-#
+# SPDX-FileCopyrightText: Copyright 2026 Daniel Balparda <balparda@github.com>
+# SPDX-License-Identifier: Apache-2.0
 """Balparda's TransCrypto DSA (Digital Signature Algorithm) library.
 
 <https://en.wikipedia.org/wiki/Digital_Signature_Algorithm>
@@ -17,10 +15,9 @@ import dataclasses
 import logging
 import multiprocessing
 import os
-# import pdb
 from typing import Self
 
-import gmpy2  # type:ignore
+import gmpy2
 
 from . import base, constants, modmath
 
@@ -36,8 +33,9 @@ _DSA_SIGNATURE_HASH_PREFIX = b'transcrypto.DSA.Signature.1.0\x00'
 
 
 def NBitRandomDSAPrimes(
-    p_bits: int, q_bits: int, /, *, serial: bool = True) -> tuple[int, int, int]:
-  """Generates 2 random DSA primes p & q with `x_bits` size and (p-1)%q==0.
+  p_bits: int, q_bits: int, /, *, serial: bool = True
+) -> tuple[int, int, int]:
+  """Generate 2 random DSA primes p & q with `x_bits` size and (p-1)%q==0.
 
   Uses an aggressive small-prime wheel sieve:
   Before any Miller-Rabin we reject p = m·q + 1 if it is divisible by a small prime.
@@ -76,9 +74,11 @@ def NBitRandomDSAPrimes(
 
   Raises:
     InputError: invalid inputs
+    Error: prime search failed
+
   """
   # test inputs
-  if q_bits < 11:
+  if q_bits < 11:  # noqa: PLR2004
     raise base.InputError(f'invalid q_bits length: {q_bits=}')
   if p_bits < q_bits + 11:
     raise base.InputError(f'invalid p_bits length: {p_bits=}')
@@ -88,7 +88,7 @@ def NBitRandomDSAPrimes(
   n_workers: int = min(4, os.cpu_count() or 1)
   pr: int | None = None
   m: int | None = None
-  if serial or n_workers <= 1 or p_bits < 200:
+  if serial or n_workers <= 1 or p_bits < 200:  # noqa: PLR2004
     # do one worker
     while pr is None or m is None or pr.bit_length() != p_bits:
       pr, m = _PrimePSearchShard(q, p_bits)
@@ -97,10 +97,12 @@ def NBitRandomDSAPrimes(
   multiprocessing.set_start_method('fork', force=True)
   with concurrent.futures.ProcessPoolExecutor(max_workers=n_workers) as pool:
     workers: set[concurrent.futures.Future[tuple[int | None, int | None]]] = {
-        pool.submit(_PrimePSearchShard, q, p_bits) for _ in range(n_workers)}
+      pool.submit(_PrimePSearchShard, q, p_bits) for _ in range(n_workers)
+    }
     while workers:
       done: set[concurrent.futures.Future[tuple[int | None, int | None]]] = concurrent.futures.wait(
-          workers, return_when=concurrent.futures.FIRST_COMPLETED)[0]
+        workers, return_when=concurrent.futures.FIRST_COMPLETED
+      )[0]
       for worker in done:
         workers.remove(worker)
         pr, m = worker.result()
@@ -113,7 +115,7 @@ def NBitRandomDSAPrimes(
 
 
 def _PrimePSearchShard(q: int, p_bits: int) -> tuple[int | None, int | None]:
-  """Search for a `p_bits` random prime, starting from a random point, for ~6× expected prime gap.
+  """Search for a `p_bits` random prime, starting from a random point, for ~6x expected prime gap.
 
   Args:
     q (int): Prime `q` for DSA
@@ -121,27 +123,26 @@ def _PrimePSearchShard(q: int, p_bits: int) -> tuple[int | None, int | None]:
 
   Returns:
     tuple[int | None, int | None]: either the prime `p` and multiple `m` or None if no prime found
+
   """
   q_bits: int = q.bit_length()
-  shard_len: int = max(2000, 6 * int(0.693 * p_bits))  # ~6× expected prime gap ~2^k (≈ 0.693*k)
+  shard_len: int = max(2000, 6 * int(0.693 * p_bits))  # ~6x expected prime gap ~2^k (≈ 0.693*k)
   # find range of multiples to use
   min_p: int = 2 ** (p_bits - 1)
-  max_p: int = 2 ** p_bits - 1
+  max_p: int = 2**p_bits - 1
   min_m: int = min_p // q + 2
   max_m: int = max_p // q - 2
-  assert max_m - min_m > 1000  # make sure we'll have options!
+  assert max_m - min_m > 1000  # make sure we'll have options!  # noqa: PLR2004, S101
   # make list of small primes to use for sieving
   approx_q_root: int = 1 << (q_bits // 2)
   pr: int
   forbidden: dict[int, int] = {  # (modulus: forbidden residue)
-      pr: ((-modmath.ModInv(q % pr, pr)) % pr)
-      for pr in constants.FIRST_5K_PRIMES_SORTED[1:min(1000, approx_q_root)]}  # skip pr==2
+    pr: ((-modmath.ModInv(q % pr, pr)) % pr)
+    for pr in constants.FIRST_5K_PRIMES_SORTED[1 : min(1000, approx_q_root)]
+  }  # skip pr==2
 
   def _PassesSieve(m: int) -> bool:
-    for r, f in forbidden.items():
-      if m % r == f:
-        return False
-    return True
+    return all(m % r != f for r, f in forbidden.items())
 
   # try searching starting here
   m: int = base.RandInt(min_m, max_m)
@@ -154,9 +155,8 @@ def _PrimePSearchShard(q: int, p_bits: int) -> tuple[int | None, int | None]:
     if pr > max_p:
       break
     # first do a quick sieve test
-    if _PassesSieve(m):
-      if modmath.IsPrime(pr):  # passed sieve, do full test
-        return (pr, m)  # found a suitable prime set!
+    if _PassesSieve(m) and modmath.IsPrime(pr):  # passed sieve, do full test
+      return (pr, m)  # found a suitable prime set!
     count += 1
     m += 2  # next even number
   return (None, None)
@@ -172,6 +172,7 @@ class DSASharedPublicKey(base.CryptoKey):
     prime_modulus (int): prime modulus (p), > prime_seed
     prime_seed (int): prime seed (q), ≥ 7
     group_base (int): shared encryption group public base, 3 ≤ g < prime_modulus
+
   """
 
   prime_modulus: int
@@ -183,16 +184,18 @@ class DSASharedPublicKey(base.CryptoKey):
 
     Raises:
       InputError: invalid inputs
+
     """
-    super(DSASharedPublicKey, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
-    if self.prime_seed < 7 or not modmath.IsPrime(self.prime_seed):
+    super(DSASharedPublicKey, self).__post_init__()
+    if self.prime_seed < 7 or not modmath.IsPrime(self.prime_seed):  # noqa: PLR2004
       raise base.InputError(f'invalid prime_seed: {self}')
-    if (self.prime_modulus <= self.prime_seed or
-        self.prime_modulus % self.prime_seed != 1 or
-        not modmath.IsPrime(self.prime_modulus)):
+    if (
+      self.prime_modulus <= self.prime_seed
+      or self.prime_modulus % self.prime_seed != 1
+      or not modmath.IsPrime(self.prime_modulus)
+    ):
       raise base.InputError(f'invalid prime_modulus: {self}')
-    if (not 2 < self.group_base < self.prime_modulus or
-        self.group_base == self.prime_seed):
+    if not 2 < self.group_base < self.prime_modulus or self.group_base == self.prime_seed:  # noqa: PLR2004
       raise base.InputError(f'invalid group_base: {self}')
 
   def __str__(self) -> str:
@@ -200,21 +203,24 @@ class DSASharedPublicKey(base.CryptoKey):
 
     Returns:
       string representation of DSASharedPublicKey
+
     """
-    return ('DSASharedPublicKey('
-            f'bits=[{self.prime_modulus.bit_length()}, {self.prime_seed.bit_length()}], '
-            f'prime_modulus={base.IntToEncoded(self.prime_modulus)}, '
-            f'prime_seed={base.IntToEncoded(self.prime_seed)}, '
-            f'group_base={base.IntToEncoded(self.group_base)})')
+    return (
+      'DSASharedPublicKey('
+      f'bits=[{self.prime_modulus.bit_length()}, {self.prime_seed.bit_length()}], '
+      f'prime_modulus={base.IntToEncoded(self.prime_modulus)}, '
+      f'prime_seed={base.IntToEncoded(self.prime_seed)}, '
+      f'group_base={base.IntToEncoded(self.group_base)})'
+    )
 
   @property
   def modulus_size(self) -> tuple[int, int]:
     """Modulus size in bytes. The number of bytes used in Sign/Verify."""
-    return ((self.prime_modulus.bit_length() + 7) // 8,
-            (self.prime_seed.bit_length() + 7) // 8)
+    return ((self.prime_modulus.bit_length() + 7) // 8, (self.prime_seed.bit_length() + 7) // 8)
 
   def _DomainSeparatedHash(
-      self, message: bytes, associated_data: bytes | None, salt: bytes, /) -> int:
+    self, message: bytes, associated_data: bytes | None, salt: bytes, /
+  ) -> int:
     """Compute the domain-separated hash for signing and verifying.
 
     Args:
@@ -228,12 +234,12 @@ class DSASharedPublicKey(base.CryptoKey):
 
     Raises:
       CryptoError: hash output is out of range
+
     """
     aad: bytes = b'' if associated_data is None else associated_data
     la: bytes = base.IntToFixedBytes(len(aad), 8)
-    assert len(salt) == 64, 'should never happen: salt should be exactly 64 bytes'
-    y: int = base.BytesToInt(
-        base.Hash512(_DSA_SIGNATURE_HASH_PREFIX + la + aad + message + salt))
+    assert len(salt) == 64, 'should never happen: salt should be exactly 64 bytes'  # noqa: PLR2004, S101
+    y: int = base.BytesToInt(base.Hash512(_DSA_SIGNATURE_HASH_PREFIX + la + aad + message + salt))
     if not 1 < y < self.prime_seed - 1:
       # will only reasonably happen if prime seed is small
       raise base.CryptoError(f'hash output {y} is out of range/invalid {self.prime_seed}')
@@ -251,16 +257,14 @@ class DSASharedPublicKey(base.CryptoKey):
     Returns:
       DSASharedPublicKey object ready for use
 
-    Raises:
-      InputError: invalid inputs
     """
     # test inputs and generate primes
     p, q, m = NBitRandomDSAPrimes(p_bits, q_bits)
     # generate random number, create object (should never fail)
     g: int = 0
-    while g < 2:
+    while g < 2:  # noqa: PLR2004
       h: int = base.RandBits(p_bits - 1)
-      g = int(gmpy2.powmod(h, m, p))  # type:ignore  # pylint:disable=no-member
+      g = int(gmpy2.powmod(h, m, p))
     return cls(prime_modulus=p, prime_seed=q, group_base=g)
 
 
@@ -272,6 +276,7 @@ class DSAPublicKey(DSASharedPublicKey, base.Verifier):
 
   Attributes:
     individual_base (int): individual encryption public base, 3 ≤ i < prime_modulus
+
   """
 
   individual_base: int
@@ -281,10 +286,13 @@ class DSAPublicKey(DSASharedPublicKey, base.Verifier):
 
     Raises:
       InputError: invalid inputs
+
     """
-    super(DSAPublicKey, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
-    if (not 2 < self.individual_base < self.prime_modulus or
-        self.individual_base in (self.group_base, self.prime_seed)):
+    super(DSAPublicKey, self).__post_init__()
+    if not 2 < self.individual_base < self.prime_modulus or self.individual_base in {  # noqa: PLR2004
+      self.group_base,
+      self.prime_seed,
+    }:
       raise base.InputError(f'invalid individual_base: {self}')
 
   def __str__(self) -> str:
@@ -292,21 +300,27 @@ class DSAPublicKey(DSASharedPublicKey, base.Verifier):
 
     Returns:
       string representation of DSAPublicKey
+
     """
-    return ('DSAPublicKey('
-            f'{super(DSAPublicKey, self).__str__()}, '  # pylint: disable=super-with-arguments
-            f'individual_base={base.IntToEncoded(self.individual_base)})')
+    return (
+      'DSAPublicKey('
+      f'{super(DSAPublicKey, self).__str__()}, '
+      f'individual_base={base.IntToEncoded(self.individual_base)})'
+    )
 
   def _MakeEphemeralKey(self) -> tuple[int, int]:
     """Make an ephemeral key adequate to be used with DSA.
 
     Returns:
       (key, key_inverse), where 3 ≤ k < p_seed and (k*i) % p_seed == 1
+
     """
     ephemeral_key: int = 0
     bit_length: int = self.prime_seed.bit_length()
-    while (not 2 < ephemeral_key < self.prime_seed or
-           ephemeral_key in (self.group_base, self.individual_base)):
+    while not 2 < ephemeral_key < self.prime_seed or ephemeral_key in {  # noqa: PLR2004
+      self.group_base,
+      self.individual_base,
+    }:
       ephemeral_key = base.RandBits(bit_length - 1)
     return (ephemeral_key, modmath.ModInv(ephemeral_key, self.prime_seed))
 
@@ -326,23 +340,26 @@ class DSAPublicKey(DSASharedPublicKey, base.Verifier):
 
     Raises:
       InputError: invalid inputs
+
     """
     # test inputs
     if not 0 < message < self.prime_seed:
       raise base.InputError(f'invalid message: {message=}')
-    if (not 2 <= signature[0] < self.prime_seed or
-        not 2 <= signature[1] < self.prime_seed):
+    if not 2 <= signature[0] < self.prime_seed or not 2 <= signature[1] < self.prime_seed:  # noqa: PLR2004
       raise base.InputError(f'invalid signature: {signature=}')
     # verify
     inv: int = modmath.ModInv(signature[1], self.prime_seed)
-    a: int = int(gmpy2.powmod(  # type:ignore  # pylint:disable=no-member
-        self.group_base, (message * inv) % self.prime_seed, self.prime_modulus))
-    b: int = int(gmpy2.powmod(  # type:ignore  # pylint:disable=no-member
-        self.individual_base, (signature[0] * inv) % self.prime_seed, self.prime_modulus))
+    a: int = int(
+      gmpy2.powmod(self.group_base, (message * inv) % self.prime_seed, self.prime_modulus)
+    )
+    b: int = int(
+      gmpy2.powmod(self.individual_base, (signature[0] * inv) % self.prime_seed, self.prime_modulus)
+    )
     return ((a * b) % self.prime_modulus) % self.prime_seed == signature[0]
 
   def Verify(
-      self, message: bytes, signature: bytes, /, *, associated_data: bytes | None = None) -> bool:
+    self, message: bytes, signature: bytes, /, *, associated_data: bytes | None = None
+  ) -> bool:
     """Verify a `signature` for `message`. True if OK; False if failed verification.
 
     • Let k = ceil(log2(n))/8 be the modulus size in bytes.
@@ -361,40 +378,51 @@ class DSAPublicKey(DSASharedPublicKey, base.Verifier):
 
     Raises:
       InputError: invalid inputs
-      CryptoError: internal crypto failures, authentication failure, key mismatch, etc
+
     """
     k: int = self.modulus_size[1]  # use prime_seed size
-    if k <= 64:
+    if k <= 64:  # noqa: PLR2004
       raise base.InputError(f'modulus/seed too small for signing operations: {k} bytes')
     if len(signature) != (64 + k + k):
       logging.info(f'invalid signature length: {len(signature)} ; expected {64 + k + k}')
       return False
     try:
       return self.RawVerify(
-          self._DomainSeparatedHash(message, associated_data, signature[:64]),
-          (base.BytesToInt(signature[64:64 + k]), base.BytesToInt(signature[64 + k:])))
+        self._DomainSeparatedHash(message, associated_data, signature[:64]),
+        (base.BytesToInt(signature[64 : 64 + k]), base.BytesToInt(signature[64 + k :])),
+      )
     except base.InputError as err:
       logging.info(err)
       return False
 
   @classmethod
   def Copy(cls, other: DSAPublicKey, /) -> Self:
-    """Initialize a public key by taking the public parts of a public/private key."""
+    """Initialize a public key by taking the public parts of a public/private key.
+
+    Args:
+        other (DSAPublicKey): object to copy from
+
+    Returns:
+        Self: a new DSAPublicKey
+
+    """
     return cls(
-        prime_modulus=other.prime_modulus,
-        prime_seed=other.prime_seed,
-        group_base=other.group_base,
-        individual_base=other.individual_base)
+      prime_modulus=other.prime_modulus,
+      prime_seed=other.prime_seed,
+      group_base=other.group_base,
+      individual_base=other.individual_base,
+    )
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
-class DSAPrivateKey(DSAPublicKey, base.Signer):  # pylint: disable=too-many-ancestors
+class DSAPrivateKey(DSAPublicKey, base.Signer):
   """DSA private key.
 
   No measures are taken here to prevent timing attacks.
 
   Attributes:
     decrypt_exp (int): individual decryption exponent, 3 ≤ i < prime_modulus
+
   """
 
   decrypt_exp: int
@@ -405,12 +433,15 @@ class DSAPrivateKey(DSAPublicKey, base.Signer):  # pylint: disable=too-many-ance
     Raises:
       InputError: invalid inputs
       CryptoError: modulus math is inconsistent with values
+
     """
-    super(DSAPrivateKey, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
-    if (not 2 < self.decrypt_exp < self.prime_seed or
-        self.decrypt_exp in (self.group_base, self.individual_base)):
+    super(DSAPrivateKey, self).__post_init__()
+    if not 2 < self.decrypt_exp < self.prime_seed or self.decrypt_exp in {  # noqa: PLR2004
+      self.group_base,
+      self.individual_base,
+    }:
       raise base.InputError(f'invalid decrypt_exp: {self}')
-    if gmpy2.powmod(self.group_base, self.decrypt_exp, self.prime_modulus) != self.individual_base:  # type:ignore  # pylint:disable=no-member
+    if gmpy2.powmod(self.group_base, self.decrypt_exp, self.prime_modulus) != self.individual_base:
       raise base.CryptoError(f'inconsistent g**d % p == i: {self}')
 
   def __str__(self) -> str:
@@ -418,10 +449,13 @@ class DSAPrivateKey(DSAPublicKey, base.Signer):  # pylint: disable=too-many-ance
 
     Returns:
       string representation of DSAPrivateKey without leaking secrets
+
     """
-    return ('DSAPrivateKey('
-            f'{super(DSAPrivateKey, self).__str__()}, '  # pylint: disable=super-with-arguments
-            f'decrypt_exp={base.ObfuscateSecret(self.decrypt_exp)})')
+    return (
+      'DSAPrivateKey('
+      f'{super(DSAPrivateKey, self).__str__()}, '
+      f'decrypt_exp={base.ObfuscateSecret(self.decrypt_exp)})'
+    )
 
   def RawSign(self, message: int, /) -> tuple[int, int]:
     """Sign `message` with this private key.
@@ -438,6 +472,7 @@ class DSAPrivateKey(DSAPublicKey, base.Signer):  # pylint: disable=too-many-ance
 
     Raises:
       InputError: invalid inputs
+
     """
     # test inputs
     if not 0 < message < self.prime_seed:
@@ -445,9 +480,9 @@ class DSAPrivateKey(DSAPublicKey, base.Signer):  # pylint: disable=too-many-ance
     # sign
     a: int = 0
     b: int = 0
-    while a < 2 or b < 2:
+    while a < 2 or b < 2:  # noqa: PLR2004
       ephemeral_key, ephemeral_inv = self._MakeEphemeralKey()
-      a = int(gmpy2.powmod(self.group_base, ephemeral_key, self.prime_modulus) % self.prime_seed)  # type:ignore  # pylint:disable=no-member
+      a = int(gmpy2.powmod(self.group_base, ephemeral_key, self.prime_modulus) % self.prime_seed)
       b = (ephemeral_inv * ((message + a * self.decrypt_exp) % self.prime_seed)) % self.prime_seed
     return (a, b)
 
@@ -474,15 +509,15 @@ class DSAPrivateKey(DSAPublicKey, base.Signer):  # pylint: disable=too-many-ance
 
     Raises:
       InputError: invalid inputs
-      CryptoError: internal crypto failures
+
     """
     k: int = self.modulus_size[1]  # use prime_seed size
-    if k <= 64:
+    if k <= 64:  # noqa: PLR2004
       raise base.InputError(f'modulus/seed too small for signing operations: {k} bytes')
     salt: bytes = base.RandBytes(64)
     s_int: tuple[int, int] = self.RawSign(self._DomainSeparatedHash(message, associated_data, salt))
     s_bytes: bytes = base.IntToFixedBytes(s_int[0], k) + base.IntToFixedBytes(s_int[1], k)
-    assert len(s_bytes) == 2 * k, 'should never happen: s_bytes should be exactly 2k bytes'
+    assert len(s_bytes) == 2 * k, 'should never happen: s_bytes should be exactly 2k bytes'  # noqa: S101
     return salt + s_bytes
 
   @classmethod
@@ -498,10 +533,11 @@ class DSAPrivateKey(DSAPublicKey, base.Signer):  # pylint: disable=too-many-ance
     Raises:
       InputError: invalid inputs
       CryptoError: failed generation
+
     """
     # test inputs
     bit_length: int = shared_key.prime_seed.bit_length()
-    if bit_length < 11:
+    if bit_length < 11:  # noqa: PLR2004
       raise base.InputError(f'invalid q_bit length: {bit_length=}')
     # loop until we have an object
     failures: int = 0
@@ -509,17 +545,20 @@ class DSAPrivateKey(DSAPublicKey, base.Signer):  # pylint: disable=too-many-ance
       try:
         # generate private key differing from group_base
         decrypt_exp: int = 0
-        while (not 2 < decrypt_exp < shared_key.prime_seed - 1 or
-               decrypt_exp == shared_key.group_base):
+        while (
+          not 2 < decrypt_exp < shared_key.prime_seed - 1 or decrypt_exp == shared_key.group_base  # noqa: PLR2004
+        ):
           decrypt_exp = base.RandBits(bit_length - 1)
         # make the object
         return cls(
-            prime_modulus=shared_key.prime_modulus,
-            prime_seed=shared_key.prime_seed,
-            group_base=shared_key.group_base,
-            individual_base=int(gmpy2.powmod(  # type:ignore  # pylint:disable=no-member
-                shared_key.group_base, decrypt_exp, shared_key.prime_modulus)),
-            decrypt_exp=decrypt_exp)
+          prime_modulus=shared_key.prime_modulus,
+          prime_seed=shared_key.prime_seed,
+          group_base=shared_key.group_base,
+          individual_base=int(
+            gmpy2.powmod(shared_key.group_base, decrypt_exp, shared_key.prime_modulus)
+          ),
+          decrypt_exp=decrypt_exp,
+        )
       except base.InputError as err:
         failures += 1
         if failures >= _MAX_KEY_GENERATION_FAILURES:

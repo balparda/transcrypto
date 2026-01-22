@@ -210,7 +210,7 @@ def InitLogging(
     if __console_singleton is not None:
       return __console_singleton
     # set level
-    logging_level: int = _LOG_LEVELS.get(verbosity, logging.ERROR)
+    logging_level: int = _LOG_LEVELS.get(min(verbosity, 3), logging.ERROR)
     # respect NO_COLOR unless the caller has already decided (treat env presence as "disable color")
     no_color: bool
     if os.getenv('NO_COLOR') is None and color is None:

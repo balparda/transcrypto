@@ -577,9 +577,8 @@ def test_sss_shares_recover_safe(tmp_path: pathlib.Path) -> None:
 )
 def test_not_implemented_error_paths(argv: list[str]) -> None:
   """Test CLI paths that raise NotImplementedError."""
-  code, out = _RunCLI(argv)
-  assert code == 0
-  assert 'Invalid command' in out
+  with pytest.raises(NotImplementedError):
+    _RunCLI(argv)
 
 
 def test_from_flags_conflict_raises() -> None:

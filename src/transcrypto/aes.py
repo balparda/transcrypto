@@ -1,7 +1,5 @@
-#!/usr/bin/env python3
-#
-# Copyright 2025 Daniel Balparda (balparda@github.com) - Apache-2.0 license
-#
+# SPDX-FileCopyrightText: Copyright 2026 Daniel Balparda <balparda@github.com>
+# SPDX-License-Identifier: Apache-2.0
 """Balparda's TransCrypto Advanced Encryption Standard (AES) library.
 
 <https://en.wikipedia.org/wiki/Advanced_Encryption_Standard>
@@ -19,10 +17,7 @@ wrappers, consistent with the transcrypto style.
 from __future__ import annotations
 
 import dataclasses
-
-# import datetime
-# import pdb
-from typing import Self
+from typing import Self, cast
 
 from cryptography import exceptions as crypt_exceptions
 from cryptography.hazmat.primitives import ciphers
@@ -44,10 +39,10 @@ _PASSWORD_SALT_256: bytes = base.HexToBytes(
   '63b56fe9260ed3ff752a86a3414e4358e4d8e3e31b9dbc16e11ec19809e2f3c0'
 )  # fixed random salt: do NOT ever change!
 _PASSWORD_ITERATIONS = 2025103  # fixed iterations, purposefully huge: do NOT ever change!
-assert base.BytesToEncoded(_PASSWORD_SALT_256) == 'Y7Vv6SYO0_91KoajQU5DWOTY4-MbnbwW4R7BmAni88A=', (
+assert base.BytesToEncoded(_PASSWORD_SALT_256) == 'Y7Vv6SYO0_91KoajQU5DWOTY4-MbnbwW4R7BmAni88A=', (  # noqa: S101
   'should never happen: constant'
 )
-assert _PASSWORD_ITERATIONS == (6075308 + 1) // 3, 'should never happen: constant'
+assert _PASSWORD_ITERATIONS == (6075308 + 1) // 3, 'should never happen: constant'  # noqa: S101
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
@@ -70,8 +65,8 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
       InputError: invalid inputs
 
     """
-    super(AESKey, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
-    if len(self.key256) != 32:
+    super(AESKey, self).__post_init__()
+    if len(self.key256) != 32:  # noqa: PLR2004
       raise base.InputError(f'invalid key256: {self}')
 
   def __str__(self) -> str:
@@ -109,7 +104,7 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
       AESKey crypto key to use (URL-safe base64-encoded 32-byte key)
 
     Raises:
-      Error: empty password
+      InputError: empty password
 
     """
     str_password = str_password.strip()
@@ -126,30 +121,41 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
   class ECBEncoderClass(base.Encryptor, base.Decryptor):
     """The simplest encryption possible (UNSAFE if misused): 128 bit block AES-ECB, 256 bit key.
 
+    Note: Due to ECB encoding, this class is only safe-ish for blocks of random-looking data,
+    like hashes for example.
+
     Please DO **NOT** use this for regular cryptography. For regular crypto use Encrypt()/Decrypt().
     This class was specifically built to encode/decode 128 bit / 16 bytes blocks using a
     pre-existing key. No measures are taken here to prevent timing attacks.
     """
 
     def __init__(self, key256: AESKey, /) -> None:
-      """Constructor.
+      """Construct.
 
       Args:
         key256 (AESKey): key
 
       """
       self._cipher: ciphers.Cipher[modes.ECB] = ciphers.Cipher(
-        algorithms.AES256(key256.key256), modes.ECB()
+        algorithms.AES256(key256.key256),
+        modes.ECB(),  # noqa: S305
       )
-      assert self._cipher.algorithm.key_size == 256, (
+      alg: ciphers.BlockCipherAlgorithm = cast(
+        'algorithms.BlockCipherAlgorithm',  # type: ignore
+        self._cipher.algorithm,
+      )
+      assert alg.key_size == 256, (  # noqa: PLR2004, S101
         'should never happen: AES256+ECB should have 256 bits key'
       )
-      assert self._cipher.algorithm.block_size == 128, (
+      assert alg.block_size == 128, (  # noqa: PLR2004, S101
         'should never happen: AES256+ECB should have 128 bits block'
-      )  # type:ignore
+      )
 
     def Encrypt(self, plaintext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
       """Encrypt a 128 bits block (16 bytes) `plaintext` and return `ciphertext` of 128 bits.
+
+      Note: Due to ECB encoding, this method is only safe-ish for blocks of random-looking data,
+      like hashes for example.
 
       Please DO **NOT** use this for regular cryptography.
       No measures are taken here to prevent timing attacks.
@@ -167,13 +173,16 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
       """
       if associated_data is not None:
         raise base.InputError('AES/ECB does not support associated_data')
-      if len(plaintext) != 16:
+      if len(plaintext) != 16:  # noqa: PLR2004
         raise base.InputError(f'plaintext must be 16 bytes long, got {len(plaintext)}')
       encryptor: ciphers.CipherContext = self._cipher.encryptor()
       return encryptor.update(plaintext) + encryptor.finalize()
 
     def Decrypt(self, ciphertext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
       """Decrypt a 128 bits block (16 bytes) `ciphertext` and return original 128 bits `plaintext`.
+
+      Note: Due to ECB encoding, this method is only safe-ish for blocks of random-looking data,
+      like hashes for example.
 
       Please DO **NOT** use this for regular cryptography.
       No measures are taken here to prevent timing attacks.
@@ -191,29 +200,78 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
       """
       if associated_data is not None:
         raise base.InputError('AES/ECB does not support associated_data')
-      if len(ciphertext) != 16:
+      if len(ciphertext) != 16:  # noqa: PLR2004
         raise base.InputError(f'ciphertext must be 16 bytes long, got {len(ciphertext)}')
       decryptor: ciphers.CipherContext = self._cipher.decryptor()
       return decryptor.update(ciphertext) + decryptor.finalize()
 
     def EncryptHex(self, plaintext_hex: str, /) -> str:
-      """Encrypt a 128 bits hexadecimal block, outputting also a 128 bits hexadecimal block."""
+      """Encrypt a 128 bits hexadecimal block, outputting also a 128 bits hexadecimal block.
+
+      Note: Due to ECB encoding, this method is only safe-ish for blocks of random-looking data,
+      like hashes for example.
+
+      Args:
+          plaintext_hex (str): plaintext hexadecimal block (length==32)
+
+      Returns:
+          str: encrypted hexadecimal block (length==32)
+
+      """
       return base.BytesToHex(self.Encrypt(base.HexToBytes(plaintext_hex)))
 
     def EncryptHex256(self, plaintext_hex: str, /) -> str:
-      """Encrypt a 256 bits hexadecimal block, outputting also a 256 bits hexadecimal block."""
+      """Encrypt a 256 bits hexadecimal block, outputting also a 256 bits hexadecimal block.
+
+      Note: Due to ECB encoding, this method is only safe-ish for blocks of random-looking data,
+      like hashes for example.
+
+      Args:
+          plaintext_hex (str): plaintext hexadecimal block (length==64)
+
+      Returns:
+          str: encrypted hexadecimal block (length==64)
+
+      """
       return self.EncryptHex(plaintext_hex[:32]) + self.EncryptHex(plaintext_hex[32:])
 
     def DecryptHex(self, ciphertext_hex: str, /) -> str:
-      """Decrypt a 128 bits hexadecimal block, outputting also a 128 bits hexadecimal block."""
+      """Decrypt a 128 bits hexadecimal block, outputting also a 128 bits hexadecimal block.
+
+      Note: Due to ECB encoding, this method is only safe-ish for blocks of random-looking data,
+      like hashes for example.
+
+      Args:
+          ciphertext_hex (str): encrypted hexadecimal block (length==32)
+
+      Returns:
+          str: plaintext hexadecimal block (length==32)
+
+      """
       return base.BytesToHex(self.Decrypt(base.HexToBytes(ciphertext_hex)))
 
     def DecryptHex256(self, ciphertext_hex: str, /) -> str:
-      """Decrypt a 256 bits hexadecimal block, outputting also a 256 bits hexadecimal block."""
+      """Decrypt a 256 bits hexadecimal block, outputting also a 256 bits hexadecimal block.
+
+      Note: Due to ECB encoding, this method is only safe-ish for blocks of random-looking data,
+      like hashes for example.
+
+      Args:
+          ciphertext_hex (str): encrypted hexadecimal block (length==64)
+
+      Returns:
+          str: plaintext hexadecimal block (length==64)
+
+      """
       return self.DecryptHex(ciphertext_hex[:32]) + self.DecryptHex(ciphertext_hex[32:])
 
   def ECBEncoder(self) -> AESKey.ECBEncoderClass:
-    """Return a AESKey.ECBEncoderClass object using this key."""
+    """Return a AESKey.ECBEncoderClass object using this key.
+
+    Returns:
+        AESKey.ECBEncoderClass: ECB encoder with same key as self
+
+    """
     return AESKey.ECBEncoderClass(self)
 
   def Encrypt(self, plaintext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
@@ -234,21 +292,21 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
       bytes: Ciphertext; if a nonce/tag is needed for decryption, the implementation
       must encode it within the returned bytes (or document how to retrieve it)
 
-    Raises:
-      InputError: invalid inputs
-      CryptoError: internal crypto failures
-
     """
     iv: bytes = base.RandBytes(16)
     cipher: ciphers.Cipher[modes.GCM] = ciphers.Cipher(
       algorithms.AES256(self.key256), modes.GCM(iv)
     )
-    assert cipher.algorithm.key_size == 256, (
+    alg: ciphers.BlockCipherAlgorithm = cast(
+      'algorithms.BlockCipherAlgorithm',  # type: ignore
+      cipher.algorithm,
+    )
+    assert alg.key_size == 256, (  # noqa: PLR2004, S101
       'should never happen: AES256+GCM should have 256 bits key'
     )
-    assert cipher.algorithm.block_size == 128, (
+    assert alg.block_size == 128, (  # noqa: PLR2004, S101
       'should never happen: AES256+GCM should have 128 bits block'
-    )  # type:ignore
+    )
     encryptor: ciphers.CipherContext = cipher.encryptor()
     if associated_data:
       encryptor.authenticate_additional_data(associated_data)  # type:ignore
@@ -256,8 +314,8 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
       encryptor.update(plaintext) + encryptor.finalize()
     )  # GCM doesn't need padding
     tag: bytes = encryptor.tag  # type:ignore
-    assert len(iv) == 16, 'should never happen: AES256+GCM should have 128 bits IV/nonce'
-    assert len(tag) == 16, 'should never happen: AES256+GCM should have 128 bits tag'
+    assert len(iv) == 16, 'should never happen: AES256+GCM should have 128 bits IV/nonce'  # noqa: PLR2004, S101
+    assert len(tag) == 16, 'should never happen: AES256+GCM should have 128 bits tag'  # noqa: PLR2004, S101
     return iv + ciphertext + tag
 
   def Decrypt(self, ciphertext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
@@ -281,7 +339,7 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
       CryptoError: internal crypto failures, authentication failure, key mismatch, etc
 
     """
-    if len(ciphertext) < 32:
+    if len(ciphertext) < 32:  # noqa: PLR2004
       raise base.InputError(f'AES256+GCM should have ≥32 bytes IV/CT/tag: {len(ciphertext)}')
     iv, tag = ciphertext[:16], ciphertext[-16:]
     decryptor: ciphers.CipherContext = ciphers.Cipher(
@@ -295,16 +353,16 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
       raise base.CryptoError('failed decryption') from err
 
 
-def _TestCryptoKeyEncoding(obj: base.CryptoKey, tp: type[base.CryptoKey]) -> None:
-  """Test encoding for a CryptoKey instance."""
-  assert tp.FromJSON(obj.json) == obj
-  assert tp.FromJSON(obj.formatted_json) == obj
-  assert tp.Load(obj.blob) == obj
-  assert tp.Load(obj.encoded) == obj
-  assert tp.Load(obj.hex) == obj
-  assert tp.Load(obj.raw) == obj
+def _TestCryptoKeyEncoding(obj: base.CryptoKey, tp: type[base.CryptoKey]) -> None:  # pyright: ignore[reportUnusedFunction]
+  """Test encoding for a CryptoKey instance. Only for use from test modules."""
+  assert tp.FromJSON(obj.json) == obj  # noqa: S101
+  assert tp.FromJSON(obj.formatted_json) == obj  # noqa: S101
+  assert tp.Load(obj.blob) == obj  # noqa: S101
+  assert tp.Load(obj.encoded) == obj  # noqa: S101
+  assert tp.Load(obj.hex) == obj  # noqa: S101
+  assert tp.Load(obj.raw) == obj  # noqa: S101
   key = AESKey(key256=b'x' * 32)
-  assert tp.Load(obj.Blob(key=key), key=key) == obj
-  assert tp.Load(obj.Encoded(key=key), key=key) == obj
-  assert tp.Load(obj.Hex(key=key), key=key) == obj
-  assert tp.Load(obj.Raw(key=key), key=key) == obj
+  assert tp.Load(obj.Blob(key=key), key=key) == obj  # noqa: S101
+  assert tp.Load(obj.Encoded(key=key), key=key) == obj  # noqa: S101
+  assert tp.Load(obj.Hex(key=key), key=key) == obj  # noqa: S101
+  assert tp.Load(obj.Raw(key=key), key=key) == obj  # noqa: S101

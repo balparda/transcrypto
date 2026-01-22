@@ -1,7 +1,5 @@
-#!/usr/bin/env python3
-#
-# Copyright 2025 Daniel Balparda (balparda@github.com) - Apache-2.0 license
-#
+# SPDX-FileCopyrightText: Copyright 2026 Daniel Balparda <balparda@github.com>
+# SPDX-License-Identifier: Apache-2.0
 """Balparda's TransCrypto Shamir Shared Secret (SSS) library.
 
 <https://en.wikipedia.org/wiki/Shamir's_secret_sharing>
@@ -11,10 +9,10 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-# import pdb
-from typing import Collection, Generator, Self
+from collections.abc import Collection, Generator
+from typing import Self
 
-from . import base, modmath, aes
+from . import aes, base, modmath
 
 __author__ = 'balparda@github.com'
 __version__: str = base.__version__  # version comes from base!
@@ -35,6 +33,7 @@ class ShamirSharedSecretPublic(base.CryptoKey):
   Attributes:
     minimum (int): minimum shares needed for recovery, ≥ 2
     modulus (int): prime modulus used for share generation, prime, ≥ 2
+
   """
 
   minimum: int
@@ -45,11 +44,10 @@ class ShamirSharedSecretPublic(base.CryptoKey):
 
     Raises:
       InputError: invalid inputs
+
     """
-    super(ShamirSharedSecretPublic, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
-    if (self.modulus < 2 or
-        not modmath.IsPrime(self.modulus) or
-        self.minimum < 2):
+    super(ShamirSharedSecretPublic, self).__post_init__()
+    if self.modulus < 2 or not modmath.IsPrime(self.modulus) or self.minimum < 2:  # noqa: PLR2004
       raise base.InputError(f'invalid modulus or minimum: {self}')
 
   def __str__(self) -> str:
@@ -57,11 +55,14 @@ class ShamirSharedSecretPublic(base.CryptoKey):
 
     Returns:
       string representation of ShamirSharedSecretPublic
+
     """
-    return ('ShamirSharedSecretPublic('
-            f'bits={self.modulus.bit_length()}, '
-            f'minimum={self.minimum}, '
-            f'modulus={base.IntToEncoded(self.modulus)})')
+    return (
+      'ShamirSharedSecretPublic('
+      f'bits={self.modulus.bit_length()}, '
+      f'minimum={self.minimum}, '
+      f'modulus={base.IntToEncoded(self.modulus)})'
+    )
 
   @property
   def modulus_size(self) -> int:
@@ -69,7 +70,8 @@ class ShamirSharedSecretPublic(base.CryptoKey):
     return (self.modulus.bit_length() + 7) // 8
 
   def RawRecoverSecret(
-      self, shares: Collection[ShamirSharePrivate], /, *, force_recover: bool = False) -> int:
+    self, shares: Collection[ShamirSharePrivate], /, *, force_recover: bool = False
+  ) -> int:
     """Recover the secret from ShamirSharePrivate objects.
 
     BEWARE: This is raw SSS, no modern message wrapping, padding or validation!
@@ -88,6 +90,7 @@ class ShamirSharedSecretPublic(base.CryptoKey):
     Raises:
       InputError: invalid inputs
       CryptoError: secret cannot be recovered (number of shares < `minimum`)
+
     """
     # check that we have enough shares by de-duping them first
     share_points: dict[int, int] = {}
@@ -98,7 +101,8 @@ class ShamirSharedSecretPublic(base.CryptoKey):
       if k in share_points:
         if v != share_points[k]:
           raise base.InputError(
-              f'{share} key/value {k}/{v} duplicated with conflicting value in {share_dict[k]}')
+            f'{share} key/value {k}/{v} duplicated with conflicting value in {share_dict[k]}'
+          )
         logging.warning(f'{share} key/value {k}/{v} is a duplicate of {share_dict[k]}: DISCARDED')
         continue
       share_points[k] = v
@@ -115,7 +119,15 @@ class ShamirSharedSecretPublic(base.CryptoKey):
 
   @classmethod
   def Copy(cls, other: ShamirSharedSecretPublic, /) -> Self:
-    """Initialize a public key by taking the public parts of a public/private key."""
+    """Initialize a public key by taking the public parts of a public/private key.
+
+    Args:
+        other (ShamirSharedSecretPublic): object to copy from
+
+    Returns:
+        Self: a new ShamirSharedSecretPublic
+
+    """
     return cls(minimum=other.minimum, modulus=other.modulus)
 
 
@@ -132,6 +144,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
 
   Attributes:
     polynomial (list[int]): prime coefficients for generation poly., each modulus.bit_length() size
+
   """
 
   polynomial: list[int]
@@ -141,13 +154,18 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
 
     Raises:
       InputError: invalid inputs
+
     """
-    super(ShamirSharedSecretPrivate, self).__post_init__()       # pylint: disable=super-with-arguments  # needed here b/c: dataclass
-    if (len(self.polynomial) != self.minimum - 1 or              # exactly this size
-        len(set(self.polynomial)) != self.minimum - 1 or         # no duplicate
-        self.modulus in self.polynomial or                       # different from modulus
-        any(not modmath.IsPrime(p) or p.bit_length() != self.modulus.bit_length()
-            for p in self.polynomial)):                          # all primes and the right size
+    super(ShamirSharedSecretPrivate, self).__post_init__()
+    if (
+      len(self.polynomial) != self.minimum - 1  # exactly this size
+      or len(set(self.polynomial)) != self.minimum - 1  # no duplicate
+      or self.modulus in self.polynomial  # different from modulus
+      or any(
+        not modmath.IsPrime(p) or p.bit_length() != self.modulus.bit_length()
+        for p in self.polynomial
+      )
+    ):  # all primes and the right size
       raise base.InputError(f'invalid polynomial: {self}')
 
   def __str__(self) -> str:
@@ -155,10 +173,13 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
 
     Returns:
       string representation of ShamirSharedSecretPrivate without leaking secrets
+
     """
-    return ('ShamirSharedSecretPrivate('
-            f'{super(ShamirSharedSecretPrivate, self).__str__()}, '  # pylint: disable=super-with-arguments
-            f'polynomial=[{", ".join(base.ObfuscateSecret(i) for i in self.polynomial)}])')
+    return (
+      'ShamirSharedSecretPrivate('
+      f'{super(ShamirSharedSecretPrivate, self).__str__()}, '
+      f'polynomial=[{", ".join(base.ObfuscateSecret(i) for i in self.polynomial)}])'
+    )
 
   def RawShare(self, secret: int, /, *, share_key: int = 0) -> ShamirSharePrivate:
     """Make a new ShamirSharePrivate for the `secret`.
@@ -178,6 +199,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
 
     Raises:
       InputError: invalid inputs
+
     """
     # test inputs
     if not 0 <= secret < self.modulus:
@@ -191,12 +213,13 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
         raise base.InputError(f'invalid share_key: {share_key=}')
     # build object
     return ShamirSharePrivate(
-        minimum=self.minimum, modulus=self.modulus,
-        share_key=share_key,
-        share_value=modmath.ModPolynomial(share_key, [secret] + self.polynomial, self.modulus))
+      minimum=self.minimum,
+      modulus=self.modulus,
+      share_key=share_key,
+      share_value=modmath.ModPolynomial(share_key, [secret, *self.polynomial], self.modulus),
+    )
 
-  def RawShares(
-      self, secret: int, /, *, max_shares: int = 0) -> Generator[ShamirSharePrivate, None, None]:
+  def RawShares(self, secret: int, /, *, max_shares: int = 0) -> Generator[ShamirSharePrivate]:
     """Make any number of ShamirSharePrivate for the `secret`.
 
     BEWARE: This is raw SSS, no modern message wrapping, padding or validation!
@@ -213,6 +236,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
 
     Raises:
       InputError: invalid inputs
+
     """
     # test inputs
     if max_shares and max_shares < self.minimum:
@@ -251,28 +275,34 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
 
     Raises:
       InputError: invalid inputs
-      CryptoError: internal crypto failures
+
     """
     if total_shares < self.minimum:
       raise base.InputError(f'invalid total_shares: {total_shares=} < {self.minimum=}')
     k: int = self.modulus_size
-    if k <= 32:
+    if k <= 32:  # noqa: PLR2004
       raise base.InputError(f'modulus too small for key operations: {k} bytes')
     key256: bytes = base.RandBytes(32)
     shares: list[ShamirSharePrivate] = list(
-        self.RawShares(base.BytesToInt(key256), max_shares=total_shares))
+      self.RawShares(base.BytesToInt(key256), max_shares=total_shares)
+    )
     aad: bytes = (
-        _SSS_ENCRYPTION_AAD_PREFIX +
-        base.IntToFixedBytes(self.minimum, 8) + base.IntToFixedBytes(self.modulus, k))
+      _SSS_ENCRYPTION_AAD_PREFIX
+      + base.IntToFixedBytes(self.minimum, 8)
+      + base.IntToFixedBytes(self.modulus, k)
+    )
     aead_key: bytes = base.Hash512(_SSS_ENCRYPTION_AAD_PREFIX + key256)
     ct: bytes = aes.AESKey(key256=aead_key[32:]).Encrypt(secret, associated_data=aad)
-    return [ShamirShareData(
+    return [
+      ShamirShareData(
         minimum=s.minimum,
         modulus=s.modulus,
         share_key=s.share_key,
         share_value=s.share_value,
         encrypted_data=ct,
-    ) for s in shares]
+      )
+      for s in shares
+    ]
 
   def RawVerifyShare(self, secret: int, share: ShamirSharePrivate, /) -> bool:
     """Verify a ShamirSharePrivate object for the `secret`.
@@ -289,14 +319,12 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
     Returns:
       True if share is valid; False otherwise
 
-    Raises:
-      InputError: invalid inputs
     """
     return share == self.RawShare(secret, share_key=share.share_key)
 
   @classmethod
   def New(cls, minimum_shares: int, bit_length: int, /) -> Self:
-    """Makes a new private SSS object of `bit_length` bits prime modulus and coefficients.
+    """Make a new private SSS object of `bit_length` bits prime modulus and coefficients.
 
     Args:
       minimum_shares (int): minimum shares needed for recovery, ≥ 2
@@ -307,11 +335,12 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
 
     Raises:
       InputError: invalid inputs
+
     """
     # test inputs
-    if minimum_shares < 2:
+    if minimum_shares < 2:  # noqa: PLR2004
       raise base.InputError(f'at least 2 shares are needed: {minimum_shares=}')
-    if bit_length < 10:
+    if bit_length < 10:  # noqa: PLR2004
       raise base.InputError(f'invalid bit length: {bit_length=}')
     # make the primes
     unique_primes: set[int] = modmath.NBitRandomPrimes(bit_length, n_primes=minimum_shares)
@@ -335,6 +364,7 @@ class ShamirSharePrivate(ShamirSharedSecretPublic):
   Attributes:
     share_key (int): share secret key; a randomly picked value, 1 ≤ k < modulus
     share_value (int): share secret value, 1 ≤ v < modulus; (k, v) is a "point" of f(k)=v
+
   """
 
   share_key: int
@@ -345,10 +375,10 @@ class ShamirSharePrivate(ShamirSharedSecretPublic):
 
     Raises:
       InputError: invalid inputs
+
     """
-    super(ShamirSharePrivate, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
-    if (not 0 < self.share_key < self.modulus or
-        not 0 < self.share_value < self.modulus):
+    super(ShamirSharePrivate, self).__post_init__()
+    if not 0 < self.share_key < self.modulus or not 0 < self.share_value < self.modulus:
       raise base.InputError(f'invalid share: {self}')
 
   def __str__(self) -> str:
@@ -356,18 +386,32 @@ class ShamirSharePrivate(ShamirSharedSecretPublic):
 
     Returns:
       string representation of ShamirSharePrivate without leaking secrets
+
     """
-    return ('ShamirSharePrivate('
-            f'{super(ShamirSharePrivate, self).__str__()}, '  # pylint: disable=super-with-arguments
-            f'share_key={base.ObfuscateSecret(self.share_key)}, '
-            f'share_value={base.ObfuscateSecret(self.share_value)})')
+    return (
+      'ShamirSharePrivate('
+      f'{super(ShamirSharePrivate, self).__str__()}, '
+      f'share_key={base.ObfuscateSecret(self.share_key)}, '
+      f'share_value={base.ObfuscateSecret(self.share_value)})'
+    )
 
   @classmethod
   def CopyShare(cls, other: ShamirSharePrivate, /) -> Self:
-    """Initialize a share taking the parts of another share."""
+    """Initialize a share taking the parts of another share.
+
+    Args:
+        other (ShamirSharePrivate): object to copy from
+
+    Returns:
+        Self: a new ShamirSharePrivate
+
+    """
     return cls(
-        minimum=other.minimum, modulus=other.modulus,
-        share_key=other.share_key, share_value=other.share_value)
+      minimum=other.minimum,
+      modulus=other.modulus,
+      share_key=other.share_key,
+      share_value=other.share_value,
+    )
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
@@ -380,6 +424,7 @@ class ShamirShareData(ShamirSharePrivate):
   Attributes:
     share_key (int): share secret key; a randomly picked value, 1 ≤ k < modulus
     share_value (int): share secret value, 1 ≤ v < modulus; (k, v) is a "point" of f(k)=v
+
   """
 
   encrypted_data: bytes
@@ -389,9 +434,10 @@ class ShamirShareData(ShamirSharePrivate):
 
     Raises:
       InputError: invalid inputs
+
     """
-    super(ShamirShareData, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
-    if len(self.encrypted_data) < 32:
+    super(ShamirShareData, self).__post_init__()
+    if len(self.encrypted_data) < 32:  # noqa: PLR2004
       raise base.InputError(f'AES256+GCM SSS should have ≥32 bytes IV/CT/tag: {self}')
 
   def __str__(self) -> str:
@@ -399,10 +445,13 @@ class ShamirShareData(ShamirSharePrivate):
 
     Returns:
       string representation of ShamirShareData without leaking secrets
+
     """
-    return ('ShamirShareData('
-            f'{super(ShamirShareData, self).__str__()}, '  # pylint: disable=super-with-arguments
-            f'encrypted_data={base.ObfuscateSecret(self.encrypted_data)})')
+    return (
+      'ShamirShareData('
+      f'{super(ShamirShareData, self).__str__()}, '
+      f'encrypted_data={base.ObfuscateSecret(self.encrypted_data)})'
+    )
 
   def RecoverData(self, other_shares: list[ShamirSharePrivate]) -> bytes:
     """Recover the encrypted data from ShamirSharePrivate objects.
@@ -420,17 +469,20 @@ class ShamirShareData(ShamirSharePrivate):
     Raises:
       InputError: invalid inputs
       CryptoError: internal crypto failures, authentication failure, key mismatch, etc
+
     """
     k: int = self.modulus_size
-    if k <= 32:
+    if k <= 32:  # noqa: PLR2004
       raise base.InputError(f'modulus too small for key operations: {k} bytes')
     # recover secret; raise if shares are invalid
-    secret: int = self.RawRecoverSecret([self] + other_shares)
+    secret: int = self.RawRecoverSecret([self, *other_shares])
     if not 0 <= secret < (1 << 256):
       raise base.CryptoError('recovered key out of range for 256-bit key')
     key256: bytes = base.IntToFixedBytes(secret, 32)
     aad: bytes = (
-        _SSS_ENCRYPTION_AAD_PREFIX +
-        base.IntToFixedBytes(self.minimum, 8) + base.IntToFixedBytes(self.modulus, k))
+      _SSS_ENCRYPTION_AAD_PREFIX
+      + base.IntToFixedBytes(self.minimum, 8)
+      + base.IntToFixedBytes(self.modulus, k)
+    )
     aead_key: bytes = base.Hash512(_SSS_ENCRYPTION_AAD_PREFIX + key256)
     return aes.AESKey(key256=aead_key[32:]).Decrypt(self.encrypted_data, associated_data=aad)

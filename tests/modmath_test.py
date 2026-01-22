@@ -7,7 +7,7 @@ from __future__ import annotations
 from collections import abc
 from unittest import mock
 
-import gmpy2  # type: ignore
+import gmpy2
 import pytest
 
 from transcrypto import base, constants, modmath
@@ -480,7 +480,7 @@ def test_PrimeGenerator() -> None:
   """Test."""
   with pytest.raises(base.InputError, match='negative number'):
     next(modmath.PrimeGenerator(-1))
-  primes20: list[int] = modmath.FirstNPrimesSorted(20000)
+  primes20: list[int] = list(modmath.FirstNPrimesSorted(20000))
   assert primes20[:5000] == constants.FIRST_5K_PRIMES_SORTED
   assert primes20 == constants.FIRST_20K_PRIMES_SORTED
   g: abc.Generator[int] = modmath.PrimeGenerator(2**100)

@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.13']
+        python-version: ['3.13', '3.14']
 
     steps:
 
@@ -33,6 +33,15 @@ jobs:
 
       - name: Install deps
         run: poetry install
+
+      - name: Lint
+        run: poetry run ruff check .
+
+      - name: Format
+        run: poetry run ruff format --check .
+
+      - name: Typecheck
+        run: poetry run mypy src
 
       - name: Tests w/ typeguard & Coverage
         run: poetry run pytest --typeguard-packages=mycli --cov=src --cov-report=term-missing -q tests

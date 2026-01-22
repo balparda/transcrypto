@@ -196,7 +196,7 @@ ignore = [
   "G004",    # allows logging statements to use f-string
 ]
 
-task-tags = ["noqa", "cspell", "type", "pragma"]
+task-tags = ["noqa", "cspell", "type", "pragma", "pyright"]
 
 preview = true  # if you want new features being previewed
 

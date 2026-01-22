@@ -79,9 +79,8 @@ def test_cli_doc_md_has_header() -> None:
 )
 def test_not_implemented_error_paths(argv: list[str]) -> None:
   """Test CLI paths that raise NotImplementedError."""
-  code, out = _RunCLI(argv)
-  assert code == 0
-  assert 'Invalid command' in out
+  with pytest.raises(NotImplementedError):
+    _RunCLI(argv)
 
 
 @pytest.mark.filterwarnings(r'ignore:.*found in sys.modules.*:RuntimeWarning')

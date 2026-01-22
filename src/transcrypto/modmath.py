@@ -1,7 +1,5 @@
-#!/usr/bin/env python3
-#
-# Copyright 2025 Daniel Balparda (balparda@github.com) - Apache-2.0 license
-#
+# SPDX-FileCopyrightText: Copyright 2026 Daniel Balparda <balparda@github.com>
+# SPDX-License-Identifier: Apache-2.0
 """Balparda's TransCrypto modular math library."""
 
 from __future__ import annotations
@@ -10,10 +8,9 @@ import concurrent.futures
 import math
 import multiprocessing
 import os
-# import pdb
-from typing import Generator, Reversible
+from collections.abc import Generator, Reversible
 
-import gmpy2  # type:ignore
+import gmpy2
 
 from . import base, constants
 
@@ -43,9 +40,10 @@ def ModInv(x: int, m: int, /) -> int:
   Raises:
     InputError: invalid modulus or x
     ModularDivideError: divide-by-zero, i.e., GCD(x, m) != 1 or x == 0
+
   """
   # test inputs
-  if m < 2:
+  if m < 2:  # noqa: PLR2004
     raise base.InputError(f'invalid modulus: {m=}')
   # easy special cases: 0 and 1
   reduced_x: int = x % m
@@ -57,7 +55,7 @@ def ModInv(x: int, m: int, /) -> int:
   gcd, y, w = base.ExtendedGCD(reduced_x, m)
   if gcd != 1:
     raise ModularDivideError(f'invalid inverse {x=} mod {m=} with {gcd=}')
-  assert y and w and y >= -m, f'should never happen: {x=} mod {m=} -> {w=} ; {y=}'
+  assert y and w and y >= -m, f'should never happen: {x=} mod {m=} -> {w=} ; {y=}'  # noqa: PT018, S101
   return y if y >= 0 else (y + m)
 
 
@@ -76,9 +74,10 @@ def ModDiv(x: int, y: int, m: int, /) -> int:
   Raises:
     InputError: invalid modulus or x or y
     ModularDivideError: divide-by-zero, i.e., GCD(y, m) != 1 or y == 0
+
   """
   # test inputs
-  if m < 2:
+  if m < 2:  # noqa: PLR2004
     raise base.InputError(f'invalid modulus: {m=}')
   if not y:  # "division by 0"
     raise ModularDivideError(f'divide by zero {x=} / {y=} mod {m=}')
@@ -113,9 +112,10 @@ def CRTPair(a1: int, m1: int, a2: int, m2: int) -> int:
   Raises:
     InputError: invalid inputs
     ModularDivideError: moduli are not co-prime, i.e. gcd(m1, m2) != 1
+
   """
   # test inputs
-  if m1 < 2 or m2 < 2 or m1 == m2:
+  if m1 < 2 or m2 < 2 or m1 == m2:  # noqa: PLR2004
     raise base.InputError(f'invalid moduli: {m1=} / {m2=}')
   # compute
   a1 %= m1
@@ -143,9 +143,10 @@ def ModExp(x: int, y: int, m: int, /) -> int:
 
   Raises:
     InputError: invalid inputs
+
   """
   # test inputs
-  if m < 2:
+  if m < 2:  # noqa: PLR2004
     raise base.InputError(f'invalid modulus: {m=}')
   if y < 0:
     raise base.InputError(f'negative exponent: {y=}')
@@ -169,7 +170,7 @@ def ModExp(x: int, y: int, m: int, /) -> int:
 
 
 def ModPolynomial(x: int, polynomial: Reversible[int], m: int, /) -> int:
-  """Evaluates `polynomial` (coefficients iterable) at `x` modulus `m`.
+  """Evaluate `polynomial` (coefficients iterable) at `x` modulus `m`.
 
   Evaluate a polynomial at `x` under a modulus `m` using Horner's rule. Horner rewrites:
       a_0 + a_1 x + a_2 x^2 + … + a_n x^n
@@ -189,11 +190,12 @@ def ModPolynomial(x: int, polynomial: Reversible[int], m: int, /) -> int:
 
   Raises:
     InputError: invalid inputs
+
   """
   # test inputs
   if not polynomial:
     raise base.InputError(f'no polynomial: {polynomial=}')
-  if m < 2:
+  if m < 2:  # noqa: PLR2004
     raise base.InputError(f'invalid modulus: {m=}')
   # loop over polynomial coefficients
   total: int = 0
@@ -232,13 +234,14 @@ def ModLagrangeInterpolate(x: int, points: dict[int, int], m: int, /) -> int:
 
   Raises:
     InputError: invalid inputs
+
   """
   # test inputs
-  if m < 2:
+  if m < 2:  # noqa: PLR2004
     raise base.InputError(f'invalid modulus: {m=}')
   x %= m  # takes care of negative numbers and also x >= m
   reduced_points: dict[int, int] = {k % m: v % m for k, v in points.items()}
-  if len(points) < 2 or len(reduced_points) != len(points) or x in reduced_points:
+  if len(points) < 2 or len(reduced_points) != len(points) or x in reduced_points:  # noqa: PLR2004
     raise base.InputError(f'invalid points or duplicate x/x_i found: {x=} / {points=}')
   # compute everything term-by-term
   result: int = 0
@@ -258,7 +261,7 @@ def ModLagrangeInterpolate(x: int, points: dict[int, int], m: int, /) -> int:
 
 
 def FermatIsPrime(n: int, /, *, safety: int = 10, witnesses: set[int] | None = None) -> bool:
-  """Primality test of `n` by Fermat's algo (n > 0). DO NOT RELY!
+  """Primality test of `n` by Fermat's algo (n > 0) (UNRELIABLE!! -> use IsPrime()).
 
   Will execute Fermat's algo for non-trivial `n` (n > 3 and odd).
   <https://en.wikipedia.org/wiki/Fermat_primality_test>
@@ -278,11 +281,12 @@ def FermatIsPrime(n: int, /, *, safety: int = 10, witnesses: set[int] | None = N
 
   Raises:
     InputError: invalid inputs
+
   """
   # test inputs and test for trivial cases: 1, 2, 3, divisible by 2
   if n < 1:
     raise base.InputError(f'invalid number: {n=}')
-  if n in (2, 3):
+  if n in {2, 3}:
     return True
   if n == 1 or not n % 2:
     return False
@@ -292,23 +296,23 @@ def FermatIsPrime(n: int, /, *, safety: int = 10, witnesses: set[int] | None = N
     max_safety: int = min(n // 2, _MAX_PRIMALITY_SAFETY)
     if safety < 1:
       raise base.InputError(f'out of bounds safety: 1 <= {safety=} <= {max_safety}')
-    safety = max_safety if safety > max_safety else safety
+    safety = min(safety, max_safety)
     witnesses = set()
     while len(witnesses) < safety:
       witnesses.add(base.RandInt(2, n - 2))
   # we have our witnesses: do the actual Fermat algo
   for w in sorted(witnesses):
-    if not 2 <= w <= (n - 2):
+    if not 2 <= w <= (n - 2):  # noqa: PLR2004
       raise base.InputError(f'out of bounds witness: 2 ≤ {w=} ≤ {n - 2}')
-    if gmpy2.powmod(w, n - 1, n) != 1:  # type:ignore  # pylint:disable=no-member
+    if gmpy2.powmod(w, n - 1, n) != 1:
       # number is proved to be composite
       return False
   # we declare the number PROBABLY a prime to the limits of this test
   return True
 
 
-def _MillerRabinWitnesses(n: int, /) -> set[int]:  # pylint: disable=too-many-return-statements
-  """Generates a reasonable set of Miller-Rabin witnesses for testing primality of `n`.
+def _MillerRabinWitnesses(n: int, /) -> set[int]:  # noqa: PLR0911
+  """Generate a reasonable set of Miller-Rabin witnesses for testing primality of `n`.
 
   For n < 3317044064679887385961981 it is precise. That is more than 2**81. See:
   <https://en.wikipedia.org/wiki/Miller%E2%80%93Rabin_primality_test#Testing_against_small_sets_of_bases>
@@ -325,35 +329,36 @@ def _MillerRabinWitnesses(n: int, /) -> set[int]:  # pylint: disable=too-many-re
 
   Raises:
     InputError: invalid inputs
+
   """
   # test inputs
-  if n < 5:
+  if n < 5:  # noqa: PLR2004
     raise base.InputError(f'invalid number: {n=}')
   # for some "smaller" values there is research that shows these sets are always enough
-  if n < 2047:
-    return {2}                               # "safety" 1, but 100% coverage
-  if n < 9080191:
-    return {31, 73}                          # "safety" 2, but 100% coverage
-  if n < 4759123141:
-    return {2, 7, 61}                        # "safety" 3, but 100% coverage
-  if n < 2152302898747:
-    return set(constants.FIRST_5K_PRIMES_SORTED[:5])   # "safety" 5, but 100% coverage
-  if n < 341550071728321:
-    return set(constants.FIRST_5K_PRIMES_SORTED[:7])   # "safety" 7, but 100% coverage
-  if n < 18446744073709551616:                         # 2 ** 64
+  if n < 2047:  # noqa: PLR2004
+    return {2}  # "safety" 1, but 100% coverage
+  if n < 9080191:  # noqa: PLR2004
+    return {31, 73}  # "safety" 2, but 100% coverage
+  if n < 4759123141:  # noqa: PLR2004
+    return {2, 7, 61}  # "safety" 3, but 100% coverage
+  if n < 2152302898747:  # noqa: PLR2004
+    return set(constants.FIRST_5K_PRIMES_SORTED[:5])  # "safety" 5, but 100% coverage
+  if n < 341550071728321:  # noqa: PLR2004
+    return set(constants.FIRST_5K_PRIMES_SORTED[:7])  # "safety" 7, but 100% coverage
+  if n < 18446744073709551616:  # 2 ** 64 # noqa: PLR2004
     return set(constants.FIRST_5K_PRIMES_SORTED[:12])  # "safety" 12, but 100% coverage
-  if n < 3317044064679887385961981:                    # > 2 ** 81
+  if n < 3317044064679887385961981:  # > 2 ** 81 # noqa: PLR2004
     return set(constants.FIRST_5K_PRIMES_SORTED[:13])  # "safety" 13, but 100% coverage
   # here n should be greater than 2 ** 81, so safety should be 34 or less
   n_bits: int = n.bit_length()
-  assert n_bits >= 82, f'should never happen: {n=} -> {n_bits=}'
-  safety: int = int(math.ceil(0.375 + 1.59 / (0.000590 * n_bits))) if n_bits <= 1700 else 2
-  assert 1 < safety <= 34, f'should never happen: {n=} -> {n_bits=} ; {safety=}'
+  assert n_bits >= 82, f'should never happen: {n=} -> {n_bits=}'  # noqa: PLR2004, S101
+  safety: int = math.ceil(0.375 + 1.59 / (0.000590 * n_bits)) if n_bits <= 1700 else 2  # noqa: PLR2004
+  assert 1 < safety <= 34, f'should never happen: {n=} -> {n_bits=} ; {safety=}'  # noqa: PLR2004, S101
   return set(constants.FIRST_5K_PRIMES_SORTED[:safety])
 
 
 def _MillerRabinSR(n: int, /) -> tuple[int, int]:
-  """Generates (s, r) where (2 ** s) * r == (n - 1) hold true, for odd n > 5.
+  """Generate (s, r) where (2 ** s) * r == (n - 1) hold true, for odd n > 5.
 
   It should be always true that: s ≥ 1 and r ≥ 1 and r is odd.
 
@@ -365,9 +370,10 @@ def _MillerRabinSR(n: int, /) -> tuple[int, int]:
 
   Raises:
     InputError: invalid inputs
+
   """
   # test inputs
-  if n < 5 or not n % 2:
+  if n < 5 or not n % 2:  # noqa: PLR2004
     raise base.InputError(f'invalid odd number: {n=}')
   # divide by 2 until we can't anymore
   s: int = 1
@@ -376,7 +382,7 @@ def _MillerRabinSR(n: int, /) -> tuple[int, int]:
     s += 1
     r //= 2
   # make sure everything checks out and return
-  assert 1 <= r <= n and r % 2, f'should never happen: {n=} -> {r=}'
+  assert 1 <= r <= n and r % 2, f'should never happen: {n=} -> {r=}'  # noqa: PT018, S101
   return (s, r)
 
 
@@ -395,11 +401,12 @@ def MillerRabinIsPrime(n: int, /, *, witnesses: set[int] | None = None) -> bool:
 
   Raises:
     InputError: invalid inputs
+
   """
   # test inputs and test for trivial cases: 1, 2, 3, divisible by 2
   if n < 1:
     raise base.InputError(f'invalid number: {n=}')
-  if n in (2, 3):
+  if n in {2, 3}:
     return True
   if n == 1 or not n % 2:
     return False
@@ -408,10 +415,10 @@ def MillerRabinIsPrime(n: int, /, *, witnesses: set[int] | None = None) -> bool:
   # do the Miller-Rabin algo
   n_limits: tuple[int, int] = (1, n - 1)
   y: int
-  for w in sorted(witnesses if witnesses else _MillerRabinWitnesses(n)):
-    if not 2 <= w <= (n - 2):
+  for w in sorted(witnesses or _MillerRabinWitnesses(n)):
+    if not 2 <= w <= (n - 2):  # noqa: PLR2004
       raise base.InputError(f'out of bounds witness: 2 ≤ {w=} ≤ {n - 2}')
-    x: int = int(gmpy2.powmod(w, r, n))  # type:ignore  # pylint:disable=no-member
+    x: int = int(gmpy2.powmod(w, r, n))
     if x not in n_limits:
       for _ in range(s):  # s >= 1 so will execute at least once
         y = (x * x) % n
@@ -419,7 +426,7 @@ def MillerRabinIsPrime(n: int, /, *, witnesses: set[int] | None = None) -> bool:
           return False  # number is proved to be composite
         x = y
       if x != 1:
-        return False    # number is proved to be composite
+        return False  # number is proved to be composite
   # we declare the number PROBABLY a prime to the limits of this test
   return True
 
@@ -433,8 +440,6 @@ def IsPrime(n: int, /) -> bool:
   Returns:
     False if certainly not prime ; True if (probabilistically) prime
 
-  Raises:
-    InputError: invalid inputs
   """
   # is number divisible by (one of the) first 20000 primes? test should eliminate 90%+ of candidates
   if n in constants.FIRST_20K_PRIMES:
@@ -446,8 +451,8 @@ def IsPrime(n: int, /) -> bool:
   return MillerRabinIsPrime(n)
 
 
-def PrimeGenerator(start: int, /) -> Generator[int, None, None]:
-  """Generates all primes from `start` until loop is broken. Tuned for huge numbers.
+def PrimeGenerator(start: int, /) -> Generator[int]:
+  """Generate all primes from `start` until loop is broken. Tuned for huge numbers.
 
   Args:
     start (int): number at which to start generating primes, start ≥ 0
@@ -457,12 +462,13 @@ def PrimeGenerator(start: int, /) -> Generator[int, None, None]:
 
   Raises:
     InputError: invalid inputs
+
   """
   # test inputs and make sure we start at an odd number
   if start < 0:
     raise base.InputError(f'negative number: {start=}')
   # handle start of sequence manually if needed... because we have here the only EVEN prime...
-  if start <= 2:
+  if start <= 2:  # noqa: PLR2004
     yield 2
     start = 3
   # we now focus on odd numbers only and loop forever
@@ -474,7 +480,7 @@ def PrimeGenerator(start: int, /) -> Generator[int, None, None]:
 
 
 def NBitRandomPrimes(n_bits: int, /, *, serial: bool = True, n_primes: int = 1) -> set[int]:
-  """Generates a random prime with (guaranteed) `n_bits` size (i.e., first bit == 1).
+  """Generate a random prime with (guaranteed) `n_bits` size (i.e., first bit == 1).
 
   The fact that the first bit will be 1 means the entropy is ~ (n_bits-1) and
   because of this we only allow for a byte or more prime bits generated. This drawback
@@ -508,16 +514,18 @@ def NBitRandomPrimes(n_bits: int, /, *, serial: bool = True, n_primes: int = 1) 
 
   Raises:
     InputError: invalid inputs
+    Error: prime search failed
+
   """
   # test inputs
-  if n_bits < 8:
+  if n_bits < 8:  # noqa: PLR2004
     raise base.InputError(f'invalid n: {n_bits=}')
-  n_primes = 1 if n_primes < 1 else n_primes
+  n_primes = max(n_primes, 1)
   # get number of CPUs and decide if we do parallel or not
   n_workers: int = min(4, os.cpu_count() or 1)
   pr_set: set[int] = set()
   pr: int | None = None
-  if serial or n_workers <= 1 or n_bits < 200:
+  if serial or n_workers <= 1 or n_bits < 200:  # noqa: PLR2004
     # do one worker
     while len(pr_set) < n_primes:
       while pr is None or pr.bit_length() != n_bits:
@@ -529,10 +537,12 @@ def NBitRandomPrimes(n_bits: int, /, *, serial: bool = True, n_primes: int = 1) 
   multiprocessing.set_start_method('fork', force=True)
   with concurrent.futures.ProcessPoolExecutor(max_workers=n_workers) as pool:
     workers: set[concurrent.futures.Future[int | None]] = {
-        pool.submit(_PrimeSearchShard, n_bits) for _ in range(n_workers)}
+      pool.submit(_PrimeSearchShard, n_bits) for _ in range(n_workers)
+    }
     while workers:
       done: set[concurrent.futures.Future[int | None]] = concurrent.futures.wait(
-          workers, return_when=concurrent.futures.FIRST_COMPLETED)[0]
+        workers, return_when=concurrent.futures.FIRST_COMPLETED
+      )[0]
       for worker in done:
         workers.remove(worker)
         pr = worker.result()
@@ -548,15 +558,16 @@ def NBitRandomPrimes(n_bits: int, /, *, serial: bool = True, n_primes: int = 1) 
 
 
 def _PrimeSearchShard(n_bits: int) -> int | None:
-  """Search for a `n_bits` random prime, starting from a random point, for ~6× expected prime gap.
+  """Search for a `n_bits` random prime, starting from a random point, for ~6x expected prime gap.
 
   Args:
     n_bits (int): Number of guaranteed bits in prime representation
 
   Returns:
     int | None: either the prime int or None if no prime found in this shard
+
   """
-  shard_len: int = max(2000, 6 * int(0.693 * n_bits))  # ~6× expected prime gap ~2^k (≈ 0.693*k)
+  shard_len: int = max(2000, 6 * int(0.693 * n_bits))  # ~6x expected prime gap ~2^k (≈ 0.693*k)
   pr: int = base.RandBits(n_bits) | 1  # random position; make ODD
   count: int = 0
   while count < shard_len and pr.bit_length() == n_bits:
@@ -567,18 +578,24 @@ def _PrimeSearchShard(n_bits: int) -> int | None:
   return None
 
 
-def FirstNPrimesSorted(n: int) -> list[int]:
-  """Returns list of `n` first primes in a sorted list."""
-  primes: list[int] = []
+def FirstNPrimesSorted(n: int) -> Generator[int]:
+  """Return list of `n` first primes in a sorted list.
+
+  Args:
+      n (int): number of primes to return
+
+  Yields:
+      Generator[int]: primes
+
+  """
   for i, pr in enumerate(PrimeGenerator(0)):
     if i >= n:
-      break
-    primes.append(pr)
-  return primes
+      return
+    yield pr
 
 
-def MersennePrimesGenerator(start: int, /) -> Generator[tuple[int, int, int], None, None]:
-  """Generates all Mersenne prime (2 ** n - 1) exponents from 2**start until loop is broken.
+def MersennePrimesGenerator(start: int, /) -> Generator[tuple[int, int, int]]:
+  """Generate all Mersenne prime (2 ** n - 1) exponents from 2**start until loop is broken.
 
   <https://en.wikipedia.org/wiki/List_of_Mersenne_primes_and_perfect_numbers>
 
@@ -589,12 +606,10 @@ def MersennePrimesGenerator(start: int, /) -> Generator[tuple[int, int, int], No
     (exponent, mersenne_prime, perfect_number), given some exponent `n` that will be exactly:
     (n, 2 ** n - 1, (2 ** (n - 1)) * (2 ** n - 1))
 
-  Raises:
-    InputError: invalid inputs
   """
   # we now loop forever over prime exponents
   # "The exponents p corresponding to Mersenne primes must themselves be prime."
-  for n in PrimeGenerator(start if start >= 1 else 1):
-    mersenne: int = 2 ** n - 1
+  for n in PrimeGenerator(max(start, 1)):
+    mersenne: int = 2**n - 1
     if IsPrime(mersenne):
       yield (n, mersenne, (2 ** (n - 1)) * mersenne)  # found: also yield perfect number

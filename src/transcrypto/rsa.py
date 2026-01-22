@@ -1,7 +1,5 @@
-#!/usr/bin/env python3
-#
-# Copyright 2025 Daniel Balparda (balparda@github.com) - Apache-2.0 license
-#
+# SPDX-FileCopyrightText: Copyright 2026 Daniel Balparda <balparda@github.com>
+# SPDX-License-Identifier: Apache-2.0
 """Balparda's TransCrypto RSA (Rivest-Shamir-Adleman) library.
 
 <https://en.wikipedia.org/wiki/RSA_cryptosystem>
@@ -11,12 +9,11 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-# import pdb
 from typing import Self
 
-import gmpy2  # type:ignore
+import gmpy2
 
-from . import base, modmath, aes
+from . import aes, base, modmath
 
 __author__ = 'balparda@github.com'
 __version__: str = base.__version__  # version comes from base!
@@ -24,7 +21,7 @@ __version_tuple__: tuple[int, ...] = base.__version_tuple__
 
 
 _SMALL_ENCRYPTION_EXPONENT = 7
-_BIG_ENCRYPTION_EXPONENT = 2 ** 16 + 1  # 65537
+_BIG_ENCRYPTION_EXPONENT = 2**16 + 1  # 65537
 
 _MAX_KEY_GENERATION_FAILURES = 15
 
@@ -46,6 +43,7 @@ class RSAPublicKey(base.CryptoKey, base.Encryptor, base.Verifier):
   Attributes:
     public_modulus (int): modulus (p * q), ≥ 6
     encrypt_exp (int): encryption exponent, 3 ≤ e < modulus, (e * decrypt) % ((p-1) * (q-1)) == 1
+
   """
 
   public_modulus: int
@@ -56,13 +54,14 @@ class RSAPublicKey(base.CryptoKey, base.Encryptor, base.Verifier):
 
     Raises:
       InputError: invalid inputs
+
     """
-    super(RSAPublicKey, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
-    if self.public_modulus < 6 or modmath.IsPrime(self.public_modulus):
+    super(RSAPublicKey, self).__post_init__()
+    if self.public_modulus < 6 or modmath.IsPrime(self.public_modulus):  # noqa: PLR2004
       # only a full factors check can prove modulus is product of only 2 primes, which is impossible
       # to do for large numbers here; the private key checks the relationship though
       raise base.InputError(f'invalid public_modulus: {self}')
-    if not 2 < self.encrypt_exp < self.public_modulus or not modmath.IsPrime(self.encrypt_exp):
+    if not 2 < self.encrypt_exp < self.public_modulus or not modmath.IsPrime(self.encrypt_exp):  # noqa: PLR2004
       # technically, encrypt_exp < phi, but again the private key tests for this explicitly
       raise base.InputError(f'invalid encrypt_exp: {self}')
 
@@ -71,11 +70,14 @@ class RSAPublicKey(base.CryptoKey, base.Encryptor, base.Verifier):
 
     Returns:
       string representation of RSAPublicKey
+
     """
-    return ('RSAPublicKey('
-            f'bits={self.public_modulus.bit_length()}, '
-            f'public_modulus={base.IntToEncoded(self.public_modulus)}, '
-            f'encrypt_exp={base.IntToEncoded(self.encrypt_exp)})')
+    return (
+      'RSAPublicKey('
+      f'bits={self.public_modulus.bit_length()}, '
+      f'public_modulus={base.IntToEncoded(self.public_modulus)}, '
+      f'encrypt_exp={base.IntToEncoded(self.encrypt_exp)})'
+    )
 
   @property
   def modulus_size(self) -> int:
@@ -97,12 +99,13 @@ class RSAPublicKey(base.CryptoKey, base.Encryptor, base.Verifier):
 
     Raises:
       InputError: invalid inputs
+
     """
     # test inputs
     if not 0 < message < self.public_modulus:
       raise base.InputError(f'invalid message: {message=}')
     # encrypt
-    return int(gmpy2.powmod(message, self.encrypt_exp, self.public_modulus))  # type:ignore  # pylint:disable=no-member
+    return int(gmpy2.powmod(message, self.encrypt_exp, self.public_modulus))
 
   def Encrypt(self, plaintext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
     """Encrypt `plaintext` and return `ciphertext`.
@@ -128,9 +131,6 @@ class RSAPublicKey(base.CryptoKey, base.Encryptor, base.Verifier):
       Padded(ct, k) + AES-256-GCM(key=SHA512(r)[32:], plaintext,
                                   associated_data="prefix" + len(aad) + aad + Padded(ct, k))
 
-    Raises:
-      InputError: invalid inputs
-      CryptoError: internal crypto failures
     """
     # generate random r and encrypt it
     r: int = 0
@@ -138,7 +138,7 @@ class RSAPublicKey(base.CryptoKey, base.Encryptor, base.Verifier):
       r = base.RandBits(self.public_modulus.bit_length())
     k: int = self.modulus_size
     ct: bytes = base.IntToFixedBytes(self.RawEncrypt(r), k)
-    assert len(ct) == k, 'should never happen: c_kem should be exactly k bytes'
+    assert len(ct) == k, 'should never happen: c_kem should be exactly k bytes'  # noqa: S101
     # encrypt plaintext with AES-256-GCM using SHA512(r)[32:] as key; return ct || Encrypt(...)
     ss: bytes = base.Hash512(base.IntToFixedBytes(r, k))
     aad: bytes = b'' if associated_data is None else associated_data
@@ -160,13 +160,12 @@ class RSAPublicKey(base.CryptoKey, base.Encryptor, base.Verifier):
       True if signature is valid, False otherwise;
       (signature ** encrypt_exp) mod modulus == message
 
-    Raises:
-      InputError: invalid inputs
     """
     return self.RawEncrypt(signature) == message
 
   def _DomainSeparatedHash(
-      self, message: bytes, associated_data: bytes | None, salt: bytes, /) -> int:
+    self, message: bytes, associated_data: bytes | None, salt: bytes, /
+  ) -> int:
     """Compute the domain-separated hash for signing and verifying.
 
     Args:
@@ -180,10 +179,11 @@ class RSAPublicKey(base.CryptoKey, base.Encryptor, base.Verifier):
 
     Raises:
       CryptoError: hash output is out of range
+
     """
     aad: bytes = b'' if associated_data is None else associated_data
     la: bytes = base.IntToFixedBytes(len(aad), 8)
-    assert len(salt) == 64, 'should never happen: salt should be exactly 64 bytes'
+    assert len(salt) == 64, 'should never happen: salt should be exactly 64 bytes'  # noqa: PLR2004, S101
     y: int = base.BytesToInt(base.Hash512(_RSA_SIGNATURE_HASH_PREFIX + la + aad + message + salt))
     if not 1 < y < self.public_modulus or base.GCD(y, self.public_modulus) != 1:
       # will only reasonably happen if modulus is small
@@ -191,7 +191,8 @@ class RSAPublicKey(base.CryptoKey, base.Encryptor, base.Verifier):
     return y
 
   def Verify(
-      self, message: bytes, signature: bytes, /, *, associated_data: bytes | None = None) -> bool:
+    self, message: bytes, signature: bytes, /, *, associated_data: bytes | None = None
+  ) -> bool:
     """Verify a `signature` for `message`. True if OK; False if failed verification.
 
     • Let k = ceil(log2(n))/8 be the modulus size in bytes.
@@ -210,25 +211,34 @@ class RSAPublicKey(base.CryptoKey, base.Encryptor, base.Verifier):
 
     Raises:
       InputError: invalid inputs
-      CryptoError: internal crypto failures, authentication failure, key mismatch, etc
+
     """
     k: int = self.modulus_size
-    if k <= 64:
+    if k <= 64:  # noqa: PLR2004
       raise base.InputError(f'modulus too small for signing operations: {k} bytes')
     if len(signature) != (64 + k):
       logging.info(f'invalid signature length: {len(signature)} ; expected {64 + k}')
       return False
     try:
       return self.RawVerify(
-          self._DomainSeparatedHash(message, associated_data, signature[:64]),
-          base.BytesToInt(signature[64:]))
+        self._DomainSeparatedHash(message, associated_data, signature[:64]),
+        base.BytesToInt(signature[64:]),
+      )
     except base.InputError as err:
       logging.info(err)
       return False
 
   @classmethod
   def Copy(cls, other: RSAPublicKey, /) -> Self:
-    """Initialize a public key by taking the public parts of a public/private key."""
+    """Initialize a public key by taking the public parts of a public/private key.
+
+    Args:
+        other (RSAPublicKey): object to copy from
+
+    Returns:
+        Self: a new RSAPublicKey
+
+    """
     return cls(public_modulus=other.public_modulus, encrypt_exp=other.encrypt_exp)
 
 
@@ -243,6 +253,7 @@ class RSAObfuscationPair(RSAPublicKey):
   Attributes:
     random_key (int): random value key, 2 ≤ k < modulus
     key_inverse (int): inverse for `random_key` in relation to the RSA public key, 2 ≤ i < modulus
+
   """
 
   random_key: int
@@ -254,11 +265,14 @@ class RSAObfuscationPair(RSAPublicKey):
     Raises:
       InputError: invalid inputs
       CryptoError: modulus math is inconsistent with values
+
     """
-    super(RSAObfuscationPair, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
-    if (not 1 < self.random_key < self.public_modulus or
-        not 1 < self.key_inverse < self.public_modulus or
-        self.random_key in (self.key_inverse, self.encrypt_exp, self.public_modulus)):
+    super(RSAObfuscationPair, self).__post_init__()
+    if (
+      not 1 < self.random_key < self.public_modulus
+      or not 1 < self.key_inverse < self.public_modulus
+      or self.random_key in {self.key_inverse, self.encrypt_exp, self.public_modulus}
+    ):
       raise base.InputError(f'invalid keys: {self}')
     if (self.random_key * self.key_inverse) % self.public_modulus != 1:
       raise base.CryptoError(f'inconsistent keys: {self}')
@@ -268,11 +282,14 @@ class RSAObfuscationPair(RSAPublicKey):
 
     Returns:
       string representation of RSAObfuscationPair without leaking secrets
+
     """
-    return ('RSAObfuscationPair('
-            f'{super(RSAObfuscationPair, self).__str__()}, '  # pylint: disable=super-with-arguments
-            f'random_key={base.ObfuscateSecret(self.random_key)}, '
-            f'key_inverse={base.ObfuscateSecret(self.key_inverse)})')
+    return (
+      'RSAObfuscationPair('
+      f'{super(RSAObfuscationPair, self).__str__()}, '
+      f'random_key={base.ObfuscateSecret(self.random_key)}, '
+      f'key_inverse={base.ObfuscateSecret(self.key_inverse)})'
+    )
 
   def ObfuscateMessage(self, message: int, /) -> int:
     """Convert message to an obfuscated message to be signed by this key's owner.
@@ -287,13 +304,15 @@ class RSAObfuscationPair(RSAPublicKey):
 
     Raises:
       InputError: invalid inputs
+
     """
     # test inputs
     if not 0 < message < self.public_modulus:
       raise base.InputError(f'invalid message: {message=}')
     # encrypt
-    return (message * int(gmpy2.powmod(  # type:ignore  # pylint:disable=no-member
-        self.random_key, self.encrypt_exp, self.public_modulus))) % self.public_modulus
+    return (
+      message * int(gmpy2.powmod(self.random_key, self.encrypt_exp, self.public_modulus))
+    ) % self.public_modulus
 
   def RevealOriginalSignature(self, message: int, signature: int, /) -> int:
     """Recover original signature for `message` from obfuscated `signature`.
@@ -309,8 +328,8 @@ class RSAObfuscationPair(RSAPublicKey):
       signature * key_inverse mod modulus
 
     Raises:
-      InputError: invalid inputs
       CryptoError: some signatures were invalid (either plain or obfuscated)
+
     """
     # verify that obfuscated signature is valid
     obfuscated: int = self.ObfuscateMessage(message)
@@ -324,7 +343,7 @@ class RSAObfuscationPair(RSAPublicKey):
 
   @classmethod
   def New(cls, key: RSAPublicKey, /) -> Self:
-    """New obfuscation pair for this `key`, respecting the size of the public modulus.
+    """Generate new obfuscation pair for this `key`, respecting the size of the public modulus.
 
     Args:
       key (RSAPublicKey): public RSA key to use as base for a new RSAObfuscationPair
@@ -334,15 +353,18 @@ class RSAObfuscationPair(RSAPublicKey):
 
     Raises:
       CryptoError: failed generation
+
     """
     # find a suitable random key based on the bit_length
     random_key: int = 0
     key_inverse: int = 0
     failures: int = 0
-    while (not random_key or not key_inverse or
-           random_key == key.encrypt_exp or
-           random_key == key_inverse or
-           key_inverse == key.encrypt_exp):
+    while (
+      not random_key
+      or not key_inverse
+      or random_key in {key.encrypt_exp, key_inverse}
+      or key_inverse == key.encrypt_exp
+    ):
       random_key = base.RandBits(key.public_modulus.bit_length() - 1)
       try:
         key_inverse = modmath.ModInv(random_key, key.public_modulus)
@@ -354,12 +376,15 @@ class RSAObfuscationPair(RSAPublicKey):
         logging.warning(err)
     # build object
     return cls(
-        public_modulus=key.public_modulus, encrypt_exp=key.encrypt_exp,
-        random_key=random_key, key_inverse=key_inverse)
+      public_modulus=key.public_modulus,
+      encrypt_exp=key.encrypt_exp,
+      random_key=random_key,
+      key_inverse=key_inverse,
+    )
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
-class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):  # pylint: disable=too-many-ancestors
+class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):
   """RSA (Rivest-Shamir-Adleman) private key.
 
   No measures are taken here to prevent timing attacks.
@@ -375,6 +400,7 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):  # pylint: disab
     remainder_p (int): pre-computed, = d % (p - 1), 2 ≤ r_p < modulus
     remainder_q (int): pre-computed, = d % (q - 1), 2 ≤ r_q < modulus
     q_inverse_p (int): pre-computed, = ModInv(q, p), 2 ≤ q_i_p < modulus
+
   """
 
   modulus_p: int
@@ -391,34 +417,41 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):  # pylint: disab
     Raises:
       InputError: invalid inputs
       CryptoError: modulus math is inconsistent with values
+
     """
-    super(RSAPrivateKey, self).__post_init__()  # pylint: disable=super-with-arguments  # needed here b/c: dataclass
+    super(RSAPrivateKey, self).__post_init__()
     phi: int = (self.modulus_p - 1) * (self.modulus_q - 1)
     min_prime_distance: int = 1 << (self.public_modulus.bit_length() // 4)  # ≈ n**(1/4)
-    if (self.modulus_p < 2 or not modmath.IsPrime(self.modulus_p) or  # pylint: disable=too-many-boolean-expressions
-        self.modulus_q < 3 or not modmath.IsPrime(self.modulus_q) or
-        self.modulus_q <= self.modulus_p or
-        (self.modulus_q - self.modulus_p) < min_prime_distance or
-        self.encrypt_exp in (self.modulus_p, self.modulus_q) or
-        self.encrypt_exp >= phi or
-        self.decrypt_exp in (self.encrypt_exp, self.modulus_p, self.modulus_q, phi)):
+    if (
+      self.modulus_p < 2  # noqa: PLR0916, PLR2004
+      or not modmath.IsPrime(self.modulus_p)
+      or self.modulus_q < 3  # noqa: PLR2004
+      or not modmath.IsPrime(self.modulus_q)
+      or self.modulus_q <= self.modulus_p
+      or (self.modulus_q - self.modulus_p) < min_prime_distance
+      or self.encrypt_exp in {self.modulus_p, self.modulus_q}
+      or self.encrypt_exp >= phi
+      or self.decrypt_exp in {self.encrypt_exp, self.modulus_p, self.modulus_q, phi}
+    ):
       # encrypt_exp has to be less than phi;
-      # if p − q < 2*(n**(1/4)) then solving for p and q is trivial
+      # if p - q < 2*(n**(1/4)) then solving for p and q is trivial
       raise base.InputError(f'invalid modulus_p or modulus_q: {self}')
     min_decrypt_length: int = self.public_modulus.bit_length() // 2 + 1
-    if not (2 ** min_decrypt_length) < self.decrypt_exp < self.public_modulus:
+    if not (2**min_decrypt_length) < self.decrypt_exp < self.public_modulus:
       # if decrypt_exp < public_modulus**(1/4)/3, then decrypt_exp can be computed efficiently
       # from public_modulus and encrypt_exp so we make sure it is larger than public_modulus**(1/2)
       raise base.InputError(f'invalid decrypt_exp: {self}')
-    if self.remainder_p < 2 or self.remainder_p < 2 or self.q_inverse_p < 2:
+    if self.remainder_p < 2 or self.remainder_p < 2 or self.q_inverse_p < 2:  # noqa: PLR2004
       raise base.InputError(f'trivial remainder_p/remainder_q/q_inverse_p: {self}')
     if self.modulus_p * self.modulus_q != self.public_modulus:
       raise base.CryptoError(f'inconsistent modulus_p * modulus_q: {self}')
     if (self.encrypt_exp * self.decrypt_exp) % phi != 1:
       raise base.CryptoError(f'inconsistent exponents: {self}')
-    if (self.remainder_p != self.decrypt_exp % (self.modulus_p - 1) or
-        self.remainder_q != self.decrypt_exp % (self.modulus_q - 1) or
-        (self.q_inverse_p * self.modulus_q) % self.modulus_p != 1):
+    if (
+      self.remainder_p != self.decrypt_exp % (self.modulus_p - 1)
+      or self.remainder_q != self.decrypt_exp % (self.modulus_q - 1)
+      or (self.q_inverse_p * self.modulus_q) % self.modulus_p != 1
+    ):
       raise base.CryptoError(f'inconsistent speedup remainder_p/remainder_q/q_inverse_p: {self}')
 
   def __str__(self) -> str:
@@ -426,12 +459,15 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):  # pylint: disab
 
     Returns:
       string representation of RSAPrivateKey without leaking secrets
+
     """
-    return ('RSAPrivateKey('
-            f'{super(RSAPrivateKey, self).__str__()}, '  # pylint: disable=super-with-arguments
-            f'modulus_p={base.ObfuscateSecret(self.modulus_p)}, '
-            f'modulus_q={base.ObfuscateSecret(self.modulus_q)}, '
-            f'decrypt_exp={base.ObfuscateSecret(self.decrypt_exp)})')
+    return (
+      'RSAPrivateKey('
+      f'{super(RSAPrivateKey, self).__str__()}, '
+      f'modulus_p={base.ObfuscateSecret(self.modulus_p)}, '
+      f'modulus_q={base.ObfuscateSecret(self.modulus_q)}, '
+      f'decrypt_exp={base.ObfuscateSecret(self.decrypt_exp)})'
+    )
 
   def RawDecrypt(self, ciphertext: int, /) -> int:
     """Decrypt `ciphertext` with this private key.
@@ -448,14 +484,15 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):  # pylint: disab
 
     Raises:
       InputError: invalid inputs
+
     """
     # test inputs
     if not 0 <= ciphertext < self.public_modulus:
       raise base.InputError(f'invalid message: {ciphertext=}')
     # decrypt using CRT (Chinese Remainder Theorem); 4x speedup; all the below is equivalent
     # of doing: return pow(ciphertext, self.decrypt_exp, self.public_modulus)
-    m_p: int = int(gmpy2.powmod(ciphertext % self.modulus_p, self.remainder_p, self.modulus_p))  # type:ignore  # pylint:disable=no-member
-    m_q: int = int(gmpy2.powmod(ciphertext % self.modulus_q, self.remainder_q, self.modulus_q))  # type:ignore  # pylint:disable=no-member
+    m_p: int = int(gmpy2.powmod(ciphertext % self.modulus_p, self.remainder_p, self.modulus_p))
+    m_q: int = int(gmpy2.powmod(ciphertext % self.modulus_q, self.remainder_q, self.modulus_q))
     h: int = (self.q_inverse_p * (m_p - m_q)) % self.modulus_p
     return (m_q + h * self.modulus_q) % self.public_modulus
 
@@ -479,7 +516,7 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):  # pylint: disab
 
     Raises:
       InputError: invalid inputs
-      CryptoError: internal crypto failures, authentication failure, key mismatch, etc
+
     """
     k: int = self.modulus_size
     if len(ciphertext) < (k + 32):
@@ -508,6 +545,7 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):  # pylint: disab
 
     Raises:
       InputError: invalid inputs
+
     """
     # test inputs
     if not 0 < message < self.public_modulus:
@@ -538,15 +576,15 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):  # pylint: disab
 
     Raises:
       InputError: invalid inputs
-      CryptoError: internal crypto failures
+
     """
     k: int = self.modulus_size
-    if k <= 64:
+    if k <= 64:  # noqa: PLR2004
       raise base.InputError(f'modulus too small for signing operations: {k} bytes')
     salt: bytes = base.RandBytes(64)
     s_int: int = self.RawSign(self._DomainSeparatedHash(message, associated_data, salt))
     s_bytes: bytes = base.IntToFixedBytes(s_int, k)
-    assert len(s_bytes) == k, 'should never happen: s_bytes should be exactly k bytes'
+    assert len(s_bytes) == k, 'should never happen: s_bytes should be exactly k bytes'  # noqa: S101
     return salt + s_bytes
 
   @classmethod
@@ -562,9 +600,10 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):  # pylint: disab
     Raises:
       InputError: invalid inputs
       CryptoError: failed generation
+
     """
     # test inputs
-    if bit_length < 11:
+    if bit_length < 11:  # noqa: PLR2004
       raise base.InputError(f'invalid bit length: {bit_length=}')
     # generate primes / modulus
     failures: int = 0
@@ -580,18 +619,21 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):  # pylint: disab
           modulus = p * q
         # build object
         phi: int = (p - 1) * (q - 1)
-        prime_exp: int = (_SMALL_ENCRYPTION_EXPONENT if phi <= _BIG_ENCRYPTION_EXPONENT else
-                          _BIG_ENCRYPTION_EXPONENT)
+        prime_exp: int = (
+          _SMALL_ENCRYPTION_EXPONENT
+          if phi <= _BIG_ENCRYPTION_EXPONENT
+          else _BIG_ENCRYPTION_EXPONENT
+        )
         decrypt_exp: int = modmath.ModInv(prime_exp, phi)
         return cls(
-            modulus_p=p,
-            modulus_q=q,
-            public_modulus=modulus,
-            encrypt_exp=prime_exp,
-            decrypt_exp=decrypt_exp,
-            remainder_p=decrypt_exp % (p - 1),
-            remainder_q=decrypt_exp % (q - 1),
-            q_inverse_p=modmath.ModInv(q, p),
+          modulus_p=p,
+          modulus_q=q,
+          public_modulus=modulus,
+          encrypt_exp=prime_exp,
+          decrypt_exp=decrypt_exp,
+          remainder_p=decrypt_exp % (p - 1),
+          remainder_q=decrypt_exp % (q - 1),
+          q_inverse_p=modmath.ModInv(q, p),
         )
       except (base.InputError, modmath.ModularDivideError) as err:
         failures += 1
