@@ -111,7 +111,7 @@ typer = { version = "^0.21", extras = ["all"] }  # if this changes, also change:
 
 [tool.poetry.group.dev.dependencies]
 
-ruff = "~0.14.13"  # if this changes, also change: .pre-commit-config.yaml
+ruff = "~0.14.14"  # if this changes, also change: .pre-commit-config.yaml
 mypy = "~1.19.1"   # if this changes, also change: .pre-commit-config.yaml
 pytest = "^9.0"    # if this changes, also change: .pre-commit-config.yaml
 pytest-cov = "^7.0"
