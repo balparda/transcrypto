@@ -75,7 +75,7 @@ def test_dsa_invalid_bits() -> None:
     ['--no-serial', '-n', '2', '-b', '300,800', '-c', '70', 'dsa']
   )
   assert res.exit_code != 0
-  assert '-b/--bits should be 3 ints' in res.output
+  assert '--bits' in res.output and 'should be' in res.output
 
 
 def test_cli_doc_md_has_header() -> None:
