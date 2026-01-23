@@ -8,7 +8,7 @@ import concurrent.futures
 import math
 import multiprocessing
 import os
-from collections.abc import Generator, Reversible
+from collections import abc
 
 import gmpy2
 
@@ -164,7 +164,7 @@ def ModExp(x: int, y: int, m: int, /) -> int:
   return z
 
 
-def ModPolynomial(x: int, polynomial: Reversible[int], m: int, /) -> int:
+def ModPolynomial(x: int, polynomial: abc.Reversible[int], m: int, /) -> int:
   """Evaluate `polynomial` (coefficients iterable) at `x` modulus `m`.
 
   Evaluate a polynomial at `x` under a modulus `m` using Horner's rule. Horner rewrites:
@@ -446,7 +446,7 @@ def IsPrime(n: int, /) -> bool:
   return MillerRabinIsPrime(n)
 
 
-def PrimeGenerator(start: int, /) -> Generator[int]:
+def PrimeGenerator(start: int, /) -> abc.Generator[int]:
   """Generate all primes from `start` until loop is broken. Tuned for huge numbers.
 
   Args:
@@ -573,7 +573,7 @@ def _PrimeSearchShard(n_bits: int) -> int | None:
   return None
 
 
-def FirstNPrimesSorted(n: int) -> Generator[int]:
+def FirstNPrimesSorted(n: int) -> abc.Generator[int]:
   """Return list of `n` first primes in a sorted list.
 
   Args:
@@ -589,7 +589,7 @@ def FirstNPrimesSorted(n: int) -> Generator[int]:
     yield pr
 
 
-def MersennePrimesGenerator(start: int, /) -> Generator[tuple[int, int, int]]:
+def MersennePrimesGenerator(start: int, /) -> abc.Generator[tuple[int, int, int]]:
   """Generate all Mersenne prime (2 ** n - 1) exponents from 2**start until loop is broken.
 
   <https://en.wikipedia.org/wiki/List_of_Mersenne_primes_and_perfect_numbers>

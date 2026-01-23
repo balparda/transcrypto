@@ -26,7 +26,7 @@ import enum
 import glob
 import logging
 import sys
-from collections.abc import Iterable
+from collections import abc
 from typing import Any
 
 from rich import console as rich_console
@@ -57,7 +57,7 @@ def _ParseInt(s: str, /) -> int:
   return int(s, base_guess)
 
 
-def _ParseIntList(items: Iterable[str], /) -> list[int]:
+def _ParseIntList(items: abc.Iterable[str], /) -> list[int]:
   """Parse list of strings into list of ints.
 
   Args:

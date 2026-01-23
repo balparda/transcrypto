@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-import abc
+import abc as abstract
 import argparse
 import base64
 import codecs
@@ -23,7 +23,7 @@ import secrets
 import sys
 import threading
 import time
-from collections.abc import Callable, MutableSequence, Sequence
+from collections import abc
 from types import TracebackType
 from typing import (
   Any,
@@ -42,27 +42,27 @@ from scipy import stats
 
 # Data conversion utils
 
-BytesToHex: Callable[[bytes], str] = lambda b: b.hex()
-BytesToInt: Callable[[bytes], int] = lambda b: int.from_bytes(b, 'big', signed=False)
-BytesToEncoded: Callable[[bytes], str] = lambda b: base64.urlsafe_b64encode(b).decode('ascii')
+BytesToHex: abc.Callable[[bytes], str] = lambda b: b.hex()
+BytesToInt: abc.Callable[[bytes], int] = lambda b: int.from_bytes(b, 'big', signed=False)
+BytesToEncoded: abc.Callable[[bytes], str] = lambda b: base64.urlsafe_b64encode(b).decode('ascii')
 
-HexToBytes: Callable[[str], bytes] = bytes.fromhex
-IntToFixedBytes: Callable[[int, int], bytes] = lambda i, n: i.to_bytes(n, 'big', signed=False)
-IntToBytes: Callable[[int], bytes] = lambda i: IntToFixedBytes(i, (i.bit_length() + 7) // 8)
-IntToEncoded: Callable[[int], str] = lambda i: BytesToEncoded(IntToBytes(i))
-EncodedToBytes: Callable[[str], bytes] = lambda e: base64.urlsafe_b64decode(e.encode('ascii'))
+HexToBytes: abc.Callable[[str], bytes] = bytes.fromhex
+IntToFixedBytes: abc.Callable[[int, int], bytes] = lambda i, n: i.to_bytes(n, 'big', signed=False)
+IntToBytes: abc.Callable[[int], bytes] = lambda i: IntToFixedBytes(i, (i.bit_length() + 7) // 8)
+IntToEncoded: abc.Callable[[int], str] = lambda i: BytesToEncoded(IntToBytes(i))
+EncodedToBytes: abc.Callable[[str], bytes] = lambda e: base64.urlsafe_b64decode(e.encode('ascii'))
 
-PadBytesTo: Callable[[bytes, int], bytes] = lambda b, i: b.rjust((i + 7) // 8, b'\x00')
+PadBytesTo: abc.Callable[[bytes, int], bytes] = lambda b, i: b.rjust((i + 7) // 8, b'\x00')
 
 # Time utils
 
 MIN_TM = int(datetime.datetime(2000, 1, 1, 0, 0, 0, tzinfo=datetime.UTC).timestamp())
 TIME_FORMAT = '%Y/%b/%d-%H:%M:%S-UTC'
-TimeStr: Callable[[int | float | None], str] = lambda tm: (
+TimeStr: abc.Callable[[int | float | None], str] = lambda tm: (
   time.strftime(TIME_FORMAT, time.gmtime(tm)) if tm else '-'
 )
-Now: Callable[[], int] = lambda: int(time.time())
-StrNow: Callable[[], str] = lambda: TimeStr(Now())
+Now: abc.Callable[[], int] = lambda: int(time.time())
+StrNow: abc.Callable[[], str] = lambda: TimeStr(Now())
 
 # Logging
 _LOG_FORMAT_NO_PROCESS: str = '%(funcName)s: %(message)s'
@@ -104,12 +104,12 @@ _SI_PREFIXES: dict[int, str] = {
 # these control the pickling of data, do NOT ever change, or you will break all databases
 # <https://docs.python.org/3/library/pickle.html#pickle.DEFAULT_PROTOCOL>
 _PICKLE_PROTOCOL = 4  # protocol 4 available since python v3.8 # do NOT ever change!
-PickleGeneric: Callable[[Any], bytes] = lambda o: pickle.dumps(o, protocol=_PICKLE_PROTOCOL)
-UnpickleGeneric: Callable[[bytes], Any] = pickle.loads  # noqa: S301
-PickleJSON: Callable[[dict[str, Any]], bytes] = lambda d: json.dumps(
+PickleGeneric: abc.Callable[[Any], bytes] = lambda o: pickle.dumps(o, protocol=_PICKLE_PROTOCOL)
+UnpickleGeneric: abc.Callable[[bytes], Any] = pickle.loads  # noqa: S301
+PickleJSON: abc.Callable[[dict[str, Any]], bytes] = lambda d: json.dumps(
   d, separators=(',', ':')
 ).encode('utf-8')
-UnpickleJSON: Callable[[bytes], dict[str, Any]] = lambda b: json.loads(b.decode('utf-8'))
+UnpickleJSON: abc.Callable[[bytes], dict[str, Any]] = lambda b: json.loads(b.decode('utf-8'))
 _PICKLE_AAD = b'transcrypto.base.Serialize.1.0'  # do NOT ever change!
 # these help find compressed files, do NOT change unless zstandard changes
 _ZSTD_MAGIC_FRAME = 0xFD2FB528
@@ -475,7 +475,7 @@ def HumanizedMeasurements(
   /,
   *,
   unit: str = '',
-  parser: Callable[[float], str] | None = None,
+  parser: abc.Callable[[float], str] | None = None,
   clip_negative: bool = True,
   confidence: float = 0.95,
 ) -> str:
@@ -512,7 +512,7 @@ def HumanizedMeasurements(
   conf: float
   unit = unit.strip()
   n, mean, _, error, ci, conf = MeasurementStats(data, confidence=confidence)
-  f: Callable[[float], str] = lambda x: (
+  f: abc.Callable[[float], str] = lambda x: (
     ('*0' if clip_negative and x < 0.0 else str(x))
     if parser is None
     else (f'*{parser(0.0)}' if clip_negative and x < 0.0 else parser(x))
@@ -648,7 +648,7 @@ class Timer:
     """Stop the timer when exiting the context."""
     self.Stop()
 
-  _F = TypeVar('_F', bound=Callable[..., Any])
+  _F = TypeVar('_F', bound=abc.Callable[..., Any])
 
   def __call__(self, func: Timer._F) -> Timer._F:
     """Allow the Timer to be used as a decorator.
@@ -720,7 +720,7 @@ def RandInt(min_int: int, max_int: int, /) -> int:
   return n
 
 
-def RandShuffle[T: Any](seq: MutableSequence[T], /) -> None:
+def RandShuffle[T: Any](seq: abc.MutableSequence[T], /) -> None:
   """In-place Crypto-random shuffle order for `seq` mutable sequence.
 
   Args:
@@ -1046,13 +1046,15 @@ def BytesFromInput(data_str: str, /, *, expect: CryptoInputType | None = None) -
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
-class CryptoKey(abc.ABC):
+class CryptoKey(abstract.ABC):
   """A cryptographic key."""
 
-  def __post_init__(self) -> None:  # noqa: B027
+  @abstract.abstractmethod
+  def __post_init__(self) -> None:
     """Check data."""
+    # every sub-class of CryptoKey has to implement its own version of __post_init__()
 
-  @abc.abstractmethod
+  @abstract.abstractmethod
   def __str__(self) -> str:
     """Safe (no secrets) string representation of the key.
 
@@ -1341,7 +1343,7 @@ class Encryptor(Protocol):
 
   """
 
-  @abc.abstractmethod
+  @abstract.abstractmethod
   def Encrypt(self, plaintext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
     """Encrypt `plaintext` and return `ciphertext`.
 
@@ -1365,7 +1367,7 @@ class Encryptor(Protocol):
 class Decryptor(Protocol):
   """Abstract interface for a class that has decryption (see contract/notes in Encryptor)."""
 
-  @abc.abstractmethod
+  @abstract.abstractmethod
   def Decrypt(self, ciphertext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
     """Decrypt `ciphertext` and return the original `plaintext`.
 
@@ -1387,7 +1389,7 @@ class Decryptor(Protocol):
 class Verifier(Protocol):
   """Abstract interface for asymmetric signature verify. (see contract/notes in Encryptor)."""
 
-  @abc.abstractmethod
+  @abstract.abstractmethod
   def Verify(
     self, message: bytes, signature: bytes, /, *, associated_data: bytes | None = None
   ) -> bool:
@@ -1412,7 +1414,7 @@ class Verifier(Protocol):
 class Signer(Protocol):
   """Abstract interface for asymmetric signing. (see contract/notes in Encryptor)."""
 
-  @abc.abstractmethod
+  @abstract.abstractmethod
   def Sign(self, message: bytes, /, *, associated_data: bytes | None = None) -> bytes:
     """Sign `message` and return the `signature`.
 
@@ -1440,7 +1442,7 @@ def Serialize(
   compress: int | None = 3,
   key: Encryptor | None = None,
   silent: bool = False,
-  pickler: Callable[[Any], bytes] = PickleGeneric,
+  pickler: abc.Callable[[Any], bytes] = PickleGeneric,
 ) -> bytes:
   """Serialize a Python object into a BLOB, optionally compress / encrypt / save to disk.
 
@@ -1516,7 +1518,7 @@ def DeSerialize(  # noqa: C901
   file_path: str | None = None,
   key: Decryptor | None = None,
   silent: bool = False,
-  unpickler: Callable[[bytes], Any] = UnpickleGeneric,
+  unpickler: abc.Callable[[bytes], Any] = UnpickleGeneric,
 ) -> Any:  # noqa: ANN401
   """Load (de-serializes) a BLOB back to a Python object, optionally decrypting / decompressing.
 
@@ -1625,7 +1627,6 @@ class PublicBid512(CryptoKey):
       InputError: invalid inputs
 
     """
-    super(PublicBid512, self).__post_init__()
     if len(self.public_key) != 64 or len(self.public_hash) != 64:  # noqa: PLR2004
       raise InputError(f'invalid public_key or public_hash: {self}')
 
@@ -1794,7 +1795,7 @@ def _FormatNArgs(a: argparse.Action, /) -> str:
   return f' nargs: {a.nargs}' if getattr(a, 'nargs', None) not in {None, 0} else ''
 
 
-def _RowsForActions(actions: Sequence[argparse.Action], /) -> list[tuple[str, str]]:
+def _RowsForActions(actions: abc.Sequence[argparse.Action], /) -> list[tuple[str, str]]:
   rows: list[tuple[str, str]] = []
   for a in actions:
     if _ActionIsSubparser(a):
@@ -1814,7 +1815,7 @@ def _RowsForActions(actions: Sequence[argparse.Action], /) -> list[tuple[str, st
 
 
 def _MarkdownTable(
-  rows: Sequence[tuple[str, str]], headers: tuple[str, str] = ('Option/Arg', 'Description'), /
+  rows: abc.Sequence[tuple[str, str]], headers: tuple[str, str] = ('Option/Arg', 'Description'), /
 ) -> str:
   if not rows:
     return ''

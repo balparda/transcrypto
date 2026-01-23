@@ -21,12 +21,27 @@ authors = [
 ]
 
 keywords = [
+  "cryptography",
+  "validation",
+  "encryption",
+  "signing",
+  "random-generation",
+  "prime-numbers",
+  "aes-encryption",
+  "decryption",
+  "rsa-cryptography",
+  "elgamal-encryption",
+  "dsa-algorithm",
+  "modular-mathematics",
+  "rsa",
+  "dsa",
+  "elgamal",
+  "aes",
   "python",
   "poetry",
   "typer",
   "rich",
   "cli",
-  "template",
 ]
 classifiers = [  # see: https://pypi.org/classifiers/
   "Programming Language :: Python :: 3",
@@ -62,9 +77,9 @@ dependencies = [
 # console scripts that will be installed when installing the package;
 # if you change/add a line here, re-run `poetry sync`
 
-transcrypto = "transcrypto.transcrypto:app"
-safetrans = "transcrypto.safetrans:app"
-profiler = "transcrypto.profiler:app"
+transcrypto = "transcrypto.transcrypto:main"
+safetrans = "transcrypto.safetrans:main"
+profiler = "transcrypto.profiler:Run"
 
 ####################################################################################################
 [project.urls]

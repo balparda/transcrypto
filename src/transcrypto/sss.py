@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-from collections.abc import Collection, Generator
+from collections import abc
 from typing import Self
 
 from . import aes, base, modmath
@@ -65,7 +65,7 @@ class ShamirSharedSecretPublic(base.CryptoKey):
     return (self.modulus.bit_length() + 7) // 8
 
   def RawRecoverSecret(
-    self, shares: Collection[ShamirSharePrivate], /, *, force_recover: bool = False
+    self, shares: abc.Collection[ShamirSharePrivate], /, *, force_recover: bool = False
   ) -> int:
     """Recover the secret from ShamirSharePrivate objects.
 
@@ -214,7 +214,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
       share_value=modmath.ModPolynomial(share_key, [secret, *self.polynomial], self.modulus),
     )
 
-  def RawShares(self, secret: int, /, *, max_shares: int = 0) -> Generator[ShamirSharePrivate]:
+  def RawShares(self, secret: int, /, *, max_shares: int = 0) -> abc.Generator[ShamirSharePrivate]:
     """Make any number of ShamirSharePrivate for the `secret`.
 
     BEWARE: This is raw SSS, no modern message wrapping, padding or validation!
