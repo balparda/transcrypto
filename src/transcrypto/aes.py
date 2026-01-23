@@ -60,7 +60,6 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
       InputError: invalid inputs
 
     """
-    super(AESKey, self).__post_init__()
     if len(self.key256) != 32:  # noqa: PLR2004
       raise base.InputError(f'invalid key256: {self}')
 

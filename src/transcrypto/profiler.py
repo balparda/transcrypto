@@ -13,241 +13,224 @@ doc md
 
 from __future__ import annotations
 
-import argparse
-import sys
-from collections.abc import Callable
+from collections import abc
+from dataclasses import dataclass
 
+import typer
 from rich import console as rich_console
 
-from . import base, dsa, modmath
+from . import __version__, base, dsa, modmath
 
 
-def _BuildParser() -> argparse.ArgumentParser:
-  """Construct the CLI argument parser (kept in sync with the docs).
+@dataclass(kw_only=True, slots=True, frozen=True)
+class CLIConfig:
+  """CLI global context, storing the configuration."""
 
-  Returns:
-      argparse.ArgumentParser: argument parser
+  verbose: int
+  color: bool | None
+  serial: bool
+  repeats: int
+  confidence: int
+  bits: tuple[int, int, int]
 
-  """
-  # ========================= main parser ==========================================================
-  parser: argparse.ArgumentParser = argparse.ArgumentParser(
-    prog='poetry run profiler',
-    description=('profiler: CLI for TransCrypto Profiler, measure library performance.'),
-    epilog=(
-      'Examples:\n\n'
-      '  # --- Primes ---\n'
-      '  poetry run profiler -p -n 10 primes\n'
-      '  poetry run profiler -n 20 dsa\n'
-    ),
-    formatter_class=argparse.RawTextHelpFormatter,
-  )
-  sub = parser.add_subparsers(dest='command')
 
-  # ========================= global flags =========================================================
-  # -v/-vv/-vvv/-vvvv for ERROR/WARN/INFO/DEBUG
-  parser.add_argument(
+# CLI app setup, this is an important object and can be imported elsewhere and called
+app = typer.Typer(
+  add_completion=True,
+  no_args_is_help=True,
+  help='profiler: CLI for TransCrypto Profiler, measure library performance.',
+  epilog=(
+    'Examples:\n\n\n\n'
+    '# --- Primes / DSA ---\n\n'
+    'poetry run profiler -n 10 primes\n\n'
+    'poetry run profiler --no-serial -n 20 dsa\n\n'
+    '# --- Doc ---\n\n'
+    'poetry run profiler doc > profiler.md'
+  ),
+)
+
+
+@app.callback(invoke_without_command=True)  # have only one; this is the "constructor"
+def Main(
+  *,
+  ctx: typer.Context,  # global context
+  version: bool = typer.Option(False, '--version', help='Show version and exit.'),
+  verbose: int = typer.Option(
+    0,
     '-v',
     '--verbose',
-    action='count',
-    default=0,
-    help='Increase verbosity (use -v/-vv/-vvv/-vvvv for ERROR/WARN/INFO/DEBUG)',
-  )
-
-  thread_grp = parser.add_mutually_exclusive_group()
-  thread_grp.add_argument(
-    '-s',
-    '--serial',
-    action='store_true',
-    help='If test can be serial, do it like that with no parallelization (default)',
-  )
-  thread_grp.add_argument(
-    '-p',
-    '--parallel',
-    action='store_true',
-    help='If test can be parallelized into processes, do it like that',
-  )
-
-  parser.add_argument(
+    count=True,
+    help='Verbosity (nothing=ERROR, -v=WARNING, -vv=INFO, -vvv=DEBUG).',
+    min=0,
+    max=3,
+  ),
+  color: bool | None = typer.Option(
+    None,
+    '--color/--no-color',
+    help=(
+      'Force enable/disable colored output (respects NO_COLOR env var if not provided). '
+      'Defaults to having colors.'  # state default because None default means docs don't show it
+    ),
+  ),
+  serial: bool = typer.Option(
+    True,
+    '--serial/--no-serial',
+    help='Execute operation serially (i.e. do not use threads/multiprocessing).',
+  ),
+  repeats: int = typer.Option(
+    15,
     '-n',
     '--number',
-    type=int,
-    default=15,
-    help='Number of experiments (repeats) for every measurement',
-  )
-  parser.add_argument(
+    help='Number of experiments (repeats) for every measurement.',
+    min=1,
+    max=1000,
+  ),
+  confidence: int = typer.Option(
+    98,
     '-c',
     '--confidence',
-    type=int,
-    default=98,
     help=(
       'Confidence level to evaluate measurements at as int percentage points [50,99], '
-      'inclusive, representing 50%% to 99%%'
+      'inclusive, representing 50% to 99%'
     ),
-  )
-
-  parser.add_argument(
+    min=50,
+    max=99,
+  ),
+  bits: str = typer.Option(
+    '1000,9000,1000',
     '-b',
     '--bits',
-    type=str,
-    default='1000,9000,1000',
     help=(
-      'Bit lengths to investigate as "int,int,int"; behaves like arguments for range(), '
-      'i.e., "start,stop,step", eg. "1000,3000,500" will investigate 1000,1500,2000,2500'
+      'Bit lengths to investigate as [green]"int,int,int"[/]; behaves like arguments for range(), '
+      'i.e., [green]"start,stop,step"[/], eg. [green]"1000,3000,500"[/] will investigate '
+      '[yellow]1000,1500,2000,2500[/]'
     ),
+  ),
+) -> None:
+  # leave this docstring without args/return/raise sections as it shows up in `--help`
+  # one way or another the args are well documented in the CLI help and in the code above
+  """Set things up; Main CLI entry point."""  # noqa: DOC501
+  if version:
+    typer.echo(__version__)
+    raise typer.Exit(0)
+  _, verbose, color = base.InitLogging(
+    verbose,
+    color=color,
+    include_process=False,  # decide if you want process names in logs
+    soft_wrap=False,  # decide if you want soft wrapping of long lines
+  )
+  # create context with the arguments we received
+  int_bits: tuple[int, ...] = tuple(int(x, 10) for x in bits.strip().split(','))
+  if len(int_bits) != 3:  # noqa: PLR2004
+    raise typer.BadParameter(
+      '-b/--bits should be 3 ints, like: start,stop,step; eg.: 1000,3000,500'
+    )
+  ctx.obj = CLIConfig(
+    verbose=verbose,
+    color=color,
+    serial=serial,
+    repeats=repeats,
+    confidence=confidence,
+    bits=int_bits,
   )
 
-  # ========================= Prime Generation =====================================================
 
-  # Regular prime generation
-  sub.add_parser(
-    'primes',
-    help='Measure regular prime generation.',
-    epilog=(
-      '-n 30 -b 9000,11000,1000 primes\nStarting SERIAL regular primes test\n'
-      '9000 → 38.88 s ± 14.74 s [24.14 s … 53.63 s]98%CI@30\n'
-      '10000 → 41.26 s ± 22.82 s [18.44 s … 1.07 min]98%CI@30\nFinished in 40.07 min'
-    ),
+@app.command(
+  'primes',
+  epilog=(
+    'Example:\n\n\n\n'
+    '$ poetry run profiler -n 30 -b 9000,11000,1000 primes\n\n'
+    'Starting [yellow]SERIAL regular primes[/] test\n\n'
+    '9000 → 38.88 s ± 14.74 s [24.14 s … 53.63 s]98%CI@30\n\n'
+    '10000 → 41.26 s ± 22.82 s [18.44 s … 1.07 min]98%CI@30\n\n'
+    'Finished in 40.07 min'
+  ),
+)
+def Primes(*, ctx: typer.Context) -> None:
+  """Measure regular prime generation."""
+  # leave this docstring without args/return/raise sections as it shows up in `--help`
+  # one way or another the args are well documented in the CLI help and in the code above
+  config: CLIConfig = ctx.obj  # get application global config
+  console: rich_console.Console = base.Console()
+  console.print(
+    f'Starting [yellow]{"SERIAL" if config.serial else "PARALLEL"} regular primes[/] test'
+  )
+  _PrimeProfiler(
+    lambda n: modmath.NBitRandomPrimes(n, serial=config.serial, n_primes=1).pop(),
+    config.repeats,
+    config.bits,
+    config.confidence / 100.0,
   )
 
-  # DSA primes generation
-  sub.add_parser(
-    'dsa',
-    help='Measure DSA prime generation.',
-    epilog=(
-      '-p -n 2 -b 1000,1500,100 -c 80 dsa\nStarting PARALLEL DSA primes test\n'
-      '1000 → 236.344 ms ± 273.236 ms [*0.00 s … 509.580 ms]80%CI@2\n'
-      '1100 → 319.308 ms ± 639.775 ms [*0.00 s … 959.083 ms]80%CI@2\n'
-      '1200 → 523.885 ms ± 879.981 ms [*0.00 s … 1.40 s]80%CI@2\n'
-      '1300 → 506.285 ms ± 687.153 ms [*0.00 s … 1.19 s]80%CI@2\n'
-      '1400 → 552.840 ms ± 47.012 ms [505.828 ms … 599.852 ms]80%CI@2\nFinished in 4.12 s'
-    ),
+
+@app.command(
+  'dsa',
+  epilog=(
+    'Example:\n\n\n\n'
+    '$ poetry run profiler --no-serial -n 2 -b 1000,1500,100 -c 80 dsa\n\n'
+    'Starting [yellow]PARALLEL DSA primes[/] test\n\n'
+    '1000 → 236.344 ms ± 273.236 ms [*0.00 s … 509.580 ms]80%CI@2\n\n'
+    '1100 → 319.308 ms ± 639.775 ms [*0.00 s … 959.083 ms]80%CI@2\n\n'
+    '1200 → 523.885 ms ± 879.981 ms [*0.00 s … 1.40 s]80%CI@2\n\n'
+    '1300 → 506.285 ms ± 687.153 ms [*0.00 s … 1.19 s]80%CI@2\n\n'
+    '1400 → 552.840 ms ± 47.012 ms [505.828 ms … 599.852 ms]80%CI@2\n\n'
+    'Finished in 4.12 s'
+  ),
+)
+def DSA(*, ctx: typer.Context) -> None:
+  # leave this docstring without args/return/raise sections as it shows up in `--help`
+  # one way or another the args are well documented in the CLI help and in the code above
+  """Measure DSA prime generation."""
+  config: CLIConfig = ctx.obj  # get application global config
+  console: rich_console.Console = base.Console()
+  console.print(f'Starting [yellow]{"SERIAL" if config.serial else "PARALLEL"} DSA primes[/] test')
+  _PrimeProfiler(
+    lambda n: dsa.NBitRandomDSAPrimes(n, n // 2, serial=config.serial)[0],
+    config.repeats,
+    config.bits,
+    config.confidence / 100.0,
   )
 
-  # ========================= Markdown Generation ==================================================
 
-  # Documentation generation
-  doc: argparse.ArgumentParser = sub.add_parser(
-    'doc', help='Documentation utilities. (Not for regular use: these are developer utils.)'
-  )
-  doc_sub = doc.add_subparsers(dest='doc_command')
-  doc_sub.add_parser(
-    'md',
-    help='Emit Markdown docs for the CLI (see README.md section "Creating a New Version").',
-    epilog='doc md > profiler.md\n<<saves file>>',
-  )
-
-  return parser
+@app.command(
+  'doc',
+  epilog='Example:\n\n\n\n$ poetry run profiler doc > profiler.md\n\n<<saves CLI doc>>',
+)
+def Doc() -> None:
+  # leave this docstring without args/return/raise sections as it shows up in `--help`
+  # one way or another the args are well documented in the CLI help and in the code above
+  """Emit Markdown docs for the CLI (see README.md section "Creating a New Version")."""
+  console: rich_console.Console = base.Console()
+  console.print(base.GenerateTyperHelpMarkdown(app, prog_name='profiler'))
 
 
 def _PrimeProfiler(
-  prime_callable: Callable[[int], int],
+  prime_callable: abc.Callable[[int], int],
   repeats: int,
   n_bits_range: tuple[int, int, int],
   confidence: float,
-  console: rich_console.Console,
   /,
 ) -> None:
-  primes: dict[int, list[float]] = {}
-  for n_bits in range(*n_bits_range):
-    # investigate for size n_bits
-    primes[n_bits] = []
-    for _ in range(repeats):
-      with base.Timer(emit_log=False) as tmr:
-        pr: int = prime_callable(n_bits)
-      assert pr  # noqa: S101
-      assert pr.bit_length() == n_bits  # noqa: S101
-      primes[n_bits].append(tmr.elapsed)
-    # finished collecting n_bits-sized primes
-    measurements: str = base.HumanizedMeasurements(
-      primes[n_bits], parser=base.HumanizedSeconds, confidence=confidence
-    )
-    console.print(f'{n_bits} → {measurements}')
+  console: rich_console.Console = base.Console()
+  with base.Timer(emit_log=False) as total_time:
+    primes: dict[int, list[float]] = {}
+    for n_bits in range(*n_bits_range):
+      # investigate for size n_bits
+      primes[n_bits] = []
+      for _ in range(repeats):
+        with base.Timer(emit_log=False) as run_time:
+          pr: int = prime_callable(n_bits)
+        assert pr  # noqa: S101
+        assert pr.bit_length() == n_bits  # noqa: S101
+        primes[n_bits].append(run_time.elapsed)
+      # finished collecting n_bits-sized primes
+      measurements: str = base.HumanizedMeasurements(
+        primes[n_bits], parser=base.HumanizedSeconds, confidence=confidence
+      )
+      console.print(f'{n_bits} → {measurements}')
+  console.print(f'Finished in {total_time}')
 
 
-def main(argv: list[str] | None = None, /) -> int:
-  """Execute main entry point.
-
-  Args:
-      argv (list[str] | None, optional): Arguments. Defaults to None.
-
-  Raises:
-      base.InputError: input error
-      NotImplementedError: not implemented
-
-  Returns:
-      int: return value
-
-  """
-  # build the parser and parse args
-  parser: argparse.ArgumentParser = _BuildParser()
-  args: argparse.Namespace = parser.parse_args(argv)
-  # take care of global options
-  console: rich_console.Console = base.InitLogging(args.verbose)
-
-  try:
-    # get the command, do basic checks and switch
-    command: str = args.command.lower().strip() if args.command else ''
-    repeats: int = max(args.number, 1)
-    confidence: int = max(args.confidence, 55)
-    confidence = min(confidence, 99)
-    args.serial = True if (not args.serial and not args.parallel) else args.serial  # make default
-    bits: tuple[int, ...] = tuple(int(x, 10) for x in args.bits.strip().split(','))
-    if len(bits) != 3:  # noqa: PLR2004
-      raise base.InputError('-b/--bits should be 3 ints, like: start,stop,step; eg.: 1000,3000,500')
-    with base.Timer(emit_log=False) as tmr:
-      match command:
-        # -------- Primes ----------
-        case 'primes':
-          console.print(f'Starting {"SERIAL" if args.serial else "PARALLEL"} regular primes test')
-          _PrimeProfiler(
-            lambda n: modmath.NBitRandomPrimes(n, serial=args.serial, n_primes=1).pop(),
-            repeats,
-            bits,
-            confidence / 100.0,
-            console,
-          )
-
-        case 'dsa':
-          console.print(f'Starting {"SERIAL" if args.serial else "PARALLEL"} DSA primes test')
-          _PrimeProfiler(
-            lambda n: dsa.NBitRandomDSAPrimes(n, n // 2, serial=args.serial)[0],
-            repeats,
-            bits,
-            confidence / 100.0,
-            console,
-          )
-
-        # -------- Documentation ----------
-        case 'doc':
-          doc_command: str = (
-            args.doc_command.lower().strip() if getattr(args, 'doc_command', '') else ''
-          )
-          match doc_command:
-            case 'md':
-              console.print(
-                base.GenerateCLIMarkdown(
-                  'profiler',
-                  _BuildParser(),
-                  description=(
-                    '`profiler` is a command-line utility that provides stats on TransCrypto '
-                    'performance.'
-                  ),
-                )
-              )
-            case _:
-              raise NotImplementedError
-
-        case _:
-          parser.print_help()
-
-    if command not in {'doc'}:  # noqa: FURB171
-      console.print(f'Finished in {tmr}')
-
-  except (base.Error, ValueError) as err:
-    console.print(str(err))
-
-  return 0
-
-
-if __name__ == '__main__':
-  sys.exit(main())
+def Run() -> None:
+  """Run the CLI."""
+  app()

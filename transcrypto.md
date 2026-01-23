@@ -8,7 +8,7 @@
 Invoke with:
 
 ```bash
-poetry run transcrypto <command> [sub-command] [options...]
+poetry run transcrypto <command>  
 ```
 
 ## Global Options
@@ -22,26 +22,26 @@ poetry run transcrypto <command> [sub-command] [options...]
 | `--out-hex` | Outputs as hex (default) |
 | `--out-b64` | Outputs as base64url |
 | `--out-bin` | Outputs as binary (bytes) |
-| `-p, --key-path` | File path to serialized key object, if key is needed for operation [type: str] |
-| `--protect` | Password to encrypt/decrypt key file if using the `-p`/`--key-path` option [type: str] |
+| `-p, --key-path` | File path to serialized key object, if key is needed for operation  |
+| `--protect` | Password to encrypt/decrypt key file if using the `-p`/`--key-path` option  |
 
 ## Top-Level Commands
 
-- **`random`** — `poetry run transcrypto random [-h] {bits,int,bytes,prime} ...`
-- **`isprime`** — `poetry run transcrypto isprime [-h] n`
-- **`primegen`** — `poetry run transcrypto primegen [-h] [-c COUNT] start`
-- **`mersenne`** — `poetry run transcrypto mersenne [-h] [-k MIN_K] [-C CUTOFF_K]`
-- **`gcd`** — `poetry run transcrypto gcd [-h] a b`
-- **`xgcd`** — `poetry run transcrypto xgcd [-h] a b`
-- **`mod`** — `poetry run transcrypto mod [-h] {inv,div,exp,poly,lagrange,crt} ...`
-- **`hash`** — `poetry run transcrypto hash [-h] {sha256,sha512,file} ...`
-- **`aes`** — `poetry run transcrypto aes [-h] {key,encrypt,decrypt,ecb} ...`
-- **`rsa`** — `poetry run transcrypto rsa [-h] {new,rawencrypt,encrypt,rawdecrypt,decrypt,rawsign,sign,rawverify,verify} ...`
-- **`elgamal`** — `poetry run transcrypto elgamal [-h] {shared,new,rawencrypt,encrypt,rawdecrypt,decrypt,rawsign,sign,rawverify,verify} ...`
-- **`dsa`** — `poetry run transcrypto dsa [-h] {shared,new,rawsign,sign,rawverify,verify} ...`
-- **`bid`** — `poetry run transcrypto bid [-h] {new,verify} ...`
-- **`sss`** — `poetry run transcrypto sss [-h] {new,rawshares,shares,rawrecover,recover,rawverify} ...`
-- **`doc`** — `poetry run transcrypto doc [-h] {md} ...`
+- **`random`** — `None`
+- **`isprime`** — `None`
+- **`primegen`** — `None`
+- **`mersenne`** — `None`
+- **`gcd`** — `None`
+- **`xgcd`** — `None`
+- **`mod`** — `None`
+- **`hash`** — `None`
+- **`aes`** — `None`
+- **`rsa`** — `None`
+- **`elgamal`** — `None`
+- **`dsa`** — `None`
+- **`bid`** — `None`
+- **`sss`** — `None`
+- **`doc`** — `None`
 
 ```bash
 Examples:
@@ -146,7 +146,7 @@ poetry run transcrypto random bits [-h] bits
 
 | Option/Arg | Description |
 |---|---|
-| `bits` | Number of bits, ≥ 8 [type: int] |
+| `bits` | Number of bits, ≥ 8  |
 
 **Example:**
 
@@ -157,7 +157,7 @@ $ poetry run transcrypto random bits 16
 
 ### `random int`
 
-Uniform random integer in `[min, max]` range, inclusive.
+Uniform random integer in `` range, inclusive.
 
 ```bash
 poetry run transcrypto random int [-h] min max
@@ -165,8 +165,8 @@ poetry run transcrypto random int [-h] min max
 
 | Option/Arg | Description |
 |---|---|
-| `min` | Minimum, ≥ 0 [type: str] |
-| `max` | Maximum, > `min` [type: str] |
+| `min` | Minimum, ≥ 0  |
+| `max` | Maximum, > `min`  |
 
 **Example:**
 
@@ -185,7 +185,7 @@ poetry run transcrypto random bytes [-h] n
 
 | Option/Arg | Description |
 |---|---|
-| `n` | Number of bytes, ≥ 1 [type: int] |
+| `n` | Number of bytes, ≥ 1  |
 
 **Example:**
 
@@ -204,7 +204,7 @@ poetry run transcrypto random prime [-h] bits
 
 | Option/Arg | Description |
 |---|---|
-| `bits` | Bit length, ≥ 11 [type: int] |
+| `bits` | Bit length, ≥ 11  |
 
 **Example:**
 
@@ -225,7 +225,7 @@ poetry run transcrypto isprime [-h] n
 
 | Option/Arg | Description |
 |---|---|
-| `n` | Integer to test, ≥ 1 [type: str] |
+| `n` | Integer to test, ≥ 1  |
 
 **Example:**
 
@@ -248,8 +248,8 @@ poetry run transcrypto primegen [-h] [-c COUNT] start
 
 | Option/Arg | Description |
 |---|---|
-| `start` | Starting integer (inclusive) [type: str] |
-| `-c, --count` | How many to print (0 = unlimited) [type: int (default: 10)] |
+| `start` | Starting integer (inclusive)  |
+| `-c, --count` | How many to print (0 = unlimited)  |
 
 **Example:**
 
@@ -272,8 +272,8 @@ poetry run transcrypto mersenne [-h] [-k MIN_K] [-C CUTOFF_K]
 
 | Option/Arg | Description |
 |---|---|
-| `-k, --min-k` | Starting exponent `k`, ≥ 1 [type: int (default: 1)] |
-| `-C, --cutoff-k` | Stop once `k` > `cutoff-k` [type: int (default: 10000)] |
+| `-k, --min-k` | Starting exponent `k`, ≥ 1  |
+| `-C, --cutoff-k` | Stop once `k` > `cutoff-k`  |
 
 **Example:**
 
@@ -299,8 +299,8 @@ poetry run transcrypto gcd [-h] a b
 
 | Option/Arg | Description |
 |---|---|
-| `a` | Integer, ≥ 0 [type: str] |
-| `b` | Integer, ≥ 0 (can't be both zero) [type: str] |
+| `a` | Integer, ≥ 0  |
+| `b` | Integer, ≥ 0 (can't be both zero)  |
 
 **Example:**
 
@@ -325,8 +325,8 @@ poetry run transcrypto xgcd [-h] a b
 
 | Option/Arg | Description |
 |---|---|
-| `a` | Integer, ≥ 0 [type: str] |
-| `b` | Integer, ≥ 0 (can't be both zero) [type: str] |
+| `a` | Integer, ≥ 0  |
+| `b` | Integer, ≥ 0 (can't be both zero)  |
 
 **Example:**
 
@@ -359,8 +359,8 @@ poetry run transcrypto mod inv [-h] a m
 
 | Option/Arg | Description |
 |---|---|
-| `a` | Integer to invert [type: str] |
-| `m` | Modulus `m`, ≥ 2 [type: str] |
+| `a` | Integer to invert  |
+| `m` | Modulus `m`, ≥ 2  |
 
 **Example:**
 
@@ -383,9 +383,9 @@ poetry run transcrypto mod div [-h] x y m
 
 | Option/Arg | Description |
 |---|---|
-| `x` | Integer [type: str] |
-| `y` | Integer, cannot be zero [type: str] |
-| `m` | Modulus `m`, ≥ 2 [type: str] |
+| `x` | Integer  |
+| `y` | Integer, cannot be zero  |
+| `m` | Modulus `m`, ≥ 2  |
 
 **Example:**
 
@@ -406,9 +406,9 @@ poetry run transcrypto mod exp [-h] a e m
 
 | Option/Arg | Description |
 |---|---|
-| `a` | Integer [type: str] |
-| `e` | Integer, ≥ 0 [type: str] |
-| `m` | Modulus `m`, ≥ 2 [type: str] |
+| `a` | Integer  |
+| `e` | Integer, ≥ 0  |
+| `m` | Modulus `m`, ≥ 2  |
 
 **Example:**
 
@@ -424,14 +424,14 @@ $ poetry run transcrypto mod exp 438 234 89854
 Efficiently evaluate polynomial with `coeff` coefficients at point `x` modulo `m` (`c₀+c₁×x+c₂×x²+…+cₙ×xⁿ mod m`).
 
 ```bash
-poetry run transcrypto mod poly [-h] x m coeff [coeff ...]
+poetry run transcrypto mod poly [-h] x m coeff 
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `x` | Evaluation point `x` [type: str] |
-| `m` | Modulus `m`, ≥ 2 [type: str] |
-| `coeff` | Coefficients (constant-term first: `c₀+c₁×x+c₂×x²+…+cₙ×xⁿ`) [nargs: +] |
+| `x` | Evaluation point `x`  |
+| `m` | Modulus `m`, ≥ 2  |
+| `coeff` | Coefficients (constant-term first: `c₀+c₁×x+c₂×x²+…+cₙ×xⁿ`)  |
 
 **Example:**
 
@@ -447,14 +447,14 @@ $ poetry run transcrypto mod poly 10 97 3 0 0 1 1
 Lagrange interpolation over modulus `m`: find the `f(x)` solution for the given `x` and `zₙ:f(zₙ)` points `pt`. The modulus `m` must be a prime.
 
 ```bash
-poetry run transcrypto mod lagrange [-h] x m pt [pt ...]
+poetry run transcrypto mod lagrange [-h] x m pt 
 ```
 
 | Option/Arg | Description |
 |---|---|
-| `x` | Evaluation point `x` [type: str] |
-| `m` | Modulus `m`, ≥ 2 [type: str] |
-| `pt` | Points `zₙ:f(zₙ)` as `key:value` pairs (e.g., `2:4 5:3 7:1`) [nargs: +] |
+| `x` | Evaluation point `x`  |
+| `m` | Modulus `m`, ≥ 2  |
+| `pt` | Points `zₙ:f(zₙ)` as `key:value` pairs (e.g., `2:4 5:3 7:1`)  |
 
 **Example:**
 
@@ -475,10 +475,10 @@ poetry run transcrypto mod crt [-h] a1 m1 a2 m2
 
 | Option/Arg | Description |
 |---|---|
-| `a1` | Integer residue for first congruence [type: str] |
-| `m1` | Modulus `m1`, ≥ 2 and `gcd(m1,m2)==1` [type: str] |
-| `a2` | Integer residue for second congruence [type: str] |
-| `m2` | Modulus `m2`, ≥ 2 and `gcd(m1,m2)==1` [type: str] |
+| `a1` | Integer residue for first congruence  |
+| `m1` | Modulus `m1`, ≥ 2 and `gcd(m1,m2)==1`  |
+| `a2` | Integer residue for second congruence  |
+| `m2` | Modulus `m2`, ≥ 2 and `gcd(m1,m2)==1`  |
 
 **Example:**
 
@@ -511,7 +511,7 @@ poetry run transcrypto hash sha256 [-h] data
 
 | Option/Arg | Description |
 |---|---|
-| `data` | Input data (raw text; or use --hex/--b64/--bin) [type: str] |
+| `data` | Input data (raw text; or use --hex/--b64/--bin)  |
 
 **Example:**
 
@@ -532,7 +532,7 @@ poetry run transcrypto hash sha512 [-h] data
 
 | Option/Arg | Description |
 |---|---|
-| `data` | Input data (raw text; or use --hex/--b64/--bin) [type: str] |
+| `data` | Input data (raw text; or use --hex/--b64/--bin)  |
 
 **Example:**
 
@@ -553,7 +553,7 @@ poetry run transcrypto hash file [-h] [--digest {sha256,sha512}] path
 
 | Option/Arg | Description |
 |---|---|
-| `path` | Path to existing file [type: str] |
+| `path` | Path to existing file  |
 | `--digest` | Digest type, SHA-256 ("sha256") or SHA-512 ("sha512") [choices: ['sha256', 'sha512'] (default: sha256)] |
 
 **Example:**
@@ -583,7 +583,7 @@ poetry run transcrypto aes key [-h] password
 
 | Option/Arg | Description |
 |---|---|
-| `password` | Password (leading/trailing spaces ignored) [type: str] |
+| `password` | Password (leading/trailing spaces ignored)  |
 
 **Example:**
 
@@ -604,9 +604,9 @@ poetry run transcrypto aes encrypt [-h] [-k KEY] [-a AAD] plaintext
 
 | Option/Arg | Description |
 |---|---|
-| `plaintext` | Input data to encrypt (PT) [type: str] |
-| `-k, --key` | Key if `-p`/`--key-path` wasn't used (32 bytes) [type: str] |
-| `-a, --aad` | Associated data (optional; has to be separately sent to receiver/stored) [type: str] |
+| `plaintext` | Input data to encrypt (PT)  |
+| `-k, --key` | Key if `-p`/`--key-path` wasn't used (32 bytes)  |
+| `-a, --aad` | Associated data (optional; has to be separately sent to receiver/stored)  |
 
 **Example:**
 
@@ -627,9 +627,9 @@ poetry run transcrypto aes decrypt [-h] [-k KEY] [-a AAD] ciphertext
 
 | Option/Arg | Description |
 |---|---|
-| `ciphertext` | Input data to decrypt (CT) [type: str] |
-| `-k, --key` | Key if `-p`/`--key-path` wasn't used (32 bytes) [type: str] |
-| `-a, --aad` | Associated data (optional; has to be exactly the same as used during encryption) [type: str] |
+| `ciphertext` | Input data to decrypt (CT)  |
+| `-k, --key` | Key if `-p`/`--key-path` wasn't used (32 bytes)  |
+| `-a, --aad` | Associated data (optional; has to be exactly the same as used during encryption)  |
 
 **Example:**
 
@@ -650,7 +650,7 @@ poetry run transcrypto aes ecb [-h] [-k KEY] {encrypt,decrypt} ...
 
 | Option/Arg | Description |
 |---|---|
-| `-k, --key` | Key if `-p`/`--key-path` wasn't used (32 bytes; raw, or you can use `--bin`/`--hex`/`--b64` flags) [type: str] |
+| `-k, --key` | Key if `-p`/`--key-path` wasn't used (32 bytes; raw, or you can use `--bin`/`--hex`/`--b64` flags)  |
 
 ### `aes ecb encrypt`
 
@@ -662,7 +662,7 @@ poetry run transcrypto aes ecb encrypt [-h] plaintext
 
 | Option/Arg | Description |
 |---|---|
-| `plaintext` | Plaintext block as 32 hex chars (16-bytes) [type: str] |
+| `plaintext` | Plaintext block as 32 hex chars (16-bytes)  |
 
 **Example:**
 
@@ -681,7 +681,7 @@ poetry run transcrypto aes ecb decrypt [-h] ciphertext
 
 | Option/Arg | Description |
 |---|---|
-| `ciphertext` | Ciphertext block as 32 hex chars (16-bytes) [type: str] |
+| `ciphertext` | Ciphertext block as 32 hex chars (16-bytes)  |
 
 **Example:**
 
@@ -711,7 +711,7 @@ poetry run transcrypto rsa new [-h] [--bits BITS]
 
 | Option/Arg | Description |
 |---|---|
-| `--bits` | Modulus size in bits; the default is a safe size [type: int (default: 3332)] |
+| `--bits` | Modulus size in bits; the default is a safe size  |
 
 **Example:**
 
@@ -730,7 +730,7 @@ poetry run transcrypto rsa rawencrypt [-h] message
 
 | Option/Arg | Description |
 |---|---|
-| `message` | Integer message to encrypt, 1≤`message`<*modulus* [type: str] |
+| `message` | Integer message to encrypt, 1≤`message`<*modulus*  |
 
 **Example:**
 
@@ -749,8 +749,8 @@ poetry run transcrypto rsa encrypt [-h] [-a AAD] plaintext
 
 | Option/Arg | Description |
 |---|---|
-| `plaintext` | Message to encrypt [type: str] |
-| `-a, --aad` | Associated data (optional; has to be separately sent to receiver/stored) [type: str] |
+| `plaintext` | Message to encrypt  |
+| `-a, --aad` | Associated data (optional; has to be separately sent to receiver/stored)  |
 
 **Example:**
 
@@ -769,7 +769,7 @@ poetry run transcrypto rsa rawdecrypt [-h] ciphertext
 
 | Option/Arg | Description |
 |---|---|
-| `ciphertext` | Integer ciphertext to decrypt, 1≤`ciphertext`<*modulus* [type: str] |
+| `ciphertext` | Integer ciphertext to decrypt, 1≤`ciphertext`<*modulus*  |
 
 **Example:**
 
@@ -788,8 +788,8 @@ poetry run transcrypto rsa decrypt [-h] [-a AAD] ciphertext
 
 | Option/Arg | Description |
 |---|---|
-| `ciphertext` | Ciphertext to decrypt [type: str] |
-| `-a, --aad` | Associated data (optional; has to be exactly the same as used during encryption) [type: str] |
+| `ciphertext` | Ciphertext to decrypt  |
+| `-a, --aad` | Associated data (optional; has to be exactly the same as used during encryption)  |
 
 **Example:**
 
@@ -808,7 +808,7 @@ poetry run transcrypto rsa rawsign [-h] message
 
 | Option/Arg | Description |
 |---|---|
-| `message` | Integer message to sign, 1≤`message`<*modulus* [type: str] |
+| `message` | Integer message to sign, 1≤`message`<*modulus*  |
 
 **Example:**
 
@@ -827,8 +827,8 @@ poetry run transcrypto rsa sign [-h] [-a AAD] message
 
 | Option/Arg | Description |
 |---|---|
-| `message` | Message to sign [type: str] |
-| `-a, --aad` | Associated data (optional; has to be separately sent to receiver/stored) [type: str] |
+| `message` | Message to sign  |
+| `-a, --aad` | Associated data (optional; has to be separately sent to receiver/stored)  |
 
 **Example:**
 
@@ -847,8 +847,8 @@ poetry run transcrypto rsa rawverify [-h] message signature
 
 | Option/Arg | Description |
 |---|---|
-| `message` | Integer message that was signed earlier, 1≤`message`<*modulus* [type: str] |
-| `signature` | Integer putative signature for `message`, 1≤`signature`<*modulus* [type: str] |
+| `message` | Integer message that was signed earlier, 1≤`message`<*modulus*  |
+| `signature` | Integer putative signature for `message`, 1≤`signature`<*modulus*  |
 
 **Example:**
 
@@ -869,9 +869,9 @@ poetry run transcrypto rsa verify [-h] [-a AAD] message signature
 
 | Option/Arg | Description |
 |---|---|
-| `message` | Message that was signed earlier [type: str] |
-| `signature` | Putative signature for `message` [type: str] |
-| `-a, --aad` | Associated data (optional; has to be exactly the same as used during signing) [type: str] |
+| `message` | Message that was signed earlier  |
+| `signature` | Putative signature for `message`  |
+| `-a, --aad` | Associated data (optional; has to be exactly the same as used during signing)  |
 
 **Example:**
 
@@ -903,7 +903,7 @@ poetry run transcrypto elgamal shared [-h] [--bits BITS]
 
 | Option/Arg | Description |
 |---|---|
-| `--bits` | Prime modulus (`p`) size in bits; the default is a safe size [type: int (default: 3332)] |
+| `--bits` | Prime modulus (`p`) size in bits; the default is a safe size  |
 
 **Example:**
 
@@ -937,7 +937,7 @@ poetry run transcrypto elgamal rawencrypt [-h] message
 
 | Option/Arg | Description |
 |---|---|
-| `message` | Integer message to encrypt, 1≤`message`<*modulus* [type: str] |
+| `message` | Integer message to encrypt, 1≤`message`<*modulus*  |
 
 **Example:**
 
@@ -956,8 +956,8 @@ poetry run transcrypto elgamal encrypt [-h] [-a AAD] plaintext
 
 | Option/Arg | Description |
 |---|---|
-| `plaintext` | Message to encrypt [type: str] |
-| `-a, --aad` | Associated data (optional; has to be separately sent to receiver/stored) [type: str] |
+| `plaintext` | Message to encrypt  |
+| `-a, --aad` | Associated data (optional; has to be separately sent to receiver/stored)  |
 
 **Example:**
 
@@ -976,7 +976,7 @@ poetry run transcrypto elgamal rawdecrypt [-h] ciphertext
 
 | Option/Arg | Description |
 |---|---|
-| `ciphertext` | Integer ciphertext to decrypt; expects `c1:c2` format with 2 integers,  2≤`c1`,`c2`<*modulus* [type: str] |
+| `ciphertext` | Integer ciphertext to decrypt; expects `c1:c2` format with 2 integers,  2≤`c1`,`c2`<*modulus*  |
 
 **Example:**
 
@@ -995,8 +995,8 @@ poetry run transcrypto elgamal decrypt [-h] [-a AAD] ciphertext
 
 | Option/Arg | Description |
 |---|---|
-| `ciphertext` | Ciphertext to decrypt [type: str] |
-| `-a, --aad` | Associated data (optional; has to be exactly the same as used during encryption) [type: str] |
+| `ciphertext` | Ciphertext to decrypt  |
+| `-a, --aad` | Associated data (optional; has to be exactly the same as used during encryption)  |
 
 **Example:**
 
@@ -1015,7 +1015,7 @@ poetry run transcrypto elgamal rawsign [-h] message
 
 | Option/Arg | Description |
 |---|---|
-| `message` | Integer message to sign, 1≤`message`<*modulus* [type: str] |
+| `message` | Integer message to sign, 1≤`message`<*modulus*  |
 
 **Example:**
 
@@ -1034,8 +1034,8 @@ poetry run transcrypto elgamal sign [-h] [-a AAD] message
 
 | Option/Arg | Description |
 |---|---|
-| `message` | Message to sign [type: str] |
-| `-a, --aad` | Associated data (optional; has to be separately sent to receiver/stored) [type: str] |
+| `message` | Message to sign  |
+| `-a, --aad` | Associated data (optional; has to be separately sent to receiver/stored)  |
 
 **Example:**
 
@@ -1054,8 +1054,8 @@ poetry run transcrypto elgamal rawverify [-h] message signature
 
 | Option/Arg | Description |
 |---|---|
-| `message` | Integer message that was signed earlier, 1≤`message`<*modulus* [type: str] |
-| `signature` | Integer putative signature for `message`; expects `s1:s2` format with 2 integers,  2≤`s1`,`s2`<*modulus* [type: str] |
+| `message` | Integer message that was signed earlier, 1≤`message`<*modulus*  |
+| `signature` | Integer putative signature for `message`; expects `s1:s2` format with 2 integers,  2≤`s1`,`s2`<*modulus*  |
 
 **Example:**
 
@@ -1076,9 +1076,9 @@ poetry run transcrypto elgamal verify [-h] [-a AAD] message signature
 
 | Option/Arg | Description |
 |---|---|
-| `message` | Message that was signed earlier [type: str] |
-| `signature` | Putative signature for `message` [type: str] |
-| `-a, --aad` | Associated data (optional; has to be exactly the same as used during signing) [type: str] |
+| `message` | Message that was signed earlier  |
+| `signature` | Putative signature for `message`  |
+| `-a, --aad` | Associated data (optional; has to be exactly the same as used during signing)  |
 
 **Example:**
 
@@ -1111,8 +1111,8 @@ poetry run transcrypto dsa shared [-h] [--p-bits P_BITS]
 
 | Option/Arg | Description |
 |---|---|
-| `--p-bits` | Prime modulus (`p`) size in bits; the default is a safe size [type: int (default: 4096)] |
-| `--q-bits` | Prime modulus (`q`) size in bits; the default is a safe size ***IFF*** you are protecting symmetric keys or regular hashes [type: int (default: 544)] |
+| `--p-bits` | Prime modulus (`p`) size in bits; the default is a safe size  |
+| `--q-bits` | Prime modulus (`q`) size in bits; the default is a safe size ***IFF*** you are protecting symmetric keys or regular hashes  |
 
 **Example:**
 
@@ -1146,7 +1146,7 @@ poetry run transcrypto dsa rawsign [-h] message
 
 | Option/Arg | Description |
 |---|---|
-| `message` | Integer message to sign, 1≤`message`<`q` [type: str] |
+| `message` | Integer message to sign, 1≤`message`<`q`  |
 
 **Example:**
 
@@ -1165,8 +1165,8 @@ poetry run transcrypto dsa sign [-h] [-a AAD] message
 
 | Option/Arg | Description |
 |---|---|
-| `message` | Message to sign [type: str] |
-| `-a, --aad` | Associated data (optional; has to be separately sent to receiver/stored) [type: str] |
+| `message` | Message to sign  |
+| `-a, --aad` | Associated data (optional; has to be separately sent to receiver/stored)  |
 
 **Example:**
 
@@ -1185,8 +1185,8 @@ poetry run transcrypto dsa rawverify [-h] message signature
 
 | Option/Arg | Description |
 |---|---|
-| `message` | Integer message that was signed earlier, 1≤`message`<`q` [type: str] |
-| `signature` | Integer putative signature for `message`; expects `s1:s2` format with 2 integers,  2≤`s1`,`s2`<`q` [type: str] |
+| `message` | Integer message that was signed earlier, 1≤`message`<`q`  |
+| `signature` | Integer putative signature for `message`; expects `s1:s2` format with 2 integers,  2≤`s1`,`s2`<`q`  |
 
 **Example:**
 
@@ -1207,9 +1207,9 @@ poetry run transcrypto dsa verify [-h] [-a AAD] message signature
 
 | Option/Arg | Description |
 |---|---|
-| `message` | Message that was signed earlier [type: str] |
-| `signature` | Putative signature for `message` [type: str] |
-| `-a, --aad` | Associated data (optional; has to be exactly the same as used during signing) [type: str] |
+| `message` | Message that was signed earlier  |
+| `signature` | Putative signature for `message`  |
+| `-a, --aad` | Associated data (optional; has to be exactly the same as used during signing)  |
 
 **Example:**
 
@@ -1240,7 +1240,7 @@ poetry run transcrypto bid new [-h] secret
 
 | Option/Arg | Description |
 |---|---|
-| `secret` | Input data to bid to, the protected "secret" [type: str] |
+| `secret` | Input data to bid to, the protected "secret"  |
 
 **Example:**
 
@@ -1287,8 +1287,8 @@ poetry run transcrypto sss new [-h] [--bits BITS] minimum
 
 | Option/Arg | Description |
 |---|---|
-| `minimum` | Minimum number of shares required to recover secret, ≥ 2 [type: int] |
-| `--bits` | Prime modulus (`p`) size in bits; the default is a safe size ***IFF*** you are protecting symmetric keys; the number of bits should be comfortably larger than the size of the secret you want to protect with this scheme [type: int (default: 1024)] |
+| `minimum` | Minimum number of shares required to recover secret, ≥ 2  |
+| `--bits` | Prime modulus (`p`) size in bits; the default is a safe size ***IFF*** you are protecting symmetric keys; the number of bits should be comfortably larger than the size of the secret you want to protect with this scheme  |
 
 **Example:**
 
@@ -1307,8 +1307,8 @@ poetry run transcrypto sss rawshares [-h] secret count
 
 | Option/Arg | Description |
 |---|---|
-| `secret` | Integer secret to be protected, 1≤`secret`<*modulus* [type: str] |
-| `count` | How many shares to produce; must be ≥ `minimum` used in `new` command or else the `secret` would become unrecoverable [type: int] |
+| `secret` | Integer secret to be protected, 1≤`secret`<*modulus*  |
+| `count` | How many shares to produce; must be ≥ `minimum` used in `new` command or else the `secret` would become unrecoverable  |
 
 **Example:**
 
@@ -1328,8 +1328,8 @@ poetry run transcrypto sss shares [-h] secret count
 
 | Option/Arg | Description |
 |---|---|
-| `secret` | Secret to be protected [type: str] |
-| `count` | How many shares to produce; must be ≥ `minimum` used in `new` command or else the `secret` would become unrecoverable [type: int] |
+| `secret` | Secret to be protected  |
+| `count` | How many shares to produce; must be ≥ `minimum` used in `new` command or else the `secret` would become unrecoverable  |
 
 **Example:**
 
@@ -1387,7 +1387,7 @@ poetry run transcrypto sss rawverify [-h] secret
 
 | Option/Arg | Description |
 |---|---|
-| `secret` | Integer secret used to generate the shares [type: str] |
+| `secret` | Integer secret used to generate the shares  |
 
 **Example:**
 

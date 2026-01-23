@@ -51,7 +51,6 @@ class RSAPublicKey(base.CryptoKey, base.Encryptor, base.Verifier):
       InputError: invalid inputs
 
     """
-    super(RSAPublicKey, self).__post_init__()
     if self.public_modulus < 6 or modmath.IsPrime(self.public_modulus):  # noqa: PLR2004
       # only a full factors check can prove modulus is product of only 2 primes, which is impossible
       # to do for large numbers here; the private key checks the relationship though

@@ -1811,7 +1811,7 @@ def main(argv: list[str] | None = None, /) -> int:  # noqa: C901, PLR0912, PLR09
   parser: argparse.ArgumentParser = _BuildParser()
   args: argparse.Namespace = parser.parse_args(argv)
   # take care of global options
-  console: rich_console.Console = base.InitLogging(args.verbose, soft_wrap=True)
+  console: rich_console.Console = base.InitLogging(args.verbose, soft_wrap=True)[0]
   in_format: _StrBytesType = _StrBytesType.FromFlags(args.hex, args.b64, args.bin)
   out_format: _StrBytesType = _StrBytesType.FromFlags(args.out_hex, args.out_b64, args.out_bin)
 

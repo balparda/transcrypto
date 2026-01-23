@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Daniel Balparda <balparda@github.com>
 # SPDX-License-Identifier: Apache-2.0
 
-.PHONY: install fmt lint type test cov precommit ci
+.PHONY: install fmt lint type test integration cov flakes precommit docs ci
 
 install:
 	poetry install
@@ -18,8 +18,8 @@ type:
 test:
 	poetry run pytest -q tests
 
-integration:
-	poetry run pytest -q tests_integration
+# integration:
+# 	poetry run pytest -q tests_integration
 
 cov:
 	poetry run pytest --cov=src --cov-report=term-missing -q tests
@@ -30,4 +30,11 @@ flakes:
 precommit:
 	poetry run pre-commit run --all-files
 
-ci: fmt lint type test integration precommit
+docs:
+	@echo "Generating transcrypto.md & profiler.md"
+	poetry run transcrypto doc md > transcrypto.md
+	poetry run profiler doc > profiler.md
+
+ci: fmt lint type test precommit docs
+	@echo "CI checks passed! Generated docs."
+# TODO: add integration and cov when we have integration tests

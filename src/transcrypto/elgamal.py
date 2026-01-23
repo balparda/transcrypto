@@ -53,7 +53,6 @@ class ElGamalSharedPublicKey(base.CryptoKey):
       InputError: invalid inputs
 
     """
-    super(ElGamalSharedPublicKey, self).__post_init__()
     if self.prime_modulus < 7 or not modmath.IsPrime(self.prime_modulus):  # noqa: PLR2004
       raise base.InputError(f'invalid prime_modulus: {self}')
     if not 2 < self.group_base < self.prime_modulus - 1:  # noqa: PLR2004

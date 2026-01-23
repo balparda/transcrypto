@@ -41,7 +41,6 @@ class ShamirSharedSecretPublic(base.CryptoKey):
       InputError: invalid inputs
 
     """
-    super(ShamirSharedSecretPublic, self).__post_init__()
     if self.modulus < 2 or not modmath.IsPrime(self.modulus) or self.minimum < 2:  # noqa: PLR2004
       raise base.InputError(f'invalid modulus or minimum: {self}')
 

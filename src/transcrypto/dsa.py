@@ -181,7 +181,6 @@ class DSASharedPublicKey(base.CryptoKey):
       InputError: invalid inputs
 
     """
-    super(DSASharedPublicKey, self).__post_init__()
     if self.prime_seed < 7 or not modmath.IsPrime(self.prime_seed):  # noqa: PLR2004
       raise base.InputError(f'invalid prime_seed: {self}')
     if (

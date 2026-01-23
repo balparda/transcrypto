@@ -99,16 +99,16 @@ def test_console_returns_fallback_when_not_initialized() -> None:
 
 def test_initlogging_sets_singleton_and_console_returns_it() -> None:
   """Test."""
-  c: rich_console.Console = base.InitLogging(2, include_process=False)
+  c: rich_console.Console = base.InitLogging(2, include_process=False)[0]
   assert isinstance(c, rich_console.Console)
   assert base.Console() is c
 
 
-def test_initlogging_is_idempotent_options_ignored_after_first_call() -> None:
+def test_initlogging_raises_after_first_call() -> None:
   """Test."""
-  c1: rich_console.Console = base.InitLogging(2, include_process=False)
-  c2: rich_console.Console = base.InitLogging(0, include_process=True)  # should be ignored
-  assert c2 is c1
+  base.InitLogging(2, include_process=False)
+  with pytest.raises(RuntimeError):
+    base.InitLogging(0, include_process=True)
 
 
 def test_root_logger_level_is_set_and_clamped() -> None:
@@ -122,7 +122,7 @@ def test_root_logger_level_is_set_and_clamped() -> None:
 
 def test_root_has_exactly_one_richhandler_bound_to_returned_console() -> None:
   """Test."""
-  console: rich_console.Console = base.InitLogging(2, include_process=False)
+  console: rich_console.Console = base.InitLogging(2, include_process=False)[0]
   root: logging.Logger = logging.getLogger()
   rich_handlers: list[rich_logging.RichHandler] = [
     h for h in root.handlers if isinstance(h, rich_logging.RichHandler)
@@ -137,7 +137,7 @@ def test_root_has_exactly_one_richhandler_bound_to_returned_console() -> None:
 
 def test_include_process_uses_process_format_on_first_init() -> None:
   """Test."""
-  console = base.InitLogging(2, include_process=True)
+  console = base.InitLogging(2, include_process=True)[0]
   assert isinstance(console, rich_console.Console)
   h: rich_logging.RichHandler = next(
     h for h in logging.getLogger().handlers if isinstance(h, rich_logging.RichHandler)
@@ -170,16 +170,6 @@ def test_initlogging_emits_startup_log(monkeypatch: pytest.MonkeyPatch) -> None:
   monkeypatch.setattr(logging, 'info', _fake_info)
   base.InitLogging(2, include_process=False)
   assert 'Logging initialized at level' in seen.get('msg', '')
-
-
-def test_reinit_does_not_duplicate_handlers() -> None:
-  """Test."""
-  base.InitLogging(2, include_process=False)
-  root: logging.Logger = logging.getLogger()
-  n1: int = len(root.handlers)
-  base.InitLogging(2, include_process=False)
-  n2: int = len(root.handlers)
-  assert n2 == n1
 
 
 def test_time_utils() -> None:
@@ -1183,6 +1173,9 @@ class _ToyCrypto1(base.CryptoKey):
   secret: str
   modulus: int
 
+  def __post_init__(self) -> None:
+    pass
+
   def __str__(self) -> str:
     return (
       f'_ToyCrypto(key={base.ObfuscateSecret(self.key)}, '
@@ -1202,6 +1195,9 @@ class _ToyCrypto2(base.CryptoKey):
   poly2: list[str]
   is_x: bool
 
+  def __post_init__(self) -> None:
+    pass
+
   def __str__(self) -> str:
     return ''
 
@@ -1212,6 +1208,9 @@ class _ToyCrypto3(base.CryptoKey):
 
   modulus: int
   inv: dict[str, str]
+
+  def __post_init__(self) -> None:
+    pass
 
   def __str__(self) -> str:
     return ''

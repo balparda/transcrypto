@@ -34,8 +34,11 @@ from typing import (
   runtime_checkable,
 )
 
+import click
 import numpy as np
+import typer
 import zstandard
+from click import testing as click_testing
 from rich import console as rich_console
 from rich import logging as rich_logging
 from scipy import stats
@@ -178,9 +181,10 @@ def InitLogging(
   include_process: bool = False,
   soft_wrap: bool = False,
   color: bool | None = False,
-) -> rich_console.Console:
+) -> tuple[rich_console.Console, int, bool]:
   """Initialize logger (with RichHandler) and get a rich.console.Console singleton.
 
+  This method will also return the actual decided values for verbosity and color use.
   If you have a CLI app that uses this, its pytests should call `ResetConsole()` in a fixture, like:
 
       from transcrypto import logging
@@ -198,13 +202,20 @@ def InitLogging(
         If None, respects NO_COLOR env var.
 
   Returns:
-    rich.console.Console: The initialized console instance.
+    tuple[rich_console.Console, int, bool]:
+        (The initialized console instance, actual log level, actual color use)
+
+  Raises:
+    RuntimeError: if you call this more than once
 
   """
   global __console_singleton  # noqa: PLW0603
   with __console_lock:
     if __console_singleton is not None:
-      return __console_singleton
+      raise RuntimeError(
+        'calling InitLogging() more than once is forbidden; '
+        'use Console() to get a console after first creation'
+      )
     # set level
     logging_level: int = _LOG_LEVELS.get(min(verbosity, 3), logging.ERROR)
     # respect NO_COLOR unless the caller has already decided (treat env presence as "disable color")
@@ -242,7 +253,7 @@ def InitLogging(
       f'Logging initialized at level {logging.getLevelName(logging_level)} / '
       f'{"NO " if no_color else ""}COLOR'
     )
-    return console
+    return (console, logging_level, not no_color)
 
 
 def HumanizedBytes(inp_sz: float, /) -> str:  # noqa: PLR0911
@@ -1930,3 +1941,117 @@ def GenerateCLIMarkdown(  # noqa: C901
       lines.append('```\n')
   # join all lines as the markdown string
   return ('\n'.join(lines)).strip()
+
+
+def _ClickWalk(
+  command: click.Command,
+  ctx: typer.Context,
+  path: list[str],
+  /,
+) -> abc.Iterator[tuple[list[str], click.Command, typer.Context]]:
+  """Recursively walk Click commands/groups.
+
+  Yields:
+    tuple[list[str], click.Command, typer.Context]: path, command, ctx
+
+  """
+  yield (path, command, ctx)  # yield self
+  # now walk subcommands, if any
+  sub_cmd: click.Command | None
+  sub_ctx: typer.Context
+  if isinstance(command, click.Group):
+    # Typer app
+    for name, sub_cmd in sorted(command.commands.items()):
+      sub_ctx = typer.Context(sub_cmd, info_name=name, parent=ctx)
+      # recurse
+      yield from _ClickWalk(sub_cmd, sub_ctx, [*path, name])
+    return
+  # generic Click Group/MultiCommand
+  if not isinstance(command, click.Group):
+    return
+  # Click Group/MultiCommand
+  for name in sorted(command.list_commands(ctx)):
+    sub_cmd = command.get_command(ctx, name)
+    if sub_cmd is None:
+      continue  # skip invalid subcommands
+    sub_ctx = typer.Context(sub_cmd, info_name=name, parent=ctx)
+    # recurse
+    yield from _ClickWalk(sub_cmd, sub_ctx, [*path, name])
+
+
+def GenerateTyperHelpMarkdown(
+  typer_app: typer.Typer,
+  /,
+  *,
+  prog_name: str,
+  heading_level: int = 1,
+  code_fence_language: str = 'text',
+) -> str:
+  """Capture `--help` for a Typer CLI and all subcommands as Markdown.
+
+  This function converts a Typer app to its underlying Click command tree and then:
+  - invokes `--help` for the root ("Main") command
+  - walks commands/subcommands recursively
+  - invokes `--help` for each command path
+
+  It emits a Markdown document with a heading per command and a fenced block
+  containing the exact `--help` output.
+
+  Notes:
+    - This uses Click's `CliRunner().invoke(...)` for faithful output.
+    - The walk is generic over Click `MultiCommand`/`Group` structures.
+    - If a command cannot be loaded, it is skipped.
+
+  Args:
+    typer_app: The Typer app (e.g. `app`).
+    prog_name: Program name used in usage strings (e.g. "profiler").
+    heading_level: Markdown heading level for each command section.
+    code_fence_language: Language tag for fenced blocks (default: "text").
+
+  Returns:
+    Markdown string.
+
+  """
+  # prepare Click root command and context
+  click_root: click.Command = typer.main.get_command(typer_app)
+  root_ctx: typer.Context = typer.Context(click_root, info_name=prog_name)
+  runner = click_testing.CliRunner()
+  parts: list[str] = []
+  for path, _, _ in _ClickWalk(click_root, root_ctx, []):
+    # build command path
+    command_path: str = ' '.join([prog_name, *path]).strip()
+    heading_prefix: str = '#' * max(1, heading_level + len(path))
+    ResetConsole()  # ensure clean state for each command (also it raises on duplicate loggers)
+    # invoke --help for this command path
+    result: click_testing.Result = runner.invoke(
+      click_root,
+      [*path, '--help'],
+      prog_name=prog_name,
+      color=False,
+    )
+    if result.exit_code != 0 and not result.output:
+      continue  # skip invalid commands
+    # build markdown section
+    global_prefix: str = (  # only for the top-level command
+      (
+        '<!-- cspell:disable -->\n'
+        '<!-- auto-generated; DO NOT EDIT! see base.GenerateTyperHelpMarkdown() -->\n\n'
+      )
+      if not path
+      else ''
+    )
+    extras: str = (  # type of command, by level
+      ('Command-Line Interface' if not path else 'Command') if len(path) <= 1 else 'Sub-Command'
+    )
+    parts.extend(
+      (
+        f'{global_prefix}{heading_prefix} `{command_path}` {extras}',
+        '',
+        f'```{code_fence_language}',
+        result.output.strip(),
+        '```',
+        '',
+      )
+    )
+  # join all parts and return
+  return '\n'.join(parts).rstrip()
