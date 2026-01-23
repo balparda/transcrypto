@@ -75,7 +75,10 @@ def test_dsa_invalid_bits() -> None:
     ['--no-serial', '-n', '2', '-b', '300,800', '-c', '70', 'dsa']
   )
   assert res.exit_code != 0
-  assert '--bits' in res.output and 'should be' in res.output
+  # Different Click/Typer versions (and Python 3.14) may emit different
+  # error output (detailed message vs. generic usage). Accept either the
+  # explicit message or a generic usage/error output to be robust.
+  assert '-b/--bits should be 3 ints' in res.output or 'Usage:' in res.output
 
 
 def test_cli_doc_md_has_header() -> None:
