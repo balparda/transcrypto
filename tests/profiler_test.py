@@ -83,6 +83,6 @@ def test_dsa_invalid_bits() -> None:
 
 def test_cli_doc_md_has_header() -> None:
   """Test CLI doc md command output has expected header."""
-  res: click_testing.Result = _CallCLI(['doc'])
+  res: click_testing.Result = _CallCLI(['markdown'])
   assert res.exit_code == 0
   assert '# `profiler`' in res.output

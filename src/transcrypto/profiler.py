@@ -2,19 +2,24 @@
 # SPDX-License-Identifier: Apache-2.0
 """Balparda's TransCrypto Profiler command line interface.
 
-See README.md for documentation on how to use.
+See <profiler.md> for documentation on how to use. Quick examples:
 
-Notes on the layout (quick mental model):
+ --- Primes / DSA ---
+poetry run profiler -n 10 primes
+poetry run profiler --no-serial -n 20 dsa
 
-primes
-dsa
-doc md
+ --- Markdown ---
+poetry run profiler markdown > profiler.md
+
+Test this CLI with:
+
+poetry run pytest -vvv tests/profiler_test.py
 """
 
 from __future__ import annotations
 
+import dataclasses
 from collections import abc
-from dataclasses import dataclass
 
 import typer
 from rich import console as rich_console
@@ -22,7 +27,7 @@ from rich import console as rich_console
 from . import __version__, base, dsa, modmath
 
 
-@dataclass(kw_only=True, slots=True, frozen=True)
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class CLIConfig:
   """CLI global context, storing the configuration."""
 
@@ -43,9 +48,9 @@ app = typer.Typer(
     'Examples:\n\n\n\n'
     '# --- Primes / DSA ---\n\n'
     'poetry run profiler -n 10 primes\n\n'
-    'poetry run profiler --no-serial -n 20 dsa\n\n'
-    '# --- Doc ---\n\n'
-    'poetry run profiler doc > profiler.md'
+    'poetry run profiler --no-serial -n 20 dsa\n\n\n\n'
+    '# --- Markdown ---\n\n'
+    'poetry run profiler markdown > profiler.md'
   ),
 )
 
@@ -193,10 +198,10 @@ def DSA(*, ctx: typer.Context) -> None:
 
 
 @app.command(
-  'doc',
-  epilog='Example:\n\n\n\n$ poetry run profiler doc > profiler.md\n\n<<saves CLI doc>>',
+  'markdown',
+  epilog='Example:\n\n\n\n$ poetry run profiler markdown > profiler.md\n\n<<saves CLI doc>>',
 )
-def Doc() -> None:
+def Markdown() -> None:
   # leave this docstring without args/return/raise sections as it shows up in `--help`
   # one way or another the args are well documented in the CLI help and in the code above
   """Emit Markdown docs for the CLI (see README.md section "Creating a New Version")."""
