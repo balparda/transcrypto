@@ -32,8 +32,8 @@ precommit:
 
 docs:
 	@echo "Generating transcrypto.md & profiler.md"
-	poetry run transcrypto doc md > transcrypto.md
-	poetry run profiler doc > profiler.md
+	poetry run transcrypto markdown > transcrypto.md
+	poetry run profiler markdown > profiler.md
 
 ci: fmt lint type cov integration precommit docs
 	@echo "CI checks passed! Generated docs."

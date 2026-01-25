@@ -58,8 +58,11 @@ def Run() -> None:
   app()
 
 
-@app.callback(invoke_without_command=True)  # have only one; this is the "constructor"
-def Main(
+@app.callback(
+  invoke_without_command=True,  # have only one; this is the "constructor"
+  help='Profile TransCrypto library performance.',
+)
+def Main(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,  # global context
   version: bool = typer.Option(False, '--version', help='Show version and exit.'),
@@ -115,9 +118,6 @@ def Main(
     ),
   ),
 ) -> None:
-  # leave this docstring without args/return/raise sections as it shows up in `--help`
-  # one way or another the args are well documented in the CLI help and in the code above
-  """Set things up; Main CLI entry point."""  # noqa: DOC501
   if version:
     typer.echo(__version__)
     raise typer.Exit(0)
@@ -146,6 +146,7 @@ def Main(
 
 @app.command(
   'primes',
+  help='Measure regular prime generation.',
   epilog=(
     'Example:\n\n\n\n'
     '$ poetry run profiler -n 30 -b 9000,11000,1000 primes\n\n'
@@ -156,10 +157,7 @@ def Main(
   ),
 )
 @base.CLIErrorGuard
-def Primes(*, ctx: typer.Context) -> None:
-  """Measure regular prime generation."""
-  # leave this docstring without args/return/raise sections as it shows up in `--help`
-  # one way or another the args are well documented in the CLI help and in the code above
+def Primes(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: ProfilerConfig = ctx.obj  # get application global config
   config.console.print(
     f'Starting [yellow]{"SERIAL" if config.serial else "PARALLEL"} regular primes[/] test'
@@ -175,6 +173,7 @@ def Primes(*, ctx: typer.Context) -> None:
 
 @app.command(
   'dsa',
+  help='Measure DSA prime generation.',
   epilog=(
     'Example:\n\n\n\n'
     '$ poetry run profiler --no-serial -n 2 -b 1000,1500,100 -c 80 dsa\n\n'
@@ -188,10 +187,7 @@ def Primes(*, ctx: typer.Context) -> None:
   ),
 )
 @base.CLIErrorGuard
-def DSA(*, ctx: typer.Context) -> None:
-  # leave this docstring without args/return/raise sections as it shows up in `--help`
-  # one way or another the args are well documented in the CLI help and in the code above
-  """Measure DSA prime generation."""
+def DSA(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: ProfilerConfig = ctx.obj  # get application global config
   config.console.print(
     f'Starting [yellow]{"SERIAL" if config.serial else "PARALLEL"} DSA primes[/] test'
@@ -207,13 +203,11 @@ def DSA(*, ctx: typer.Context) -> None:
 
 @app.command(
   'markdown',
+  help='Emit Markdown docs for the CLI (see README.md section "Creating a New Version").',
   epilog='Example:\n\n\n\n$ poetry run profiler markdown > profiler.md\n\n<<saves CLI doc>>',
 )
 @base.CLIErrorGuard
-def Markdown() -> None:
-  # leave this docstring without args/return/raise sections as it shows up in `--help`
-  # one way or another the args are well documented in the CLI help and in the code above
-  """Emit Markdown docs for the CLI (see README.md section "Creating a New Version")."""
+def Markdown() -> None:  # documentation is help/epilog/args # noqa: D103
   console: rich_console.Console = base.Console()
   console.print(base.GenerateTyperHelpMarkdown(app, prog_name='profiler'))
 

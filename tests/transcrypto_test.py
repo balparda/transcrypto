@@ -223,7 +223,7 @@ def test_cli_aes_ecb_help_when_no_subcommand() -> None:
   """Test AES-ECB subapp shows help when no subcommand given."""
   res: click_testing.Result = _CallCLI(['aes', 'ecb'])
   assert res.exit_code in {0, 2}
-  assert 'AES-ECB' in res.output
+  assert 'AES-256-ECB' in res.output
 
 
 def test_rand_bits_properties() -> None:
@@ -248,6 +248,57 @@ def test_rand_bytes_shape() -> None:
   assert res.exit_code == 0
   # CLI prints hex for rand bytes
   assert re.fullmatch(r'[0-9a-f]{8}', _OneToken(res)) is not None
+
+
+def test_cli_gcd_both_zero_prints_error() -> None:
+  """Cover GCD CLI error branch when both inputs are zero."""
+  res: click_testing.Result = _CallCLI(['gcd', '0', '0'])
+  assert res.exit_code == 0
+  assert "a and b can't both be zero" in res.output
+
+
+def test_cli_xgcd_both_zero_prints_error() -> None:
+  """Cover XGCD CLI error branch when both inputs are zero."""
+  res: click_testing.Result = _CallCLI(['xgcd', '0', '0'])
+  assert res.exit_code == 0
+  assert "a and b can't both be zero" in res.output
+
+
+def test_cli_random_int_invalid_range_prints_error() -> None:
+  """Cover RandomInt CLI error branch when max <= min."""
+  res: click_testing.Result = _CallCLI(['random', 'int', '9', '5'])
+  assert res.exit_code == 0
+  assert 'max must be > min' in res.output
+
+
+def test_cli_internal_parse_helpers_error_branches() -> None:
+  """Cover small helper branches that are hard to hit via CLI parsing."""
+  # _ParseIntCLI: empty string and invalid literal.
+  with pytest.raises(base.InputError, match=r'invalid integer'):
+    transcrypto._ParseIntCLI('   ')
+  with pytest.raises(base.InputError, match=r'invalid integer'):
+    transcrypto._ParseIntCLI('not_an_int')
+
+  # _RequireIntRange: min/max validation branches.
+  with pytest.raises(base.InputError, match=r'must be ≥'):
+    transcrypto._RequireIntRange(0, what='n', min_value=1)
+  with pytest.raises(base.InputError, match=r'must be ≤'):
+    transcrypto._RequireIntRange(10, what='n', max_value=9)
+
+  # _ParseIntPairCLI: invalid pair formatting.
+  with pytest.raises(base.InputError, match=r'invalid pair'):
+    transcrypto._ParseIntPairCLI('1')
+  with pytest.raises(base.InputError, match=r'expected a:b'):
+    transcrypto._ParseIntPairCLI('1:')
+  with pytest.raises(base.InputError, match=r'expected a:b'):
+    transcrypto._ParseIntPairCLI(':2')
+
+  # _RequireHexExactLen: wrong length, non-hex, and success.
+  with pytest.raises(base.InputError, match=r'must be exactly'):
+    transcrypto._RequireHexExactLen('abc', length=4, what='token')
+  with pytest.raises(base.InputError, match=r'must be hexadecimal'):
+    transcrypto._RequireHexExactLen('zzzz', length=4, what='token')
+  assert transcrypto._RequireHexExactLen('a0B1', length=4, what='token') == 'a0B1'
 
 
 @pytest.mark.parametrize('bits', [11, 32, 64])
