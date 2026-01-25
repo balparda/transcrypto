@@ -28,11 +28,9 @@ from . import __version__, base, dsa, modmath
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
-class CLIConfig:
+class ProfilerConfig(base.CLIConfig):
   """CLI global context, storing the configuration."""
 
-  verbose: int
-  color: bool | None
   serial: bool
   repeats: int
   confidence: int
@@ -53,6 +51,11 @@ app = typer.Typer(
     'poetry run profiler markdown > profiler.md'
   ),
 )
+
+
+def Run() -> None:
+  """Run the CLI."""
+  app()
 
 
 @app.callback(invoke_without_command=True)  # have only one; this is the "constructor"
@@ -118,7 +121,7 @@ def Main(
   if version:
     typer.echo(__version__)
     raise typer.Exit(0)
-  _, verbose, color = base.InitLogging(
+  console, verbose, color = base.InitLogging(
     verbose,
     color=color,
     include_process=False,  # decide if you want process names in logs
@@ -130,7 +133,8 @@ def Main(
     raise typer.BadParameter(
       '-b/--bits should be 3 ints, like: start,stop,step; eg.: 1000,3000,500'
     )
-  ctx.obj = CLIConfig(
+  ctx.obj = ProfilerConfig(
+    console=console,
     verbose=verbose,
     color=color,
     serial=serial,
@@ -151,17 +155,18 @@ def Main(
     'Finished in 40.07 min'
   ),
 )
+@base.CLIErrorGuard
 def Primes(*, ctx: typer.Context) -> None:
   """Measure regular prime generation."""
   # leave this docstring without args/return/raise sections as it shows up in `--help`
   # one way or another the args are well documented in the CLI help and in the code above
-  config: CLIConfig = ctx.obj  # get application global config
-  console: rich_console.Console = base.Console()
-  console.print(
+  config: ProfilerConfig = ctx.obj  # get application global config
+  config.console.print(
     f'Starting [yellow]{"SERIAL" if config.serial else "PARALLEL"} regular primes[/] test'
   )
   _PrimeProfiler(
     lambda n: modmath.NBitRandomPrimes(n, serial=config.serial, n_primes=1).pop(),
+    config.console,
     config.repeats,
     config.bits,
     config.confidence / 100.0,
@@ -182,15 +187,18 @@ def Primes(*, ctx: typer.Context) -> None:
     'Finished in 4.12 s'
   ),
 )
+@base.CLIErrorGuard
 def DSA(*, ctx: typer.Context) -> None:
   # leave this docstring without args/return/raise sections as it shows up in `--help`
   # one way or another the args are well documented in the CLI help and in the code above
   """Measure DSA prime generation."""
-  config: CLIConfig = ctx.obj  # get application global config
-  console: rich_console.Console = base.Console()
-  console.print(f'Starting [yellow]{"SERIAL" if config.serial else "PARALLEL"} DSA primes[/] test')
+  config: ProfilerConfig = ctx.obj  # get application global config
+  config.console.print(
+    f'Starting [yellow]{"SERIAL" if config.serial else "PARALLEL"} DSA primes[/] test'
+  )
   _PrimeProfiler(
     lambda n: dsa.NBitRandomDSAPrimes(n, n // 2, serial=config.serial)[0],
+    config.console,
     config.repeats,
     config.bits,
     config.confidence / 100.0,
@@ -201,6 +209,7 @@ def DSA(*, ctx: typer.Context) -> None:
   'markdown',
   epilog='Example:\n\n\n\n$ poetry run profiler markdown > profiler.md\n\n<<saves CLI doc>>',
 )
+@base.CLIErrorGuard
 def Markdown() -> None:
   # leave this docstring without args/return/raise sections as it shows up in `--help`
   # one way or another the args are well documented in the CLI help and in the code above
@@ -211,12 +220,12 @@ def Markdown() -> None:
 
 def _PrimeProfiler(
   prime_callable: abc.Callable[[int], int],
+  console: rich_console.Console,
   repeats: int,
   n_bits_range: tuple[int, int, int],
   confidence: float,
   /,
 ) -> None:
-  console: rich_console.Console = base.Console()
   with base.Timer(emit_log=False) as total_time:
     primes: dict[int, list[float]] = {}
     for n_bits in range(*n_bits_range):
@@ -234,8 +243,3 @@ def _PrimeProfiler(
       )
       console.print(f'{n_bits} → {measurements}')
   console.print(f'Finished in {total_time}')
-
-
-def Run() -> None:
-  """Run the CLI."""
-  app()

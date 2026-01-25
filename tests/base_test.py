@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import argparse
 import collections
 import concurrent.futures
 import dataclasses
@@ -14,6 +13,7 @@ import json
 import logging
 import math
 import pathlib
+import re
 import sys
 import tempfile
 import time
@@ -22,13 +22,15 @@ from collections import abc
 from typing import Any
 from unittest import mock
 
+import click
 import pytest
 import typeguard
+import typer
 import zstandard
 from rich import console as rich_console
 from rich import logging as rich_logging
 
-from transcrypto import aes, base
+from transcrypto import aes, base, transcrypto
 
 
 @pytest.fixture(autouse=True)
@@ -1509,61 +1511,173 @@ def test_Bid_invalid() -> None:
     base.PrivateBid512.New(b'')
 
 
-def test_rows_for_actions_metadata_branches() -> None:
-  """Build a synthetic parser to trigger _FlagNames/_Format* metadata paths."""
-  p = argparse.ArgumentParser(add_help=False)
-  # Positional arg with nargs=2 and tuple metavar → exercises tuple branch in _FlagNames
-  p.add_argument('pos', nargs=2, metavar=('FILE1', 'FILE2'))
-  p.add_argument('pos2', nargs=2, metavar='FILE3')  # also test single string metavar
-  # Boolean default True (store_true normally False) → _FormatDefault(bool True)
-  p.add_argument('--switch', action='store_true', default=True, help='flag with default true')
-  # Choices → _FormatChoices
-  p.add_argument('--color', choices=['red', 'blue'], help='choose color')
-  # Type=int and default value → _FormatType + _FormatDefault
-  p.add_argument('--num', type=int, default=7, help='number')
-  rows: list[tuple[str, str]] = base._RowsForActions(p._actions)
-  # Flatten for easy search
-  flat: str = '\n'.join(f'{ln} :: {r}' for (ln, r) in rows)
-  # Tuple metavar shows both names
-  assert 'FILE1, FILE2' in flat and 'FILE3' in flat
-  # store_true default on
-  assert '(default: on)' in flat
-  # choices listed
-  assert "choices: ['red', 'blue']" in flat or 'choices: ["red", "blue"]' in flat
-  # type int appears
-  assert 'type: int' in flat
-  # default numeric prints
-  assert '(default: 7)' in flat
+def test_GenerateTyperHelpMarkdown_simple_app() -> None:
+  """Test."""
+  app = typer.Typer()
+
+  @app.command()
+  def hello(name: str = 'world') -> None:  # pyright: ignore[reportUnusedFunction]
+    """Say hello."""
+    print(f'hello {name}')  # noqa: T201
+
+  @app.command()
+  def bye() -> None:  # pyright: ignore[reportUnusedFunction]
+    """Say bye."""
+    print('bye')  # noqa: T201
+
+  md: str = base.GenerateTyperHelpMarkdown(app, prog_name='myprog', heading_level=2)
+  assert '`myprog`' in md
+  assert '`myprog hello`' in md
+  assert '`myprog bye`' in md
+  assert '```' in md
 
 
-def test_markdown_table_helper() -> None:
-  """Tiny check of _MarkdownTable formatting."""
-  table: str = base._MarkdownTable([('A', 'alpha'), ('B', 'beta')])
-  assert table.splitlines()[0].startswith('| Option/Arg |')
-  assert '`A`' in table and 'alpha' in table
-  assert not base._MarkdownTable([])  # empty input → empty output
+class _DummyConsole:
+  """A dummy Rich console that records print calls for later inspection."""
+
+  def __init__(self) -> None:
+    self.print_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+    self.print_exception_calls: int = 0
+
+  def print(self, *args: object, **kwargs: object) -> None:
+    self.print_calls.append((args, kwargs))
+
+  def print_exception(self, *args: object, **kwargs: object) -> None:  # noqa: ARG002
+    self.print_exception_calls += 1
 
 
-def test_rows_for_actions_cover_suppress_custom_and_help() -> None:
-  """Drive _RowsForActions metadata branches: SUPPRESS, custom type, help action."""
-  # Keep add_help=True to include the built-in -h/--help action (exercises isinstance(_HelpAction))
-  p = argparse.ArgumentParser()
-  # Arg with default=SUPPRESS → exercises that early-return in _FormatDefault
-  p.add_argument('--maybe', default=argparse.SUPPRESS, help='maybe suppressed default')
+def test_CLIErrorGuard_no_ctx_prints_exception_when_level_ge_INFO(
+  monkeypatch: pytest.MonkeyPatch,
+) -> None:
+  """Exercise CLIErrorGuard no-ctx traceback branch."""
+  dummy = _DummyConsole()
+  monkeypatch.setattr(base, 'Console', lambda: dummy)
+  logging.getLogger().setLevel(logging.WARNING)  # >= INFO
 
-  # Custom callable without __name__ → forces 'type: custom' in _FormatType
-  class _CallableNoName:  # pragma: no cover - cover is for transcrypto lines, not this helper
-    def __call__(self, s: str) -> str:
-      return s
+  @base.CLIErrorGuard
+  def _boom() -> None:
+    raise base.InputError('boom')
 
-  p.add_argument('--weird', type=_CallableNoName(), help='custom callable type')
-  # Also add one standard store_true to hit bool-default branch
-  p.add_argument('--flag', action='store_true', default=False, help='bool default false')
-  rows: list[tuple[str, str]] = base._RowsForActions(p._actions)
-  text: str = '\n'.join(f'{ln} :: {r}' for (ln, r) in rows)
-  # SUPPRESS default should not render a "(default: ...)" string
-  assert '--maybe' in text and '(default:' not in text.split('--maybe', 1)[1].splitlines()[0]
-  # Custom callable should show "type: custom"
-  assert 'type: custom' in text
-  # Built-in help action is skipped by _RowsForActions; make sure other rows exist
-  assert any('--flag' in ln for (ln, _r) in rows)
+  _boom()
+  assert dummy.print_exception_calls == 1
+  assert dummy.print_calls == []
+
+
+def test_CLIErrorGuard_no_ctx_prints_message_when_level_lt_INFO(
+  monkeypatch: pytest.MonkeyPatch,
+) -> None:
+  """Exercise CLIErrorGuard no-ctx message-only branch."""
+  dummy = _DummyConsole()
+  monkeypatch.setattr(base, 'Console', lambda: dummy)
+  logging.getLogger().setLevel(logging.DEBUG)  # < INFO
+
+  @base.CLIErrorGuard
+  def _boom() -> None:
+    raise base.InputError('boom')
+
+  _boom()
+  assert dummy.print_exception_calls == 0
+  assert any('boom' in str(args[0]) for (args, _kwargs) in dummy.print_calls)
+
+
+def test_CLIErrorGuard_with_ctx_prints_exception_when_verbose_ge_INFO() -> None:
+  """Exercise CLIErrorGuard ctx branch (traceback)."""
+  buf = io.StringIO()
+  c = rich_console.Console(file=buf, force_terminal=False, color_system=None, record=True)
+  cmd = click.Command('x', callback=lambda: None)
+  ctx = typer.Context(cmd, info_name='x')
+  ctx.obj = base.CLIConfig(console=c, verbose=logging.INFO, color=None)
+
+  @base.CLIErrorGuard
+  def _boom(*, ctx: typer.Context) -> None:  # noqa: ARG001
+    raise base.InputError('boom')
+
+  _boom(ctx=ctx)
+  # If it didn't crash, the branch ran; we should see some traceback-ish output.
+  assert len(c.export_text()) > 0
+
+
+def test_CLIErrorGuard_with_ctx_prints_message_when_verbose_lt_INFO() -> None:
+  """Exercise CLIErrorGuard ctx branch (message-only)."""
+  buf = io.StringIO()
+  c = rich_console.Console(file=buf, force_terminal=False, color_system=None, record=True)
+  cmd = click.Command('x', callback=lambda: None)
+  ctx = typer.Context(cmd, info_name='x')
+  ctx.obj = base.CLIConfig(console=c, verbose=0, color=None)
+
+  @base.CLIErrorGuard
+  def _boom(*, ctx: typer.Context) -> None:  # noqa: ARG001
+    raise base.InputError('boom')
+
+  _boom(ctx=ctx)
+  out: str = c.export_text()
+  assert 'boom' in out
+
+
+def test_transcrypto_markdown_command_executes(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Cover the transcrypto.Markdown command body lines."""
+  buf = io.StringIO()
+  c = rich_console.Console(file=buf, force_terminal=False, color_system=None, record=True)
+  monkeypatch.setattr(base, 'Console', lambda: c)
+  monkeypatch.setattr(base, 'GenerateTyperHelpMarkdown', lambda *_a, **_k: 'DOC')  # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+  transcrypto.Markdown()
+  assert 'DOC' in c.export_text()
+
+
+class _DynamicGroup(click.Group):
+  """A click.Group that simulates dynamic command loading."""
+
+  def list_commands(self, ctx: click.Context) -> list[str]:  # noqa: ARG002, PLR6301
+    # Pretend we are dynamic: expose one real command and one missing.
+    return ['ok', 'missing']
+
+  def get_command(self, ctx: click.Context, name: str) -> click.Command | None:  # pyright: ignore[reportIncompatibleMethodOverride] # noqa: ARG002, PLR6301
+    if name == 'missing':
+      return None
+    return click.Command('ok', callback=lambda: None)
+
+
+def test_ClickWalk_multi_command_path_is_supported() -> None:
+  """Test."""
+  cmd = _DynamicGroup('root', commands={})
+  ctx = typer.Context(cmd, info_name='root')
+  walked = list(base._ClickWalk(cmd, ctx, []))
+  # Root plus the valid child command. The invalid subcommand should be skipped.
+  assert any(path == [] for path, _, _ in walked)
+  assert any(path == ['ok'] for path, _, _ in walked)
+
+
+def test_generate_help_for_simple_app() -> None:
+  """Test."""
+  app = typer.Typer()
+
+  @app.command()
+  def hello(name: str = 'world') -> None:  # pyright: ignore[reportUnusedFunction]
+    """Say hello."""
+    print(f'hello {name}')  # noqa: T201
+
+  @app.command()
+  def bye() -> None:  # pyright: ignore[reportUnusedFunction]
+    """Say bye."""
+    print('bye')  # noqa: T201
+
+  md: str = base.GenerateTyperHelpMarkdown(app, prog_name='myprog', heading_level=2)
+  # should contain top-level heading and both commands
+  assert '#' * 2 in md
+  assert 'myprog hello' in md
+  assert 'myprog bye' in md
+  # fenced code block with usage should be present
+  assert '```' in md
+
+
+def test_generate_help_includes_real_app_sections() -> None:
+  """Test."""
+  # use the real transcrypto app to ensure function walks real commands
+  md: str = base.GenerateTyperHelpMarkdown(
+    transcrypto.app, prog_name='transcrypto', heading_level=1
+  )
+  # basic sanity checks
+  assert 'transcrypto' in md
+  # ensure at least one known command exists
+  assert re.search(r'`transcrypto` .*Command-Line Interface', md)
+  assert 'rsa' in md

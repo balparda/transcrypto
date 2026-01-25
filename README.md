@@ -1016,7 +1016,7 @@ poetry publish
 If you changed the CLI interface at all, in any tool, run:
 
 ```sh
-./tools/generate_docs.sh
+make docs
 ```
 
 You can find the 10 top slowest tests by running:

@@ -1,9 +1,15 @@
 # SPDX-FileCopyrightText: Copyright 2026 Daniel Balparda <balparda@github.com>
 # SPDX-License-Identifier: Apache-2.0
-"""profiler.py unittest."""
+"""profiler.py unittest.
+
+Run this test with:
+
+poetry run pytest -vvv tests/profiler_test.py
+"""
 
 from __future__ import annotations
 
+import sys
 from collections import abc
 
 import pytest
@@ -40,6 +46,20 @@ def reset_cli_logging_singletons() -> abc.Generator[None]:
   """
   base.ResetConsole()
   yield  # noqa: PT022
+
+
+def test_profiler_version_and_run(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Check profiler --version and Run() paths work as expected."""
+  # Version path in profiler.Main
+  with typeguard.suppress_type_checks():
+    res: click_testing.Result = testing.CliRunner().invoke(profiler.app, ['--version'])
+  assert res.exit_code == 0
+  assert profiler.__version__ in res.output  # type: ignore[attr-defined]
+  # Run() path
+  monkeypatch.setattr(sys, 'argv', ['profiler'])
+  with pytest.raises(SystemExit) as exc:
+    profiler.Run()
+  assert exc.value.code in {0, 2}
 
 
 def test_primes_serial() -> None:

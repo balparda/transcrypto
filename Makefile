@@ -18,8 +18,8 @@ type:
 test:
 	poetry run pytest -q tests
 
-# integration:
-# 	poetry run pytest -q tests_integration
+integration:
+	poetry run pytest -q tests_integration
 
 cov:
 	poetry run pytest --cov=src --cov-report=term-missing -q tests
@@ -35,6 +35,5 @@ docs:
 	poetry run transcrypto doc md > transcrypto.md
 	poetry run profiler doc > profiler.md
 
-ci: fmt lint type test precommit docs
+ci: fmt lint type cov integration precommit docs
 	@echo "CI checks passed! Generated docs."
-# TODO: add integration and cov when we have integration tests

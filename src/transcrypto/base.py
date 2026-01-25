@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import abc as abstract
-import argparse
 import base64
 import codecs
 import dataclasses
@@ -30,6 +29,7 @@ from typing import (
   Protocol,
   Self,
   TypeVar,
+  cast,
   final,
   runtime_checkable,
 )
@@ -1761,186 +1761,48 @@ class PrivateBid512(PublicBid512):
     )
 
 
-def _FlagNames(a: argparse.Action, /) -> list[str]:
-  # Positional args have empty 'option_strings'; otherwise use them (e.g., ['-v','--verbose'])
-  if a.option_strings:
-    return list(a.option_strings)
-  if a.nargs:
-    if isinstance(a.metavar, str) and a.metavar:
-      # e.g., nargs=2, metavar='FILE'
-      return [a.metavar]
-    if isinstance(a.metavar, tuple):
-      # e.g., nargs=2, metavar=('FILE1', 'FILE2')
-      return list(a.metavar)
-  # Otherwise, it's a positional arg with no flags, so return the destination name
-  return [a.dest]
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class CLIConfig:
+  """CLI global context, storing the configuration."""
+
+  console: rich_console.Console
+  verbose: int
+  color: bool | None
 
 
-def _ActionIsSubparser(a: argparse.Action, /) -> bool:
-  return isinstance(a, argparse._SubParsersAction)  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
-
-
-def _FormatDefault(a: argparse.Action, /) -> str:
-  if a.default is argparse.SUPPRESS:
-    return ''
-  if isinstance(a.default, bool):
-    return ' (default: on)' if a.default else ''
-  if a.default in {None, '', 0, False}:  # noqa: B033
-    return ''
-  return f' (default: {a.default})'
-
-
-def _FormatChoices(a: argparse.Action, /) -> str:
-  return f' choices: {list(a.choices)}' if getattr(a, 'choices', None) else ''  # type:ignore
-
-
-def _FormatType(a: argparse.Action, /) -> str:
-  t: Any | None = getattr(a, 'type', None)
-  if t is None:
-    return ''
-  # Show clean type names (int, str, float); for callables, just say 'custom'
-  return f' type: {t.__name__ if hasattr(t, "__name__") else "custom"}'
-
-
-def _FormatNArgs(a: argparse.Action, /) -> str:
-  return f' nargs: {a.nargs}' if getattr(a, 'nargs', None) not in {None, 0} else ''
-
-
-def _RowsForActions(actions: abc.Sequence[argparse.Action], /) -> list[tuple[str, str]]:
-  rows: list[tuple[str, str]] = []
-  for a in actions:
-    if _ActionIsSubparser(a):
-      continue
-    # skip the built-in help action; it's implied
-    if getattr(a, 'help', '') == argparse.SUPPRESS or isinstance(a, argparse._HelpAction):  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
-      continue
-    flags: str = ', '.join(_FlagNames(a))
-    meta: str = ''.join(
-      (_FormatType(a), _FormatNArgs(a), _FormatChoices(a), _FormatDefault(a))
-    ).strip()
-    desc: str = (a.help or '').strip()
-    if meta:
-      desc = f'{desc} [{meta}]' if desc else f'[{meta}]'
-    rows.append((flags, desc))
-  return rows
-
-
-def _MarkdownTable(
-  rows: abc.Sequence[tuple[str, str]], headers: tuple[str, str] = ('Option/Arg', 'Description'), /
-) -> str:
-  if not rows:
-    return ''
-  out: list[str] = ['| ' + headers[0] + ' | ' + headers[1] + ' |', '|---|---|']
-  for left, right in rows:
-    out.append(f'| `{left}` | {right} |')
-  return '\n'.join(out)
-
-
-def _WalkSubcommands(
-  parser: argparse.ArgumentParser, path: list[str] | None = None, /
-) -> list[tuple[list[str], argparse.ArgumentParser, Any]]:
-  path = path or []
-  items: list[tuple[list[str], argparse.ArgumentParser, Any]] = []
-  name: str
-  sp: argparse.ArgumentParser
-  for action in parser._actions:  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
-    if _ActionIsSubparser(action):
-      for name, sp in action.choices.items():  # type:ignore
-        items.append(([*path, name], sp, action))  # pyright: ignore[reportUnknownArgumentType]
-        items.extend(_WalkSubcommands(sp, [*path, name]))  # pyright: ignore[reportUnknownArgumentType]
-  return items
-
-
-def _HelpText(sub_parser: argparse.ArgumentParser, parent_sub_action: Any, /) -> str:  # noqa: ANN401
-  if parent_sub_action is not None:
-    for choice_action in parent_sub_action._choices_actions:  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
-      if choice_action.dest == sub_parser.prog.split()[-1]:
-        return choice_action.help or ''
-  return ''
-
-
-def GenerateCLIMarkdown(  # noqa: C901
-  prog: str, parser: argparse.ArgumentParser, /, *, description: str = ''
-) -> str:
-  """Return a Markdown doc section that reflects the current _BuildParser() tree.
-
-  Will treat epilog strings as examples, splitting on '$$' to get multiple examples.
-
-  Args:
-    prog (str): name of app, eg. 'transcrypto' or 'transcrypto.py'
-    parser (argparse.ArgumentParser): parser to use for data
-    description (str, optional): app description to use as intro
+def CLIErrorGuard[**P](fn: abc.Callable[P, None], /) -> abc.Callable[P, None]:
+  """Guard CLI command functions.
 
   Returns:
-    str: markdown
-
-  Raises:
-    InputError: invalid app name
+    A wrapped function that catches expected user-facing errors and prints them consistently.
 
   """
-  prog, description = prog.strip(), description.strip()
-  if not prog or prog not in parser.prog:
-    raise InputError(f'invalid prog/parser.prog: {prog=}, {parser.prog=}')
-  lines: list[str] = ['']
-  # Header + global flags
-  lines.extend(
-    (
-      '<!-- cspell:disable -->',
-      '<!-- auto-generated; do not edit -->\n',
-      f'# `{prog}` Command-Line Interface\n',
-      description + '\n',
-      'Invoke with:\n',
-      '```bash',
-      f'{parser.prog} <command> [sub-command] [options...]',
-      '```\n',
-    )
-  )
-  # Global options table
-  global_rows: list[tuple[str, str]] = _RowsForActions(parser._actions)  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
-  if global_rows:
-    lines.extend(('## Global Options\n', _MarkdownTable(global_rows), ''))
-  # Top-level commands summary
-  lines.append('## Top-Level Commands\n')
-  # Find top-level subparsers to list available commands
-  top_subs: list[argparse.Action] = [a for a in parser._actions if _ActionIsSubparser(a)]  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
-  for action in top_subs:
-    for name, sp in action.choices.items():  # type: ignore[union-attr]
-      description = str(sp.description)  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
-      format_usage = str(sp.format_usage())  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
-      help_text: str = (
-        description or ' '.join(i.strip() for i in format_usage.splitlines())
-      ).strip()
-      short: str = (sp.help if hasattr(sp, 'help') else '') or ''  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType, reportUnknownMemberType]
-      help_text = short or help_text  # pyright: ignore[reportUnknownVariableType]
-      help_text = help_text.replace('usage: ', '').strip()  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
-      lines.append(f'- **`{name}`** — `{help_text}`')
-  lines.append('')
-  if parser.epilog:
-    lines.extend(('```bash', parser.epilog, '```\n'))
-  # Detailed sections per (sub)command
-  for path, sub_parser, parent_sub_action in _WalkSubcommands(parser):
-    if len(path) == 1:
-      lines.append('---\n')  # horizontal rule between top-level commands
-    header: str = ' '.join(path)
-    lines.append(f'##{"" if len(path) == 1 else "#"} `{header}`')  # (header level 3 or 4)
-    # Usage block
-    help_text = _HelpText(sub_parser, parent_sub_action)
-    if help_text:
-      lines.append(f'\n{help_text}')
-    usage: str = sub_parser.format_usage().replace('usage: ', '').strip()
-    lines.extend(('\n```bash', str(usage), '```\n'))
-    # Options/args table
-    rows: list[tuple[str, str]] = _RowsForActions(sub_parser._actions)  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
-    if rows:
-      lines.extend((_MarkdownTable(rows), ''))
-    # Examples (if any) - stored in epilog argument
-    epilog: str = sub_parser.epilog.strip() if sub_parser.epilog else ''
-    if epilog:
-      lines.extend(('**Example:**\n', '```bash'))
-      lines.extend(f'$ {parser.prog} {epilog_line.strip()}' for epilog_line in epilog.split('$$'))
-      lines.append('```\n')
-  # join all lines as the markdown string
-  return ('\n'.join(lines)).strip()
+
+  @functools.wraps(fn)
+  def _Wrapper(*args: P.args, **kwargs: P.kwargs) -> None:
+    try:
+      # call the actual function
+      fn(*args, **kwargs)
+    except (Error, ValueError) as err:
+      # get context
+      ctx: object | None = dict(kwargs).get('ctx')
+      if not isinstance(ctx, typer.Context):
+        ctx = next((a for a in args if isinstance(a, typer.Context)), None)
+      # print error nicely
+      if isinstance(ctx, typer.Context):
+        # we have context
+        obj: CLIConfig = cast('CLIConfig', ctx.obj)
+        if obj.verbose >= logging.INFO:
+          obj.console.print_exception()  # print full traceback
+        else:
+          obj.console.print(str(err))  # print only error message
+      # no context
+      elif logging.getLogger().getEffectiveLevel() >= logging.INFO:
+        Console().print_exception()  # print full traceback
+      else:
+        Console().print(str(err))  # print only error message
+
+  return _Wrapper
 
 
 def _ClickWalk(
@@ -1959,23 +1821,22 @@ def _ClickWalk(
   # now walk subcommands, if any
   sub_cmd: click.Command | None
   sub_ctx: typer.Context
-  if isinstance(command, click.Group):
-    # Typer app
-    for name, sub_cmd in sorted(command.commands.items()):
-      sub_ctx = typer.Context(sub_cmd, info_name=name, parent=ctx)
-      # recurse
-      yield from _ClickWalk(sub_cmd, sub_ctx, [*path, name])
-    return
-  # generic Click Group/MultiCommand
+  # prefer the explicit `.commands` mapping when present; otherwise fall back to
+  # click's `list_commands()`/`get_command()` for dynamic groups
   if not isinstance(command, click.Group):
     return
-  # Click Group/MultiCommand
+  # explicit commands mapping
+  if command.commands:
+    for name, sub_cmd in sorted(command.commands.items()):
+      sub_ctx = typer.Context(sub_cmd, info_name=name, parent=ctx)
+      yield from _ClickWalk(sub_cmd, sub_ctx, [*path, name])
+    return
+  # dynamic commands
   for name in sorted(command.list_commands(ctx)):
     sub_cmd = command.get_command(ctx, name)
     if sub_cmd is None:
       continue  # skip invalid subcommands
     sub_ctx = typer.Context(sub_cmd, info_name=name, parent=ctx)
-    # recurse
     yield from _ClickWalk(sub_cmd, sub_ctx, [*path, name])
 
 
