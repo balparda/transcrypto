@@ -58,7 +58,7 @@ license-files = [ "LICENSE" ]
 dependencies = [
 
   "typer>=0.21",   # if this changes, also change: [tool.poetry.dependencies] and .pre-commit-config.yaml
-  "rich>=14.2",    # if this changes, also change: .pre-commit-config.yaml
+  "rich>=14.3",    # if this changes, also change: .pre-commit-config.yaml
   "platformdirs>=4.5",
 
   # best place for project dependencies, if possible
