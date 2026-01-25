@@ -75,9 +75,18 @@ dependencies = [
 [project.scripts]
 
 # console scripts that will be installed when installing the package;
-# if you change/add a line here, re-run `poetry sync`
+# if you change/add a line here also edit [tool.poetry.scripts] below and re-run `poetry sync`
 
-transcrypto = "transcrypto.transcrypto:main"
+transcrypto = "transcrypto.transcrypto:Run"
+profiler = "transcrypto.profiler:Run"
+
+####################################################################################################
+[tool.poetry.scripts]
+
+# poetry/poetry-core still relies on this section for wheel entry points in some versions;
+# keep this in sync with [project.scripts] above
+
+transcrypto = "transcrypto.transcrypto:Run"
 profiler = "transcrypto.profiler:Run"
 
 ####################################################################################################
