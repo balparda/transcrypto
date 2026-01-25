@@ -63,6 +63,26 @@ def _OneToken(res: click_testing.Result) -> str:
   return _Out(res).replace('\n', '')
 
 
+_ANSI_ESCAPE_RE = re.compile(r'\x1b\[[0-?]*[ -/]*[@-~]')
+
+
+def _CLIOutput(res: click_testing.Result) -> str:
+  """Return CLI output for assertions.
+
+  Typer/Click may send errors to stderr and may add ANSI styling (especially
+  when Rich is installed). Normalize that here so tests are stable across
+  environments.
+
+  Returns:
+      str: cleaned CLI output.
+
+  """
+  stdout = getattr(res, 'stdout', '')
+  stderr = getattr(res, 'stderr', '')
+  combined = (stdout + stderr) if (stdout or stderr) else res.output
+  return _ANSI_ESCAPE_RE.sub('', combined)
+
+
 def test_LoadObj_wrong_type_raises(tmp_path: pathlib.Path) -> None:
   """_LoadObj should raise if the on-disk object is not of the expected type."""
   path: pathlib.Path = tmp_path / 'obj.saved'
@@ -198,7 +218,7 @@ def test_cli_validations_print_errors(argv: list[str], needle: str) -> None:
   """Test CLI argument validations print expected error messages."""
   res: click_testing.Result = _CallCLI(argv)
   assert res.exit_code == 2
-  assert needle in res.output
+  assert needle in _CLIOutput(res)
 
 
 @pytest.mark.parametrize(
