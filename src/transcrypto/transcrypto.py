@@ -34,8 +34,8 @@ poetry run transcrypto hash file /etc/passwd --digest sha512
 poetry run transcrypto --output-format b64 aes key "correct horse battery staple"
 poetry run transcrypto -i b64 -o b64 aes encrypt -k "<b64key>" -- "secret"
 poetry run transcrypto -i b64 -o b64 aes decrypt -k "<b64key>" -- "<ciphertext>"
-poetry run transcrypto aes ecb -k "<b64key>" encrypt "<128bithexblock>"  # cspell:disable-line
-poetry run transcrypto aes ecb -k "<b64key>" decrypt "<128bithexblock>"  # cspell:disable-line
+poetry run transcrypto aes ecb encrypt -k "<b64key>" "<128bithexblock>"
+poetry run transcrypto aes ecb decrypt -k "<b64key>" "<128bithexblock>"
 
  --- RSA ---
 poetry run transcrypto -p rsa-key rsa new --bits 2048
@@ -100,7 +100,6 @@ from typing import Any
 
 import click
 import typer
-from rich import console as rich_console
 
 from . import (
   __version__,
@@ -246,23 +245,23 @@ def _SaveObj(obj: Any, path: str, password: str | None, /) -> None:  # noqa: ANN
   logging.info('saved object: %s (%s)', path, base.HumanizedBytes(len(blob)))
 
 
-def _LoadObj(path: str, password: str | None, expect: type, /) -> Any:  # noqa: ANN401
+def _LoadObj[T](path: str, password: str | None, expect: type[T], /) -> T:
   """Load object.
 
   Args:
       path (str): path
       password (str | None): password
-      expect (type): type to expect
+      expect (type[T]): type to expect
 
   Raises:
       base.InputError: input error
 
   Returns:
-      Any: loaded object
+      T: loaded object
 
   """
   key: aes.AESKey | None = aes.AESKey.FromStaticPassword(password) if password else None
-  obj: Any = base.DeSerialize(file_path=path, key=key)
+  obj: T = base.DeSerialize(file_path=path, key=key)
   if not isinstance(obj, expect):
     raise base.InputError(
       f'Object loaded from {path} is of invalid type {type(obj)}, expected {expect}'
@@ -326,8 +325,8 @@ app = typer.Typer(
     'poetry run transcrypto --output-format b64 aes key "correct horse battery staple"\n\n'
     'poetry run transcrypto -i b64 -o b64 aes encrypt -k "<b64key>" -- "secret"\n\n'
     'poetry run transcrypto -i b64 -o b64 aes decrypt -k "<b64key>" -- "<ciphertext>"\n\n'
-    'poetry run transcrypto aes ecb -k "<b64key>" encrypt "<128bithexblock>"\n\n'
-    'poetry run transcrypto aes ecb -k "<b64key>" decrypt "<128bithexblock>"\n\n\n\n'
+    'poetry run transcrypto aes ecb encrypt -k "<b64key>" "<128bithexblock>"\n\n'
+    'poetry run transcrypto aes ecb decrypt -k "<b64key>" "<128bithexblock>"\n\n\n\n'
     '# --- RSA ---\n\n'
     'poetry run transcrypto -p rsa-key rsa new --bits 2048\n\n'
     'poetry run transcrypto -p rsa-key.pub rsa rawencrypt <plaintext>\n\n'
@@ -474,7 +473,7 @@ def IsPrimeCLI(  # documentation is help/epilog/args # noqa: D103
   n: str = typer.Argument(..., help='Integer to test, ≥ 1'),
 ) -> None:
   config: TransConfig = ctx.obj
-  n_i = _ParseInt(n, min_value=1)
+  n_i: int = _ParseInt(n, min_value=1)
   config.console.print(str(modmath.IsPrime(n_i)))
 
 
@@ -488,16 +487,10 @@ def PrimeGenCLI(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
   start: str = typer.Argument(..., help='Starting integer (inclusive), ≥ 0'),
-  count: int = typer.Option(
-    1,
-    '-c',
-    '--count',
-    min=1,
-    help='How many to print',
-  ),
+  count: int = typer.Option(1, '-c', '--count', min=1, help='How many to print, ≥ 1'),
 ) -> None:
   config: TransConfig = ctx.obj
-  start_i = _ParseInt(start, min_value=0)
+  start_i: int = _ParseInt(start, min_value=0)
   for i, pr in enumerate(modmath.PrimeGenerator(start_i)):
     if i >= count:
       return
@@ -509,11 +502,11 @@ def PrimeGenCLI(  # documentation is help/epilog/args # noqa: D103
   help=(
     'Generate (stream) Mersenne prime exponents `k`, also outputting `2^k-1` '
     '(the Mersenne prime, `M`) and `M×2^(k-1)` (the associated perfect number), '  # noqa: RUF001
-    'starting at `min-k` and stopping once `k` > `cutoff-k`.'
+    'starting at `min-k` and stopping once `k` > `max-k`.'
   ),
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto mersenne -k 0 -C 15\n\n'
+    '$ poetry run transcrypto mersenne -k 0 -m 15\n\n'
     'k=2  M=3  perfect=6\n\n'
     'k=3  M=7  perfect=28\n\n'
     'k=5  M=31  perfect=496\n\n'
@@ -527,17 +520,11 @@ def MersenneCLI(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
   min_k: int = typer.Option(1, '-k', '--min-k', min=1, help='Starting exponent `k`, ≥ 1'),
-  cutoff_k: int = typer.Option(
-    10000,
-    '-C',
-    '--cutoff-k',
-    min=1,
-    help='Stop once `k` > `cutoff-k`',
-  ),
+  max_k: int = typer.Option(10000, '-m', '--max-k', min=1, help='Stop once `k` > `max-k`, ≥ 1'),
 ) -> None:
   config: TransConfig = ctx.obj
   for k, m, perfect in modmath.MersennePrimesGenerator(min_k):
-    if k > cutoff_k:
+    if k > max_k:
       return
     config.console.print(f'k={k}  M={m}  perfect={perfect}')
 
@@ -566,10 +553,10 @@ def GcdCLI(  # documentation is help/epilog/args # noqa: D103
   b: str = typer.Argument(..., help="Integer, ≥ 0 (can't be both zero)"),
 ) -> None:
   config: TransConfig = ctx.obj
-  a_i = _ParseInt(a, min_value=0)
-  b_i = _ParseInt(b, min_value=0)
+  a_i: int = _ParseInt(a, min_value=0)
+  b_i: int = _ParseInt(b, min_value=0)
   if a_i == 0 and b_i == 0:
-    raise base.InputError("a and b can't both be zero")
+    raise base.InputError("`a` and `b` can't both be zero")
   config.console.print(base.GCD(a_i, b_i))
 
 
@@ -597,10 +584,10 @@ def XgcdCLI(  # documentation is help/epilog/args # noqa: D103
   b: str = typer.Argument(..., help="Integer, ≥ 0 (can't be both zero)"),
 ) -> None:
   config: TransConfig = ctx.obj
-  a_i = _ParseInt(a, min_value=0)
-  b_i = _ParseInt(b, min_value=0)
+  a_i: int = _ParseInt(a, min_value=0)
+  b_i: int = _ParseInt(b, min_value=0)
   if a_i == 0 and b_i == 0:
-    raise base.InputError("a and b can't both be zero")
+    raise base.InputError("`a` and `b` can't both be zero")
   config.console.print(str(base.ExtendedGCD(a_i, b_i)))
 
 
@@ -663,8 +650,7 @@ def RandomBytes(  # documentation is help/epilog/args # noqa: D103
   n: int = typer.Argument(..., min=1, help='Number of bytes, ≥ 1'),
 ) -> None:
   config: TransConfig = ctx.obj
-  out_format = config.output_format
-  config.console.print(_BytesToText(base.RandBytes(n), out_format))
+  config.console.print(_BytesToText(base.RandBytes(n), config.output_format))
 
 
 @random_app.command(
@@ -716,8 +702,8 @@ def ModInv(  # documentation is help/epilog/args # noqa: D103
   m: str = typer.Argument(..., help='Modulus `m`, ≥ 2'),
 ) -> None:
   config: TransConfig = ctx.obj
-  a_i = _ParseInt(a)
-  m_i = _ParseInt(m, min_value=2)
+  a_i: int = _ParseInt(a)
+  m_i: int = _ParseInt(m, min_value=2)
   try:
     config.console.print(modmath.ModInv(a_i, m_i))
   except modmath.ModularDivideError:
@@ -735,7 +721,7 @@ def ModInv(  # documentation is help/epilog/args # noqa: D103
     '$ poetry run transcrypto mod div 6 127 13\n\n'
     '11\n\n'
     '$ poetry run transcrypto mod div 6 0 13\n\n'
-    '<<INVALID>> no modular inverse exists (ModularDivideError)'
+    '<<INVALID>> divide-by-zero or not invertible (ModularDivideError)'
   ),
 )
 @base.CLIErrorGuard
@@ -747,13 +733,13 @@ def ModDiv(  # documentation is help/epilog/args # noqa: D103
   m: str = typer.Argument(..., help='Modulus `m`, ≥ 2'),
 ) -> None:
   config: TransConfig = ctx.obj
-  x_i = _ParseInt(x)
-  y_i = _ParseInt(y)
-  m_i = _ParseInt(m, min_value=2)
+  x_i: int = _ParseInt(x)
+  y_i: int = _ParseInt(y)
+  m_i: int = _ParseInt(m, min_value=2)
   try:
     config.console.print(modmath.ModDiv(x_i, y_i, m_i))
   except modmath.ModularDivideError:
-    config.console.print('<<INVALID>> no modular inverse exists (ModularDivideError)')
+    config.console.print('<<INVALID>> divide-by-zero or not invertible (ModularDivideError)')
 
 
 @mod_app.command(
@@ -771,14 +757,14 @@ def ModDiv(  # documentation is help/epilog/args # noqa: D103
 def ModExp(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
-  a: str = typer.Argument(..., help='Integer'),
-  e: str = typer.Argument(..., help='Integer, ≥ 0'),
+  a: str = typer.Argument(..., help='Integer value'),
+  e: str = typer.Argument(..., help='Integer exponent, ≥ 0'),
   m: str = typer.Argument(..., help='Modulus `m`, ≥ 2'),
 ) -> None:
   config: TransConfig = ctx.obj
-  a_i = _ParseInt(a)
-  e_i = _ParseInt(e, min_value=0)
-  m_i = _ParseInt(m, min_value=2)
+  a_i: int = _ParseInt(a)
+  e_i: int = _ParseInt(e, min_value=0)
+  m_i: int = _ParseInt(m, min_value=2)
   config.console.print(modmath.ModExp(a_i, e_i, m_i))
 
 
@@ -786,7 +772,7 @@ def ModExp(  # documentation is help/epilog/args # noqa: D103
   'poly',
   help=(
     'Efficiently evaluate polynomial with `coeff` coefficients at point `x` modulo `m` '
-    '(`c₀+c₁×x+c₂×x²+…+cₙ×xⁿ mod m`).'  # noqa: RUF001
+    '(`c₀+c₁×x+c₂×x²+…+cₙ×x^n mod m`).'  # noqa: RUF001
   ),
   epilog=(
     'Example:\n\n\n\n'
@@ -804,13 +790,14 @@ def ModPoly(  # documentation is help/epilog/args # noqa: D103
   m: str = typer.Argument(..., help='Modulus `m`, ≥ 2'),
   coeff: list[str] = typer.Argument(  # noqa: B008
     ...,
-    help='Coefficients (constant-term first: `c₀+c₁×x+c₂×x²+…+cₙ×xⁿ`)',  # noqa: RUF001
+    help='Coefficients (constant-term first: `c₀+c₁×x+c₂×x²+…+cₙ×x^n`)',  # noqa: RUF001
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  x_i = _ParseInt(x)
-  m_i = _ParseInt(m, min_value=2)
-  config.console.print(modmath.ModPolynomial(x_i, [_ParseInt(z) for z in coeff], m_i))
+  x_i: int = _ParseInt(x)
+  m_i: int = _ParseInt(m, min_value=2)
+  coeff_i: list[int] = [_ParseInt(z) for z in coeff]
+  config.console.print(modmath.ModPolynomial(x_i, coeff_i, m_i))
 
 
 @mod_app.command(
@@ -839,12 +826,9 @@ def ModLagrange(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  x_i = _ParseInt(x)
-  m_i = _ParseInt(m, min_value=2)
-  pts: dict[int, int] = {}
-  for kv in pt:
-    k_s, v_s = kv.split(':', 1)
-    pts[_ParseInt(k_s)] = _ParseInt(v_s)
+  x_i: int = _ParseInt(x)
+  m_i: int = _ParseInt(m, min_value=2)
+  pts: dict[int, int] = dict(_ParseIntPairCLI(kv) for kv in pt)
   config.console.print(modmath.ModLagrangeInterpolate(x_i, pts, m_i))
 
 
@@ -869,19 +853,19 @@ def ModCRT(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
   a1: str = typer.Argument(..., help='Integer residue for first congruence'),
-  m1: str = typer.Argument(..., help='Modulus `m1`, ≥ 2 and `gcd(m1,m2)==1`'),
+  m1: str = typer.Argument(..., help='Modulus `m1`, ≥ 2'),
   a2: str = typer.Argument(..., help='Integer residue for second congruence'),
-  m2: str = typer.Argument(..., help='Modulus `m2`, ≥ 2 and `gcd(m1,m2)==1`'),
+  m2: str = typer.Argument(..., help='Modulus `m2`, ≥ 2, !=`m1`, and `gcd(m1,m2)==1`'),
 ) -> None:
   config: TransConfig = ctx.obj
-  a1_i = _ParseInt(a1)
-  m1_i = _ParseInt(m1, min_value=2)
-  a2_i = _ParseInt(a2)
-  m2_i = _ParseInt(m2, min_value=2)
+  a1_i: int = _ParseInt(a1)
+  m1_i: int = _ParseInt(m1, min_value=2)
+  a2_i: int = _ParseInt(a2)
+  m2_i: int = _ParseInt(m2, min_value=2)
   try:
     config.console.print(modmath.CRTPair(a1_i, m1_i, a2_i, m2_i))
   except modmath.ModularDivideError:
-    config.console.print('<<INVALID>> moduli m1/m2 not co-prime (ModularDivideError)')
+    config.console.print('<<INVALID>> moduli `m1`/`m2` not co-prime (ModularDivideError)')
 
 
 # =================================== "HASH" COMMAND ===============================================
@@ -909,12 +893,11 @@ app.add_typer(hash_app, name='hash')
 def Hash256(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
-  data: str = typer.Argument(..., help='Input data (raw text; or use --hex/--b64/--bin)'),
+  data: str = typer.Argument(..., help='Input data (raw text; or `--input-format <hex|b64|bin>`)'),
 ) -> None:
   config: TransConfig = ctx.obj
-  in_format, out_format = config.input_format, config.output_format
-  bt = _BytesFromText(data, in_format)
-  config.console.print(_BytesToText(base.Hash256(bt), out_format))
+  bt: bytes = _BytesFromText(data, config.input_format)
+  config.console.print(_BytesToText(base.Hash256(bt), config.output_format))
 
 
 @hash_app.command(
@@ -934,12 +917,11 @@ def Hash256(  # documentation is help/epilog/args # noqa: D103
 def Hash512(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
-  data: str = typer.Argument(..., help='Input data (raw text; or use --hex/--b64/--bin)'),
+  data: str = typer.Argument(..., help='Input data (raw text; or `--input-format <hex|b64|bin>`)'),
 ) -> None:
   config: TransConfig = ctx.obj
-  in_format, out_format = config.input_format, config.output_format
-  bt = _BytesFromText(data, in_format)
-  config.console.print(_BytesToText(base.Hash512(bt), out_format))
+  bt: bytes = _BytesFromText(data, config.input_format)
+  config.console.print(_BytesToText(base.Hash512(bt), config.output_format))
 
 
 @hash_app.command(
@@ -967,14 +949,14 @@ def HashFile(  # documentation is help/epilog/args # noqa: D103
   ),
   digest: str = typer.Option(
     'sha256',
+    '-d',
     '--digest',
     click_type=click.Choice(['sha256', 'sha512'], case_sensitive=False),
     help='Digest type, SHA-256 ("sha256") or SHA-512 ("sha512")',
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  out_format = config.output_format
-  config.console.print(_BytesToText(base.FileHash(str(path), digest=digest), out_format))
+  config.console.print(_BytesToText(base.FileHash(str(path), digest=digest), config.output_format))
 
 
 # =================================== "AES" COMMAND ================================================
@@ -1013,13 +995,12 @@ def AESKeyFromPass(  # documentation is help/epilog/args # noqa: D103
   password: str = typer.Argument(..., help='Password (leading/trailing spaces ignored)'),
 ) -> None:
   config: TransConfig = ctx.obj
-  out_format = config.output_format
-  aes_key = aes.AESKey.FromStaticPassword(password)
+  aes_key: aes.AESKey = aes.AESKey.FromStaticPassword(password)
   if config.key_path is not None:
     _SaveObj(aes_key, str(config.key_path), config.protect or None)
     config.console.print(f'AES key saved to {str(config.key_path)!r}')
   else:
-    config.console.print(_BytesToText(aes_key.key256, out_format))
+    config.console.print(_BytesToText(aes_key.key256, config.output_format))
 
 
 @aes_app.command(
@@ -1027,7 +1008,7 @@ def AESKeyFromPass(  # documentation is help/epilog/args # noqa: D103
   help=(
     'AES-256-GCM: safely encrypt `plaintext` with `-k`/`--key` or with '
     '`-p`/`--key-path` keyfile. All inputs are raw, or you '
-    'can use `--bin`/`--hex`/`--b64` flags. Attention: if you provide `-a`/`--aad` '
+    'can use `--input-format <hex|b64|bin>`. Attention: if you provide `-a`/`--aad` '
     '(associated data, AAD), you will need to provide the same AAD when decrypting '
     'and it is NOT included in the `ciphertext`/CT returned by this method!'
   ),
@@ -1057,10 +1038,9 @@ def AESEncrypt(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  in_format, out_format = config.input_format, config.output_format
   aes_key: aes.AESKey
   if key:
-    key_bytes = _BytesFromText(key, in_format)
+    key_bytes: bytes = _BytesFromText(key, config.input_format)
     if len(key_bytes) != 32:  # noqa: PLR2004
       raise base.InputError(f'invalid AES key size: {len(key_bytes)} bytes (expected 32)')
     aes_key = aes.AESKey(key256=key_bytes)
@@ -1068,11 +1048,10 @@ def AESEncrypt(  # documentation is help/epilog/args # noqa: D103
     aes_key = _LoadObj(str(config.key_path), config.protect or None, aes.AESKey)
   else:
     raise base.InputError('provide -k/--key or -p/--key-path')
-
-  aad_bytes: bytes | None = _BytesFromText(aad, in_format) if aad else None
-  pt: bytes = _BytesFromText(plaintext, in_format)
+  aad_bytes: bytes | None = _BytesFromText(aad, config.input_format) if aad else None
+  pt: bytes = _BytesFromText(plaintext, config.input_format)
   ct: bytes = aes_key.Encrypt(pt, associated_data=aad_bytes)
-  config.console.print(_BytesToText(ct, out_format))
+  config.console.print(_BytesToText(ct, config.output_format))
 
 
 @aes_app.command(
@@ -1080,7 +1059,7 @@ def AESEncrypt(  # documentation is help/epilog/args # noqa: D103
   help=(
     'AES-256-GCM: safely decrypt `ciphertext` with `-k`/`--key` or with '
     '`-p`/`--key-path` keyfile. All inputs are raw, or you '
-    'can use `--bin`/`--hex`/`--b64` flags. Attention: if you provided `-a`/`--aad` '
+    'can use `--input-format <hex|b64|bin>`. Attention: if you provided `-a`/`--aad` '
     '(associated data, AAD) during encryption, you will need to provide the same AAD now!'
   ),
   epilog=(
@@ -1111,10 +1090,9 @@ def AESDecrypt(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  in_format, out_format = config.input_format, config.output_format
   aes_key: aes.AESKey
   if key:
-    key_bytes = _BytesFromText(key, in_format)
+    key_bytes: bytes = _BytesFromText(key, config.input_format)
     if len(key_bytes) != 32:  # noqa: PLR2004
       raise base.InputError(f'invalid AES key size: {len(key_bytes)} bytes (expected 32)')
     aes_key = aes.AESKey(key256=key_bytes)
@@ -1123,10 +1101,10 @@ def AESDecrypt(  # documentation is help/epilog/args # noqa: D103
   else:
     raise base.InputError('provide -k/--key or -p/--key-path')
   # associated data, if any
-  aad_bytes: bytes | None = _BytesFromText(aad, in_format) if aad else None
-  ct: bytes = _BytesFromText(ciphertext, in_format)
+  aad_bytes: bytes | None = _BytesFromText(aad, config.input_format) if aad else None
+  ct: bytes = _BytesFromText(ciphertext, config.input_format)
   pt: bytes = aes_key.Decrypt(ct, associated_data=aad_bytes)
-  config.console.print(_BytesToText(pt, out_format))
+  config.console.print(_BytesToText(pt, config.output_format))
 
 
 # ================================ "AES ECB" SUB-COMMAND ===========================================
@@ -1141,23 +1119,6 @@ aes_ecb_app = typer.Typer(
   ),
 )
 aes_app.add_typer(aes_ecb_app, name='ecb')
-
-
-@aes_ecb_app.callback(invoke_without_command=True, help='AES ECB mode subcommands.')
-def AESECBMain(  # documentation is help/epilog/args # noqa: D103
-  *,
-  ctx: typer.Context,
-  key: str | None = typer.Option(
-    None,
-    '-k',
-    '--key',
-    help=(
-      "Key if `-p`/`--key-path` wasn't used (32 bytes; raw, or you "
-      'can use `--bin`/`--hex`/`--b64` flags)'
-    ),
-  ),
-) -> None:
-  ctx.meta['aes_ecb_key'] = key
 
 
 @aes_ecb_app.command(
@@ -1179,16 +1140,23 @@ def AESEcbEncrypt(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
   plaintext: str = typer.Argument(..., help='Plaintext block as 32 hex chars (16-bytes)'),
+  key: str | None = typer.Option(
+    None,
+    '-k',
+    '--key',
+    help=(
+      "Key if `-p`/`--key-path` wasn't used (32 bytes; raw, or you "
+      'can use `--input-format <hex|b64|bin>`)'
+    ),
+  ),
 ) -> None:
   config: TransConfig = ctx.obj
   plaintext = plaintext.strip()
   if len(plaintext) != 32:  # noqa: PLR2004
     raise base.InputError('hexadecimal string must be exactly 32 hex chars')
-  in_format = config.input_format
-  key_s: str | None = ctx.meta.get('aes_ecb_key')
   aes_key: aes.AESKey
-  if key_s:
-    key_bytes = _BytesFromText(key_s, in_format)
+  if key:
+    key_bytes: bytes = _BytesFromText(key, config.input_format)
     if len(key_bytes) != 32:  # noqa: PLR2004
       raise base.InputError(f'invalid AES key size: {len(key_bytes)} bytes (expected 32)')
     aes_key = aes.AESKey(key256=key_bytes)
@@ -1196,7 +1164,6 @@ def AESEcbEncrypt(  # documentation is help/epilog/args # noqa: D103
     aes_key = _LoadObj(str(config.key_path), config.protect or None, aes.AESKey)
   else:
     raise base.InputError('provide -k/--key or -p/--key-path')
-
   ecb: aes.AESKey.ECBEncoderClass = aes_key.ECBEncoder()
   config.console.print(ecb.EncryptHex(plaintext))
 
@@ -1220,16 +1187,23 @@ def AESEcbDecrypt(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
   ciphertext: str = typer.Argument(..., help='Ciphertext block as 32 hex chars (16-bytes)'),
+  key: str | None = typer.Option(
+    None,
+    '-k',
+    '--key',
+    help=(
+      "Key if `-p`/`--key-path` wasn't used (32 bytes; raw, or you "
+      'can use `--input-format <hex|b64|bin>`)'
+    ),
+  ),
 ) -> None:
   config: TransConfig = ctx.obj
   ciphertext = ciphertext.strip()
   if len(ciphertext) != 32:  # noqa: PLR2004
     raise base.InputError('hexadecimal string must be exactly 32 hex chars')
-  in_format = config.input_format
-  key_s: str | None = ctx.meta.get('aes_ecb_key')
   aes_key: aes.AESKey
-  if key_s:
-    key_bytes = _BytesFromText(key_s, in_format)
+  if key:
+    key_bytes: bytes = _BytesFromText(key, config.input_format)
     if len(key_bytes) != 32:  # noqa: PLR2004
       raise base.InputError(f'invalid AES key size: {len(key_bytes)} bytes (expected 32)')
     aes_key = aes.AESKey(key256=key_bytes)
@@ -1237,7 +1211,6 @@ def AESEcbDecrypt(  # documentation is help/epilog/args # noqa: D103
     aes_key = _LoadObj(str(config.key_path), config.protect or None, aes.AESKey)
   else:
     raise base.InputError('provide -k/--key or -p/--key-path')
-
   ecb: aes.AESKey.ECBEncoderClass = aes_key.ECBEncoder()
   config.console.print(ecb.DecryptHex(ciphertext))
 
@@ -1249,8 +1222,12 @@ rsa_app = typer.Typer(
   no_args_is_help=True,
   help=(
     'RSA (Rivest-Shamir-Adleman) asymmetric cryptography. '
-    'No measures are taken here to prevent timing attacks. '
-    'All methods require file key(s) as `-p`/`--key-path` (see provided examples).'
+    'All methods require file key(s) as `-p`/`--key-path` (see provided examples). '
+    'All non-int inputs are raw, or you can use `--input-format <hex|b64|bin>`. '
+    'Attention: if you provide `-a`/`--aad` (associated data, AAD), '
+    'you will need to provide the same AAD when decrypting/verifying and it is NOT included '
+    'in the `ciphertext`/CT or `signature` returned by these methods! '
+    'No measures are taken here to prevent timing attacks.'
   ),
 )
 app.add_typer(rsa_app, name='rsa')
@@ -1259,13 +1236,12 @@ app.add_typer(rsa_app, name='rsa')
 @rsa_app.command(
   'new',
   help=(
-    'Generate RSA private/public key pair with `bits` modulus size '
-    '(prime sizes will be `bits`/2). '
-    'Requires `-p`/`--key-path` to set the basename for output files.'
+    'Generate RSA private/public key pair with `bits` modulus size (prime sizes will be `bits`/2).'
   ),
   epilog=(
-    'Example:\n\n\n\n$ poetry run transcrypto '
-    '-p rsa-key rsa new --bits 64  # NEVER use such a small key: example only!\n\n'
+    'Example:\n\n\n\n'
+    '$ poetry run transcrypto -p rsa-key rsa new --bits 64  '
+    '# NEVER use such a small key: example only!\n\n'
     "RSA private/public keys saved to 'rsa-key.priv/.pub'"
   ),
 )
@@ -1274,14 +1250,15 @@ def RSANew(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
   bits: int = typer.Option(
-    2048,
+    3332,
+    '-b',
     '--bits',
     min=16,
-    help='Modulus size in bits; the default is a safe size',
+    help='Modulus size in bits, ≥16; the default (3332) is a safe size',
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  base_path = _RequireKeyPath(config, 'rsa')
+  base_path: str = _RequireKeyPath(config, 'rsa')
   rsa_priv: rsa.RSAPrivateKey = rsa.RSAPrivateKey.New(bits)
   rsa_pub: rsa.RSAPublicKey = rsa.RSAPublicKey.Copy(rsa_priv)
   _SaveObj(rsa_priv, base_path + '.priv', config.protect or None)
@@ -1296,7 +1273,8 @@ def RSANew(  # documentation is help/epilog/args # noqa: D103
   ),
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto -p rsa-key.pub rsa rawencrypt 999\n\n6354905961171348600'
+    '$ poetry run transcrypto -p rsa-key.pub rsa rawencrypt 999\n\n'
+    '6354905961171348600'
   ),
 )
 @base.CLIErrorGuard
@@ -1306,8 +1284,8 @@ def RSARawEncrypt(  # documentation is help/epilog/args # noqa: D103
   message: str = typer.Argument(..., help='Integer message to encrypt, 1≤`message`<*modulus*'),
 ) -> None:
   config: TransConfig = ctx.obj
-  message_i = _ParseInt(message, min_value=1)
-  key_path = _RequireKeyPath(config, 'rsa')
+  message_i: int = _ParseInt(message, min_value=1)
+  key_path: str = _RequireKeyPath(config, 'rsa')
   rsa_pub: rsa.RSAPublicKey = rsa.RSAPublicKey.Copy(
     _LoadObj(key_path, config.protect or None, rsa.RSAPublicKey)
   )
@@ -1322,7 +1300,8 @@ def RSARawEncrypt(  # documentation is help/epilog/args # noqa: D103
   ),
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto -p rsa-key.priv rsa rawdecrypt 6354905961171348600\n\n999'
+    '$ poetry run transcrypto -p rsa-key.priv rsa rawdecrypt 6354905961171348600\n\n'
+    '999'
   ),
 )
 @base.CLIErrorGuard
@@ -1334,8 +1313,8 @@ def RSARawDecrypt(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  ciphertext_i = _ParseInt(ciphertext, min_value=1)
-  key_path = _RequireKeyPath(config, 'rsa')
+  ciphertext_i: int = _ParseInt(ciphertext, min_value=1)
+  key_path: str = _RequireKeyPath(config, 'rsa')
   rsa_priv: rsa.RSAPrivateKey = _LoadObj(key_path, config.protect or None, rsa.RSAPrivateKey)
   config.console.print(rsa_priv.RawDecrypt(ciphertext_i))
 
@@ -1356,8 +1335,8 @@ def RSARawSign(  # documentation is help/epilog/args # noqa: D103
   message: str = typer.Argument(..., help='Integer message to sign, 1≤`message`<*modulus*'),
 ) -> None:
   config: TransConfig = ctx.obj
-  message_i = _ParseInt(message, min_value=1)
-  key_path = _RequireKeyPath(config, 'rsa')
+  message_i: int = _ParseInt(message, min_value=1)
+  key_path: str = _RequireKeyPath(config, 'rsa')
   rsa_priv: rsa.RSAPrivateKey = _LoadObj(key_path, config.protect or None, rsa.RSAPrivateKey)
   config.console.print(rsa_priv.RawSign(message_i))
 
@@ -1388,14 +1367,15 @@ def RSARawVerify(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  message_i = _ParseInt(message, min_value=1)
-  signature_i = _ParseInt(signature, min_value=1)
-  key_path = _RequireKeyPath(config, 'rsa')
+  message_i: int = _ParseInt(message, min_value=1)
+  signature_i: int = _ParseInt(signature, min_value=1)
+  key_path: str = _RequireKeyPath(config, 'rsa')
   rsa_pub: rsa.RSAPublicKey = rsa.RSAPublicKey.Copy(
     _LoadObj(key_path, config.protect or None, rsa.RSAPublicKey)
   )
   config.console.print(
-    'RSA signature: ' + ('OK' if rsa_pub.RawVerify(message_i, signature_i) else 'INVALID')
+    'RSA signature: '
+    + ('[green]OK[/]' if rsa_pub.RawVerify(message_i, signature_i) else '[red]INVALID[/]')
   )
 
 
@@ -1421,13 +1401,12 @@ def RSAEncrypt(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  in_format, out_format = config.input_format, config.output_format
-  key_path = _RequireKeyPath(config, 'rsa')
+  key_path: str = _RequireKeyPath(config, 'rsa')
   rsa_pub: rsa.RSAPublicKey = _LoadObj(key_path, config.protect or None, rsa.RSAPublicKey)
-  aad_bytes: bytes | None = _BytesFromText(aad, in_format) if aad else None
-  pt: bytes = _BytesFromText(plaintext, in_format)
+  aad_bytes: bytes | None = _BytesFromText(aad, config.input_format) if aad else None
+  pt: bytes = _BytesFromText(plaintext, config.input_format)
   ct: bytes = rsa_pub.Encrypt(pt, associated_data=aad_bytes)
-  config.console.print(_BytesToText(ct, out_format))
+  config.console.print(_BytesToText(ct, config.output_format))
 
 
 @rsa_app.command(
@@ -1453,21 +1432,21 @@ def RSADecrypt(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  in_format, out_format = config.input_format, config.output_format
-  key_path = _RequireKeyPath(config, 'rsa')
+  key_path: str = _RequireKeyPath(config, 'rsa')
   rsa_priv: rsa.RSAPrivateKey = _LoadObj(key_path, config.protect or None, rsa.RSAPrivateKey)
-  aad_bytes: bytes | None = _BytesFromText(aad, in_format) if aad else None
-  ct: bytes = _BytesFromText(ciphertext, in_format)
+  aad_bytes: bytes | None = _BytesFromText(aad, config.input_format) if aad else None
+  ct: bytes = _BytesFromText(ciphertext, config.input_format)
   pt: bytes = rsa_priv.Decrypt(ct, associated_data=aad_bytes)
-  config.console.print(_BytesToText(pt, out_format))
+  config.console.print(_BytesToText(pt, config.output_format))
 
 
 @rsa_app.command(
   'sign',
   help='Sign `message` with private key.',
   epilog=(
-    'Example:\n\n\n\n$ poetry run transcrypto '
-    '--bin --out-b64 -p rsa-key.priv rsa sign "xyz"\n\n91TS7gC6LORiL…6RD23Aejsfxlw=='  # cspell:disable-line
+    'Example:\n\n\n\n'
+    '$ poetry run transcrypto --bin --out-b64 -p rsa-key.priv rsa sign "xyz"\n\n'
+    '91TS7gC6LORiL…6RD23Aejsfxlw=='  # cspell:disable-line
   ),
 )
 @base.CLIErrorGuard
@@ -1483,13 +1462,12 @@ def RSASign(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  in_format, out_format = config.input_format, config.output_format
-  key_path = _RequireKeyPath(config, 'rsa')
+  key_path: str = _RequireKeyPath(config, 'rsa')
   rsa_priv: rsa.RSAPrivateKey = _LoadObj(key_path, config.protect or None, rsa.RSAPrivateKey)
-  aad_bytes: bytes | None = _BytesFromText(aad, in_format) if aad else None
-  pt: bytes = _BytesFromText(message, in_format)
+  aad_bytes: bytes | None = _BytesFromText(aad, config.input_format) if aad else None
+  pt: bytes = _BytesFromText(message, config.input_format)
   sig: bytes = rsa_priv.Sign(pt, associated_data=aad_bytes)
-  config.console.print(_BytesToText(sig, out_format))
+  config.console.print(_BytesToText(sig, config.output_format))
 
 
 @rsa_app.command(
@@ -1519,14 +1497,14 @@ def RSAVerify(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  in_format = config.input_format
-  key_path = _RequireKeyPath(config, 'rsa')
+  key_path: str = _RequireKeyPath(config, 'rsa')
   rsa_pub: rsa.RSAPublicKey = _LoadObj(key_path, config.protect or None, rsa.RSAPublicKey)
-  aad_bytes: bytes | None = _BytesFromText(aad, in_format) if aad else None
-  pt: bytes = _BytesFromText(message, in_format)
-  sig: bytes = _BytesFromText(signature, in_format)
+  aad_bytes: bytes | None = _BytesFromText(aad, config.input_format) if aad else None
+  pt: bytes = _BytesFromText(message, config.input_format)
+  sig: bytes = _BytesFromText(signature, config.input_format)
   config.console.print(
-    'RSA signature: ' + ('OK' if rsa_pub.Verify(pt, sig, associated_data=aad_bytes) else 'INVALID')
+    'RSA signature: '
+    + ('[green]OK[/]' if rsa_pub.Verify(pt, sig, associated_data=aad_bytes) else '[red]INVALID[/]')
   )
 
 
@@ -1537,8 +1515,12 @@ eg_app = typer.Typer(
   no_args_is_help=True,
   help=(
     'El-Gamal asymmetric cryptography. '
-    'No measures are taken here to prevent timing attacks. '
-    'All methods require file key(s) as `-p`/`--key-path` (see provided examples).'
+    'All methods require file key(s) as `-p`/`--key-path` (see provided examples). '
+    'All non-int inputs are raw, or you can use `--input-format <hex|b64|bin>`. '
+    'Attention: if you provide `-a`/`--aad` (associated data, AAD), '
+    'you will need to provide the same AAD when decrypting/verifying and it is NOT included '
+    'in the `ciphertext`/CT or `signature` returned by these methods! '
+    'No measures are taken here to prevent timing attacks.'
   ),
 )
 app.add_typer(eg_app, name='elgamal')
@@ -1550,12 +1532,12 @@ app.add_typer(eg_app, name='elgamal')
     'Generate a shared El-Gamal key with `bits` prime modulus size, which is the '
     'first step in key generation. '
     'The shared key can safely be used by any number of users to generate their '
-    'private/public key pairs (with the `new` command). The shared keys are "public". '
-    'Requires `-p`/`--key-path` to set the basename for output files.'
+    'private/public key pairs (with the `new` command). The shared keys are "public".'
   ),
   epilog=(
-    'Example:\n\n\n\n$ poetry run transcrypto '
-    '-p eg-key elgamal shared --bits 64  # NEVER use such a small key: example only!\n\n'
+    'Example:\n\n\n\n'
+    '$ poetry run transcrypto -p eg-key elgamal shared --bits 64  '
+    '# NEVER use such a small key: example only!\n\n'
     "El-Gamal shared key saved to 'eg-key.shared'"
   ),
 )
@@ -1564,14 +1546,15 @@ def ElGamalShared(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
   bits: int = typer.Option(
-    2048,
+    3332,
+    '-b',
     '--bits',
     min=16,
-    help='Prime modulus (`p`) size in bits; the default is a safe size',
+    help='Prime modulus (`p`) size in bits, ≥16; the default (3332) is a safe size',
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  base_path = _RequireKeyPath(config, 'elgamal')
+  base_path: str = _RequireKeyPath(config, 'elgamal')
   shared_eg: elgamal.ElGamalSharedPublicKey = elgamal.ElGamalSharedPublicKey.NewShared(bits)
   _SaveObj(shared_eg, base_path + '.shared', config.protect or None)
   config.console.print(f'El-Gamal shared key saved to {base_path + ".shared"!r}')
@@ -1581,14 +1564,15 @@ def ElGamalShared(  # documentation is help/epilog/args # noqa: D103
   'new',
   help='Generate an individual El-Gamal private/public key pair from a shared key.',
   epilog=(
-    'Example:\n\n\n\n$ poetry run transcrypto '
-    "-p eg-key elgamal new\n\nEl-Gamal private/public keys saved to 'eg-key.priv/.pub'"
+    'Example:\n\n\n\n'
+    '$ poetry run transcrypto -p eg-key elgamal new\n\n'
+    "El-Gamal private/public keys saved to 'eg-key.priv/.pub'"
   ),
 )
 @base.CLIErrorGuard
 def ElGamalNew(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
-  base_path = _RequireKeyPath(config, 'elgamal')
+  base_path: str = _RequireKeyPath(config, 'elgamal')
   shared_eg: elgamal.ElGamalSharedPublicKey = _LoadObj(
     base_path + '.shared', config.protect or None, elgamal.ElGamalSharedPublicKey
   )
@@ -1606,8 +1590,9 @@ def ElGamalNew(*, ctx: typer.Context) -> None:  # documentation is help/epilog/a
     '(BEWARE: no ECIES-style KEM/DEM padding or validation).'
   ),
   epilog=(
-    'Example:\n\n\n\n$ poetry run transcrypto '
-    '-p eg-key.pub elgamal rawencrypt 999\n\n2948854810728206041:15945988196340032688'
+    'Example:\n\n\n\n'
+    '$ poetry run transcrypto -p eg-key.pub elgamal rawencrypt 999\n\n'
+    '2948854810728206041:15945988196340032688'
   ),
 )
 @base.CLIErrorGuard
@@ -1617,11 +1602,13 @@ def ElGamalRawEncrypt(  # documentation is help/epilog/args # noqa: D103
   message: str = typer.Argument(..., help='Integer message to encrypt, 1≤`message`<*modulus*'),
 ) -> None:
   config: TransConfig = ctx.obj
-  message_i = _ParseInt(message, min_value=1)
-  key_path = _RequireKeyPath(config, 'elgamal')
+  message_i: int = _ParseInt(message, min_value=1)
+  key_path: str = _RequireKeyPath(config, 'elgamal')
   eg_pub: elgamal.ElGamalPublicKey = elgamal.ElGamalPublicKey.Copy(
     _LoadObj(key_path, config.protect or None, elgamal.ElGamalPublicKey)
   )
+  c1: int
+  c2: int
   c1, c2 = eg_pub.RawEncrypt(message_i)
   config.console.print(f'{c1}:{c2}')
 
@@ -1633,8 +1620,10 @@ def ElGamalRawEncrypt(  # documentation is help/epilog/args # noqa: D103
     '(BEWARE: no ECIES-style KEM/DEM padding or validation).'
   ),
   epilog=(
-    'Example:\n\n\n\n$ poetry run transcrypto '
-    '-p eg-key.priv elgamal rawdecrypt 2948854810728206041:15945988196340032688\n\n999'
+    'Example:\n\n\n\n'
+    '$ poetry run transcrypto -p eg-key.priv elgamal rawdecrypt '
+    '2948854810728206041:15945988196340032688\n\n'
+    '999'
   ),
 )
 @base.CLIErrorGuard
@@ -1649,8 +1638,8 @@ def ElGamalRawDecrypt(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  ciphertext_i = _ParseIntPairCLI(ciphertext)
-  key_path = _RequireKeyPath(config, 'elgamal')
+  ciphertext_i: tuple[int, int] = _ParseIntPairCLI(ciphertext)
+  key_path: str = _RequireKeyPath(config, 'elgamal')
   eg_priv: elgamal.ElGamalPrivateKey = _LoadObj(
     key_path, config.protect or None, elgamal.ElGamalPrivateKey
   )
@@ -1665,8 +1654,9 @@ def ElGamalRawDecrypt(  # documentation is help/epilog/args # noqa: D103
     'Output will 2 *integers* in a `s1:s2` format.'
   ),
   epilog=(
-    'Example:\n\n\n\n$ poetry run transcrypto '
-    '-p eg-key.priv elgamal rawsign 999\n\n4674885853217269088:14532144906178302633'
+    'Example:\n\n\n\n'
+    '$ poetry run transcrypto -p eg-key.priv elgamal rawsign 999\n\n'
+    '4674885853217269088:14532144906178302633'
   ),
 )
 @base.CLIErrorGuard
@@ -1676,11 +1666,13 @@ def ElGamalRawSign(  # documentation is help/epilog/args # noqa: D103
   message: str = typer.Argument(..., help='Integer message to sign, 1≤`message`<*modulus*'),
 ) -> None:
   config: TransConfig = ctx.obj
-  message_i = _ParseInt(message, min_value=1)
-  key_path = _RequireKeyPath(config, 'elgamal')
+  message_i: int = _ParseInt(message, min_value=1)
+  key_path: str = _RequireKeyPath(config, 'elgamal')
   eg_priv: elgamal.ElGamalPrivateKey = _LoadObj(
     key_path, config.protect or None, elgamal.ElGamalPrivateKey
   )
+  s1: int
+  s2: int
   s1, s2 = eg_priv.RawSign(message_i)
   config.console.print(f'{s1}:{s2}')
 
@@ -1717,14 +1709,15 @@ def ElGamalRawVerify(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  message_i = _ParseInt(message, min_value=1)
-  signature_i = _ParseIntPairCLI(signature)
-  key_path = _RequireKeyPath(config, 'elgamal')
+  message_i: int = _ParseInt(message, min_value=1)
+  signature_i: tuple[int, int] = _ParseIntPairCLI(signature)
+  key_path: str = _RequireKeyPath(config, 'elgamal')
   eg_pub: elgamal.ElGamalPublicKey = elgamal.ElGamalPublicKey.Copy(
     _LoadObj(key_path, config.protect or None, elgamal.ElGamalPublicKey)
   )
   config.console.print(
-    'El-Gamal signature: ' + ('OK' if eg_pub.RawVerify(message_i, signature_i) else 'INVALID')
+    'El-Gamal signature: '
+    + ('[green]OK[/]' if eg_pub.RawVerify(message_i, signature_i) else '[red]INVALID[/]')
   )
 
 
@@ -1732,8 +1725,8 @@ def ElGamalRawVerify(  # documentation is help/epilog/args # noqa: D103
   'encrypt',
   help='Encrypt `message` with public key.',
   epilog=(
-    'Example:\n\n\n\n$ poetry run transcrypto '
-    '--bin --out-b64 -p eg-key.pub elgamal encrypt "abcde" -a "xyz"\n\n'
+    'Example:\n\n\n\n'
+    '$ poetry run transcrypto --bin --out-b64 -p eg-key.pub elgamal encrypt "abcde" -a "xyz"\n\n'
     'CdFvoQ_IIPFPZLua…kqjhcUTspISxURg=='  # cspell:disable-line
   ),
 )
@@ -1750,24 +1743,24 @@ def ElGamalEncrypt(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  in_format, out_format = config.input_format, config.output_format
-  key_path = _RequireKeyPath(config, 'elgamal')
+  key_path: str = _RequireKeyPath(config, 'elgamal')
   eg_pub: elgamal.ElGamalPublicKey = _LoadObj(
     key_path, config.protect or None, elgamal.ElGamalPublicKey
   )
-  aad_bytes: bytes | None = _BytesFromText(aad, in_format) if aad else None
-  pt: bytes = _BytesFromText(plaintext, in_format)
+  aad_bytes: bytes | None = _BytesFromText(aad, config.input_format) if aad else None
+  pt: bytes = _BytesFromText(plaintext, config.input_format)
   ct: bytes = eg_pub.Encrypt(pt, associated_data=aad_bytes)
-  config.console.print(_BytesToText(ct, out_format))
+  config.console.print(_BytesToText(ct, config.output_format))
 
 
 @eg_app.command(
   'decrypt',
   help='Decrypt `ciphertext` with private key.',
   epilog=(
-    'Example:\n\n\n\n$ poetry run transcrypto '
-    '--b64 --out-bin -p eg-key.priv elgamal decrypt -a eHl6 -- '
-    'CdFvoQ_IIPFPZLua…kqjhcUTspISxURg==\n\nabcde'  # cspell:disable-line
+    'Example:\n\n\n\n'
+    '$ poetry run transcrypto --b64 --out-bin -p eg-key.priv elgamal decrypt -a eHl6 -- '
+    'CdFvoQ_IIPFPZLua…kqjhcUTspISxURg==\n\n'  # cspell:disable-line
+    'abcde'
   ),
 )
 @base.CLIErrorGuard
@@ -1783,23 +1776,23 @@ def ElGamalDecrypt(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  in_format, out_format = config.input_format, config.output_format
-  key_path = _RequireKeyPath(config, 'elgamal')
+  key_path: str = _RequireKeyPath(config, 'elgamal')
   eg_priv: elgamal.ElGamalPrivateKey = _LoadObj(
     key_path, config.protect or None, elgamal.ElGamalPrivateKey
   )
-  aad_bytes: bytes | None = _BytesFromText(aad, in_format) if aad else None
-  ct: bytes = _BytesFromText(ciphertext, in_format)
+  aad_bytes: bytes | None = _BytesFromText(aad, config.input_format) if aad else None
+  ct: bytes = _BytesFromText(ciphertext, config.input_format)
   pt: bytes = eg_priv.Decrypt(ct, associated_data=aad_bytes)
-  config.console.print(_BytesToText(pt, out_format))
+  config.console.print(_BytesToText(pt, config.output_format))
 
 
 @eg_app.command(
   'sign',
   help='Sign message with private key.',
   epilog=(
-    'Example:\n\n\n\n$ poetry run transcrypto '
-    '--bin --out-b64 -p eg-key.priv elgamal sign "xyz"\n\nXl4hlYK8SHVGw…0fCKJE1XVzA=='  # cspell:disable-line
+    'Example:\n\n\n\n'
+    '$ poetry run transcrypto --bin --out-b64 -p eg-key.priv elgamal sign "xyz"\n\n'
+    'Xl4hlYK8SHVGw…0fCKJE1XVzA=='  # cspell:disable-line
   ),
 )
 @base.CLIErrorGuard
@@ -1815,15 +1808,14 @@ def ElGamalSign(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  in_format, out_format = config.input_format, config.output_format
-  key_path = _RequireKeyPath(config, 'elgamal')
+  key_path: str = _RequireKeyPath(config, 'elgamal')
   eg_priv: elgamal.ElGamalPrivateKey = _LoadObj(
     key_path, config.protect or None, elgamal.ElGamalPrivateKey
   )
-  aad_bytes: bytes | None = _BytesFromText(aad, in_format) if aad else None
-  pt: bytes = _BytesFromText(message, in_format)
+  aad_bytes: bytes | None = _BytesFromText(aad, config.input_format) if aad else None
+  pt: bytes = _BytesFromText(message, config.input_format)
   sig: bytes = eg_priv.Sign(pt, associated_data=aad_bytes)
-  config.console.print(_BytesToText(sig, out_format))
+  config.console.print(_BytesToText(sig, config.output_format))
 
 
 @eg_app.command(
@@ -1853,17 +1845,16 @@ def ElGamalVerify(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  in_format = config.input_format
-  key_path = _RequireKeyPath(config, 'elgamal')
+  key_path: str = _RequireKeyPath(config, 'elgamal')
   eg_pub: elgamal.ElGamalPublicKey = _LoadObj(
     key_path, config.protect or None, elgamal.ElGamalPublicKey
   )
-  aad_bytes: bytes | None = _BytesFromText(aad, in_format) if aad else None
-  pt: bytes = _BytesFromText(message, in_format)
-  sig: bytes = _BytesFromText(signature, in_format)
+  aad_bytes: bytes | None = _BytesFromText(aad, config.input_format) if aad else None
+  pt: bytes = _BytesFromText(message, config.input_format)
+  sig: bytes = _BytesFromText(signature, config.input_format)
   config.console.print(
     'El-Gamal signature: '
-    + ('OK' if eg_pub.Verify(pt, sig, associated_data=aad_bytes) else 'INVALID')
+    + ('[green]OK[/]' if eg_pub.Verify(pt, sig, associated_data=aad_bytes) else '[red]INVALID[/]')
   )
 
 
@@ -1874,8 +1865,12 @@ dsa_app = typer.Typer(
   no_args_is_help=True,
   help=(
     'DSA (Digital Signature Algorithm) asymmetric signing/verifying. '
-    'No measures are taken here to prevent timing attacks. '
-    'All methods require file key(s) as `-p`/`--key-path` (see provided examples).'
+    'All methods require file key(s) as `-p`/`--key-path` (see provided examples). '
+    'All non-int inputs are raw, or you can use `--input-format <hex|b64|bin>`. '
+    'Attention: if you provide `-a`/`--aad` (associated data, AAD), '
+    'you will need to provide the same AAD when decrypting/verifying and it is NOT included '
+    'in the `signature` returned by these methods! '
+    'No measures are taken here to prevent timing attacks.'
   ),
 )
 app.add_typer(dsa_app, name='dsa')
@@ -1888,12 +1883,11 @@ app.add_typer(dsa_app, name='dsa')
     'the first step in key generation. `q-bits` should be larger than the secrets that '
     'will be protected and `p-bits` should be much larger than `q-bits` (e.g. 4096/544). '
     'The shared key can safely be used by any number of users to generate their '
-    'private/public key pairs (with the `new` command). The shared keys are "public". '
-    'Requires `-p`/`--key-path` to set the basename for output files.'
+    'private/public key pairs (with the `new` command). The shared keys are "public".'
   ),
   epilog=(
-    'Example:\n\n\n\n$ poetry run transcrypto '
-    '-p dsa-key dsa shared --p-bits 128 --q-bits 32  '
+    'Example:\n\n\n\n'
+    '$ poetry run transcrypto -p dsa-key dsa shared --p-bits 128 --q-bits 32  '
     '# NEVER use such a small key: example only!\n\n'
     "DSA shared key saved to 'dsa-key.shared'"
   ),
@@ -1903,23 +1897,25 @@ def DSAShared(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
   p_bits: int = typer.Option(
-    2048,
+    4096,
+    '-b',
     '--p-bits',
     min=16,
-    help='Prime modulus (`p`) size in bits; the default is a safe size',
+    help='Prime modulus (`p`) size in bits, ≥16; the default (4096) is a safe size',
   ),
   q_bits: int = typer.Option(
-    256,
+    544,
+    '-q',
     '--q-bits',
     min=8,
     help=(
-      'Prime modulus (`q`) size in bits; the default is a safe size ***IFF*** you '
+      'Prime modulus (`q`) size in bits, ≥8; the default (544) is a safe size ***IFF*** you '
       'are protecting symmetric keys or regular hashes'
     ),
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  base_path = _RequireKeyPath(config, 'dsa')
+  base_path: str = _RequireKeyPath(config, 'dsa')
   dsa_shared: dsa.DSASharedPublicKey = dsa.DSASharedPublicKey.NewShared(p_bits, q_bits)
   _SaveObj(dsa_shared, base_path + '.shared', config.protect or None)
   config.console.print(f'DSA shared key saved to {base_path + ".shared"!r}')
@@ -1929,14 +1925,15 @@ def DSAShared(  # documentation is help/epilog/args # noqa: D103
   'new',
   help='Generate an individual DSA private/public key pair from a shared key.',
   epilog=(
-    'Example:\n\n\n\n$ poetry run transcrypto '
-    "-p dsa-key dsa new\n\nDSA private/public keys saved to 'dsa-key.priv/.pub'"
+    'Example:\n\n\n\n'
+    '$ poetry run transcrypto -p dsa-key dsa new\n\n'
+    "DSA private/public keys saved to 'dsa-key.priv/.pub'"
   ),
 )
 @base.CLIErrorGuard
 def DSANew(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
-  base_path = _RequireKeyPath(config, 'dsa')
+  base_path: str = _RequireKeyPath(config, 'dsa')
   dsa_shared: dsa.DSASharedPublicKey = _LoadObj(
     base_path + '.shared', config.protect or None, dsa.DSASharedPublicKey
   )
@@ -1950,13 +1947,13 @@ def DSANew(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args 
 @dsa_app.command(
   'rawsign',
   help=(
-    'Raw sign *integer* message with private key '
-    '(BEWARE: no ECDSA/EdDSA padding or validation). '
+    'Raw sign *integer* message with private key (BEWARE: no ECDSA/EdDSA padding or validation). '
     'Output will 2 *integers* in a `s1:s2` format.'
   ),
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto -p dsa-key.priv dsa rawsign 999\n\n2395961484:3435572290'
+    '$ poetry run transcrypto -p dsa-key.priv dsa rawsign 999\n\n'
+    '2395961484:3435572290'
   ),
 )
 @base.CLIErrorGuard
@@ -1966,13 +1963,14 @@ def DSARawSign(  # documentation is help/epilog/args # noqa: D103
   message: str = typer.Argument(..., help='Integer message to sign, 1≤`message`<`q`'),
 ) -> None:
   config: TransConfig = ctx.obj
-  console: rich_console.Console = base.Console()
-  key_path = _RequireKeyPath(config, 'dsa')
+  key_path: str = _RequireKeyPath(config, 'dsa')
   dsa_priv: dsa.DSAPrivateKey = _LoadObj(key_path, config.protect or None, dsa.DSAPrivateKey)
-  message_i = _ParseInt(message, min_value=1)
-  m = message_i % dsa_priv.prime_seed
+  message_i: int = _ParseInt(message, min_value=1)
+  m: int = message_i % dsa_priv.prime_seed
+  s1: int
+  s2: int
   s1, s2 = dsa_priv.RawSign(m)
-  console.print(f'{s1}:{s2}')
+  config.console.print(f'{s1}:{s2}')
 
 
 @dsa_app.command(
@@ -2005,15 +2003,16 @@ def DSARawVerify(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  console: rich_console.Console = base.Console()
-  key_path = _RequireKeyPath(config, 'dsa')
+  key_path: str = _RequireKeyPath(config, 'dsa')
   dsa_pub: dsa.DSAPublicKey = dsa.DSAPublicKey.Copy(
     _LoadObj(key_path, config.protect or None, dsa.DSAPublicKey)
   )
-  message_i = _ParseInt(message, min_value=1)
-  signature_i = _ParseIntPairCLI(signature)
-  m = message_i % dsa_pub.prime_seed
-  console.print('DSA signature: ' + ('OK' if dsa_pub.RawVerify(m, signature_i) else 'INVALID'))
+  message_i: int = _ParseInt(message, min_value=1)
+  signature_i: tuple[int, int] = _ParseIntPairCLI(signature)
+  m: int = message_i % dsa_pub.prime_seed
+  config.console.print(
+    'DSA signature: ' + ('[green]OK[/]' if dsa_pub.RawVerify(m, signature_i) else '[red]INVALID[/]')
+  )
 
 
 @dsa_app.command(
@@ -2021,8 +2020,8 @@ def DSARawVerify(  # documentation is help/epilog/args # noqa: D103
   help='Sign message with private key.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto --bin --out-b64 -p dsa-key.priv dsa '
-    'sign "xyz"\n\nyq8InJVpViXh9…BD4par2XuA='
+    '$ poetry run transcrypto --bin --out-b64 -p dsa-key.priv dsa sign "xyz"\n\n'
+    'yq8InJVpViXh9…BD4par2XuA='
   ),
 )
 @base.CLIErrorGuard
@@ -2038,14 +2037,12 @@ def DSASign(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  in_format, out_format = config.input_format, config.output_format
-  console: rich_console.Console = base.Console()
-  key_path = _RequireKeyPath(config, 'dsa')
+  key_path: str = _RequireKeyPath(config, 'dsa')
   dsa_priv: dsa.DSAPrivateKey = _LoadObj(key_path, config.protect or None, dsa.DSAPrivateKey)
-  aad_bytes: bytes | None = _BytesFromText(aad, in_format) if aad else None
-  pt: bytes = _BytesFromText(message, in_format)
+  aad_bytes: bytes | None = _BytesFromText(aad, config.input_format) if aad else None
+  pt: bytes = _BytesFromText(message, config.input_format)
   sig: bytes = dsa_priv.Sign(pt, associated_data=aad_bytes)
-  console.print(_BytesToText(sig, out_format))
+  config.console.print(_BytesToText(sig, config.output_format))
 
 
 @dsa_app.command(
@@ -2073,15 +2070,14 @@ def DSAVerify(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  in_format = config.input_format
-  console: rich_console.Console = base.Console()
-  key_path = _RequireKeyPath(config, 'dsa')
+  key_path: str = _RequireKeyPath(config, 'dsa')
   dsa_pub: dsa.DSAPublicKey = _LoadObj(key_path, config.protect or None, dsa.DSAPublicKey)
-  aad_bytes: bytes | None = _BytesFromText(aad, in_format) if aad else None
-  pt: bytes = _BytesFromText(message, in_format)
-  sig: bytes = _BytesFromText(signature, in_format)
-  console.print(
-    'DSA signature: ' + ('OK' if dsa_pub.Verify(pt, sig, associated_data=aad_bytes) else 'INVALID')
+  aad_bytes: bytes | None = _BytesFromText(aad, config.input_format) if aad else None
+  pt: bytes = _BytesFromText(message, config.input_format)
+  sig: bytes = _BytesFromText(signature, config.input_format)
+  config.console.print(
+    'DSA signature: '
+    + ('[green]OK[/]' if dsa_pub.Verify(pt, sig, associated_data=aad_bytes) else '[red]INVALID[/]')
   )
 
 
@@ -2093,7 +2089,9 @@ bid_app = typer.Typer(
   help=(
     'Bidding on a `secret` so that you can cryptographically convince a neutral '
     'party that the `secret` that was committed to previously was not changed. '
-    'All methods require file key(s) as `-p`/`--key-path` (see provided examples).'
+    'All methods require file key(s) as `-p`/`--key-path` (see provided examples). '
+    'All non-int inputs are raw, or you can use `--input-format <hex|b64|bin>`. '
+    'No measures are taken here to prevent timing attacks.'
   ),
 )
 app.add_typer(bid_app, name='bid')
@@ -2101,13 +2099,10 @@ app.add_typer(bid_app, name='bid')
 
 @bid_app.command(
   'new',
-  help=(
-    'Generate the bid files for `secret`. '
-    'Requires `-p`/`--key-path` to set the basename for output files.'
-  ),
+  help=('Generate the bid files for `secret`.'),
   epilog=(
-    'Example:\n\n\n\n$ poetry run transcrypto '
-    '--bin -p my-bid bid new "tomorrow it will rain"\n\n'
+    'Example:\n\n\n\n'
+    '$ poetry run transcrypto --bin -p my-bid bid new "tomorrow it will rain"\n\n'
     "Bid private/public commitments saved to 'my-bid.priv/.pub'"
   ),
 )
@@ -2118,23 +2113,18 @@ def BidNew(  # documentation is help/epilog/args # noqa: D103
   secret: str = typer.Argument(..., help='Input data to bid to, the protected "secret"'),
 ) -> None:
   config: TransConfig = ctx.obj
-  in_format = config.input_format
-  console: rich_console.Console = base.Console()
-  base_path = _RequireKeyPath(config, 'bid')
-  secret_bytes: bytes = _BytesFromText(secret, in_format)
+  base_path: str = _RequireKeyPath(config, 'bid')
+  secret_bytes: bytes = _BytesFromText(secret, config.input_format)
   bid_priv: base.PrivateBid512 = base.PrivateBid512.New(secret_bytes)
   bid_pub: base.PublicBid512 = base.PublicBid512.Copy(bid_priv)
   _SaveObj(bid_priv, base_path + '.priv', config.protect or None)
   _SaveObj(bid_pub, base_path + '.pub', config.protect or None)
-  console.print(f'Bid private/public commitments saved to {base_path + ".priv/.pub"!r}')
+  config.console.print(f'Bid private/public commitments saved to {base_path + ".priv/.pub"!r}')
 
 
 @bid_app.command(
   'verify',
-  help=(
-    'Verify the bid files for correctness and reveal the `secret`. '
-    'Requires `-p`/`--key-path` to set the basename for output files.'
-  ),
+  help=('Verify the bid files for correctness and reveal the `secret`.'),
   epilog=(
     'Example:\n\n\n\n'
     '$ poetry run transcrypto --out-bin -p my-bid bid verify\n\n'
@@ -2146,9 +2136,7 @@ def BidNew(  # documentation is help/epilog/args # noqa: D103
 @base.CLIErrorGuard
 def BidVerify(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
-  out_format = config.output_format
-  console: rich_console.Console = base.Console()
-  base_path = _RequireKeyPath(config, 'bid')
+  base_path: str = _RequireKeyPath(config, 'bid')
   bid_priv: base.PrivateBid512 = _LoadObj(
     base_path + '.priv', config.protect or None, base.PrivateBid512
   )
@@ -2156,18 +2144,18 @@ def BidVerify(*, ctx: typer.Context) -> None:  # documentation is help/epilog/ar
     base_path + '.pub', config.protect or None, base.PublicBid512
   )
   bid_pub_expect: base.PublicBid512 = base.PublicBid512.Copy(bid_priv)
-  console.print(
+  config.console.print(
     'Bid commitment: '
     + (
-      'OK'
+      '[green]OK[/]'
       if (
         bid_pub.VerifyBid(bid_priv.private_key, bid_priv.secret_bid) and bid_pub == bid_pub_expect
       )
-      else 'INVALID'
+      else '[red]INVALID[/]'
     )
   )
-  console.print('Bid secret:')
-  console.print(_BytesToText(bid_priv.secret_bid, out_format))
+  config.console.print('Bid secret:')
+  config.console.print(_BytesToText(bid_priv.secret_bid, config.output_format))
 
 
 # ================================== "SSS" COMMAND =================================================
@@ -2177,8 +2165,9 @@ sss_app = typer.Typer(
   no_args_is_help=True,
   help=(
     'SSS (Shamir Shared Secret) secret sharing crypto scheme. '
-    'No measures are taken here to prevent timing attacks. '
-    'All methods require file key(s) as `-p`/`--key-path` (see provided examples).'
+    'All methods require file key(s) as `-p`/`--key-path` (see provided examples). '
+    'All non-int inputs are raw, or you can use `--input-format <hex|b64|bin>`. '
+    'No measures are taken here to prevent timing attacks.'
   ),
 )
 app.add_typer(sss_app, name='sss')
@@ -2189,12 +2178,12 @@ app.add_typer(sss_app, name='sss')
   help=(
     'Generate the private keys with `bits` prime modulus size and so that at least a '
     '`minimum` number of shares are needed to recover the secret. '
-    'This key will be used to generate the shares later (with the `shares` command). '
-    'Requires `-p`/`--key-path` to set the basename for output files.'
+    'This key will be used to generate the shares later (with the `shares` command).'
   ),
   epilog=(
-    'Example:\n\n\n\n$ poetry run transcrypto '
-    '-p sss-key sss new 3 --bits 64  # NEVER use such a small key: example only!\n\n'
+    'Example:\n\n\n\n'
+    '$ poetry run transcrypto -p sss-key sss new 3 --bits 64  '
+    '# NEVER use such a small key: example only!\n\n'
     "SSS private/public keys saved to 'sss-key.priv/.pub'"
   ),
 )
@@ -2207,23 +2196,23 @@ def SSSNew(  # documentation is help/epilog/args # noqa: D103
   ),
   bits: int = typer.Option(
     1024,
+    '-b',
     '--bits',
     min=16,
     help=(
-      'Prime modulus (`p`) size in bits; the default is a safe size ***IFF*** you '
+      'Prime modulus (`p`) size in bits, ≥16; the default (1024) is a safe size ***IFF*** you '
       'are protecting symmetric keys; the number of bits should be comfortably larger '
       'than the size of the secret you want to protect with this scheme'
     ),
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  console: rich_console.Console = base.Console()
-  base_path = _RequireKeyPath(config, 'sss')
+  base_path: str = _RequireKeyPath(config, 'sss')
   sss_priv: sss.ShamirSharedSecretPrivate = sss.ShamirSharedSecretPrivate.New(minimum, bits)
   sss_pub: sss.ShamirSharedSecretPublic = sss.ShamirSharedSecretPublic.Copy(sss_priv)
   _SaveObj(sss_priv, base_path + '.priv', config.protect or None)
   _SaveObj(sss_pub, base_path + '.pub', config.protect or None)
-  console.print(f'SSS private/public keys saved to {base_path + ".priv/.pub"!r}')
+  config.console.print(f'SSS private/public keys saved to {base_path + ".priv/.pub"!r}')
 
 
 @sss_app.command(
@@ -2233,11 +2222,10 @@ def SSSNew(  # documentation is help/epilog/args # noqa: D103
     '(BEWARE: no modern message wrapping, padding or validation).'
   ),
   epilog=(
-    'Example:\n\n\n\n$ poetry run transcrypto '
-    '-p sss-key sss rawshares 999 5\n\n'
+    'Example:\n\n\n\n'
+    '$ poetry run transcrypto -p sss-key sss rawshares 999 5\n\n'
     "SSS 5 individual (private) shares saved to 'sss-key.share.1…5'\n\n"
-    '$ rm sss-key.share.2 sss-key.share.4  '
-    '# this is to simulate only having shares 1,3,5'
+    '$ rm sss-key.share.2 sss-key.share.4  # this is to simulate only having shares 1,3,5'
   ),
 )
 @base.CLIErrorGuard
@@ -2255,15 +2243,14 @@ def SSSRawShares(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  console: rich_console.Console = base.Console()
-  base_path = _RequireKeyPath(config, 'sss')
+  base_path: str = _RequireKeyPath(config, 'sss')
   sss_priv: sss.ShamirSharedSecretPrivate = _LoadObj(
     base_path + '.priv', config.protect or None, sss.ShamirSharedSecretPrivate
   )
-  secret_i = _ParseInt(secret, min_value=1)
+  secret_i: int = _ParseInt(secret, min_value=1)
   for i, share in enumerate(sss_priv.RawShares(secret_i, max_shares=count)):
     _SaveObj(share, f'{base_path}.share.{i + 1}', config.protect or None)
-  console.print(
+  config.console.print(
     f'SSS {count} individual (private) shares saved to {base_path + ".share.1…" + str(count)!r}'
   )
 
@@ -2275,30 +2262,28 @@ def SSSRawShares(  # documentation is help/epilog/args # noqa: D103
     'that were found (BEWARE: no modern message wrapping, padding or validation).'
   ),
   epilog=(
-    'Example:\n\n\n\n$ poetry run transcrypto '
-    '-p sss-key sss rawrecover\n\n'
+    'Example:\n\n\n\n'
+    '$ poetry run transcrypto -p sss-key sss rawrecover\n\n'
     "Loaded SSS share: 'sss-key.share.3'\n\n"
     "Loaded SSS share: 'sss-key.share.5'\n\n"
-    "Loaded SSS share: 'sss-key.share.1'  "
-    '# using only 3 shares: number 2/4 are missing\n\n'
-    'Secret:\n\n999'
+    "Loaded SSS share: 'sss-key.share.1'  # using only 3 shares: number 2/4 are missing\n\n"
+    'Secret:\n\n'
+    '999'
   ),
 )
 @base.CLIErrorGuard
 def SSSRawRecover(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
-  console: rich_console.Console = base.Console()
-  base_path = _RequireKeyPath(config, 'sss')
+  base_path: str = _RequireKeyPath(config, 'sss')
   sss_pub: sss.ShamirSharedSecretPublic = _LoadObj(
     base_path + '.pub', config.protect or None, sss.ShamirSharedSecretPublic
   )
   subset: list[sss.ShamirSharePrivate] = []
   for fname in glob.glob(base_path + '.share.*'):  # noqa: PTH207
-    share = _LoadObj(fname, config.protect or None, sss.ShamirSharePrivate)
-    subset.append(share)
-    console.print(f'Loaded SSS share: {fname!r}')
-  console.print('Secret:')
-  console.print(sss_pub.RawRecoverSecret(subset))
+    subset.append(_LoadObj(fname, config.protect or None, sss.ShamirSharePrivate))
+    config.console.print(f'Loaded SSS share: {fname!r}')
+  config.console.print('Secret:')
+  config.console.print(sss_pub.RawRecoverSecret(subset))
 
 
 @sss_app.command(
@@ -2326,15 +2311,14 @@ def SSSRawVerify(  # documentation is help/epilog/args # noqa: D103
   secret: str = typer.Argument(..., help='Integer secret used to generate the shares, ≥ 1'),
 ) -> None:
   config: TransConfig = ctx.obj
-  console: rich_console.Console = base.Console()
-  base_path = _RequireKeyPath(config, 'sss')
+  base_path: str = _RequireKeyPath(config, 'sss')
   sss_priv: sss.ShamirSharedSecretPrivate = _LoadObj(
     base_path + '.priv', config.protect or None, sss.ShamirSharedSecretPrivate
   )
-  secret_i = _ParseInt(secret, min_value=1)
+  secret_i: int = _ParseInt(secret, min_value=1)
   for fname in glob.glob(base_path + '.share.*'):  # noqa: PTH207
-    share = _LoadObj(fname, config.protect or None, sss.ShamirSharePrivate)
-    console.print(
+    share: sss.ShamirSharePrivate = _LoadObj(fname, config.protect or None, sss.ShamirSharePrivate)
+    config.console.print(
       f'SSS share {fname!r} verification: '
       f'{"OK" if sss_priv.RawVerifyShare(secret_i, share) else "INVALID"}'
     )
@@ -2344,11 +2328,10 @@ def SSSRawVerify(  # documentation is help/epilog/args # noqa: D103
   'shares',
   help='Shares: Issue `count` private shares for a `secret`.',
   epilog=(
-    'Example:\n\n\n\n$ poetry run transcrypto '
-    '--bin -p sss-key sss shares "abcde" 5\n\n'
+    'Example:\n\n\n\n'
+    '$ poetry run transcrypto --bin -p sss-key sss shares "abcde" 5\n\n'
     "SSS 5 individual (private) shares saved to 'sss-key.share.1…5'\n\n"
-    '$ rm sss-key.share.2 sss-key.share.4  '
-    '# this is to simulate only having shares 1,3,5'
+    '$ rm sss-key.share.2 sss-key.share.4  # this is to simulate only having shares 1,3,5'
   ),
 )
 @base.CLIErrorGuard
@@ -2365,16 +2348,14 @@ def SSSShares(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  in_format = config.input_format
-  console: rich_console.Console = base.Console()
-  base_path = _RequireKeyPath(config, 'sss')
+  base_path: str = _RequireKeyPath(config, 'sss')
   sss_priv: sss.ShamirSharedSecretPrivate = _LoadObj(
     base_path + '.priv', config.protect or None, sss.ShamirSharedSecretPrivate
   )
-  pt: bytes = _BytesFromText(secret, in_format)
+  pt: bytes = _BytesFromText(secret, config.input_format)
   for i, data_share in enumerate(sss_priv.MakeDataShares(pt, count)):
     _SaveObj(data_share, f'{base_path}.share.{i + 1}', config.protect or None)
-  console.print(
+  config.console.print(
     f'SSS {count} individual (private) shares saved to {base_path + ".share.1…" + str(count)!r}'
   )
 
@@ -2383,34 +2364,32 @@ def SSSShares(  # documentation is help/epilog/args # noqa: D103
   'recover',
   help='Recover secret from shares; will use any available shares that were found.',
   epilog=(
-    'Example:\n\n\n\n$ poetry run transcrypto '
-    '--out-bin -p sss-key sss recover\n\n'
+    'Example:\n\n\n\n'
+    '$ poetry run transcrypto --out-bin -p sss-key sss recover\n\n'
     "Loaded SSS share: 'sss-key.share.3'\n\n"
     "Loaded SSS share: 'sss-key.share.5'\n\n"
-    "Loaded SSS share: 'sss-key.share.1'  "
-    '# using only 3 shares: number 2/4 are missing\n\n'
-    'Secret:\n\nabcde'
+    "Loaded SSS share: 'sss-key.share.1'  # using only 3 shares: number 2/4 are missing\n\n"
+    'Secret:\n\n'
+    'abcde'
   ),
 )
 @base.CLIErrorGuard
 def SSSRecover(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
-  out_format = config.output_format
-  console: rich_console.Console = base.Console()
-  base_path = _RequireKeyPath(config, 'sss')
+  base_path: str = _RequireKeyPath(config, 'sss')
   subset: list[sss.ShamirSharePrivate] = []
   data_share: sss.ShamirShareData | None = None
   for fname in glob.glob(base_path + '.share.*'):  # noqa: PTH207
-    share = _LoadObj(fname, config.protect or None, sss.ShamirSharePrivate)
+    share: sss.ShamirSharePrivate = _LoadObj(fname, config.protect or None, sss.ShamirSharePrivate)
     subset.append(share)
     if isinstance(share, sss.ShamirShareData):
       data_share = share
-    console.print(f'Loaded SSS share: {fname!r}')
+    config.console.print(f'Loaded SSS share: {fname!r}')
   if data_share is None:
     raise base.InputError('no data share found among the available shares')
-  pt = data_share.RecoverData(subset)
-  console.print('Secret:')
-  console.print(_BytesToText(pt, out_format))
+  pt: bytes = data_share.RecoverData(subset)
+  config.console.print('Secret:')
+  config.console.print(_BytesToText(pt, config.output_format))
 
 
 # ================================ "MARKDOWN" COMMAND ==============================================
@@ -2424,6 +2403,6 @@ def SSSRecover(*, ctx: typer.Context) -> None:  # documentation is help/epilog/a
   ),
 )
 @base.CLIErrorGuard
-def Markdown() -> None:  # documentation is help/epilog/args # noqa: D103
-  console: rich_console.Console = base.Console()
-  console.print(base.GenerateTyperHelpMarkdown(app, prog_name='transcrypto'))
+def Markdown(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+  config: TransConfig = ctx.obj
+  config.console.print(base.GenerateTyperHelpMarkdown(app, prog_name='transcrypto'))

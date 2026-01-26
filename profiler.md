@@ -27,9 +27,9 @@ Usage: profiler [OPTIONS] COMMAND [ARGS]...
 │ --help                                                               Show this message and exit.                                                        │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ primes     Measure regular prime generation.                                                                                                            │
-│ dsa        Measure DSA prime generation.                                                                                                                │
-│ markdown   Emit Markdown docs for the CLI (see README.md section "Creating a New Version").                                                             │
+│ primes    Measure regular prime generation.                                                                                                             │
+│ dsa       Measure DSA prime generation.                                                                                                                 │
+│ markdown  Emit Markdown docs for the CLI (see README.md section "Creating a New Version").                                                              │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
                                                                                                                                                            
  Examples:                                                                                                                                                 

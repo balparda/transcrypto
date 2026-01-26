@@ -107,14 +107,17 @@ def test_LoadObj_wrong_type_raises(tmp_path: pathlib.Path) -> None:
     (['mod', 'inv', '0x3', '11'], '4'),  # 3^-1 mod 11 = 4
     (['mod', 'inv', '3', '9'], '<<INVALID>> no modular inverse exists (ModularDivideError)'),
     (['mod', 'div', '0o12', '4', '13'], '9'),  # z*4 ≡ 10 (mod 13) → z = 9
-    (['mod', 'div', '4', '0', '13'], '<<INVALID>> no modular inverse exists (ModularDivideError)'),
+    (
+      ['mod', 'div', '4', '0', '13'],
+      '<<INVALID>> divide-by-zero or not invertible (ModularDivideError)',
+    ),
     (['mod', 'exp', '3', '20', '97'], '91'),  # 3^20 mod 97 = 91 (precomputed)
     (['mod', 'poly', '127', '19937', '10', '30', '20', '12', '31'], '12928'),
     (['mod', 'lagrange', '9', '5', '1:1', '3:3'], '4'),
     (['mod', 'crt', '0b10', '3', '3', '5'], '8'),
     (
       ['mod', 'crt', '2', '3', '3', '0xf'],
-      '<<INVALID>> moduli m1/m2 not co-prime (ModularDivideError)',
+      '<<INVALID>> moduli `m1`/`m2` not co-prime (ModularDivideError)',
     ),
     # --- prime generation (deterministic with -c) ---
     (
@@ -127,7 +130,7 @@ def test_LoadObj_wrong_type_raises(tmp_path: pathlib.Path) -> None:
             23""").strip(),
     ),
     (
-      ['mersenne', '--min-k', '2', '--cutoff-k', '13'],
+      ['mersenne', '--min-k', '2', '--max-k', '13'],
       textwrap.dedent("""\
             k=2  M=3  perfect=6
             k=3  M=7  perfect=28
@@ -205,12 +208,12 @@ def test_cli_version_exits_zero() -> None:
       "Invalid value for '-c' / '--count': 0 is not in the range x>=1",
     ),
     (
-      ['mersenne', '--min-k', '0', '--cutoff-k', '5'],
+      ['mersenne', '--min-k', '0', '--max-k', '5'],
       "Invalid value for '-k' / '--min-k': 0 is not in the range x>=1",
     ),
     (
-      ['mersenne', '--min-k', '2', '--cutoff-k', '0'],
-      "Invalid value for '-C' / '--cutoff-k': 0 is not in the range x>=1",
+      ['mersenne', '--min-k', '2', '--max-k', '0'],
+      "Invalid value for '-m' / '--max-k': 0 is not in the range x>=1",
     ),
   ],
 )
@@ -274,51 +277,38 @@ def test_cli_gcd_both_zero_prints_error() -> None:
   """Cover GCD CLI error branch when both inputs are zero."""
   res: click_testing.Result = _CallCLI(['gcd', '0', '0'])
   assert res.exit_code == 0
-  assert "a and b can't both be zero" in res.output
+  assert "`a` and `b` can't both be zero" in res.output
 
 
 def test_cli_xgcd_both_zero_prints_error() -> None:
   """Cover XGCD CLI error branch when both inputs are zero."""
   res: click_testing.Result = _CallCLI(['xgcd', '0', '0'])
   assert res.exit_code == 0
-  assert "a and b can't both be zero" in res.output
+  assert "`a` and `b` can't both be zero" in res.output
 
 
 def test_cli_random_int_invalid_range_prints_error() -> None:
   """Cover RandomInt CLI error branch when max <= min."""
   res: click_testing.Result = _CallCLI(['random', 'int', '9', '5'])
   assert res.exit_code == 0
-  assert 'max must be > min' in res.output
+  assert 'int must be ≥ 10, got 5' in res.output
 
 
 def test_cli_internal_parse_helpers_error_branches() -> None:
   """Cover small helper branches that are hard to hit via CLI parsing."""
-  # _ParseIntCLI: empty string and invalid literal.
-  with pytest.raises(base.InputError, match=r'invalid integer'):
-    transcrypto._ParseIntCLI('   ')
-  with pytest.raises(base.InputError, match=r'invalid integer'):
-    transcrypto._ParseIntCLI('not_an_int')
-
-  # _RequireIntRange: min/max validation branches.
-  with pytest.raises(base.InputError, match=r'must be ≥'):
-    transcrypto._RequireIntRange(0, what='n', min_value=1)
-  with pytest.raises(base.InputError, match=r'must be ≤'):
-    transcrypto._RequireIntRange(10, what='n', max_value=9)
+  # _ParseInt: empty string and invalid literal.
+  with pytest.raises(base.InputError, match=r'invalid int'):
+    transcrypto._ParseInt('   ')
+  with pytest.raises(base.InputError, match=r'invalid int'):
+    transcrypto._ParseInt('not_an_int')
 
   # _ParseIntPairCLI: invalid pair formatting.
-  with pytest.raises(base.InputError, match=r'invalid pair'):
+  with pytest.raises(base.InputError, match=r'invalid int\(s\)'):
     transcrypto._ParseIntPairCLI('1')
-  with pytest.raises(base.InputError, match=r'expected a:b'):
+  with pytest.raises(base.InputError, match=r'invalid int'):
     transcrypto._ParseIntPairCLI('1:')
-  with pytest.raises(base.InputError, match=r'expected a:b'):
+  with pytest.raises(base.InputError, match=r'invalid int'):
     transcrypto._ParseIntPairCLI(':2')
-
-  # _RequireHexExactLen: wrong length, non-hex, and success.
-  with pytest.raises(base.InputError, match=r'must be exactly'):
-    transcrypto._RequireHexExactLen('abc', length=4, what='token')
-  with pytest.raises(base.InputError, match=r'must be hexadecimal'):
-    transcrypto._RequireHexExactLen('zzzz', length=4, what='token')
-  assert transcrypto._RequireHexExactLen('a0B1', length=4, what='token') == 'a0B1'
 
 
 @pytest.mark.parametrize('bits', [11, 32, 64])
@@ -375,7 +365,7 @@ def test_aes_ecb_encrypthex_decrypthex_roundtrip() -> None:
   block_hex = '00112233445566778899aabbccddeeff'
   # Encrypt (hex → hex)
   res: click_testing.Result = _CallCLI(
-    ['--input-format', 'b64', 'aes', 'ecb', '-k', key_b64, 'encrypt', '--', block_hex]
+    ['--input-format', 'b64', 'aes', 'ecb', 'encrypt', '-k', key_b64, block_hex]
   )
   assert res.exit_code == 0
   assert re.fullmatch(r'[0-9a-f]{32}', block_hex)  # sanity of input
@@ -384,7 +374,7 @@ def test_aes_ecb_encrypthex_decrypthex_roundtrip() -> None:
   # Reset CLI singletons before calling CLI again in the same test
   base.ResetConsole()
   res2: click_testing.Result = _CallCLI(
-    ['--input-format', 'b64', 'aes', 'ecb', '-k', key_b64, 'decrypt', '--', _OneToken(res)]
+    ['--input-format', 'b64', 'aes', 'ecb', 'decrypt', '-k', key_b64, _OneToken(res)]
   )
   assert res2.exit_code == 0
   assert _OneToken(res2) == block_hex
@@ -532,17 +522,17 @@ def test_transcrypto_run_exits_zero(monkeypatch: pytest.MonkeyPatch) -> None:
   ('argv', 'needle'),
   [
     # AES key size validation branches.
-    (['--input-format', 'bin', 'aes', 'encrypt', 'abc', '-k', 'x'], 'invalid AES key size'),
-    (['--input-format', 'bin', 'aes', 'decrypt', 'abc', '-k', 'x'], 'invalid AES key size'),
+    (['--input-format', 'bin', 'aes', 'encrypt', '-k', 'x', 'abc'], 'invalid AES key size'),
+    (['--input-format', 'bin', 'aes', 'decrypt', '-k', 'x', 'abc'], 'invalid AES key size'),
     (
       [
         '--input-format',
         'bin',
         'aes',
         'ecb',
+        'encrypt',
         '-k',
         'x',
-        'encrypt',
         '00112233445566778899aabbccddeeff',
       ],
       'invalid AES key size',
@@ -553,9 +543,9 @@ def test_transcrypto_run_exits_zero(monkeypatch: pytest.MonkeyPatch) -> None:
         'bin',
         'aes',
         'ecb',
+        'decrypt',
         '-k',
         'x',
-        'decrypt',
         '00112233445566778899aabbccddeeff',
       ],
       'invalid AES key size',
@@ -1175,3 +1165,21 @@ def test_aes_ecb_encrypt_decrypt_with_key_path(tmp_path: pathlib.Path) -> None:
     ['-p', str(key_path), 'aes', 'ecb', 'decrypt', _OneToken(res)]
   )
   assert res2.exit_code == 0 and _OneToken(res2) == block_hex
+
+
+def test_aes_ecb_wrong_length_input() -> None:
+  """Cover AES-ECB input validation for wrong-length plaintext/ciphertext."""
+  key_b64 = base.BytesToEncoded(bytes(range(32)))
+  # Wrong-length plaintext
+  res: click_testing.Result = _CallCLI(
+    ['--input-format', 'b64', 'aes', 'ecb', 'encrypt', '-k', key_b64, 'abc']
+  )
+  assert res.exit_code == 0
+  assert 'must be exactly 32 hex chars' in res.output
+  # Wrong-length ciphertext
+  base.ResetConsole()
+  res2: click_testing.Result = _CallCLI(
+    ['--input-format', 'b64', 'aes', 'ecb', 'decrypt', '-k', key_b64, 'abc']
+  )
+  assert res2.exit_code == 0
+  assert 'must be exactly 32 hex chars' in res2.output

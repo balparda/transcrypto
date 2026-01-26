@@ -1620,7 +1620,19 @@ def test_transcrypto_markdown_command_executes(monkeypatch: pytest.MonkeyPatch) 
   c = rich_console.Console(file=buf, force_terminal=False, color_system=None, record=True)
   monkeypatch.setattr(base, 'Console', lambda: c)
   monkeypatch.setattr(base, 'GenerateTyperHelpMarkdown', lambda *_a, **_k: 'DOC')  # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
-  transcrypto.Markdown()
+  # Create a mock context object
+  cmd = click.Command('markdown', callback=lambda: None)
+  ctx = typer.Context(cmd, info_name='markdown')
+  ctx.obj = transcrypto.TransConfig(
+    console=c,
+    verbose=0,
+    color=None,
+    input_format=transcrypto.IOFormat.bin,
+    output_format=transcrypto.IOFormat.hex,
+    protect=None,
+    key_path=None,
+  )
+  transcrypto.Markdown(ctx=ctx)
   assert 'DOC' in c.export_text()
 
 

@@ -6,43 +6,54 @@
 ```text
 Usage: transcrypto [OPTIONS] COMMAND [ARGS]...                                                                                                            
                                                                                                                                                            
- TransCrypto CLI: cryptographic operations and key management.                                                                                             
+ transcrypto: CLI for number theory, hash, AES, RSA, El-Gamal, DSA, bidding, SSS, and more.                                                                
                                                                                                                                                            
 ╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ --version                                                        Show version and exit.                                                                 │
 │ --verbose             -v                INTEGER RANGE [0<=x<=3]  Verbosity (nothing=ERROR, -v=WARNING, -vv=INFO, -vvv=DEBUG).               │
 │ --color                   --no-color                             Force enable/disable colored output (respects NO_COLOR env var if not provided).       │
 │                                                                  Defaults to having colors.                                                             │
-│ --input-format        -i                            How to parse inputs: hex (default), b64, or bin.                         │
-│ --output-format       -o                            How to format outputs: hex (default), b64, or bin.                       │
+│ --input-format        -i                            How to format inputs: "hex" (default hexadecimal), "b64" (base64), or "bin" (binary);  │
+│                                                                  sometimes base64 will start with "-" and that can conflict with other flags, so use "  │
+│                                                                  -- " before positional arguments if needed.                                            │
+│                                                                                                                                           │
+│ --output-format       -o                            How to format outputs: "hex" (default hexadecimal), "b64" (base64), or "bin" (binary). │
+│                                                                                                                                           │
 │ --key-path            -p                PATH                     File path to serialized key object, if key is needed for operation                     │
-│ --protect                               TEXT                     Password to encrypt/decrypt key file if using the `-p`/`--key-path` option             │
+│ --protect             -x                TEXT                     Password to encrypt/decrypt key file if using the `-p`/`--key-path` option             │
 │ --install-completion                                             Install completion for the current shell.                                              │
 │ --show-completion                                                Show completion for the current shell, to copy it or customize the installation.       │
 │ --help                                                           Show this message and exit.                                                            │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ isprime    Primality test with safe defaults, useful for any integer size.                                                                              │
-│ primegen   Generate (stream) primes ≥ `start` (prints a limited `count` by default).                                                                    │
-│ mersenne   Generate (stream) Mersenne prime exponents `k`, also outputting `2^k-1` (the Mersenne prime, `M`) and `M×2^(k-1)` (the associated perfect    │
-│            number), starting at `min-k` and stopping once `k` > `cutoff-k`.                                                                             │
-│ gcd        Greatest Common Divisor (GCD) of integers `a` and `b`.                                                                                       │
-│ xgcd       Extended Greatest Common Divisor (x-GCD) of integers `a` and `b`, will return `(g, x, y)` where `a×x+b×y==g`.                                │
-│ markdown   Emit Markdown docs for the CLI (see README.md section "Creating a New Version").                                                             │
-│ random     Cryptographically secure randomness, from the OS CSPRNG.                                                                                     │
-│ mod        Modular arithmetic helpers.                                                                                                                  │
-│ hash       Cryptographic Hashing (SHA-256 / SHA-512 / file).                                                                                            │
-│ aes        AES-256 operations (GCM/ECB) and key derivation. No measures are taken here to prevent timing attacks.                                       │
-│ rsa        RSA (Rivest-Shamir-Adleman) asymmetric cryptography. No measures are taken here to prevent timing attacks. All methods require file key(s)   │
-│            as `-p`/`--key-path` (see provided examples).                                                                                                │
-│ elgamal    El-Gamal asymmetric cryptography. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` │
-│            (see provided examples).                                                                                                                     │
-│ dsa        DSA (Digital Signature Algorithm) asymmetric signing/verifying. No measures are taken here to prevent timing attacks. All methods require    │
-│            file key(s) as `-p`/`--key-path` (see provided examples).                                                                                    │
-│ bid        Bidding on a `secret` so that you can cryptographically convince a neutral party that the `secret` that was committed to previously was not  │
-│            changed. All methods require file key(s) as `-p`/`--key-path` (see provided examples).                                                       │
-│ sss        SSS (Shamir Shared Secret) secret sharing crypto scheme. No measures are taken here to prevent timing attacks. All methods require file      │
-│            key(s) as `-p`/`--key-path` (see provided examples).                                                                                         │
+│ isprime   Primality test with safe defaults, useful for any integer size.                                                                               │
+│ primegen  Generate (stream) primes ≥ `start` (prints a limited `count` by default).                                                                     │
+│ mersenne  Generate (stream) Mersenne prime exponents `k`, also outputting `2^k-1` (the Mersenne prime, `M`) and `M×2^(k-1)` (the associated perfect     │
+│           number), starting at `min-k` and stopping once `k` > `max-k`.                                                                                 │
+│ gcd       Greatest Common Divisor (GCD) of integers `a` and `b`.                                                                                        │
+│ xgcd      Extended Greatest Common Divisor (x-GCD) of integers `a` and `b`, will return `(g, x, y)` where `a×x+b×y==g`.                                 │
+│ markdown  Emit Markdown docs for the CLI (see README.md section "Creating a New Version").                                                              │
+│ random    Cryptographically secure randomness, from the OS CSPRNG.                                                                                      │
+│ mod       Modular arithmetic helpers.                                                                                                                   │
+│ hash      Cryptographic Hashing (SHA-256 / SHA-512 / file).                                                                                             │
+│ aes       AES-256 operations (GCM/ECB) and key derivation. No measures are taken here to prevent timing attacks.                                        │
+│ rsa       RSA (Rivest-Shamir-Adleman) asymmetric cryptography. All methods require file key(s) as `-p`/`--key-path` (see provided examples). All        │
+│           non-int inputs are raw, or you can use `--input-format <hex|b64|bin>`. Attention: if you provide `-a`/`--aad` (associated data, AAD), you     │
+│           will need to provide the same AAD when decrypting/verifying and it is NOT included in the `ciphertext`/CT or `signature` returned by these    │
+│           methods! No measures are taken here to prevent timing attacks.                                                                                │
+│ elgamal   El-Gamal asymmetric cryptography. All methods require file key(s) as `-p`/`--key-path` (see provided examples). All non-int inputs are raw,   │
+│           or you can use `--input-format <hex|b64|bin>`. Attention: if you provide `-a`/`--aad` (associated data, AAD), you will need to provide the    │
+│           same AAD when decrypting/verifying and it is NOT included in the `ciphertext`/CT or `signature` returned by these methods! No measures are    │
+│           taken here to prevent timing attacks.                                                                                                         │
+│ dsa       DSA (Digital Signature Algorithm) asymmetric signing/verifying. All methods require file key(s) as `-p`/`--key-path` (see provided examples). │
+│           All non-int inputs are raw, or you can use `--input-format <hex|b64|bin>`. Attention: if you provide `-a`/`--aad` (associated data, AAD), you │
+│           will need to provide the same AAD when decrypting/verifying and it is NOT included in the `signature` returned by these methods! No measures  │
+│           are taken here to prevent timing attacks.                                                                                                     │
+│ bid       Bidding on a `secret` so that you can cryptographically convince a neutral party that the `secret` that was committed to previously was not   │
+│           changed. All methods require file key(s) as `-p`/`--key-path` (see provided examples). All non-int inputs are raw, or you can use             │
+│           `--input-format <hex|b64|bin>`. No measures are taken here to prevent timing attacks.                                                         │
+│ sss       SSS (Shamir Shared Secret) secret sharing crypto scheme. All methods require file key(s) as `-p`/`--key-path` (see provided examples). All    │
+│           non-int inputs are raw, or you can use `--input-format <hex|b64|bin>`. No measures are taken here to prevent timing attacks.                  │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
                                                                                                                                                            
  Example:                                                                                                                                                  
@@ -77,8 +88,8 @@ Usage: transcrypto [OPTIONS] COMMAND [ARGS]...
  poetry run transcrypto --output-format b64 aes key "correct horse battery staple"                                                                         
  poetry run transcrypto -i b64 -o b64 aes encrypt -k "<b64key>" -- "secret"                                                                                
  poetry run transcrypto -i b64 -o b64 aes decrypt -k "<b64key>" -- "<ciphertext>"                                                                          
- poetry run transcrypto aes ecb -k "<b64key>" encrypt "<128bithexblock>"                                                                                   
- poetry run transcrypto aes ecb -k "<b64key>" decrypt "<128bithexblock>"                                                                                   
+ poetry run transcrypto aes ecb encrypt -k "<b64key>" "<128bithexblock>"                                                                                   
+ poetry run transcrypto aes ecb decrypt -k "<b64key>" "<128bithexblock>"                                                                                   
                                                                                                                                                            
  # --- RSA ---                                                                                                                                             
  poetry run transcrypto -p rsa-key rsa new --bits 2048                                                                                                     
@@ -138,15 +149,16 @@ Usage: transcrypto aes [OPTIONS] COMMAND [ARGS]...
 │ --help          Show this message and exit.                                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ key       Derive key from a password (PBKDF2-HMAC-SHA256) with custom expensive salt and iterations. Very good/safe for simple password-to-key but not  │
-│           for passwords databases (because of constant salt).                                                                                           │
-│ encrypt   AES-256-GCM: safely encrypt `plaintext` with `-k`/`--key` or with `-p`/`--key-path` keyfile. All inputs are raw, or you can use               │
-│           `--bin`/`--hex`/`--b64` flags. Attention: if you provide `-a`/`--aad` (associated data, AAD), you will need to provide the same AAD when      │
-│           decrypting and it is NOT included in the `ciphertext`/CT returned by this method!                                                             │
-│ decrypt   AES-256-GCM: safely decrypt `ciphertext` with `-k`/`--key` or with `-p`/`--key-path` keyfile. All inputs are raw, or you can use              │
-│           `--bin`/`--hex`/`--b64` flags. Attention: if you provided `-a`/`--aad` (associated data, AAD) during encryption, you will need to provide the │
-│           same AAD now!                                                                                                                                 │
-│ ecb       AES ECB mode subcommands.                                                                                                                     │
+│ key      Derive key from a password (PBKDF2-HMAC-SHA256) with custom expensive salt and iterations. Very good/safe for simple password-to-key but not   │
+│          for passwords databases (because of constant salt).                                                                                            │
+│ encrypt  AES-256-GCM: safely encrypt `plaintext` with `-k`/`--key` or with `-p`/`--key-path` keyfile. All inputs are raw, or you can use                │
+│          `--input-format <hex|b64|bin>`. Attention: if you provide `-a`/`--aad` (associated data, AAD), you will need to provide the same AAD when      │
+│          decrypting and it is NOT included in the `ciphertext`/CT returned by this method!                                                              │
+│ decrypt  AES-256-GCM: safely decrypt `ciphertext` with `-k`/`--key` or with `-p`/`--key-path` keyfile. All inputs are raw, or you can use               │
+│          `--input-format <hex|b64|bin>`. Attention: if you provided `-a`/`--aad` (associated data, AAD) during encryption, you will need to provide the │
+│          same AAD now!                                                                                                                                  │
+│ ecb      AES-256-ECB: encrypt/decrypt 128 bit (16 bytes) hexadecimal blocks. UNSAFE, except for specifically encrypting hash blocks which are very much │
+│          expected to look random. ECB mode will have the same output for the same input (no IV/nonce is used).                                          │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -155,8 +167,8 @@ Usage: transcrypto aes [OPTIONS] COMMAND [ARGS]...
 ```text
 Usage: transcrypto aes decrypt [OPTIONS] CIPHERTEXT                                                                                                       
                                                                                                                                                            
- AES-256-GCM: safely decrypt `ciphertext` with `-k`/`--key` or with `-p`/`--key-path` keyfile. All inputs are raw, or you can use `--bin`/`--hex`/`--b64`  
- flags. Attention: if you provided `-a`/`--aad` (associated data, AAD) during encryption, you will need to provide the same AAD now!                       
+ AES-256-GCM: safely decrypt `ciphertext` with `-k`/`--key` or with `-p`/`--key-path` keyfile. All inputs are raw, or you can use `--input-format          
+ <hex|b64|bin>`. Attention: if you provided `-a`/`--aad` (associated data, AAD) during encryption, you will need to provide the same AAD now!              
                                                                                                                                                            
 ╭─ Arguments ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ *    ciphertext      TEXT  Input data to decrypt (CT)                                                                                         │
@@ -182,17 +194,17 @@ Usage: transcrypto aes decrypt [OPTIONS] CIPHERTEXT
 ```text
 Usage: transcrypto aes ecb [OPTIONS] COMMAND [ARGS]...                                                                                                    
                                                                                                                                                            
- AES ECB mode subcommands.                                                                                                                                 
+ AES-256-ECB: encrypt/decrypt 128 bit (16 bytes) hexadecimal blocks. UNSAFE, except for specifically encrypting hash blocks which are very much expected   
+ to look random. ECB mode will have the same output for the same input (no IV/nonce is used).                                                              
                                                                                                                                                            
 ╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --key   -k      TEXT  Key if `-p`/`--key-path` wasn't used (32 bytes; raw, or you can use `--bin`/`--hex`/`--b64` flags)                                │
-│ --help                Show this message and exit.                                                                                                       │
+│ --help          Show this message and exit.                                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ encrypt   AES-256-ECB: encrypt 16-bytes hex `plaintext` with `-k`/`--key` or with `-p`/`--key-path` keyfile. UNSAFE, except for specifically encrypting │
-│           hash blocks.                                                                                                                                  │
-│ decrypt   AES-256-ECB: decrypt 16-bytes hex `ciphertext` with `-k`/`--key` or with `-p`/`--key-path` keyfile. UNSAFE, except for specifically           │
-│           encrypting hash blocks.                                                                                                                       │
+│ encrypt  AES-256-ECB: encrypt 16-bytes hex `plaintext` with `-k`/`--key` or with `-p`/`--key-path` keyfile. UNSAFE, except for specifically encrypting  │
+│          hash blocks.                                                                                                                                   │
+│ decrypt  AES-256-ECB: decrypt 16-bytes hex `ciphertext` with `-k`/`--key` or with `-p`/`--key-path` keyfile. UNSAFE, except for specifically encrypting │
+│          hash blocks.                                                                                                                                   │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -208,7 +220,8 @@ Usage: transcrypto aes ecb decrypt [OPTIONS] CIPHERTEXT
 │ *    ciphertext      TEXT  Ciphertext block as 32 hex chars (16-bytes)                                                                        │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                                                                                                             │
+│ --key   -k      TEXT  Key if `-p`/`--key-path` wasn't used (32 bytes; raw, or you can use `--input-format <hex|b64|bin>`)                               │
+│ --help                Show this message and exit.                                                                                                       │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
                                                                                                                                                            
  Example:                                                                                                                                                  
@@ -229,7 +242,8 @@ Usage: transcrypto aes ecb encrypt [OPTIONS] PLAINTEXT
 │ *    plaintext      TEXT  Plaintext block as 32 hex chars (16-bytes)                                                                          │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                                                                                                             │
+│ --key   -k      TEXT  Key if `-p`/`--key-path` wasn't used (32 bytes; raw, or you can use `--input-format <hex|b64|bin>`)                               │
+│ --help                Show this message and exit.                                                                                                       │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
                                                                                                                                                            
  Example:                                                                                                                                                  
@@ -243,9 +257,9 @@ Usage: transcrypto aes ecb encrypt [OPTIONS] PLAINTEXT
 ```text
 Usage: transcrypto aes encrypt [OPTIONS] PLAINTEXT                                                                                                        
                                                                                                                                                            
- AES-256-GCM: safely encrypt `plaintext` with `-k`/`--key` or with `-p`/`--key-path` keyfile. All inputs are raw, or you can use `--bin`/`--hex`/`--b64`   
- flags. Attention: if you provide `-a`/`--aad` (associated data, AAD), you will need to provide the same AAD when decrypting and it is NOT included in the 
- `ciphertext`/CT returned by this method!                                                                                                                  
+ AES-256-GCM: safely encrypt `plaintext` with `-k`/`--key` or with `-p`/`--key-path` keyfile. All inputs are raw, or you can use `--input-format           
+ <hex|b64|bin>`. Attention: if you provide `-a`/`--aad` (associated data, AAD), you will need to provide the same AAD when decrypting and it is NOT        
+ included in the `ciphertext`/CT returned by this method!                                                                                                  
                                                                                                                                                            
 ╭─ Arguments ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ *    plaintext      TEXT  Input data to encrypt (PT)                                                                                          │
@@ -293,14 +307,15 @@ Usage: transcrypto aes key [OPTIONS] PASSWORD
 Usage: transcrypto bid [OPTIONS] COMMAND [ARGS]...                                                                                                        
                                                                                                                                                            
  Bidding on a `secret` so that you can cryptographically convince a neutral party that the `secret` that was committed to previously was not changed. All  
- methods require file key(s) as `-p`/`--key-path` (see provided examples).                                                                                 
+ methods require file key(s) as `-p`/`--key-path` (see provided examples). All non-int inputs are raw, or you can use `--input-format <hex|b64|bin>`. No   
+ measures are taken here to prevent timing attacks.                                                                                                        
                                                                                                                                                            
 ╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ --help          Show this message and exit.                                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ new      Generate the bid files for `secret`. Requires `-p`/`--key-path` to set the basename for output files.                                          │
-│ verify   Verify the bid files for correctness and reveal the `secret`. Requires `-p`/`--key-path` to set the basename for output files.                 │
+│ new     Generate the bid files for `secret`.                                                                                                            │
+│ verify  Verify the bid files for correctness and reveal the `secret`.                                                                                   │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -309,7 +324,7 @@ Usage: transcrypto bid [OPTIONS] COMMAND [ARGS]...
 ```text
 Usage: transcrypto bid new [OPTIONS] SECRET                                                                                                               
                                                                                                                                                            
- Generate the bid files for `secret`. Requires `-p`/`--key-path` to set the basename for output files.                                                     
+ Generate the bid files for `secret`.                                                                                                                      
                                                                                                                                                            
 ╭─ Arguments ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ *    secret      TEXT  Input data to bid to, the protected "secret"                                                                           │
@@ -329,7 +344,7 @@ Usage: transcrypto bid new [OPTIONS] SECRET
 ```text
 Usage: transcrypto bid verify [OPTIONS]                                                                                                                   
                                                                                                                                                            
- Verify the bid files for correctness and reveal the `secret`. Requires `-p`/`--key-path` to set the basename for output files.                            
+ Verify the bid files for correctness and reveal the `secret`.                                                                                             
                                                                                                                                                            
 ╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ --help          Show this message and exit.                                                                                                             │
@@ -348,22 +363,23 @@ Usage: transcrypto bid verify [OPTIONS]
 ```text
 Usage: transcrypto dsa [OPTIONS] COMMAND [ARGS]...                                                                                                        
                                                                                                                                                            
- DSA (Digital Signature Algorithm) asymmetric signing/verifying. No measures are taken here to prevent timing attacks. All methods require file key(s) as  
- `-p`/`--key-path` (see provided examples).                                                                                                                
+ DSA (Digital Signature Algorithm) asymmetric signing/verifying. All methods require file key(s) as `-p`/`--key-path` (see provided examples). All non-int 
+ inputs are raw, or you can use `--input-format <hex|b64|bin>`. Attention: if you provide `-a`/`--aad` (associated data, AAD), you will need to provide    
+ the same AAD when decrypting/verifying and it is NOT included in the `signature` returned by these methods! No measures are taken here to prevent timing  
+ attacks.                                                                                                                                                  
                                                                                                                                                            
 ╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ --help          Show this message and exit.                                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ shared      Generate a shared DSA key with `p-bits`/`q-bits` prime modulus sizes, which is the first step in key generation. `q-bits` should be larger  │
-│             than the secrets that will be protected and `p-bits` should be much larger than `q-bits` (e.g. 4096/544). The shared key can safely be used │
-│             by any number of users to generate their private/public key pairs (with the `new` command). The shared keys are "public". Requires          │
-│             `-p`/`--key-path` to set the basename for output files.                                                                                     │
-│ new         Generate an individual DSA private/public key pair from a shared key.                                                                       │
-│ rawsign     Raw sign *integer* message with private key (BEWARE: no ECDSA/EdDSA padding or validation). Output will 2 *integers* in a `s1:s2` format.   │
-│ rawverify   Raw verify *integer* `signature` for *integer* `message` with public key (BEWARE: no ECDSA/EdDSA padding or validation).                    │
-│ sign        Sign message with private key.                                                                                                              │
-│ verify      Verify `signature` for `message` with public key.                                                                                           │
+│ shared     Generate a shared DSA key with `p-bits`/`q-bits` prime modulus sizes, which is the first step in key generation. `q-bits` should be larger   │
+│            than the secrets that will be protected and `p-bits` should be much larger than `q-bits` (e.g. 4096/544). The shared key can safely be used  │
+│            by any number of users to generate their private/public key pairs (with the `new` command). The shared keys are "public".                    │
+│ new        Generate an individual DSA private/public key pair from a shared key.                                                                        │
+│ rawsign    Raw sign *integer* message with private key (BEWARE: no ECDSA/EdDSA padding or validation). Output will 2 *integers* in a `s1:s2` format.    │
+│ rawverify  Raw verify *integer* `signature` for *integer* `message` with public key (BEWARE: no ECDSA/EdDSA padding or validation).                     │
+│ sign       Sign message with private key.                                                                                                               │
+│ verify     Verify `signature` for `message` with public key.                                                                                            │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -434,15 +450,14 @@ Usage: transcrypto dsa shared [OPTIONS]
                                                                                                                                                            
  Generate a shared DSA key with `p-bits`/`q-bits` prime modulus sizes, which is the first step in key generation. `q-bits` should be larger than the       
  secrets that will be protected and `p-bits` should be much larger than `q-bits` (e.g. 4096/544). The shared key can safely be used by any number of users 
- to generate their private/public key pairs (with the `new` command). The shared keys are "public". Requires `-p`/`--key-path` to set the basename for     
- output files.                                                                                                                                             
+ to generate their private/public key pairs (with the `new` command). The shared keys are "public".                                                        
                                                                                                                                                            
 ╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --p-bits        INTEGER RANGE   Prime modulus (`p`) size in bits; the default is a safe size                                      │
-│ --q-bits        INTEGER RANGE    Prime modulus (`q`) size in bits; the default is a safe size ***IFF*** you are protecting symmetric keys or      │
-│                                        regular hashes                                                                                                   │
+│ --p-bits  -b      INTEGER RANGE   Prime modulus (`p`) size in bits, ≥16; the default (4096) is a safe size                        │
+│ --q-bits  -q      INTEGER RANGE    Prime modulus (`q`) size in bits, ≥8; the default (544) is a safe size ***IFF*** you are protecting symmetric  │
+│                                          keys or regular hashes                                                                                         │
 │                                                                                                                                           │
-│ --help                                 Show this message and exit.                                                                                      │
+│ --help                                   Show this message and exit.                                                                                    │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
                                                                                                                                                            
  Example:                                                                                                                                                  
@@ -501,26 +516,27 @@ Usage: transcrypto dsa verify [OPTIONS] MESSAGE SIGNATURE
 ```text
 Usage: transcrypto elgamal [OPTIONS] COMMAND [ARGS]...                                                                                                    
                                                                                                                                                            
- El-Gamal asymmetric cryptography. No measures are taken here to prevent timing attacks. All methods require file key(s) as `-p`/`--key-path` (see         
- provided examples).                                                                                                                                       
+ El-Gamal asymmetric cryptography. All methods require file key(s) as `-p`/`--key-path` (see provided examples). All non-int inputs are raw, or you can    
+ use `--input-format <hex|b64|bin>`. Attention: if you provide `-a`/`--aad` (associated data, AAD), you will need to provide the same AAD when             
+ decrypting/verifying and it is NOT included in the `ciphertext`/CT or `signature` returned by these methods! No measures are taken here to prevent timing 
+ attacks.                                                                                                                                                  
                                                                                                                                                            
 ╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ --help          Show this message and exit.                                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ shared       Generate a shared El-Gamal key with `bits` prime modulus size, which is the first step in key generation. The shared key can safely be     │
-│              used by any number of users to generate their private/public key pairs (with the `new` command). The shared keys are "public". Requires    │
-│              `-p`/`--key-path` to set the basename for output files.                                                                                    │
-│ new          Generate an individual El-Gamal private/public key pair from a shared key.                                                                 │
-│ rawencrypt   Raw encrypt *integer* `message` with public key (BEWARE: no ECIES-style KEM/DEM padding or validation).                                    │
-│ rawdecrypt   Raw decrypt *integer* `ciphertext` with private key (BEWARE: no ECIES-style KEM/DEM padding or validation).                                │
-│ rawsign      Raw sign *integer* message with private key (BEWARE: no ECIES-style KEM/DEM padding or validation). Output will 2 *integers* in a `s1:s2`  │
-│              format.                                                                                                                                    │
-│ rawverify    Raw verify *integer* `signature` for *integer* `message` with public key (BEWARE: no ECIES-style KEM/DEM padding or validation).           │
-│ encrypt      Encrypt `message` with public key.                                                                                                         │
-│ decrypt      Decrypt `ciphertext` with private key.                                                                                                     │
-│ sign         Sign message with private key.                                                                                                             │
-│ verify       Verify `signature` for `message` with public key.                                                                                          │
+│ shared      Generate a shared El-Gamal key with `bits` prime modulus size, which is the first step in key generation. The shared key can safely be used │
+│             by any number of users to generate their private/public key pairs (with the `new` command). The shared keys are "public".                   │
+│ new         Generate an individual El-Gamal private/public key pair from a shared key.                                                                  │
+│ rawencrypt  Raw encrypt *integer* `message` with public key (BEWARE: no ECIES-style KEM/DEM padding or validation).                                     │
+│ rawdecrypt  Raw decrypt *integer* `ciphertext` with private key (BEWARE: no ECIES-style KEM/DEM padding or validation).                                 │
+│ rawsign     Raw sign *integer* message with private key (BEWARE: no ECIES-style KEM/DEM padding or validation). Output will 2 *integers* in a `s1:s2`   │
+│             format.                                                                                                                                     │
+│ rawverify   Raw verify *integer* `signature` for *integer* `message` with public key (BEWARE: no ECIES-style KEM/DEM padding or validation).            │
+│ encrypt     Encrypt `message` with public key.                                                                                                          │
+│ decrypt     Decrypt `ciphertext` with private key.                                                                                                      │
+│ sign        Sign message with private key.                                                                                                              │
+│ verify      Verify `signature` for `message` with public key.                                                                                           │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -672,12 +688,11 @@ Usage: transcrypto elgamal rawverify [OPTIONS] MESSAGE SIGNATURE
 Usage: transcrypto elgamal shared [OPTIONS]                                                                                                               
                                                                                                                                                            
  Generate a shared El-Gamal key with `bits` prime modulus size, which is the first step in key generation. The shared key can safely be used by any number 
- of users to generate their private/public key pairs (with the `new` command). The shared keys are "public". Requires `-p`/`--key-path` to set the         
- basename for output files.                                                                                                                                
+ of users to generate their private/public key pairs (with the `new` command). The shared keys are "public".                                               
                                                                                                                                                            
 ╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --bits        INTEGER RANGE   Prime modulus (`p`) size in bits; the default is a safe size                                        │
-│ --help                               Show this message and exit.                                                                                        │
+│ --bits  -b      INTEGER RANGE   Prime modulus (`p`) size in bits, ≥16; the default (3332) is a safe size                          │
+│ --help                                 Show this message and exit.                                                                                      │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
                                                                                                                                                            
  Example:                                                                                                                                                  
@@ -767,9 +782,9 @@ Usage: transcrypto hash [OPTIONS] COMMAND [ARGS]...
 │ --help          Show this message and exit.                                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ sha256   SHA-256 of input `data`.                                                                                                                       │
-│ sha512   SHA-512 of input `data`.                                                                                                                       │
-│ file     SHA-256/512 hash of file contents, defaulting to SHA-256.                                                                                      │
+│ sha256  SHA-256 of input `data`.                                                                                                                        │
+│ sha512  SHA-512 of input `data`.                                                                                                                        │
+│ file    SHA-256/512 hash of file contents, defaulting to SHA-256.                                                                                       │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -784,8 +799,8 @@ Usage: transcrypto hash file [OPTIONS] PATH
 │ *    path      FILE  Path to existing file                                                                                                    │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --digest          Digest type, SHA-256 ("sha256") or SHA-512 ("sha512")                                                 │
-│ --help                           Show this message and exit.                                                                                            │
+│ --digest  -d        Digest type, SHA-256 ("sha256") or SHA-512 ("sha512")                                               │
+│ --help                             Show this message and exit.                                                                                          │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
                                                                                                                                                            
  Example:                                                                                                                                                  
@@ -802,7 +817,7 @@ Usage: transcrypto hash sha256 [OPTIONS] DATA
  SHA-256 of input `data`.                                                                                                                                  
                                                                                                                                                            
 ╭─ Arguments ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ *    data      TEXT  Input data (raw text; or use --hex/--b64/--bin)                                                                          │
+│ *    data      TEXT  Input data (raw text; or `--input-format <hex|b64|bin>`)                                                                 │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ --help          Show this message and exit.                                                                                                             │
@@ -824,7 +839,7 @@ Usage: transcrypto hash sha512 [OPTIONS] DATA
  SHA-512 of input `data`.                                                                                                                                  
                                                                                                                                                            
 ╭─ Arguments ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ *    data      TEXT  Input data (raw text; or use --hex/--b64/--bin)                                                                          │
+│ *    data      TEXT  Input data (raw text; or `--input-format <hex|b64|bin>`)                                                                 │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ --help          Show this message and exit.                                                                                                             │
@@ -883,17 +898,17 @@ Usage: transcrypto markdown [OPTIONS]
 Usage: transcrypto mersenne [OPTIONS]                                                                                                                     
                                                                                                                                                            
  Generate (stream) Mersenne prime exponents `k`, also outputting `2^k-1` (the Mersenne prime, `M`) and `M×2^(k-1)` (the associated perfect number),        
- starting at `min-k` and stopping once `k` > `cutoff-k`.                                                                                                   
+ starting at `min-k` and stopping once `k` > `max-k`.                                                                                                      
                                                                                                                                                            
 ╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --min-k     -k      INTEGER RANGE   Starting exponent `k`, ≥ 1                                                                        │
-│ --cutoff-k  -C      INTEGER RANGE   Stop once `k` > `cutoff-k`                                                                    │
-│ --help                                    Show this message and exit.                                                                                   │
+│ --min-k  -k      INTEGER RANGE   Starting exponent `k`, ≥ 1                                                                           │
+│ --max-k  -m      INTEGER RANGE   Stop once `k` > `max-k`, ≥ 1                                                                     │
+│ --help                                 Show this message and exit.                                                                                      │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
                                                                                                                                                            
  Example:                                                                                                                                                  
                                                                                                                                                            
- $ poetry run transcrypto mersenne -k 0 -C 15                                                                                                              
+ $ poetry run transcrypto mersenne -k 0 -m 15                                                                                                              
  k=2  M=3  perfect=6                                                                                                                                       
  k=3  M=7  perfect=28                                                                                                                                      
  k=5  M=31  perfect=496                                                                                                                                    
@@ -913,15 +928,15 @@ Usage: transcrypto mod [OPTIONS] COMMAND [ARGS]...
 │ --help          Show this message and exit.                                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ inv        Modular inverse: find integer 0≤`i`<`m` such that `a×i ≡ 1 (mod m)`. Will only work if `gcd(a,m)==1`, else will fail with a message.         │
-│ div        Modular division: find integer 0≤`z`<`m` such that `z×y ≡ x (mod m)`. Will only work if `gcd(y,m)==1` and `y!=0`, else will fail with a      │
-│            message.                                                                                                                                     │
-│ exp        Modular exponentiation: `a^e mod m`. Efficient, can handle huge values.                                                                      │
-│ poly       Efficiently evaluate polynomial with `coeff` coefficients at point `x` modulo `m` (`c₀+c₁×x+c₂×x²+…+cₙ×xⁿ mod m`).                           │
-│ lagrange   Lagrange interpolation over modulus `m`: find the `f(x)` solution for the given `x` and `zₙ:f(zₙ)` points `pt`. The modulus `m` must be a    │
-│            prime.                                                                                                                                       │
-│ crt        Solves Chinese Remainder Theorem (CRT) Pair: finds the unique integer 0≤`x`<`(m1×m2)` satisfying both `x ≡ a1 (mod m1)` and `x ≡ a2 (mod     │
-│            m2)`, if `gcd(m1,m2)==1`.                                                                                                                    │
+│ inv       Modular inverse: find integer 0≤`i`<`m` such that `a×i ≡ 1 (mod m)`. Will only work if `gcd(a,m)==1`, else will fail with a message.          │
+│ div       Modular division: find integer 0≤`z`<`m` such that `z×y ≡ x (mod m)`. Will only work if `gcd(y,m)==1` and `y!=0`, else will fail with a       │
+│           message.                                                                                                                                      │
+│ exp       Modular exponentiation: `a^e mod m`. Efficient, can handle huge values.                                                                       │
+│ poly      Efficiently evaluate polynomial with `coeff` coefficients at point `x` modulo `m` (`c₀+c₁×x+c₂×x²+…+cₙ×x^n mod m`).                           │
+│ lagrange  Lagrange interpolation over modulus `m`: find the `f(x)` solution for the given `x` and `zₙ:f(zₙ)` points `pt`. The modulus `m` must be a     │
+│           prime.                                                                                                                                        │
+│ crt       Solves Chinese Remainder Theorem (CRT) Pair: finds the unique integer 0≤`x`<`(m1×m2)` satisfying both `x ≡ a1 (mod m1)` and `x ≡ a2 (mod      │
+│           m2)`, if `gcd(m1,m2)==1`.                                                                                                                     │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -935,9 +950,9 @@ Usage: transcrypto mod crt [OPTIONS] A1 M1 A2 M2
                                                                                                                                                            
 ╭─ Arguments ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ *    a1      TEXT  Integer residue for first congruence                                                                                       │
-│ *    m1      TEXT  Modulus `m1`, ≥ 2 and `gcd(m1,m2)==1`                                                                                      │
+│ *    m1      TEXT  Modulus `m1`, ≥ 2                                                                                                          │
 │ *    a2      TEXT  Integer residue for second congruence                                                                                      │
-│ *    m2      TEXT  Modulus `m2`, ≥ 2 and `gcd(m1,m2)==1`                                                                                      │
+│ *    m2      TEXT  Modulus `m2`, ≥ 2, !=`m1`, and `gcd(m1,m2)==1`                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ --help          Show this message and exit.                                                                                                             │
@@ -974,7 +989,7 @@ Usage: transcrypto mod div [OPTIONS] X Y M
  $ poetry run transcrypto mod div 6 127 13                                                                                                                 
  11                                                                                                                                                        
  $ poetry run transcrypto mod div 6 0 13                                                                                                                   
- <<INVALID>> no modular inverse exists (ModularDivideError)
+ <<INVALID>> divide-by-zero or not invertible (ModularDivideError)
 ```
 
 ### `transcrypto mod exp` Sub-Command
@@ -985,8 +1000,8 @@ Usage: transcrypto mod exp [OPTIONS] A E M
  Modular exponentiation: `a^e mod m`. Efficient, can handle huge values.                                                                                   
                                                                                                                                                            
 ╭─ Arguments ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ *    a      TEXT  Integer                                                                                                                     │
-│ *    e      TEXT  Integer, ≥ 0                                                                                                                │
+│ *    a      TEXT  Integer value                                                                                                               │
+│ *    e      TEXT  Integer exponent, ≥ 0                                                                                                       │
 │ *    m      TEXT  Modulus `m`, ≥ 2                                                                                                            │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
@@ -1055,12 +1070,12 @@ Usage: transcrypto mod lagrange [OPTIONS] X M PT...
 ```text
 Usage: transcrypto mod poly [OPTIONS] X M COEFF...                                                                                                        
                                                                                                                                                            
- Efficiently evaluate polynomial with `coeff` coefficients at point `x` modulo `m` (`c₀+c₁×x+c₂×x²+…+cₙ×xⁿ mod m`).                                        
+ Efficiently evaluate polynomial with `coeff` coefficients at point `x` modulo `m` (`c₀+c₁×x+c₂×x²+…+cₙ×x^n mod m`).                                       
                                                                                                                                                            
 ╭─ Arguments ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ *    x          TEXT      Evaluation point `x`                                                                                                │
 │ *    m          TEXT      Modulus `m`, ≥ 2                                                                                                    │
-│ *    coeff      COEFF...  Coefficients (constant-term first: `c₀+c₁×x+c₂×x²+…+cₙ×xⁿ`)                                                         │
+│ *    coeff      COEFF...  Coefficients (constant-term first: `c₀+c₁×x+c₂×x²+…+cₙ×x^n`)                                                        │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ --help          Show this message and exit.                                                                                                             │
@@ -1085,7 +1100,7 @@ Usage: transcrypto primegen [OPTIONS] START
 │ *    start      TEXT  Starting integer (inclusive), ≥ 0                                                                                       │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --count  -c      INTEGER RANGE   How many to print                                                                                    │
+│ --count  -c      INTEGER RANGE   How many to print, ≥ 1                                                                               │
 │ --help                                 Show this message and exit.                                                                                      │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
                                                                                                                                                            
@@ -1108,10 +1123,10 @@ Usage: transcrypto random [OPTIONS] COMMAND [ARGS]...
 │ --help          Show this message and exit.                                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ bits    Random integer with exact bit length = `bits` (MSB will be 1).                                                                                  │
-│ int     Uniform random integer in `` range, inclusive.                                                                                                  │
-│ bytes   Generates `n` cryptographically secure random bytes.                                                                                            │
-│ prime   Generate a random prime with exact bit length = `bits` (MSB will be 1).                                                                         │
+│ bits   Random integer with exact bit length = `bits` (MSB will be 1).                                                                                   │
+│ int    Uniform random integer in `` range, inclusive.                                                                                                   │
+│ bytes  Generates `n` cryptographically secure random bytes.                                                                                             │
+│ prime  Generate a random prime with exact bit length = `bits` (MSB will be 1).                                                                          │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -1201,23 +1216,24 @@ Usage: transcrypto random prime [OPTIONS] BITS
 ```text
 Usage: transcrypto rsa [OPTIONS] COMMAND [ARGS]...                                                                                                        
                                                                                                                                                            
- RSA (Rivest-Shamir-Adleman) asymmetric cryptography. No measures are taken here to prevent timing attacks. All methods require file key(s) as             
- `-p`/`--key-path` (see provided examples).                                                                                                                
+ RSA (Rivest-Shamir-Adleman) asymmetric cryptography. All methods require file key(s) as `-p`/`--key-path` (see provided examples). All non-int inputs are 
+ raw, or you can use `--input-format <hex|b64|bin>`. Attention: if you provide `-a`/`--aad` (associated data, AAD), you will need to provide the same AAD  
+ when decrypting/verifying and it is NOT included in the `ciphertext`/CT or `signature` returned by these methods! No measures are taken here to prevent   
+ timing attacks.                                                                                                                                           
                                                                                                                                                            
 ╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ --help          Show this message and exit.                                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ new          Generate RSA private/public key pair with `bits` modulus size (prime sizes will be `bits`/2). Requires `-p`/`--key-path` to set the        │
-│              basename for output files.                                                                                                                 │
-│ rawencrypt   Raw encrypt *integer* `message` with public key (BEWARE: no OAEP/PSS padding or validation).                                               │
-│ rawdecrypt   Raw decrypt *integer* `ciphertext` with private key (BEWARE: no OAEP/PSS padding or validation).                                           │
-│ rawsign      Raw sign *integer* `message` with private key (BEWARE: no OAEP/PSS padding or validation).                                                 │
-│ rawverify    Raw verify *integer* `signature` for *integer* `message` with public key (BEWARE: no OAEP/PSS padding or validation).                      │
-│ encrypt      Encrypt `message` with public key.                                                                                                         │
-│ decrypt      Decrypt `ciphertext` with private key.                                                                                                     │
-│ sign         Sign `message` with private key.                                                                                                           │
-│ verify       Verify `signature` for `message` with public key.                                                                                          │
+│ new         Generate RSA private/public key pair with `bits` modulus size (prime sizes will be `bits`/2).                                               │
+│ rawencrypt  Raw encrypt *integer* `message` with public key (BEWARE: no OAEP/PSS padding or validation).                                                │
+│ rawdecrypt  Raw decrypt *integer* `ciphertext` with private key (BEWARE: no OAEP/PSS padding or validation).                                            │
+│ rawsign     Raw sign *integer* `message` with private key (BEWARE: no OAEP/PSS padding or validation).                                                  │
+│ rawverify   Raw verify *integer* `signature` for *integer* `message` with public key (BEWARE: no OAEP/PSS padding or validation).                       │
+│ encrypt     Encrypt `message` with public key.                                                                                                          │
+│ decrypt     Decrypt `ciphertext` with private key.                                                                                                      │
+│ sign        Sign `message` with private key.                                                                                                            │
+│ verify      Verify `signature` for `message` with public key.                                                                                           │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -1268,12 +1284,11 @@ Usage: transcrypto rsa encrypt [OPTIONS] PLAINTEXT
 ```text
 Usage: transcrypto rsa new [OPTIONS]                                                                                                                      
                                                                                                                                                            
- Generate RSA private/public key pair with `bits` modulus size (prime sizes will be `bits`/2). Requires `-p`/`--key-path` to set the basename for output   
- files.                                                                                                                                                    
+ Generate RSA private/public key pair with `bits` modulus size (prime sizes will be `bits`/2).                                                             
                                                                                                                                                            
 ╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --bits        INTEGER RANGE   Modulus size in bits; the default is a safe size                                                    │
-│ --help                               Show this message and exit.                                                                                        │
+│ --bits  -b      INTEGER RANGE   Modulus size in bits, ≥16; the default (3332) is a safe size                                      │
+│ --help                                 Show this message and exit.                                                                                      │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
                                                                                                                                                            
  Example:                                                                                                                                                  
@@ -1415,22 +1430,21 @@ Usage: transcrypto rsa verify [OPTIONS] MESSAGE SIGNATURE
 ```text
 Usage: transcrypto sss [OPTIONS] COMMAND [ARGS]...                                                                                                        
                                                                                                                                                            
- SSS (Shamir Shared Secret) secret sharing crypto scheme. No measures are taken here to prevent timing attacks. All methods require file key(s) as         
- `-p`/`--key-path` (see provided examples).                                                                                                                
+ SSS (Shamir Shared Secret) secret sharing crypto scheme. All methods require file key(s) as `-p`/`--key-path` (see provided examples). All non-int inputs 
+ are raw, or you can use `--input-format <hex|b64|bin>`. No measures are taken here to prevent timing attacks.                                             
                                                                                                                                                            
 ╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ --help          Show this message and exit.                                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ new          Generate the private keys with `bits` prime modulus size and so that at least a `minimum` number of shares are needed to recover the       │
-│              secret. This key will be used to generate the shares later (with the `shares` command). Requires `-p`/`--key-path` to set the basename for │
-│              output files.                                                                                                                              │
-│ rawshares    Raw shares: Issue `count` private shares for an *integer* `secret` (BEWARE: no modern message wrapping, padding or validation).            │
-│ rawrecover   Raw recover *integer* secret from shares; will use any available shares that were found (BEWARE: no modern message wrapping, padding or    │
-│              validation).                                                                                                                               │
-│ rawverify    Raw verify shares against a secret (private params; BEWARE: no modern message wrapping, padding or validation).                            │
-│ shares       Shares: Issue `count` private shares for a `secret`.                                                                                       │
-│ recover      Recover secret from shares; will use any available shares that were found.                                                                 │
+│ new         Generate the private keys with `bits` prime modulus size and so that at least a `minimum` number of shares are needed to recover the        │
+│             secret. This key will be used to generate the shares later (with the `shares` command).                                                     │
+│ rawshares   Raw shares: Issue `count` private shares for an *integer* `secret` (BEWARE: no modern message wrapping, padding or validation).             │
+│ rawrecover  Raw recover *integer* secret from shares; will use any available shares that were found (BEWARE: no modern message wrapping, padding or     │
+│             validation).                                                                                                                                │
+│ rawverify   Raw verify shares against a secret (private params; BEWARE: no modern message wrapping, padding or validation).                             │
+│ shares      Shares: Issue `count` private shares for a `secret`.                                                                                        │
+│ recover     Recover secret from shares; will use any available shares that were found.                                                                  │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -1440,16 +1454,17 @@ Usage: transcrypto sss [OPTIONS] COMMAND [ARGS]...
 Usage: transcrypto sss new [OPTIONS] MINIMUM                                                                                                              
                                                                                                                                                            
  Generate the private keys with `bits` prime modulus size and so that at least a `minimum` number of shares are needed to recover the secret. This key     
- will be used to generate the shares later (with the `shares` command). Requires `-p`/`--key-path` to set the basename for output files.                   
+ will be used to generate the shares later (with the `shares` command).                                                                                    
                                                                                                                                                            
 ╭─ Arguments ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ *    minimum      INTEGER RANGE  Minimum number of shares required to recover secret, ≥ 2                                                     │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --bits        INTEGER RANGE   Prime modulus (`p`) size in bits; the default is a safe size ***IFF*** you are protecting symmetric keys; the      │
-│                                      number of bits should be comfortably larger than the size of the secret you want to protect with this scheme       │
+│ --bits  -b      INTEGER RANGE   Prime modulus (`p`) size in bits, ≥16; the default (1024) is a safe size ***IFF*** you are protecting symmetric  │
+│                                        keys; the number of bits should be comfortably larger than the size of the secret you want to protect with this  │
+│                                        scheme                                                                                                           │
 │                                                                                                                                          │
-│ --help                               Show this message and exit.                                                                                        │
+│ --help                                 Show this message and exit.                                                                                      │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
                                                                                                                                                            
  Example:                                                                                                                                                  
