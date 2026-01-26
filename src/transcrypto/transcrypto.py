@@ -284,7 +284,7 @@ class TransConfig(base.CLIConfig):
   input_format: IOFormat
   output_format: IOFormat
   key_path: pathlib.Path | None
-  protect: str
+  protect: str | None
 
 
 # ============================= "TRANSCRYPTO"/ROOT COMMAND =========================================
@@ -425,8 +425,8 @@ def Main(  # documentation is help/epilog/args # noqa: D103
     resolve_path=True,
     help='File path to serialized key object, if key is needed for operation',
   ),
-  protect: str = typer.Option(
-    '',
+  protect: str | None = typer.Option(
+    None,
     '-x',
     '--protect',
     help='Password to encrypt/decrypt key file if using the `-p`/`--key-path` option',
@@ -997,7 +997,7 @@ def AESKeyFromPass(  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
   aes_key: aes.AESKey = aes.AESKey.FromStaticPassword(password)
   if config.key_path is not None:
-    _SaveObj(aes_key, str(config.key_path), config.protect or None)
+    _SaveObj(aes_key, str(config.key_path), config.protect)
     config.console.print(f'AES key saved to {str(config.key_path)!r}')
   else:
     config.console.print(_BytesToText(aes_key.key256, config.output_format))
@@ -1045,7 +1045,7 @@ def AESEncrypt(  # documentation is help/epilog/args # noqa: D103
       raise base.InputError(f'invalid AES key size: {len(key_bytes)} bytes (expected 32)')
     aes_key = aes.AESKey(key256=key_bytes)
   elif config.key_path is not None:
-    aes_key = _LoadObj(str(config.key_path), config.protect or None, aes.AESKey)
+    aes_key = _LoadObj(str(config.key_path), config.protect, aes.AESKey)
   else:
     raise base.InputError('provide -k/--key or -p/--key-path')
   aad_bytes: bytes | None = _BytesFromText(aad, config.input_format) if aad else None
@@ -1097,7 +1097,7 @@ def AESDecrypt(  # documentation is help/epilog/args # noqa: D103
       raise base.InputError(f'invalid AES key size: {len(key_bytes)} bytes (expected 32)')
     aes_key = aes.AESKey(key256=key_bytes)
   elif config.key_path is not None:
-    aes_key = _LoadObj(str(config.key_path), config.protect or None, aes.AESKey)
+    aes_key = _LoadObj(str(config.key_path), config.protect, aes.AESKey)
   else:
     raise base.InputError('provide -k/--key or -p/--key-path')
   # associated data, if any
@@ -1161,7 +1161,7 @@ def AESEcbEncrypt(  # documentation is help/epilog/args # noqa: D103
       raise base.InputError(f'invalid AES key size: {len(key_bytes)} bytes (expected 32)')
     aes_key = aes.AESKey(key256=key_bytes)
   elif config.key_path is not None:
-    aes_key = _LoadObj(str(config.key_path), config.protect or None, aes.AESKey)
+    aes_key = _LoadObj(str(config.key_path), config.protect, aes.AESKey)
   else:
     raise base.InputError('provide -k/--key or -p/--key-path')
   ecb: aes.AESKey.ECBEncoderClass = aes_key.ECBEncoder()
@@ -1208,7 +1208,7 @@ def AESEcbDecrypt(  # documentation is help/epilog/args # noqa: D103
       raise base.InputError(f'invalid AES key size: {len(key_bytes)} bytes (expected 32)')
     aes_key = aes.AESKey(key256=key_bytes)
   elif config.key_path is not None:
-    aes_key = _LoadObj(str(config.key_path), config.protect or None, aes.AESKey)
+    aes_key = _LoadObj(str(config.key_path), config.protect, aes.AESKey)
   else:
     raise base.InputError('provide -k/--key or -p/--key-path')
   ecb: aes.AESKey.ECBEncoderClass = aes_key.ECBEncoder()
@@ -1261,8 +1261,8 @@ def RSANew(  # documentation is help/epilog/args # noqa: D103
   base_path: str = _RequireKeyPath(config, 'rsa')
   rsa_priv: rsa.RSAPrivateKey = rsa.RSAPrivateKey.New(bits)
   rsa_pub: rsa.RSAPublicKey = rsa.RSAPublicKey.Copy(rsa_priv)
-  _SaveObj(rsa_priv, base_path + '.priv', config.protect or None)
-  _SaveObj(rsa_pub, base_path + '.pub', config.protect or None)
+  _SaveObj(rsa_priv, base_path + '.priv', config.protect)
+  _SaveObj(rsa_pub, base_path + '.pub', config.protect)
   config.console.print(f'RSA private/public keys saved to {base_path + ".priv/.pub"!r}')
 
 
@@ -1287,7 +1287,7 @@ def RSARawEncrypt(  # documentation is help/epilog/args # noqa: D103
   message_i: int = _ParseInt(message, min_value=1)
   key_path: str = _RequireKeyPath(config, 'rsa')
   rsa_pub: rsa.RSAPublicKey = rsa.RSAPublicKey.Copy(
-    _LoadObj(key_path, config.protect or None, rsa.RSAPublicKey)
+    _LoadObj(key_path, config.protect, rsa.RSAPublicKey)
   )
   config.console.print(rsa_pub.RawEncrypt(message_i))
 
@@ -1315,7 +1315,7 @@ def RSARawDecrypt(  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
   ciphertext_i: int = _ParseInt(ciphertext, min_value=1)
   key_path: str = _RequireKeyPath(config, 'rsa')
-  rsa_priv: rsa.RSAPrivateKey = _LoadObj(key_path, config.protect or None, rsa.RSAPrivateKey)
+  rsa_priv: rsa.RSAPrivateKey = _LoadObj(key_path, config.protect, rsa.RSAPrivateKey)
   config.console.print(rsa_priv.RawDecrypt(ciphertext_i))
 
 
@@ -1337,7 +1337,7 @@ def RSARawSign(  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
   message_i: int = _ParseInt(message, min_value=1)
   key_path: str = _RequireKeyPath(config, 'rsa')
-  rsa_priv: rsa.RSAPrivateKey = _LoadObj(key_path, config.protect or None, rsa.RSAPrivateKey)
+  rsa_priv: rsa.RSAPrivateKey = _LoadObj(key_path, config.protect, rsa.RSAPrivateKey)
   config.console.print(rsa_priv.RawSign(message_i))
 
 
@@ -1371,7 +1371,7 @@ def RSARawVerify(  # documentation is help/epilog/args # noqa: D103
   signature_i: int = _ParseInt(signature, min_value=1)
   key_path: str = _RequireKeyPath(config, 'rsa')
   rsa_pub: rsa.RSAPublicKey = rsa.RSAPublicKey.Copy(
-    _LoadObj(key_path, config.protect or None, rsa.RSAPublicKey)
+    _LoadObj(key_path, config.protect, rsa.RSAPublicKey)
   )
   config.console.print(
     'RSA signature: '
@@ -1402,7 +1402,7 @@ def RSAEncrypt(  # documentation is help/epilog/args # noqa: D103
 ) -> None:
   config: TransConfig = ctx.obj
   key_path: str = _RequireKeyPath(config, 'rsa')
-  rsa_pub: rsa.RSAPublicKey = _LoadObj(key_path, config.protect or None, rsa.RSAPublicKey)
+  rsa_pub: rsa.RSAPublicKey = _LoadObj(key_path, config.protect, rsa.RSAPublicKey)
   aad_bytes: bytes | None = _BytesFromText(aad, config.input_format) if aad else None
   pt: bytes = _BytesFromText(plaintext, config.input_format)
   ct: bytes = rsa_pub.Encrypt(pt, associated_data=aad_bytes)
@@ -1433,7 +1433,7 @@ def RSADecrypt(  # documentation is help/epilog/args # noqa: D103
 ) -> None:
   config: TransConfig = ctx.obj
   key_path: str = _RequireKeyPath(config, 'rsa')
-  rsa_priv: rsa.RSAPrivateKey = _LoadObj(key_path, config.protect or None, rsa.RSAPrivateKey)
+  rsa_priv: rsa.RSAPrivateKey = _LoadObj(key_path, config.protect, rsa.RSAPrivateKey)
   aad_bytes: bytes | None = _BytesFromText(aad, config.input_format) if aad else None
   ct: bytes = _BytesFromText(ciphertext, config.input_format)
   pt: bytes = rsa_priv.Decrypt(ct, associated_data=aad_bytes)
@@ -1463,7 +1463,7 @@ def RSASign(  # documentation is help/epilog/args # noqa: D103
 ) -> None:
   config: TransConfig = ctx.obj
   key_path: str = _RequireKeyPath(config, 'rsa')
-  rsa_priv: rsa.RSAPrivateKey = _LoadObj(key_path, config.protect or None, rsa.RSAPrivateKey)
+  rsa_priv: rsa.RSAPrivateKey = _LoadObj(key_path, config.protect, rsa.RSAPrivateKey)
   aad_bytes: bytes | None = _BytesFromText(aad, config.input_format) if aad else None
   pt: bytes = _BytesFromText(message, config.input_format)
   sig: bytes = rsa_priv.Sign(pt, associated_data=aad_bytes)
@@ -1498,7 +1498,7 @@ def RSAVerify(  # documentation is help/epilog/args # noqa: D103
 ) -> None:
   config: TransConfig = ctx.obj
   key_path: str = _RequireKeyPath(config, 'rsa')
-  rsa_pub: rsa.RSAPublicKey = _LoadObj(key_path, config.protect or None, rsa.RSAPublicKey)
+  rsa_pub: rsa.RSAPublicKey = _LoadObj(key_path, config.protect, rsa.RSAPublicKey)
   aad_bytes: bytes | None = _BytesFromText(aad, config.input_format) if aad else None
   pt: bytes = _BytesFromText(message, config.input_format)
   sig: bytes = _BytesFromText(signature, config.input_format)
@@ -1556,7 +1556,7 @@ def ElGamalShared(  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
   base_path: str = _RequireKeyPath(config, 'elgamal')
   shared_eg: elgamal.ElGamalSharedPublicKey = elgamal.ElGamalSharedPublicKey.NewShared(bits)
-  _SaveObj(shared_eg, base_path + '.shared', config.protect or None)
+  _SaveObj(shared_eg, base_path + '.shared', config.protect)
   config.console.print(f'El-Gamal shared key saved to {base_path + ".shared"!r}')
 
 
@@ -1574,12 +1574,12 @@ def ElGamalNew(*, ctx: typer.Context) -> None:  # documentation is help/epilog/a
   config: TransConfig = ctx.obj
   base_path: str = _RequireKeyPath(config, 'elgamal')
   shared_eg: elgamal.ElGamalSharedPublicKey = _LoadObj(
-    base_path + '.shared', config.protect or None, elgamal.ElGamalSharedPublicKey
+    base_path + '.shared', config.protect, elgamal.ElGamalSharedPublicKey
   )
   eg_priv: elgamal.ElGamalPrivateKey = elgamal.ElGamalPrivateKey.New(shared_eg)
   eg_pub: elgamal.ElGamalPublicKey = elgamal.ElGamalPublicKey.Copy(eg_priv)
-  _SaveObj(eg_priv, base_path + '.priv', config.protect or None)
-  _SaveObj(eg_pub, base_path + '.pub', config.protect or None)
+  _SaveObj(eg_priv, base_path + '.priv', config.protect)
+  _SaveObj(eg_pub, base_path + '.pub', config.protect)
   config.console.print(f'El-Gamal private/public keys saved to {base_path + ".priv/.pub"!r}')
 
 
@@ -1605,7 +1605,7 @@ def ElGamalRawEncrypt(  # documentation is help/epilog/args # noqa: D103
   message_i: int = _ParseInt(message, min_value=1)
   key_path: str = _RequireKeyPath(config, 'elgamal')
   eg_pub: elgamal.ElGamalPublicKey = elgamal.ElGamalPublicKey.Copy(
-    _LoadObj(key_path, config.protect or None, elgamal.ElGamalPublicKey)
+    _LoadObj(key_path, config.protect, elgamal.ElGamalPublicKey)
   )
   c1: int
   c2: int
@@ -1640,9 +1640,7 @@ def ElGamalRawDecrypt(  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
   ciphertext_i: tuple[int, int] = _ParseIntPairCLI(ciphertext)
   key_path: str = _RequireKeyPath(config, 'elgamal')
-  eg_priv: elgamal.ElGamalPrivateKey = _LoadObj(
-    key_path, config.protect or None, elgamal.ElGamalPrivateKey
-  )
+  eg_priv: elgamal.ElGamalPrivateKey = _LoadObj(key_path, config.protect, elgamal.ElGamalPrivateKey)
   config.console.print(eg_priv.RawDecrypt(ciphertext_i))
 
 
@@ -1668,9 +1666,7 @@ def ElGamalRawSign(  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
   message_i: int = _ParseInt(message, min_value=1)
   key_path: str = _RequireKeyPath(config, 'elgamal')
-  eg_priv: elgamal.ElGamalPrivateKey = _LoadObj(
-    key_path, config.protect or None, elgamal.ElGamalPrivateKey
-  )
+  eg_priv: elgamal.ElGamalPrivateKey = _LoadObj(key_path, config.protect, elgamal.ElGamalPrivateKey)
   s1: int
   s2: int
   s1, s2 = eg_priv.RawSign(message_i)
@@ -1713,7 +1709,7 @@ def ElGamalRawVerify(  # documentation is help/epilog/args # noqa: D103
   signature_i: tuple[int, int] = _ParseIntPairCLI(signature)
   key_path: str = _RequireKeyPath(config, 'elgamal')
   eg_pub: elgamal.ElGamalPublicKey = elgamal.ElGamalPublicKey.Copy(
-    _LoadObj(key_path, config.protect or None, elgamal.ElGamalPublicKey)
+    _LoadObj(key_path, config.protect, elgamal.ElGamalPublicKey)
   )
   config.console.print(
     'El-Gamal signature: '
@@ -1744,9 +1740,7 @@ def ElGamalEncrypt(  # documentation is help/epilog/args # noqa: D103
 ) -> None:
   config: TransConfig = ctx.obj
   key_path: str = _RequireKeyPath(config, 'elgamal')
-  eg_pub: elgamal.ElGamalPublicKey = _LoadObj(
-    key_path, config.protect or None, elgamal.ElGamalPublicKey
-  )
+  eg_pub: elgamal.ElGamalPublicKey = _LoadObj(key_path, config.protect, elgamal.ElGamalPublicKey)
   aad_bytes: bytes | None = _BytesFromText(aad, config.input_format) if aad else None
   pt: bytes = _BytesFromText(plaintext, config.input_format)
   ct: bytes = eg_pub.Encrypt(pt, associated_data=aad_bytes)
@@ -1777,9 +1771,7 @@ def ElGamalDecrypt(  # documentation is help/epilog/args # noqa: D103
 ) -> None:
   config: TransConfig = ctx.obj
   key_path: str = _RequireKeyPath(config, 'elgamal')
-  eg_priv: elgamal.ElGamalPrivateKey = _LoadObj(
-    key_path, config.protect or None, elgamal.ElGamalPrivateKey
-  )
+  eg_priv: elgamal.ElGamalPrivateKey = _LoadObj(key_path, config.protect, elgamal.ElGamalPrivateKey)
   aad_bytes: bytes | None = _BytesFromText(aad, config.input_format) if aad else None
   ct: bytes = _BytesFromText(ciphertext, config.input_format)
   pt: bytes = eg_priv.Decrypt(ct, associated_data=aad_bytes)
@@ -1809,9 +1801,7 @@ def ElGamalSign(  # documentation is help/epilog/args # noqa: D103
 ) -> None:
   config: TransConfig = ctx.obj
   key_path: str = _RequireKeyPath(config, 'elgamal')
-  eg_priv: elgamal.ElGamalPrivateKey = _LoadObj(
-    key_path, config.protect or None, elgamal.ElGamalPrivateKey
-  )
+  eg_priv: elgamal.ElGamalPrivateKey = _LoadObj(key_path, config.protect, elgamal.ElGamalPrivateKey)
   aad_bytes: bytes | None = _BytesFromText(aad, config.input_format) if aad else None
   pt: bytes = _BytesFromText(message, config.input_format)
   sig: bytes = eg_priv.Sign(pt, associated_data=aad_bytes)
@@ -1846,9 +1836,7 @@ def ElGamalVerify(  # documentation is help/epilog/args # noqa: D103
 ) -> None:
   config: TransConfig = ctx.obj
   key_path: str = _RequireKeyPath(config, 'elgamal')
-  eg_pub: elgamal.ElGamalPublicKey = _LoadObj(
-    key_path, config.protect or None, elgamal.ElGamalPublicKey
-  )
+  eg_pub: elgamal.ElGamalPublicKey = _LoadObj(key_path, config.protect, elgamal.ElGamalPublicKey)
   aad_bytes: bytes | None = _BytesFromText(aad, config.input_format) if aad else None
   pt: bytes = _BytesFromText(message, config.input_format)
   sig: bytes = _BytesFromText(signature, config.input_format)
@@ -1917,7 +1905,7 @@ def DSAShared(  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
   base_path: str = _RequireKeyPath(config, 'dsa')
   dsa_shared: dsa.DSASharedPublicKey = dsa.DSASharedPublicKey.NewShared(p_bits, q_bits)
-  _SaveObj(dsa_shared, base_path + '.shared', config.protect or None)
+  _SaveObj(dsa_shared, base_path + '.shared', config.protect)
   config.console.print(f'DSA shared key saved to {base_path + ".shared"!r}')
 
 
@@ -1935,12 +1923,12 @@ def DSANew(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args 
   config: TransConfig = ctx.obj
   base_path: str = _RequireKeyPath(config, 'dsa')
   dsa_shared: dsa.DSASharedPublicKey = _LoadObj(
-    base_path + '.shared', config.protect or None, dsa.DSASharedPublicKey
+    base_path + '.shared', config.protect, dsa.DSASharedPublicKey
   )
   dsa_priv: dsa.DSAPrivateKey = dsa.DSAPrivateKey.New(dsa_shared)
   dsa_pub: dsa.DSAPublicKey = dsa.DSAPublicKey.Copy(dsa_priv)
-  _SaveObj(dsa_priv, base_path + '.priv', config.protect or None)
-  _SaveObj(dsa_pub, base_path + '.pub', config.protect or None)
+  _SaveObj(dsa_priv, base_path + '.priv', config.protect)
+  _SaveObj(dsa_pub, base_path + '.pub', config.protect)
   config.console.print(f'DSA private/public keys saved to {base_path + ".priv/.pub"!r}')
 
 
@@ -1964,7 +1952,7 @@ def DSARawSign(  # documentation is help/epilog/args # noqa: D103
 ) -> None:
   config: TransConfig = ctx.obj
   key_path: str = _RequireKeyPath(config, 'dsa')
-  dsa_priv: dsa.DSAPrivateKey = _LoadObj(key_path, config.protect or None, dsa.DSAPrivateKey)
+  dsa_priv: dsa.DSAPrivateKey = _LoadObj(key_path, config.protect, dsa.DSAPrivateKey)
   message_i: int = _ParseInt(message, min_value=1)
   m: int = message_i % dsa_priv.prime_seed
   s1: int
@@ -2005,7 +1993,7 @@ def DSARawVerify(  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
   key_path: str = _RequireKeyPath(config, 'dsa')
   dsa_pub: dsa.DSAPublicKey = dsa.DSAPublicKey.Copy(
-    _LoadObj(key_path, config.protect or None, dsa.DSAPublicKey)
+    _LoadObj(key_path, config.protect, dsa.DSAPublicKey)
   )
   message_i: int = _ParseInt(message, min_value=1)
   signature_i: tuple[int, int] = _ParseIntPairCLI(signature)
@@ -2038,7 +2026,7 @@ def DSASign(  # documentation is help/epilog/args # noqa: D103
 ) -> None:
   config: TransConfig = ctx.obj
   key_path: str = _RequireKeyPath(config, 'dsa')
-  dsa_priv: dsa.DSAPrivateKey = _LoadObj(key_path, config.protect or None, dsa.DSAPrivateKey)
+  dsa_priv: dsa.DSAPrivateKey = _LoadObj(key_path, config.protect, dsa.DSAPrivateKey)
   aad_bytes: bytes | None = _BytesFromText(aad, config.input_format) if aad else None
   pt: bytes = _BytesFromText(message, config.input_format)
   sig: bytes = dsa_priv.Sign(pt, associated_data=aad_bytes)
@@ -2071,7 +2059,7 @@ def DSAVerify(  # documentation is help/epilog/args # noqa: D103
 ) -> None:
   config: TransConfig = ctx.obj
   key_path: str = _RequireKeyPath(config, 'dsa')
-  dsa_pub: dsa.DSAPublicKey = _LoadObj(key_path, config.protect or None, dsa.DSAPublicKey)
+  dsa_pub: dsa.DSAPublicKey = _LoadObj(key_path, config.protect, dsa.DSAPublicKey)
   aad_bytes: bytes | None = _BytesFromText(aad, config.input_format) if aad else None
   pt: bytes = _BytesFromText(message, config.input_format)
   sig: bytes = _BytesFromText(signature, config.input_format)
@@ -2117,8 +2105,8 @@ def BidNew(  # documentation is help/epilog/args # noqa: D103
   secret_bytes: bytes = _BytesFromText(secret, config.input_format)
   bid_priv: base.PrivateBid512 = base.PrivateBid512.New(secret_bytes)
   bid_pub: base.PublicBid512 = base.PublicBid512.Copy(bid_priv)
-  _SaveObj(bid_priv, base_path + '.priv', config.protect or None)
-  _SaveObj(bid_pub, base_path + '.pub', config.protect or None)
+  _SaveObj(bid_priv, base_path + '.priv', config.protect)
+  _SaveObj(bid_pub, base_path + '.pub', config.protect)
   config.console.print(f'Bid private/public commitments saved to {base_path + ".priv/.pub"!r}')
 
 
@@ -2137,12 +2125,8 @@ def BidNew(  # documentation is help/epilog/args # noqa: D103
 def BidVerify(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
   base_path: str = _RequireKeyPath(config, 'bid')
-  bid_priv: base.PrivateBid512 = _LoadObj(
-    base_path + '.priv', config.protect or None, base.PrivateBid512
-  )
-  bid_pub: base.PublicBid512 = _LoadObj(
-    base_path + '.pub', config.protect or None, base.PublicBid512
-  )
+  bid_priv: base.PrivateBid512 = _LoadObj(base_path + '.priv', config.protect, base.PrivateBid512)
+  bid_pub: base.PublicBid512 = _LoadObj(base_path + '.pub', config.protect, base.PublicBid512)
   bid_pub_expect: base.PublicBid512 = base.PublicBid512.Copy(bid_priv)
   config.console.print(
     'Bid commitment: '
@@ -2210,8 +2194,8 @@ def SSSNew(  # documentation is help/epilog/args # noqa: D103
   base_path: str = _RequireKeyPath(config, 'sss')
   sss_priv: sss.ShamirSharedSecretPrivate = sss.ShamirSharedSecretPrivate.New(minimum, bits)
   sss_pub: sss.ShamirSharedSecretPublic = sss.ShamirSharedSecretPublic.Copy(sss_priv)
-  _SaveObj(sss_priv, base_path + '.priv', config.protect or None)
-  _SaveObj(sss_pub, base_path + '.pub', config.protect or None)
+  _SaveObj(sss_priv, base_path + '.priv', config.protect)
+  _SaveObj(sss_pub, base_path + '.pub', config.protect)
   config.console.print(f'SSS private/public keys saved to {base_path + ".priv/.pub"!r}')
 
 
@@ -2245,11 +2229,11 @@ def SSSRawShares(  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
   base_path: str = _RequireKeyPath(config, 'sss')
   sss_priv: sss.ShamirSharedSecretPrivate = _LoadObj(
-    base_path + '.priv', config.protect or None, sss.ShamirSharedSecretPrivate
+    base_path + '.priv', config.protect, sss.ShamirSharedSecretPrivate
   )
   secret_i: int = _ParseInt(secret, min_value=1)
   for i, share in enumerate(sss_priv.RawShares(secret_i, max_shares=count)):
-    _SaveObj(share, f'{base_path}.share.{i + 1}', config.protect or None)
+    _SaveObj(share, f'{base_path}.share.{i + 1}', config.protect)
   config.console.print(
     f'SSS {count} individual (private) shares saved to {base_path + ".share.1…" + str(count)!r}'
   )
@@ -2276,11 +2260,11 @@ def SSSRawRecover(*, ctx: typer.Context) -> None:  # documentation is help/epilo
   config: TransConfig = ctx.obj
   base_path: str = _RequireKeyPath(config, 'sss')
   sss_pub: sss.ShamirSharedSecretPublic = _LoadObj(
-    base_path + '.pub', config.protect or None, sss.ShamirSharedSecretPublic
+    base_path + '.pub', config.protect, sss.ShamirSharedSecretPublic
   )
   subset: list[sss.ShamirSharePrivate] = []
   for fname in glob.glob(base_path + '.share.*'):  # noqa: PTH207
-    subset.append(_LoadObj(fname, config.protect or None, sss.ShamirSharePrivate))
+    subset.append(_LoadObj(fname, config.protect, sss.ShamirSharePrivate))
     config.console.print(f'Loaded SSS share: {fname!r}')
   config.console.print('Secret:')
   config.console.print(sss_pub.RawRecoverSecret(subset))
@@ -2313,11 +2297,11 @@ def SSSRawVerify(  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
   base_path: str = _RequireKeyPath(config, 'sss')
   sss_priv: sss.ShamirSharedSecretPrivate = _LoadObj(
-    base_path + '.priv', config.protect or None, sss.ShamirSharedSecretPrivate
+    base_path + '.priv', config.protect, sss.ShamirSharedSecretPrivate
   )
   secret_i: int = _ParseInt(secret, min_value=1)
   for fname in glob.glob(base_path + '.share.*'):  # noqa: PTH207
-    share: sss.ShamirSharePrivate = _LoadObj(fname, config.protect or None, sss.ShamirSharePrivate)
+    share: sss.ShamirSharePrivate = _LoadObj(fname, config.protect, sss.ShamirSharePrivate)
     config.console.print(
       f'SSS share {fname!r} verification: '
       f'{"OK" if sss_priv.RawVerifyShare(secret_i, share) else "INVALID"}'
@@ -2350,11 +2334,11 @@ def SSSShares(  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
   base_path: str = _RequireKeyPath(config, 'sss')
   sss_priv: sss.ShamirSharedSecretPrivate = _LoadObj(
-    base_path + '.priv', config.protect or None, sss.ShamirSharedSecretPrivate
+    base_path + '.priv', config.protect, sss.ShamirSharedSecretPrivate
   )
   pt: bytes = _BytesFromText(secret, config.input_format)
   for i, data_share in enumerate(sss_priv.MakeDataShares(pt, count)):
-    _SaveObj(data_share, f'{base_path}.share.{i + 1}', config.protect or None)
+    _SaveObj(data_share, f'{base_path}.share.{i + 1}', config.protect)
   config.console.print(
     f'SSS {count} individual (private) shares saved to {base_path + ".share.1…" + str(count)!r}'
   )
@@ -2380,7 +2364,7 @@ def SSSRecover(*, ctx: typer.Context) -> None:  # documentation is help/epilog/a
   subset: list[sss.ShamirSharePrivate] = []
   data_share: sss.ShamirShareData | None = None
   for fname in glob.glob(base_path + '.share.*'):  # noqa: PTH207
-    share: sss.ShamirSharePrivate = _LoadObj(fname, config.protect or None, sss.ShamirSharePrivate)
+    share: sss.ShamirSharePrivate = _LoadObj(fname, config.protect, sss.ShamirSharePrivate)
     subset.append(share)
     if isinstance(share, sss.ShamirShareData):
       data_share = share
