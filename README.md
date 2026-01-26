@@ -103,14 +103,18 @@ Known dependencies:
 #### Humanized Sizes (IEC binary)
 
 ```py
-from transcrypto import utils
+from transcrypto import base
 
-utils.HumanizedBytes(512)                 # '512 B'
-utils.HumanizedBytes(2048)                # '2.00 KiB'
-utils.HumanizedBytes(5 * 1024**3)         # '5.00 GiB'
+base.HumanizedBytes(512)                  # '512 B'
+base.HumanizedBytes(2048)                 # '2.000 KiB'
+base.HumanizedBytes(5 * 1024**3)          # '5.000 GiB'
 ```
 
-Converts raw byte counts to binary-prefixed strings (`B`, `KiB`, `MiB`, `GiB`, `TiB`, `PiB`, `EiB`). Values under 1024 bytes are returned as integers with `B`; larger values use two decimals.
+Converts raw byte counts to binary-prefixed strings (`B`, `KiB`, `MiB`, `GiB`, `TiB`, `PiB`, `EiB`).
+
+- For integer inputs `<1024`, returns an integer count with `B` (e.g. `'512 B'`).
+- For float inputs `<1024`, returns 3 decimals with `B` (e.g. `'51.200 B'`).
+- For values `≥1024`, returns 3 decimals.
 
 - standard: 1 KiB = 1024 B, 1 MiB = 1024 KiB, …
 - errors: negative inputs raise `InputError`
@@ -119,43 +123,47 @@ Converts raw byte counts to binary-prefixed strings (`B`, `KiB`, `MiB`, `GiB`, `
 
 ```py
 # Base (unitless)
-utils.HumanizedDecimal(950)               # '950'
-utils.HumanizedDecimal(1500)              # '1.50 k'
+base.HumanizedDecimal(950)                # '950'
+base.HumanizedDecimal(1500)               # '1.500 k'
 
 # With a unit (trimmed and attached)
-utils.HumanizedDecimal(1500, ' Hz ')      # '1.50 kHz'
-utils.HumanizedDecimal(0.123456, 'V')     # '0.1235 V'
+base.HumanizedDecimal(1500, unit=' Hz ')  # '1.500 kHz'
+base.HumanizedDecimal(0.123456, unit='V') # '123.456 mV'
 
 # Large magnitudes
-utils.HumanizedDecimal(3_200_000)         # '3.20 M'
-utils.HumanizedDecimal(7.2e12, 'B/s')     # '7.20 TB/s'
+base.HumanizedDecimal(3_200_000)          # '3.200 M'
+base.HumanizedDecimal(7.2e12, unit='B/s') # '7.200 TB/s'
 ```
 
-Scales by powers of 1000 using SI prefixes (`k`, `M`, `G`, `T`, `P`, `E`). For values `<1000`, integers are shown as-is; small floats show four decimals. For scaled values, two decimals are used and the unit (if provided) is attached without a space (e.g., `kHz`).
+Scales by powers of 1000 using SI prefixes to keep the displayed value in roughly `[1, 1000)` when possible.
+
+- Supported large prefixes: `k`, `M`, `G`, `T`, `P`, `E`
+- Supported small prefixes: `m`, `µ`, `n`, `p`, `f`, `a`
+- Formatting uses 3 decimals for non-integer/unscaled values and for scaled values.
 
 - unit handling: `unit` is stripped; `<1000` values include a space before the unit (`'950 Hz'`)
-- errors: negative or non-finite inputs raise `InputError`
+- errors: non-finite inputs raise `InputError` (negative values are supported and keep a leading `-`)
 
 #### Humanized Durations
 
 ```py
-utils.HumanizedSeconds(0)                 # '0.00 s'
-utils.HumanizedSeconds(0.000004)          # '4.000 µs'
-utils.HumanizedSeconds(0.25)              # '250.000 ms'
-utils.HumanizedSeconds(42)                # '42.00 s'
-utils.HumanizedSeconds(3661)              # '1.02 h'
-utils.HumanizedSeconds(172800)            # '2.00 d'
+base.HumanizedSeconds(0)                  # '0.000 s'
+base.HumanizedSeconds(0.000004)           # '4.000 µs'
+base.HumanizedSeconds(0.25)               # '250.000 ms'
+base.HumanizedSeconds(42)                 # '42.000 s'
+base.HumanizedSeconds(3661)               # '1.017 h'
+base.HumanizedSeconds(172800)             # '2.000 d'
 ```
 
 Chooses an appropriate time unit based on magnitude and formats with fixed precision:
 
 - `< 1 ms`: microseconds with three decimals (`µs`)
 - `< 1 s`: milliseconds with three decimals (`ms`)
-- `< 60 s`: seconds with two decimals (`s`)
-- `< 60 min`: minutes with two decimals (`min`)
-- `< 24 h`: hours with two decimals (`h`)
-- `≥ 24 h`: days with two decimals (`d`)
-- special case: `0 → '0.00 s'`
+- `< 60 s`: seconds with three decimals (`s`)
+- `< 60 min`: minutes with three decimals (`min`)
+- `< 24 h`: hours with three decimals (`h`)
+- `≥ 24 h`: days with three decimals (`d`)
+- special case: `0 → '0.000 s'`
 - errors: negative or non-finite inputs raise `InputError`
 
 #### Execution Timing
@@ -172,7 +180,7 @@ import time
 ```py
 with base.Timer('Block timing'):
     time.sleep(1.2)
-# → logs: "Block timing: 1.20 s" (default via logging.info)
+# → logs: "Block timing: 1.200 s" (default via logging.info)
 ```
 
 Starts timing on entry, stops on exit, and reports elapsed time automatically.
@@ -185,7 +193,7 @@ def slow_function():
     time.sleep(0.8)
 
 slow_function()
-# → logs: "Function timing: 0.80 s"
+# → logs: "Function timing: 0.800 s"
 ```
 
 Wraps a function so that each call is automatically timed.
@@ -196,17 +204,17 @@ Wraps a function so that each call is automatically timed.
 tm = base.Timer('Inline timing', emit_print=True)
 tm.Start()
 time.sleep(0.1)
-tm.Stop()   # prints: "Inline timing: 0.10 s"
+tm.Stop()   # prints: "Inline timing: 0.100 s"
 ```
 
 Manual control over `Start()` and `Stop()` for precise measurement of custom intervals.
 
 ##### Key points
 
-- **Label**: required, shown in output; empty labels raise `InputError`
+- **Label**: optional; if empty, output omits the label prefix
 - **Output**:
   - `emit_log=True` → `logging.info()` (default)
-  - `emit_print=True` → direct `print()`
+  - `emit_print=True` → prints via `rich.console.Console().print()`
   - Both can be enabled
 - **Format**: elapsed time is shown using `HumanizedSeconds()`
 - **Safety**:
@@ -234,7 +242,7 @@ blob = base.Serialize(data)
 blob = base.Serialize(
     data,
     compress=9,               # compression level (-22..22, default=3)
-    key=my_symmetric_key      # must implement SymmetricCrypto
+    key=my_encryptor          # must implement `base.Encryptor` (e.g., `aes.AESKey`)
 )
 
 # Save directly to file
@@ -278,7 +286,7 @@ obj = base.DeSerialize(data=blob)
 obj = base.DeSerialize(file_path='/tmp/data.blob')
 
 # With decryption
-obj = base.DeSerialize(data=blob, key=my_symmetric_key)
+obj = base.DeSerialize(data=blob, key=my_decryptor)
 ```
 
 Deserialization path:
@@ -294,7 +302,8 @@ data/file → (decrypt) → (decompress if Zstd) → unpickle
 
 - Exactly one of `data` or `file_path` must be provided.
 - `file_path` must exist; `data` must be at least 4 bytes.
-- Wrong key or corrupted data can raise `CryptoError`.
+- Wrong key / authentication failure can raise `CryptoError`.
+- Corrupted compressed blobs typically raise `zstandard.ZstdError` during decompression.
 
 #### Cryptographically Secure Randomness
 
@@ -516,13 +525,13 @@ Hashes a file from disk in streaming mode. By default uses SHA-256; `digest='sha
 
 #### Symmetric Encryption Interface
 
-`SymmetricCrypto` is an abstract base class that defines the **byte-in / byte-out** contract for symmetric ciphers.
+`base.Encryptor` and `base.Decryptor` are runtime-checkable protocols that define the **byte-in / byte-out** contract for symmetric ciphers.
 
 - **Metadata handling** — if the algorithm uses a `nonce` or `tag`, the implementation must handle it internally (e.g., append it to ciphertext).
 - **AEAD modes** — if supported, `associated_data` must be authenticated; otherwise, a non-`None` value should raise `InputError`.
 
 ```py
-class MyAES(base.SymmetricCrypto):
+class MyAES(base.Encryptor, base.Decryptor):
     def Encrypt(self, plaintext: bytes, *, associated_data=None) -> bytes:
         ...
     def Decrypt(self, ciphertext: bytes, *, associated_data=None) -> bytes:
@@ -536,8 +545,8 @@ Cryptographic objects all derive from the `CryptoKey` class and will all have so
 - Will be safe to log and print, i.e., implement safe `__str__()` and `__repr__()` methods (in actuality `repr` will be exactly the same as `str`). The `__str__()` should always fully print the public parts of the object and obfuscate the private ones. This obfuscation allows for some debugging, if needed, but if the secrets are "too short" then it can be defeated by brute force. For usual crypto defaults the obfuscation is fine. The obfuscation is the fist 4 bytes of the SHA-512 for the value followed by an ellipsis (e.g. `c9626f16…`).
 - It will have a `_DebugDump()` method that **does print secrets** and can be used for **debugging only**.
 - Can be easily serialized to `bytes` by the `blob` property and to base-64 encoded `str` by the `encoded` property.
-- Can be serialized encrypted to `bytes` by the `Blob(key=[SymmetricCrypto])` method and to encrypted base-64 encoded `str` by the `Encoded(key=[SymmetricCrypto])` method.
-- Can be instantiated back as an object from `str` or `bytes` using the `Load(data, key=[SymmetricCrypto] | None)` method. The `Load()` will decide how to build the object and will work universally with all the serialization options discussed above.
+- Can be serialized encrypted to `bytes` by the `Blob(key=[base.Encryptor])` method and to encrypted base-64 encoded `str` by the `Encoded(key=[base.Encryptor])` method.
+- Can be instantiated back as an object from `str` or `bytes` using the `Load(data, key=[base.Decryptor] | None)` method. The `Load()` will decide how to build the object and will work universally with all the serialization options discussed above.
 
 Example:
 
