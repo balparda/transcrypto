@@ -1673,7 +1673,7 @@ class PublicBid512(CryptoKey):
         private_key=private_key,
         secret_bid=secret,
       )
-      return True  # if we got here, all is good  # noqa: TRY300
+      return True  # if we got here, all is good
     except CryptoError:
       return False  # bid does not match the public commitment
 
