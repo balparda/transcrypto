@@ -883,9 +883,9 @@ app.add_typer(hash_app, name='hash')
   help='SHA-256 of input `data`.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto --bin hash sha256 xyz\n\n'
+    '$ poetry run transcrypto -i bin hash sha256 xyz\n\n'
     '3608bca1e44ea6c4d268eb6db02260269892c0b42b86bbf1e77a6fa16c3c9282\n\n'
-    '$ poetry run transcrypto --b64 hash sha256 -- eHl6  # "xyz" in base-64\n\n'
+    '$ poetry run transcrypto -i b64 hash sha256 -- eHl6  # "xyz" in base-64\n\n'
     '3608bca1e44ea6c4d268eb6db02260269892c0b42b86bbf1e77a6fa16c3c9282'
   ),
 )
@@ -905,10 +905,10 @@ def Hash256(  # documentation is help/epilog/args # noqa: D103
   help='SHA-512 of input `data`.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto --bin hash sha512 xyz\n\n'
+    '$ poetry run transcrypto -i bin hash sha512 xyz\n\n'
     '4a3ed8147e37876adc8f76328e5abcc1b470e6acfc18efea0135f983604953a5'
     '8e183c1a6086e91ba3e821d926f5fdeb37761c7ca0328a963f5e92870675b728\n\n'
-    '$ poetry run transcrypto --b64 hash sha512 -- eHl6  # "xyz" in base-64\n\n'
+    '$ poetry run transcrypto -i b64 hash sha512 -- eHl6  # "xyz" in base-64\n\n'
     '4a3ed8147e37876adc8f76328e5abcc1b470e6acfc18efea0135f983604953a5'
     '8e183c1a6086e91ba3e821d926f5fdeb37761c7ca0328a963f5e92870675b728'
   ),
@@ -981,7 +981,7 @@ app.add_typer(aes_app, name='aes')
   ),
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto --out-b64 aes key "correct horse battery staple"\n\n'
+    '$ poetry run transcrypto -o b64 aes key "correct horse battery staple"\n\n'
     'DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es=\n\n'  # cspell:disable-line
     '$ poetry run transcrypto -p keyfile.out --protect hunter aes key '
     '"correct horse battery staple"\n\n'
@@ -1014,10 +1014,10 @@ def AESKeyFromPass(  # documentation is help/epilog/args # noqa: D103
   ),
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto --b64 --out-b64 aes encrypt -k '
+    '$ poetry run transcrypto -i b64 -o b64 aes encrypt -k '
     'DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= -- AAAAAAB4eXo=\n\n'  # cspell:disable-line
     'F2_ZLrUw5Y8oDnbTP5t5xCUWX8WtVILLD0teyUi_37_4KHeV-YowVA==\n\n'  # cspell:disable-line
-    '$ poetry run transcrypto --b64 --out-b64 aes encrypt -k '
+    '$ poetry run transcrypto -i b64 -o b64 aes encrypt -k '
     'DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= -a eHl6 -- AAAAAAB4eXo=\n\n'  # cspell:disable-line
     'xOlAHPUPpeyZHId-f3VQ_QKKMxjIW0_FBo9WOfIBrzjn0VkVV6xTRA=='  # cspell:disable-line
   ),
@@ -1064,11 +1064,11 @@ def AESEncrypt(  # documentation is help/epilog/args # noqa: D103
   ),
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto --b64 --out-b64 aes decrypt -k '
+    '$ poetry run transcrypto -i b64 -o b64 aes decrypt -k '
     'DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= -- '  # cspell:disable-line
     'F2_ZLrUw5Y8oDnbTP5t5xCUWX8WtVILLD0teyUi_37_4KHeV-YowVA==\n\n'  # cspell:disable-line
     'AAAAAAB4eXo=\n\n'  # cspell:disable-line
-    '$ poetry run transcrypto --b64 --out-b64 aes decrypt -k '
+    '$ poetry run transcrypto -i b64 -o b64 aes decrypt -k '
     'DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= -a eHl6 -- '  # cspell:disable-line
     'xOlAHPUPpeyZHId-f3VQ_QKKMxjIW0_FBo9WOfIBrzjn0VkVV6xTRA==\n\n'  # cspell:disable-line
     'AAAAAAB4eXo='  # cspell:disable-line
@@ -1129,7 +1129,7 @@ aes_app.add_typer(aes_ecb_app, name='ecb')
   ),
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto --b64 aes ecb -k '
+    '$ poetry run transcrypto -i b64 aes ecb -k '
     'DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= encrypt '  # cspell:disable-line
     '00112233445566778899aabbccddeeff\n\n'  # cspell:disable-line
     '54ec742ca3da7b752e527b74e3a798d7'
@@ -1176,7 +1176,7 @@ def AESECBEncrypt(  # documentation is help/epilog/args # noqa: D103
   ),
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto --b64 aes ecb -k '
+    '$ poetry run transcrypto -i b64 aes ecb -k '
     'DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= decrypt '  # cspell:disable-line
     '54ec742ca3da7b752e527b74e3a798d7\n\n'  # cspell:disable-line
     '00112233445566778899aabbccddeeff'  # cspell:disable-line
@@ -1384,7 +1384,7 @@ def RSARawVerify(  # documentation is help/epilog/args # noqa: D103
   help='Encrypt `message` with public key.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto --bin --out-b64 -p rsa-key.pub rsa encrypt "abcde" -a "xyz"\n\n'
+    '$ poetry run transcrypto -i bin -o b64 -p rsa-key.pub rsa encrypt "abcde" -a "xyz"\n\n'
     'AO6knI6xwq6TGR…Qy22jiFhXi1eQ=='
   ),
 )
@@ -1414,7 +1414,7 @@ def RSAEncrypt(  # documentation is help/epilog/args # noqa: D103
   help='Decrypt `ciphertext` with private key.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto --b64 --out-bin -p rsa-key.priv rsa decrypt -a eHl6 -- '
+    '$ poetry run transcrypto -i b64 -o bin -p rsa-key.priv rsa decrypt -a eHl6 -- '
     'AO6knI6xwq6TGR…Qy22jiFhXi1eQ==\n\n'
     'abcde'
   ),
@@ -1445,7 +1445,7 @@ def RSADecrypt(  # documentation is help/epilog/args # noqa: D103
   help='Sign `message` with private key.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto --bin --out-b64 -p rsa-key.priv rsa sign "xyz"\n\n'
+    '$ poetry run transcrypto -i bin -o b64 -p rsa-key.priv rsa sign "xyz"\n\n'
     '91TS7gC6LORiL…6RD23Aejsfxlw=='  # cspell:disable-line
   ),
 )
@@ -1475,10 +1475,10 @@ def RSASign(  # documentation is help/epilog/args # noqa: D103
   help='Verify `signature` for `message` with public key.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto --b64 -p rsa-key.pub rsa verify -- eHl6 '
+    '$ poetry run transcrypto -i b64 -p rsa-key.pub rsa verify -- eHl6 '
     '91TS7gC6LORiL…6RD23Aejsfxlw==\n\n'  # cspell:disable-line
     'RSA signature: OK\n\n'
-    '$ poetry run transcrypto --b64 -p rsa-key.pub rsa verify -- eLl6 '
+    '$ poetry run transcrypto -i b64 -p rsa-key.pub rsa verify -- eLl6 '
     '91TS7gC6LORiL…6RD23Aejsfxlw==\n\n'  # cspell:disable-line
     'RSA signature: INVALID'
   ),
@@ -1722,7 +1722,7 @@ def ElGamalRawVerify(  # documentation is help/epilog/args # noqa: D103
   help='Encrypt `message` with public key.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto --bin --out-b64 -p eg-key.pub elgamal encrypt "abcde" -a "xyz"\n\n'
+    '$ poetry run transcrypto -i bin -o b64 -p eg-key.pub elgamal encrypt "abcde" -a "xyz"\n\n'
     'CdFvoQ_IIPFPZLua…kqjhcUTspISxURg=='  # cspell:disable-line
   ),
 )
@@ -1752,7 +1752,7 @@ def ElGamalEncrypt(  # documentation is help/epilog/args # noqa: D103
   help='Decrypt `ciphertext` with private key.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto --b64 --out-bin -p eg-key.priv elgamal decrypt -a eHl6 -- '
+    '$ poetry run transcrypto -i b64 -o bin -p eg-key.priv elgamal decrypt -a eHl6 -- '
     'CdFvoQ_IIPFPZLua…kqjhcUTspISxURg==\n\n'  # cspell:disable-line
     'abcde'
   ),
@@ -1783,7 +1783,7 @@ def ElGamalDecrypt(  # documentation is help/epilog/args # noqa: D103
   help='Sign message with private key.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto --bin --out-b64 -p eg-key.priv elgamal sign "xyz"\n\n'
+    '$ poetry run transcrypto -i bin -o b64 -p eg-key.priv elgamal sign "xyz"\n\n'
     'Xl4hlYK8SHVGw…0fCKJE1XVzA=='  # cspell:disable-line
   ),
 )
@@ -1813,10 +1813,10 @@ def ElGamalSign(  # documentation is help/epilog/args # noqa: D103
   help='Verify `signature` for `message` with public key.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto --b64 -p eg-key.pub elgamal verify -- eHl6 '
+    '$ poetry run transcrypto -i b64 -p eg-key.pub elgamal verify -- eHl6 '
     'Xl4hlYK8SHVGw…0fCKJE1XVzA==\n\n'  # cspell:disable-line
     'El-Gamal signature: OK\n\n'
-    '$ poetry run transcrypto --b64 -p eg-key.pub elgamal verify -- eLl6 '
+    '$ poetry run transcrypto -i b64 -p eg-key.pub elgamal verify -- eLl6 '
     'Xl4hlYK8SHVGw…0fCKJE1XVzA==\n\n'  # cspell:disable-line
     'El-Gamal signature: INVALID'
   ),
@@ -2008,7 +2008,7 @@ def DSARawVerify(  # documentation is help/epilog/args # noqa: D103
   help='Sign message with private key.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto --bin --out-b64 -p dsa-key.priv dsa sign "xyz"\n\n'
+    '$ poetry run transcrypto -i bin -o b64 -p dsa-key.priv dsa sign "xyz"\n\n'
     'yq8InJVpViXh9…BD4par2XuA='
   ),
 )
@@ -2038,9 +2038,11 @@ def DSASign(  # documentation is help/epilog/args # noqa: D103
   help='Verify `signature` for `message` with public key.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto --b64 -p dsa-key.pub dsa verify -- eHl6 yq8InJVpViXh9…BD4par2XuA=\n\n'
+    '$ poetry run transcrypto -i b64 -p dsa-key.pub dsa verify -- '
+    'eHl6 yq8InJVpViXh9…BD4par2XuA=\n\n'
     'DSA signature: OK\n\n'
-    '$ poetry run transcrypto --b64 -p dsa-key.pub dsa verify -- eLl6 yq8InJVpViXh9…BD4par2XuA=\n\n'
+    '$ poetry run transcrypto -i b64 -p dsa-key.pub dsa verify -- '
+    'eLl6 yq8InJVpViXh9…BD4par2XuA=\n\n'
     'DSA signature: INVALID'
   ),
 )
@@ -2090,7 +2092,7 @@ app.add_typer(bid_app, name='bid')
   help=('Generate the bid files for `secret`.'),
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto --bin -p my-bid bid new "tomorrow it will rain"\n\n'
+    '$ poetry run transcrypto -i bin -p my-bid bid new "tomorrow it will rain"\n\n'
     "Bid private/public commitments saved to 'my-bid.priv/.pub'"
   ),
 )
@@ -2115,7 +2117,7 @@ def BidNew(  # documentation is help/epilog/args # noqa: D103
   help=('Verify the bid files for correctness and reveal the `secret`.'),
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto --out-bin -p my-bid bid verify\n\n'
+    '$ poetry run transcrypto -o bin -p my-bid bid verify\n\n'
     'Bid commitment: OK\n\n'
     'Bid secret:\n\n'
     'tomorrow it will rain'
@@ -2313,7 +2315,7 @@ def SSSRawVerify(  # documentation is help/epilog/args # noqa: D103
   help='Shares: Issue `count` private shares for a `secret`.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto --bin -p sss-key sss shares "abcde" 5\n\n'
+    '$ poetry run transcrypto -i bin -p sss-key sss shares "abcde" 5\n\n'
     "SSS 5 individual (private) shares saved to 'sss-key.share.1…5'\n\n"
     '$ rm sss-key.share.2 sss-key.share.4  # this is to simulate only having shares 1,3,5'
   ),
@@ -2349,7 +2351,7 @@ def SSSShares(  # documentation is help/epilog/args # noqa: D103
   help='Recover secret from shares; will use any available shares that were found.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run transcrypto --out-bin -p sss-key sss recover\n\n'
+    '$ poetry run transcrypto -o bin -p sss-key sss recover\n\n'
     "Loaded SSS share: 'sss-key.share.3'\n\n"
     "Loaded SSS share: 'sss-key.share.5'\n\n"
     "Loaded SSS share: 'sss-key.share.1'  # using only 3 shares: number 2/4 are missing\n\n"

@@ -58,7 +58,7 @@ Started in July/2025, by Daniel Balparda. Since version 1.0.2 it is PyPI package
 
 ## License
 
-Copyright 2025 Daniel Balparda <balparda@github.com>
+Copyright 2026 Daniel Balparda <balparda@github.com>
 
 Licensed under the ***Apache License, Version 2.0*** (the "License"); you may not use this file except in compliance with the License. You may obtain a [copy of the License here](http://www.apache.org/licenses/LICENSE-2.0).
 
@@ -378,8 +378,8 @@ The function is `O(log(min(a, b)))` and handles arbitrarily large integers. To f
 
 ```py
 >>> base.ExtendedGCD(462, 1071)
-(21, -2, 1)
->>> 462 * -2 + 1071 * 1
+(21, 7, -3)
+>>> 462 * 7 + 1071 * (-3)
 21
 ```
 
@@ -709,7 +709,7 @@ For real-world deployments, use a high-level library with authenticated encrypti
 from transcrypto import elgamal
 
 # Shared parameters (prime modulus, group base) for a group
-shared = elgamal.ElGamalSharedPublicKey.New(256)
+shared = elgamal.ElGamalSharedPublicKey.NewShared(256)
 print(shared.prime_modulus)
 print(shared.group_base)
 
@@ -761,8 +761,8 @@ This is **raw DSA** over a prime field — **no hashing or padding**. You sign/v
 ```py
 from transcrypto import dsa
 
-# Shared parameters (p, q, g)
-shared = dsa.DSASharedPublicKey.New(p_bits=1024, q_bits=160)
+# Shared parameters (p, q, g) - Safe Sign/Verify requires q > 512 bits
+shared = dsa.DSASharedPublicKey.NewShared(2048, 520)
 print(shared.prime_modulus)  # p
 print(shared.prime_seed)     # q  (q | p-1)
 print(shared.group_base)     # g
@@ -798,11 +798,11 @@ assert pub.RawVerify(msg, sig)
 
 ```py
 # Generate primes (p, q) with q | (p-1); also returns m = (p-1)//q
-p, q, m = dsa.NBitRandomDSAPrimes(p_bits=1024, q_bits=160)
+p, q, m = dsa.NBitRandomDSAPrimes(1024, 160)
 assert (p - 1) % q == 0
 ```
 
-Used internally by `DSASharedPublicKey.New()`.
+Used internally by `DSASharedPublicKey.NewShared()`.
 Search breadth and retry caps are bounded; repeated failures raise `CryptoError`.
 
 #### Public Bidding
@@ -827,14 +827,14 @@ print(bid_pub == bid_pub_expected)
 
 <https://en.wikipedia.org/wiki/Shamir's_secret_sharing>
 
-This is the information-theoretic SSS but with no authentication or binding between share and secret. Malicious share injection is possible! Add MAC or digital signature in hostile settings. Use at least 128-bit modulus for non-toy deployments.
+This is the information-theoretic SSS but with no authentication or binding between share and secret. Malicious share injection is possible! Add MAC or digital signature in hostile settings. Use at least 128-bit modulus for non-toy deployments; `MakeDataShares()` requires > 256 bits.
 
 ```py
 from transcrypto import sss
 
 # Generate parameters: at least 3 of 5 shares needed,
-# coefficients & modulus are 128-bit primes
-priv = sss.ShamirSharedSecretPrivate.New(minimum_shares=3, bit_length=128)
+# coefficients & modulus are 264-bit primes (> 256 bits required for MakeDataShares)
+priv = sss.ShamirSharedSecretPrivate.New(3, 264)
 pub  = sss.ShamirSharedSecretPublic.Copy(priv)   # what you publish
 
 print(f'threshold        : {pub.minimum}')
@@ -864,8 +864,8 @@ A single share object looks like `sss.ShamirSharePrivate(minimum=3, modulus=...,
 # Safe Re-constructing the secret
 secret = b'xyz'
 five_shares = priv.MakeDataShares(secret, 5)
-subset = five_shares[:3]                   # any 3 distinct shares
-recovered = subset[0].RecoverData(subset)  # each share has the encrypted data, so you ask it to join with the others
+subset = five_shares[:3]                        # any 3 distinct shares
+recovered = subset[0].RecoverData(subset[1:])   # each share has the encrypted data, pass other shares
 assert recovered == secret
 
 # Raw Re-constructing the secret
