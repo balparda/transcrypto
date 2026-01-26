@@ -1693,3 +1693,59 @@ def test_generate_help_includes_real_app_sections() -> None:
   # ensure at least one known command exists
   assert re.search(r'`transcrypto` .*Command-Line Interface', md)
   assert 'rsa' in md
+
+
+def test_generate_help_markdown_skips_invalid_commands(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test that GenerateTyperHelpMarkdown skips commands that fail without output (line 1894)."""
+  # Import click.testing here
+  from click import testing as click_testing  # noqa: PLC0415
+
+  # Create a multi-command app so it becomes a group
+  app = typer.Typer()
+
+  @app.command()
+  def cmd1() -> None:  # pyright: ignore[reportUnusedFunction]
+    """First command."""
+    print('cmd1')  # noqa: T201
+
+  @app.command()
+  def cmd2() -> None:  # pyright: ignore[reportUnusedFunction]
+    """Second command."""
+    print('cmd2')  # noqa: T201
+
+  # Track invoke calls
+  invoke_count = {'count': 0}
+  original_invoke = click_testing.CliRunner.invoke
+
+  def _mock_invoke(
+    self: click_testing.CliRunner,
+    cli: click.Command,
+    args: list[str] | None = None,
+    **kwargs: object,
+  ) -> click_testing.Result:
+    invoke_count['count'] += 1
+    # First call is root help, second is cmd1 help, third is cmd2 help
+    if invoke_count['count'] == 3:
+      # Return a result with non-zero exit code and no output
+      # This simulates a command that fails silently
+      return click_testing.Result(
+        runner=self,
+        stdout_bytes=b'',
+        stderr_bytes=b'',
+        output_bytes=b'',
+        return_value=None,
+        exit_code=1,
+        exception=SystemExit(1),
+        exc_info=None,
+      )
+    return original_invoke(self, cli, args, **kwargs)  # type: ignore[arg-type]
+
+  monkeypatch.setattr(click_testing.CliRunner, 'invoke', _mock_invoke)
+
+  # Generate markdown - should skip the failing command and continue
+  md: str = base.GenerateTyperHelpMarkdown(app, prog_name='test', heading_level=1)
+  # Should have output for root and cmd1, but skip cmd2
+  assert 'test' in md
+  assert 'cmd1' in md
+  # cmd2 should not appear since it fails without output
+  # (the walker includes it but the markdown skips it)

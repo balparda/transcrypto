@@ -1136,7 +1136,7 @@ aes_app.add_typer(aes_ecb_app, name='ecb')
   ),
 )
 @base.CLIErrorGuard
-def AESEcbEncrypt(  # documentation is help/epilog/args # noqa: D103
+def AESECBEncrypt(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
   plaintext: str = typer.Argument(..., help='Plaintext block as 32 hex chars (16-bytes)'),
@@ -1183,7 +1183,7 @@ def AESEcbEncrypt(  # documentation is help/epilog/args # noqa: D103
   ),
 )
 @base.CLIErrorGuard
-def AESEcbDecrypt(  # documentation is help/epilog/args # noqa: D103
+def AESECBDecrypt(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
   ciphertext: str = typer.Argument(..., help='Ciphertext block as 32 hex chars (16-bytes)'),
