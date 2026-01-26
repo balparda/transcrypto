@@ -138,11 +138,12 @@ def _RequireKeyPath(config: TransConfig, command: str, /) -> str:
   return str(config.key_path)
 
 
-def _ParseInt(s: str, /) -> int:
+def _ParseInt(s: str, /, *, min_value: int | None = None) -> int:
   """Parse int, try to determine if binary, octal, decimal, or hexadecimal.
 
   Args:
       s (str): putative int
+      min_value (int | None, optional): minimum allowed value. Defaults to None.
 
   Returns:
       int: parsed int
@@ -156,40 +157,20 @@ def _ParseInt(s: str, /) -> int:
     raise base.InputError(f'invalid int: {s!r}')
   try:
     clean: str = raw.lower().replace('_', '')
+    value: int
     if clean.startswith('0x'):
-      return int(clean, 16)
-    if clean.startswith('0b'):
-      return int(clean, 2)
-    if clean.startswith('0o'):
-      return int(clean, 8)
-    return int(clean, 10)
+      value = int(clean, 16)
+    elif clean.startswith('0b'):
+      value = int(clean, 2)
+    elif clean.startswith('0o'):
+      value = int(clean, 8)
+    else:
+      value = int(clean, 10)
+    if min_value is not None and value < min_value:
+      raise base.InputError(f'int must be ≥ {min_value}, got {value}')
+    return value
   except ValueError as err:
     raise base.InputError(f'invalid int: {s!r}') from err
-
-
-def _ParseIntInRange(
-  s: str, /, *, min_value: int | None = None, max_value: int | None = None
-) -> int:
-  """Parse int and ensure it is within range.
-
-  Args:
-      s (str): int value to parse
-      min_value (int | None, optional): minimum allowed value. Defaults to None.
-      max_value (int | None, optional): maximum allowed value. Defaults to None.
-
-  Raises:
-      base.InputError: if the value is out of the specified range
-
-  Returns:
-      int: validated int value
-
-  """
-  value: int = _ParseInt(s)
-  if min_value is not None and value < min_value:
-    raise base.InputError(f'int must be ≥ {min_value}')
-  if max_value is not None and value > max_value:
-    raise base.InputError(f'int must be ≤ {max_value}')
-  return value
 
 
 def _ParseIntPairCLI(s: str, /) -> tuple[int, int]:
@@ -205,8 +186,7 @@ def _ParseIntPairCLI(s: str, /) -> tuple[int, int]:
       tuple[int, int]: parsed int pair
 
   """
-  raw: str = s.strip()
-  parts: list[str] = raw.split(':')
+  parts: list[str] = s.split(':')
   if len(parts) != 2:  # noqa: PLR2004
     raise base.InputError(f'invalid int(s): {s!r} (expected a:b)')
   return (_ParseInt(parts[0]), _ParseInt(parts[1]))
@@ -494,7 +474,7 @@ def IsPrimeCLI(  # documentation is help/epilog/args # noqa: D103
   n: str = typer.Argument(..., help='Integer to test, ≥ 1'),
 ) -> None:
   config: TransConfig = ctx.obj
-  n_i = _ParseIntInRange(n, min_value=1)
+  n_i = _ParseInt(n, min_value=1)
   config.console.print(str(modmath.IsPrime(n_i)))
 
 
@@ -517,7 +497,7 @@ def PrimeGenCLI(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  start_i = _ParseIntInRange(start, min_value=0)
+  start_i = _ParseInt(start, min_value=0)
   for i, pr in enumerate(modmath.PrimeGenerator(start_i)):
     if i >= count:
       return
@@ -586,8 +566,8 @@ def GcdCLI(  # documentation is help/epilog/args # noqa: D103
   b: str = typer.Argument(..., help="Integer, ≥ 0 (can't be both zero)"),
 ) -> None:
   config: TransConfig = ctx.obj
-  a_i = _ParseIntInRange(a, min_value=0)
-  b_i = _ParseIntInRange(b, min_value=0)
+  a_i = _ParseInt(a, min_value=0)
+  b_i = _ParseInt(b, min_value=0)
   if a_i == 0 and b_i == 0:
     raise base.InputError("a and b can't both be zero")
   config.console.print(base.GCD(a_i, b_i))
@@ -617,8 +597,8 @@ def XgcdCLI(  # documentation is help/epilog/args # noqa: D103
   b: str = typer.Argument(..., help="Integer, ≥ 0 (can't be both zero)"),
 ) -> None:
   config: TransConfig = ctx.obj
-  a_i = _ParseIntInRange(a, min_value=0)
-  b_i = _ParseIntInRange(b, min_value=0)
+  a_i = _ParseInt(a, min_value=0)
+  b_i = _ParseInt(b, min_value=0)
   if a_i == 0 and b_i == 0:
     raise base.InputError("a and b can't both be zero")
   config.console.print(str(base.ExtendedGCD(a_i, b_i)))
@@ -662,10 +642,8 @@ def RandomInt(  # documentation is help/epilog/args # noqa: D103
   max_: str = typer.Argument(..., help='Maximum, > `min`'),
 ) -> None:
   config: TransConfig = ctx.obj
-  min_i = _ParseIntInRange(min_, min_value=0)
-  max_i = _ParseIntInRange(max_, min_value=0)
-  if max_i <= min_i:
-    raise base.InputError('max must be > min')
+  min_i: int = _ParseInt(min_, min_value=0)
+  max_i: int = _ParseInt(max_, min_value=min_i + 1)
   config.console.print(base.RandInt(min_i, max_i))
 
 
@@ -739,7 +717,7 @@ def ModInv(  # documentation is help/epilog/args # noqa: D103
 ) -> None:
   config: TransConfig = ctx.obj
   a_i = _ParseInt(a)
-  m_i = _ParseIntInRange(m, min_value=2)
+  m_i = _ParseInt(m, min_value=2)
   try:
     config.console.print(modmath.ModInv(a_i, m_i))
   except modmath.ModularDivideError:
@@ -771,7 +749,7 @@ def ModDiv(  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
   x_i = _ParseInt(x)
   y_i = _ParseInt(y)
-  m_i = _ParseIntInRange(m, min_value=2)
+  m_i = _ParseInt(m, min_value=2)
   try:
     config.console.print(modmath.ModDiv(x_i, y_i, m_i))
   except modmath.ModularDivideError:
@@ -799,8 +777,8 @@ def ModExp(  # documentation is help/epilog/args # noqa: D103
 ) -> None:
   config: TransConfig = ctx.obj
   a_i = _ParseInt(a)
-  e_i = _ParseIntInRange(e, min_value=0)
-  m_i = _ParseIntInRange(m, min_value=2)
+  e_i = _ParseInt(e, min_value=0)
+  m_i = _ParseInt(m, min_value=2)
   config.console.print(modmath.ModExp(a_i, e_i, m_i))
 
 
@@ -831,7 +809,7 @@ def ModPoly(  # documentation is help/epilog/args # noqa: D103
 ) -> None:
   config: TransConfig = ctx.obj
   x_i = _ParseInt(x)
-  m_i = _ParseIntInRange(m, min_value=2)
+  m_i = _ParseInt(m, min_value=2)
   config.console.print(modmath.ModPolynomial(x_i, [_ParseInt(z) for z in coeff], m_i))
 
 
@@ -862,7 +840,7 @@ def ModLagrange(  # documentation is help/epilog/args # noqa: D103
 ) -> None:
   config: TransConfig = ctx.obj
   x_i = _ParseInt(x)
-  m_i = _ParseIntInRange(m, min_value=2)
+  m_i = _ParseInt(m, min_value=2)
   pts: dict[int, int] = {}
   for kv in pt:
     k_s, v_s = kv.split(':', 1)
@@ -897,9 +875,9 @@ def ModCRT(  # documentation is help/epilog/args # noqa: D103
 ) -> None:
   config: TransConfig = ctx.obj
   a1_i = _ParseInt(a1)
-  m1_i = _ParseIntInRange(m1, min_value=2)
+  m1_i = _ParseInt(m1, min_value=2)
   a2_i = _ParseInt(a2)
-  m2_i = _ParseIntInRange(m2, min_value=2)
+  m2_i = _ParseInt(m2, min_value=2)
   try:
     config.console.print(modmath.CRTPair(a1_i, m1_i, a2_i, m2_i))
   except modmath.ModularDivideError:
@@ -1328,7 +1306,7 @@ def RSARawEncrypt(  # documentation is help/epilog/args # noqa: D103
   message: str = typer.Argument(..., help='Integer message to encrypt, 1≤`message`<*modulus*'),
 ) -> None:
   config: TransConfig = ctx.obj
-  message_i = _ParseIntInRange(message, min_value=1)
+  message_i = _ParseInt(message, min_value=1)
   key_path = _RequireKeyPath(config, 'rsa')
   rsa_pub: rsa.RSAPublicKey = rsa.RSAPublicKey.Copy(
     _LoadObj(key_path, config.protect or None, rsa.RSAPublicKey)
@@ -1356,7 +1334,7 @@ def RSARawDecrypt(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  ciphertext_i = _ParseIntInRange(ciphertext, min_value=1)
+  ciphertext_i = _ParseInt(ciphertext, min_value=1)
   key_path = _RequireKeyPath(config, 'rsa')
   rsa_priv: rsa.RSAPrivateKey = _LoadObj(key_path, config.protect or None, rsa.RSAPrivateKey)
   config.console.print(rsa_priv.RawDecrypt(ciphertext_i))
@@ -1378,7 +1356,7 @@ def RSARawSign(  # documentation is help/epilog/args # noqa: D103
   message: str = typer.Argument(..., help='Integer message to sign, 1≤`message`<*modulus*'),
 ) -> None:
   config: TransConfig = ctx.obj
-  message_i = _ParseIntInRange(message, min_value=1)
+  message_i = _ParseInt(message, min_value=1)
   key_path = _RequireKeyPath(config, 'rsa')
   rsa_priv: rsa.RSAPrivateKey = _LoadObj(key_path, config.protect or None, rsa.RSAPrivateKey)
   config.console.print(rsa_priv.RawSign(message_i))
@@ -1410,8 +1388,8 @@ def RSARawVerify(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  message_i = _ParseIntInRange(message, min_value=1)
-  signature_i = _ParseIntInRange(signature, min_value=1)
+  message_i = _ParseInt(message, min_value=1)
+  signature_i = _ParseInt(signature, min_value=1)
   key_path = _RequireKeyPath(config, 'rsa')
   rsa_pub: rsa.RSAPublicKey = rsa.RSAPublicKey.Copy(
     _LoadObj(key_path, config.protect or None, rsa.RSAPublicKey)
@@ -1639,7 +1617,7 @@ def ElGamalRawEncrypt(  # documentation is help/epilog/args # noqa: D103
   message: str = typer.Argument(..., help='Integer message to encrypt, 1≤`message`<*modulus*'),
 ) -> None:
   config: TransConfig = ctx.obj
-  message_i = _ParseIntInRange(message, min_value=1)
+  message_i = _ParseInt(message, min_value=1)
   key_path = _RequireKeyPath(config, 'elgamal')
   eg_pub: elgamal.ElGamalPublicKey = elgamal.ElGamalPublicKey.Copy(
     _LoadObj(key_path, config.protect or None, elgamal.ElGamalPublicKey)
@@ -1698,7 +1676,7 @@ def ElGamalRawSign(  # documentation is help/epilog/args # noqa: D103
   message: str = typer.Argument(..., help='Integer message to sign, 1≤`message`<*modulus*'),
 ) -> None:
   config: TransConfig = ctx.obj
-  message_i = _ParseIntInRange(message, min_value=1)
+  message_i = _ParseInt(message, min_value=1)
   key_path = _RequireKeyPath(config, 'elgamal')
   eg_priv: elgamal.ElGamalPrivateKey = _LoadObj(
     key_path, config.protect or None, elgamal.ElGamalPrivateKey
@@ -1739,7 +1717,7 @@ def ElGamalRawVerify(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  message_i = _ParseIntInRange(message, min_value=1)
+  message_i = _ParseInt(message, min_value=1)
   signature_i = _ParseIntPairCLI(signature)
   key_path = _RequireKeyPath(config, 'elgamal')
   eg_pub: elgamal.ElGamalPublicKey = elgamal.ElGamalPublicKey.Copy(
@@ -1991,7 +1969,7 @@ def DSARawSign(  # documentation is help/epilog/args # noqa: D103
   console: rich_console.Console = base.Console()
   key_path = _RequireKeyPath(config, 'dsa')
   dsa_priv: dsa.DSAPrivateKey = _LoadObj(key_path, config.protect or None, dsa.DSAPrivateKey)
-  message_i = _ParseIntInRange(message, min_value=1)
+  message_i = _ParseInt(message, min_value=1)
   m = message_i % dsa_priv.prime_seed
   s1, s2 = dsa_priv.RawSign(m)
   console.print(f'{s1}:{s2}')
@@ -2032,7 +2010,7 @@ def DSARawVerify(  # documentation is help/epilog/args # noqa: D103
   dsa_pub: dsa.DSAPublicKey = dsa.DSAPublicKey.Copy(
     _LoadObj(key_path, config.protect or None, dsa.DSAPublicKey)
   )
-  message_i = _ParseIntInRange(message, min_value=1)
+  message_i = _ParseInt(message, min_value=1)
   signature_i = _ParseIntPairCLI(signature)
   m = message_i % dsa_pub.prime_seed
   console.print('DSA signature: ' + ('OK' if dsa_pub.RawVerify(m, signature_i) else 'INVALID'))
@@ -2282,7 +2260,7 @@ def SSSRawShares(  # documentation is help/epilog/args # noqa: D103
   sss_priv: sss.ShamirSharedSecretPrivate = _LoadObj(
     base_path + '.priv', config.protect or None, sss.ShamirSharedSecretPrivate
   )
-  secret_i = _ParseIntInRange(secret, min_value=1)
+  secret_i = _ParseInt(secret, min_value=1)
   for i, share in enumerate(sss_priv.RawShares(secret_i, max_shares=count)):
     _SaveObj(share, f'{base_path}.share.{i + 1}', config.protect or None)
   console.print(
@@ -2353,7 +2331,7 @@ def SSSRawVerify(  # documentation is help/epilog/args # noqa: D103
   sss_priv: sss.ShamirSharedSecretPrivate = _LoadObj(
     base_path + '.priv', config.protect or None, sss.ShamirSharedSecretPrivate
   )
-  secret_i = _ParseIntInRange(secret, min_value=1)
+  secret_i = _ParseInt(secret, min_value=1)
   for fname in glob.glob(base_path + '.share.*'):  # noqa: PTH207
     share = _LoadObj(fname, config.protect or None, sss.ShamirSharePrivate)
     console.print(
