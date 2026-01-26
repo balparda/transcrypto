@@ -96,7 +96,6 @@ import glob
 import logging
 import pathlib
 import re
-from collections import abc
 from typing import Any
 
 import click
@@ -115,77 +114,180 @@ from . import (
 )
 
 _HEX_RE = re.compile(r'^[0-9a-fA-F]+$')
+_NULL_AES_KEY = aes.AESKey(key256=b'\x00' * 32)
 
 
-def _ParseIntCLI(s: str, /, *, what: str = 'integer') -> int:
-  """Parse integer literals accepted by `_ParseInt`.
+def _RequireKeyPath(config: TransConfig, command: str, /) -> str:
+  """Ensure key path is provided and valid.
 
-  Returns:
-      int: Parsed integer.
+  Args:
+      config (TransConfig): context
+      command (str): command name
 
   Raises:
-      base.InputError: If the value is empty or not a valid integer literal.
+      base.InputError: input error
+
+  Returns:
+      str: key path
 
   """
-  raw = s.strip()
+  if config.key_path is None:
+    raise base.InputError(f'you must provide -p/--key-path option for {command!r}')
+  if config.key_path.exists() and config.key_path.is_dir():
+    raise base.InputError(f'-p/--key-path must not be a directory: {str(config.key_path)!r}')
+  return str(config.key_path)
+
+
+def _ParseInt(s: str, /) -> int:
+  """Parse int, try to determine if binary, octal, decimal, or hexadecimal.
+
+  Args:
+      s (str): putative int
+
+  Returns:
+      int: parsed int
+
+  Raises:
+      base.InputError: input (conversion) error
+
+  """
+  raw: str = s.strip()
   if not raw:
-    raise base.InputError(f'invalid {what}: {s!r}')
+    raise base.InputError(f'invalid int: {s!r}')
   try:
-    return _ParseInt(raw)
-  except ValueError as exc:
-    raise base.InputError(f'invalid {what}: {s!r}') from exc
+    clean: str = raw.lower().replace('_', '')
+    if clean.startswith('0x'):
+      return int(clean, 16)
+    if clean.startswith('0b'):
+      return int(clean, 2)
+    if clean.startswith('0o'):
+      return int(clean, 8)
+    return int(clean, 10)
+  except ValueError as err:
+    raise base.InputError(f'invalid int: {s!r}') from err
 
 
-def _RequireIntRange(
-  value: int,
-  /,
-  *,
-  what: str = 'value',
-  min_value: int | None = None,
-  max_value: int | None = None,
+def _ParseIntInRange(
+  s: str, /, *, min_value: int | None = None, max_value: int | None = None
 ) -> int:
+  """Parse int and ensure it is within range.
+
+  Args:
+      s (str): int value to parse
+      min_value (int | None, optional): minimum allowed value. Defaults to None.
+      max_value (int | None, optional): maximum allowed value. Defaults to None.
+
+  Raises:
+      base.InputError: if the value is out of the specified range
+
+  Returns:
+      int: validated int value
+
+  """
+  value: int = _ParseInt(s)
   if min_value is not None and value < min_value:
-    raise base.InputError(f'{what} must be ≥ {min_value}')
+    raise base.InputError(f'int must be ≥ {min_value}')
   if max_value is not None and value > max_value:
-    raise base.InputError(f'{what} must be ≤ {max_value}')
+    raise base.InputError(f'int must be ≤ {max_value}')
   return value
 
 
-def _ParseIntCLIInRange(
-  s: str,
-  /,
-  *,
-  what: str = 'integer',
-  min_value: int | None = None,
-  max_value: int | None = None,
-) -> int:
-  return _RequireIntRange(
-    _ParseIntCLI(s, what=what),
-    what=what,
-    min_value=min_value,
-    max_value=max_value,
-  )
+def _ParseIntPairCLI(s: str, /) -> tuple[int, int]:
+  """Parse a CLI int pair of the form `a:b`.
+
+  Args:
+      s (str): string to parse
+
+  Raises:
+      base.InputError: if the input string is not a valid int pair
+
+  Returns:
+      tuple[int, int]: parsed int pair
+
+  """
+  raw: str = s.strip()
+  parts: list[str] = raw.split(':')
+  if len(parts) != 2:  # noqa: PLR2004
+    raise base.InputError(f'invalid int(s): {s!r} (expected a:b)')
+  return (_ParseInt(parts[0]), _ParseInt(parts[1]))
 
 
-def _ParseIntPairCLI(s: str, /, *, what: str = 'pair') -> tuple[int, int]:
-  raw = s.strip()
-  parts = raw.split(':')
-  if len(parts) != 2 or not parts[0].strip() or not parts[1].strip():  # noqa: PLR2004
-    raise base.InputError(f'invalid {what}: {s!r} (expected a:b)')
-  a_s, b_s = parts[0].strip(), parts[1].strip()
-  return (_ParseIntCLI(a_s, what=f'{what} left'), _ParseIntCLI(b_s, what=f'{what} right'))
+def _BytesFromText(text: str, fmt: IOFormat, /) -> bytes:
+  """Parse bytes according to `fmt` (IOFormat.hex|b64|bin).
+
+  Args:
+      text (str): text
+      fmt (IOFormat): input format
+
+  Returns:
+      bytes: parsed bytes
+
+  """
+  match fmt:
+    case IOFormat.bin:
+      return text.encode('utf-8')
+    case IOFormat.hex:
+      return base.HexToBytes(text)
+    case IOFormat.b64:
+      return base.EncodedToBytes(text)
 
 
-def _RequireHexExactLen(value: str, /, *, length: int, what: str) -> str:
-  v = value.strip()
-  if len(v) != length:
-    raise base.InputError(f'{what} must be exactly {length} hex chars')
-  if _HEX_RE.match(v) is None:
-    raise base.InputError(f'{what} must be hexadecimal')
-  return v
+def _BytesToText(b: bytes, fmt: IOFormat, /) -> str:
+  """Format bytes according to `fmt` (IOFormat.hex|b64|bin).
+
+  Args:
+      b (bytes): blob
+      fmt (IOFormat): output format
+
+  Returns:
+      str: formatted string
+
+  """
+  match fmt:
+    case IOFormat.bin:
+      return b.decode('utf-8', errors='replace')
+    case IOFormat.hex:
+      return base.BytesToHex(b)
+    case IOFormat.b64:
+      return base.BytesToEncoded(b)
 
 
-_NULL_AES_KEY = aes.AESKey(key256=b'\x00' * 32)
+def _SaveObj(obj: Any, path: str, password: str | None, /) -> None:  # noqa: ANN401
+  """Save object.
+
+  Args:
+      obj (Any): object
+      path (str): path
+      password (str | None): password
+
+  """
+  key: aes.AESKey | None = aes.AESKey.FromStaticPassword(password) if password else None
+  blob: bytes = base.Serialize(obj, file_path=path, key=key)
+  logging.info('saved object: %s (%s)', path, base.HumanizedBytes(len(blob)))
+
+
+def _LoadObj(path: str, password: str | None, expect: type, /) -> Any:  # noqa: ANN401
+  """Load object.
+
+  Args:
+      path (str): path
+      password (str | None): password
+      expect (type): type to expect
+
+  Raises:
+      base.InputError: input error
+
+  Returns:
+      Any: loaded object
+
+  """
+  key: aes.AESKey | None = aes.AESKey.FromStaticPassword(password) if password else None
+  obj: Any = base.DeSerialize(file_path=path, key=key)
+  if not isinstance(obj, expect):
+    raise base.InputError(
+      f'Object loaded from {path} is of invalid type {type(obj)}, expected {expect}'
+    )
+  return obj
 
 
 class IOFormat(enum.Enum):
@@ -206,11 +308,14 @@ class TransConfig(base.CLIConfig):
   protect: str
 
 
+# ============================= "TRANSCRYPTO"/ROOT COMMAND =========================================
+
+
 # CLI app setup, this is an important object and can be imported elsewhere and called
 app = typer.Typer(
   add_completion=True,
   no_args_is_help=True,
-  help=(
+  help=(  # keep in sync with Main().help
     'transcrypto: CLI for number theory, hash, AES, RSA, El-Gamal, DSA, bidding, SSS, and more.'
   ),
   epilog=(
@@ -294,8 +399,8 @@ def Run() -> None:
 
 @app.callback(
   invoke_without_command=True,  # have only one; this is the "constructor"
-  help='TransCrypto CLI: cryptographic operations and key management.',
-)
+  help='transcrypto: CLI for number theory, hash, AES, RSA, El-Gamal, DSA, bidding, SSS, and more.',
+)  # keep message in sync with app.help
 def Main(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: click.Context,  # global context
@@ -321,13 +426,17 @@ def Main(  # documentation is help/epilog/args # noqa: D103
     IOFormat.hex,
     '-i',
     '--input-format',
-    help='How to parse inputs: hex (default), b64, or bin.',
+    help=(
+      'How to format inputs: "hex" (default hexadecimal), "b64" (base64), or "bin" (binary); '
+      'sometimes base64 will start with "-" and that can conflict with other flags, so use " -- " '
+      'before positional arguments if needed.'
+    ),
   ),
   output_format: IOFormat = typer.Option(  # noqa: B008
     IOFormat.hex,
     '-o',
     '--output-format',
-    help='How to format outputs: hex (default), b64, or bin.',
+    help='How to format outputs: "hex" (default hexadecimal), "b64" (base64), or "bin" (binary).',
   ),
   # key loading/saving from/to file, with optional password; will only work with some commands
   key_path: pathlib.Path | None = typer.Option(  # noqa: B008
@@ -339,7 +448,7 @@ def Main(  # documentation is help/epilog/args # noqa: D103
   ),
   protect: str = typer.Option(
     '',
-    # '-p',
+    '-x',
     '--protect',
     help='Password to encrypt/decrypt key file if using the `-p`/`--key-path` option',
   ),
@@ -364,6 +473,9 @@ def Main(  # documentation is help/epilog/args # noqa: D103
   )
 
 
+# =============================== "PRIME"-like COMMANDS ============================================
+
+
 @app.command(
   'isprime',
   help='Primality test with safe defaults, useful for any integer size.',
@@ -382,7 +494,7 @@ def IsPrimeCLI(  # documentation is help/epilog/args # noqa: D103
   n: str = typer.Argument(..., help='Integer to test, ≥ 1'),
 ) -> None:
   config: TransConfig = ctx.obj
-  n_i = _ParseIntCLIInRange(n, what='n', min_value=1)
+  n_i = _ParseIntInRange(n, min_value=1)
   config.console.print(str(modmath.IsPrime(n_i)))
 
 
@@ -405,7 +517,7 @@ def PrimeGenCLI(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  start_i = _ParseIntCLIInRange(start, what='start', min_value=0)
+  start_i = _ParseIntInRange(start, min_value=0)
   for i, pr in enumerate(modmath.PrimeGenerator(start_i)):
     if i >= count:
       return
@@ -450,6 +562,9 @@ def MersenneCLI(  # documentation is help/epilog/args # noqa: D103
     config.console.print(f'k={k}  M={m}  perfect={perfect}')
 
 
+# ================================== "*GCD" COMMANDS ===============================================
+
+
 @app.command(
   'gcd',
   help='Greatest Common Divisor (GCD) of integers `a` and `b`.',
@@ -471,8 +586,8 @@ def GcdCLI(  # documentation is help/epilog/args # noqa: D103
   b: str = typer.Argument(..., help="Integer, ≥ 0 (can't be both zero)"),
 ) -> None:
   config: TransConfig = ctx.obj
-  a_i = _ParseIntCLIInRange(a, what='a', min_value=0)
-  b_i = _ParseIntCLIInRange(b, what='b', min_value=0)
+  a_i = _ParseIntInRange(a, min_value=0)
+  b_i = _ParseIntInRange(b, min_value=0)
   if a_i == 0 and b_i == 0:
     raise base.InputError("a and b can't both be zero")
   config.console.print(base.GCD(a_i, b_i))
@@ -502,14 +617,15 @@ def XgcdCLI(  # documentation is help/epilog/args # noqa: D103
   b: str = typer.Argument(..., help="Integer, ≥ 0 (can't be both zero)"),
 ) -> None:
   config: TransConfig = ctx.obj
-  a_i = _ParseIntCLIInRange(a, what='a', min_value=0)
-  b_i = _ParseIntCLIInRange(b, what='b', min_value=0)
+  a_i = _ParseIntInRange(a, min_value=0)
+  b_i = _ParseIntInRange(b, min_value=0)
   if a_i == 0 and b_i == 0:
     raise base.InputError("a and b can't both be zero")
   config.console.print(str(base.ExtendedGCD(a_i, b_i)))
 
 
-# ========================= Typer command groups ==================================================
+# ================================= "RANDOM" COMMAND ===============================================
+
 
 random_app = typer.Typer(
   no_args_is_help=True,
@@ -546,8 +662,8 @@ def RandomInt(  # documentation is help/epilog/args # noqa: D103
   max_: str = typer.Argument(..., help='Maximum, > `min`'),
 ) -> None:
   config: TransConfig = ctx.obj
-  min_i = _ParseIntCLIInRange(min_, what='min', min_value=0)
-  max_i = _ParseIntCLIInRange(max_, what='max', min_value=0)
+  min_i = _ParseIntInRange(min_, min_value=0)
+  max_i = _ParseIntInRange(max_, min_value=0)
   if max_i <= min_i:
     raise base.InputError('max must be > min')
   config.console.print(base.RandInt(min_i, max_i))
@@ -588,6 +704,9 @@ def RandomPrime(  # documentation is help/epilog/args # noqa: D103
   config.console.print(modmath.NBitRandomPrimes(bits).pop())
 
 
+# =================================== "MOD" COMMAND ================================================
+
+
 mod_app = typer.Typer(
   no_args_is_help=True,
   help='Modular arithmetic helpers.',
@@ -619,8 +738,8 @@ def ModInv(  # documentation is help/epilog/args # noqa: D103
   m: str = typer.Argument(..., help='Modulus `m`, ≥ 2'),
 ) -> None:
   config: TransConfig = ctx.obj
-  a_i = _ParseIntCLI(a, what='a')
-  m_i = _ParseIntCLIInRange(m, what='m', min_value=2)
+  a_i = _ParseInt(a)
+  m_i = _ParseIntInRange(m, min_value=2)
   try:
     config.console.print(modmath.ModInv(a_i, m_i))
   except modmath.ModularDivideError:
@@ -650,9 +769,9 @@ def ModDiv(  # documentation is help/epilog/args # noqa: D103
   m: str = typer.Argument(..., help='Modulus `m`, ≥ 2'),
 ) -> None:
   config: TransConfig = ctx.obj
-  x_i = _ParseIntCLI(x, what='x')
-  y_i = _ParseIntCLI(y, what='y')
-  m_i = _ParseIntCLIInRange(m, what='m', min_value=2)
+  x_i = _ParseInt(x)
+  y_i = _ParseInt(y)
+  m_i = _ParseIntInRange(m, min_value=2)
   try:
     config.console.print(modmath.ModDiv(x_i, y_i, m_i))
   except modmath.ModularDivideError:
@@ -679,9 +798,9 @@ def ModExp(  # documentation is help/epilog/args # noqa: D103
   m: str = typer.Argument(..., help='Modulus `m`, ≥ 2'),
 ) -> None:
   config: TransConfig = ctx.obj
-  a_i = _ParseIntCLI(a, what='a')
-  e_i = _ParseIntCLIInRange(e, what='e', min_value=0)
-  m_i = _ParseIntCLIInRange(m, what='m', min_value=2)
+  a_i = _ParseInt(a)
+  e_i = _ParseIntInRange(e, min_value=0)
+  m_i = _ParseIntInRange(m, min_value=2)
   config.console.print(modmath.ModExp(a_i, e_i, m_i))
 
 
@@ -711,9 +830,9 @@ def ModPoly(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  x_i = _ParseIntCLI(x, what='x')
-  m_i = _ParseIntCLIInRange(m, what='m', min_value=2)
-  config.console.print(modmath.ModPolynomial(x_i, _ParseIntList(coeff), m_i))
+  x_i = _ParseInt(x)
+  m_i = _ParseIntInRange(m, min_value=2)
+  config.console.print(modmath.ModPolynomial(x_i, [_ParseInt(z) for z in coeff], m_i))
 
 
 @mod_app.command(
@@ -742,12 +861,12 @@ def ModLagrange(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  x_i = _ParseIntCLI(x, what='x')
-  m_i = _ParseIntCLIInRange(m, what='m', min_value=2)
+  x_i = _ParseInt(x)
+  m_i = _ParseIntInRange(m, min_value=2)
   pts: dict[int, int] = {}
   for kv in pt:
     k_s, v_s = kv.split(':', 1)
-    pts[_ParseIntCLI(k_s, what='point key')] = _ParseIntCLI(v_s, what='point value')
+    pts[_ParseInt(k_s)] = _ParseInt(v_s)
   config.console.print(modmath.ModLagrangeInterpolate(x_i, pts, m_i))
 
 
@@ -777,14 +896,17 @@ def ModCRT(  # documentation is help/epilog/args # noqa: D103
   m2: str = typer.Argument(..., help='Modulus `m2`, ≥ 2 and `gcd(m1,m2)==1`'),
 ) -> None:
   config: TransConfig = ctx.obj
-  a1_i = _ParseIntCLI(a1, what='a1')
-  m1_i = _ParseIntCLIInRange(m1, what='m1', min_value=2)
-  a2_i = _ParseIntCLI(a2, what='a2')
-  m2_i = _ParseIntCLIInRange(m2, what='m2', min_value=2)
+  a1_i = _ParseInt(a1)
+  m1_i = _ParseIntInRange(m1, min_value=2)
+  a2_i = _ParseInt(a2)
+  m2_i = _ParseIntInRange(m2, min_value=2)
   try:
     config.console.print(modmath.CRTPair(a1_i, m1_i, a2_i, m2_i))
   except modmath.ModularDivideError:
     config.console.print('<<INVALID>> moduli m1/m2 not co-prime (ModularDivideError)')
+
+
+# =================================== "HASH" COMMAND ===============================================
 
 
 hash_app = typer.Typer(
@@ -875,6 +997,9 @@ def HashFile(  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
   out_format = config.output_format
   config.console.print(_BytesToText(base.FileHash(str(path), digest=digest), out_format))
+
+
+# =================================== "AES" COMMAND ================================================
 
 
 aes_app = typer.Typer(
@@ -1026,6 +1151,9 @@ def AESDecrypt(  # documentation is help/epilog/args # noqa: D103
   config.console.print(_BytesToText(pt, out_format))
 
 
+# ================================ "AES ECB" SUB-COMMAND ===========================================
+
+
 aes_ecb_app = typer.Typer(
   no_args_is_help=True,
   help=(
@@ -1075,7 +1203,9 @@ def AESEcbEncrypt(  # documentation is help/epilog/args # noqa: D103
   plaintext: str = typer.Argument(..., help='Plaintext block as 32 hex chars (16-bytes)'),
 ) -> None:
   config: TransConfig = ctx.obj
-  plaintext = _RequireHexExactLen(plaintext, length=32, what='plaintext')
+  plaintext = plaintext.strip()
+  if len(plaintext) != 32:  # noqa: PLR2004
+    raise base.InputError('hexadecimal string must be exactly 32 hex chars')
   in_format = config.input_format
   key_s: str | None = ctx.meta.get('aes_ecb_key')
   aes_key: aes.AESKey
@@ -1114,7 +1244,9 @@ def AESEcbDecrypt(  # documentation is help/epilog/args # noqa: D103
   ciphertext: str = typer.Argument(..., help='Ciphertext block as 32 hex chars (16-bytes)'),
 ) -> None:
   config: TransConfig = ctx.obj
-  ciphertext = _RequireHexExactLen(ciphertext, length=32, what='ciphertext')
+  ciphertext = ciphertext.strip()
+  if len(ciphertext) != 32:  # noqa: PLR2004
+    raise base.InputError('hexadecimal string must be exactly 32 hex chars')
   in_format = config.input_format
   key_s: str | None = ctx.meta.get('aes_ecb_key')
   aes_key: aes.AESKey
@@ -1130,6 +1262,9 @@ def AESEcbDecrypt(  # documentation is help/epilog/args # noqa: D103
 
   ecb: aes.AESKey.ECBEncoderClass = aes_key.ECBEncoder()
   config.console.print(ecb.DecryptHex(ciphertext))
+
+
+# ================================== "RSA" COMMAND =================================================
 
 
 rsa_app = typer.Typer(
@@ -1193,7 +1328,7 @@ def RSARawEncrypt(  # documentation is help/epilog/args # noqa: D103
   message: str = typer.Argument(..., help='Integer message to encrypt, 1≤`message`<*modulus*'),
 ) -> None:
   config: TransConfig = ctx.obj
-  message_i = _ParseIntCLIInRange(message, what='message', min_value=1)
+  message_i = _ParseIntInRange(message, min_value=1)
   key_path = _RequireKeyPath(config, 'rsa')
   rsa_pub: rsa.RSAPublicKey = rsa.RSAPublicKey.Copy(
     _LoadObj(key_path, config.protect or None, rsa.RSAPublicKey)
@@ -1221,7 +1356,7 @@ def RSARawDecrypt(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  ciphertext_i = _ParseIntCLIInRange(ciphertext, what='ciphertext', min_value=1)
+  ciphertext_i = _ParseIntInRange(ciphertext, min_value=1)
   key_path = _RequireKeyPath(config, 'rsa')
   rsa_priv: rsa.RSAPrivateKey = _LoadObj(key_path, config.protect or None, rsa.RSAPrivateKey)
   config.console.print(rsa_priv.RawDecrypt(ciphertext_i))
@@ -1243,7 +1378,7 @@ def RSARawSign(  # documentation is help/epilog/args # noqa: D103
   message: str = typer.Argument(..., help='Integer message to sign, 1≤`message`<*modulus*'),
 ) -> None:
   config: TransConfig = ctx.obj
-  message_i = _ParseIntCLIInRange(message, what='message', min_value=1)
+  message_i = _ParseIntInRange(message, min_value=1)
   key_path = _RequireKeyPath(config, 'rsa')
   rsa_priv: rsa.RSAPrivateKey = _LoadObj(key_path, config.protect or None, rsa.RSAPrivateKey)
   config.console.print(rsa_priv.RawSign(message_i))
@@ -1275,8 +1410,8 @@ def RSARawVerify(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  message_i = _ParseIntCLIInRange(message, what='message', min_value=1)
-  signature_i = _ParseIntCLIInRange(signature, what='signature', min_value=1)
+  message_i = _ParseIntInRange(message, min_value=1)
+  signature_i = _ParseIntInRange(signature, min_value=1)
   key_path = _RequireKeyPath(config, 'rsa')
   rsa_pub: rsa.RSAPublicKey = rsa.RSAPublicKey.Copy(
     _LoadObj(key_path, config.protect or None, rsa.RSAPublicKey)
@@ -1417,6 +1552,9 @@ def RSAVerify(  # documentation is help/epilog/args # noqa: D103
   )
 
 
+# ================================= "ELGAMAL" COMMAND ==============================================
+
+
 eg_app = typer.Typer(
   no_args_is_help=True,
   help=(
@@ -1501,7 +1639,7 @@ def ElGamalRawEncrypt(  # documentation is help/epilog/args # noqa: D103
   message: str = typer.Argument(..., help='Integer message to encrypt, 1≤`message`<*modulus*'),
 ) -> None:
   config: TransConfig = ctx.obj
-  message_i = _ParseIntCLIInRange(message, what='message', min_value=1)
+  message_i = _ParseIntInRange(message, min_value=1)
   key_path = _RequireKeyPath(config, 'elgamal')
   eg_pub: elgamal.ElGamalPublicKey = elgamal.ElGamalPublicKey.Copy(
     _LoadObj(key_path, config.protect or None, elgamal.ElGamalPublicKey)
@@ -1533,7 +1671,7 @@ def ElGamalRawDecrypt(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  ciphertext_i = _ParseIntPairCLI(ciphertext, what='ciphertext')
+  ciphertext_i = _ParseIntPairCLI(ciphertext)
   key_path = _RequireKeyPath(config, 'elgamal')
   eg_priv: elgamal.ElGamalPrivateKey = _LoadObj(
     key_path, config.protect or None, elgamal.ElGamalPrivateKey
@@ -1560,7 +1698,7 @@ def ElGamalRawSign(  # documentation is help/epilog/args # noqa: D103
   message: str = typer.Argument(..., help='Integer message to sign, 1≤`message`<*modulus*'),
 ) -> None:
   config: TransConfig = ctx.obj
-  message_i = _ParseIntCLIInRange(message, what='message', min_value=1)
+  message_i = _ParseIntInRange(message, min_value=1)
   key_path = _RequireKeyPath(config, 'elgamal')
   eg_priv: elgamal.ElGamalPrivateKey = _LoadObj(
     key_path, config.protect or None, elgamal.ElGamalPrivateKey
@@ -1601,8 +1739,8 @@ def ElGamalRawVerify(  # documentation is help/epilog/args # noqa: D103
   ),
 ) -> None:
   config: TransConfig = ctx.obj
-  message_i = _ParseIntCLIInRange(message, what='message', min_value=1)
-  signature_i = _ParseIntPairCLI(signature, what='signature')
+  message_i = _ParseIntInRange(message, min_value=1)
+  signature_i = _ParseIntPairCLI(signature)
   key_path = _RequireKeyPath(config, 'elgamal')
   eg_pub: elgamal.ElGamalPublicKey = elgamal.ElGamalPublicKey.Copy(
     _LoadObj(key_path, config.protect or None, elgamal.ElGamalPublicKey)
@@ -1751,6 +1889,9 @@ def ElGamalVerify(  # documentation is help/epilog/args # noqa: D103
   )
 
 
+# ================================== "DSA" COMMAND =================================================
+
+
 dsa_app = typer.Typer(
   no_args_is_help=True,
   help=(
@@ -1850,7 +1991,7 @@ def DSARawSign(  # documentation is help/epilog/args # noqa: D103
   console: rich_console.Console = base.Console()
   key_path = _RequireKeyPath(config, 'dsa')
   dsa_priv: dsa.DSAPrivateKey = _LoadObj(key_path, config.protect or None, dsa.DSAPrivateKey)
-  message_i = _ParseIntCLIInRange(message, what='message', min_value=1)
+  message_i = _ParseIntInRange(message, min_value=1)
   m = message_i % dsa_priv.prime_seed
   s1, s2 = dsa_priv.RawSign(m)
   console.print(f'{s1}:{s2}')
@@ -1891,8 +2032,8 @@ def DSARawVerify(  # documentation is help/epilog/args # noqa: D103
   dsa_pub: dsa.DSAPublicKey = dsa.DSAPublicKey.Copy(
     _LoadObj(key_path, config.protect or None, dsa.DSAPublicKey)
   )
-  message_i = _ParseIntCLIInRange(message, what='message', min_value=1)
-  signature_i = _ParseIntPairCLI(signature, what='signature')
+  message_i = _ParseIntInRange(message, min_value=1)
+  signature_i = _ParseIntPairCLI(signature)
   m = message_i % dsa_pub.prime_seed
   console.print('DSA signature: ' + ('OK' if dsa_pub.RawVerify(m, signature_i) else 'INVALID'))
 
@@ -1964,6 +2105,9 @@ def DSAVerify(  # documentation is help/epilog/args # noqa: D103
   console.print(
     'DSA signature: ' + ('OK' if dsa_pub.Verify(pt, sig, associated_data=aad_bytes) else 'INVALID')
   )
+
+
+# ================================== "BID" COMMAND =================================================
 
 
 bid_app = typer.Typer(
@@ -2046,6 +2190,9 @@ def BidVerify(*, ctx: typer.Context) -> None:  # documentation is help/epilog/ar
   )
   console.print('Bid secret:')
   console.print(_BytesToText(bid_priv.secret_bid, out_format))
+
+
+# ================================== "SSS" COMMAND =================================================
 
 
 sss_app = typer.Typer(
@@ -2135,7 +2282,7 @@ def SSSRawShares(  # documentation is help/epilog/args # noqa: D103
   sss_priv: sss.ShamirSharedSecretPrivate = _LoadObj(
     base_path + '.priv', config.protect or None, sss.ShamirSharedSecretPrivate
   )
-  secret_i = _ParseIntCLIInRange(secret, what='secret', min_value=1)
+  secret_i = _ParseIntInRange(secret, min_value=1)
   for i, share in enumerate(sss_priv.RawShares(secret_i, max_shares=count)):
     _SaveObj(share, f'{base_path}.share.{i + 1}', config.protect or None)
   console.print(
@@ -2206,7 +2353,7 @@ def SSSRawVerify(  # documentation is help/epilog/args # noqa: D103
   sss_priv: sss.ShamirSharedSecretPrivate = _LoadObj(
     base_path + '.priv', config.protect or None, sss.ShamirSharedSecretPrivate
   )
-  secret_i = _ParseIntCLIInRange(secret, what='secret', min_value=1)
+  secret_i = _ParseIntInRange(secret, min_value=1)
   for fname in glob.glob(base_path + '.share.*'):  # noqa: PTH207
     share = _LoadObj(fname, config.protect or None, sss.ShamirSharePrivate)
     console.print(
@@ -2288,6 +2435,9 @@ def SSSRecover(*, ctx: typer.Context) -> None:  # documentation is help/epilog/a
   console.print(_BytesToText(pt, out_format))
 
 
+# ================================ "MARKDOWN" COMMAND ==============================================
+
+
 @app.command(
   'markdown',
   help='Emit Markdown docs for the CLI (see README.md section "Creating a New Version").',
@@ -2299,129 +2449,3 @@ def SSSRecover(*, ctx: typer.Context) -> None:  # documentation is help/epilog/a
 def Markdown() -> None:  # documentation is help/epilog/args # noqa: D103
   console: rich_console.Console = base.Console()
   console.print(base.GenerateTyperHelpMarkdown(app, prog_name='transcrypto'))
-
-
-def _RequireKeyPath(config: TransConfig, command: str, /) -> str:
-  if config.key_path is None:
-    raise base.InputError(f'you must provide -p/--key-path option for {command!r}')
-  if config.key_path.exists() and config.key_path.is_dir():
-    raise base.InputError(f'-p/--key-path must not be a directory: {str(config.key_path)!r}')
-  return str(config.key_path)
-
-
-def _ParseInt(s: str, /) -> int:
-  """Parse int, try to determine if binary, octal, decimal, or hexadecimal.
-
-  Args:
-      s (str): putative int
-
-  Returns:
-      int: parsed int
-
-  """
-  s = s.strip().lower().replace('_', '')
-  base_guess = 10
-  if s.startswith('0x'):
-    base_guess = 16
-  elif s.startswith('0b'):
-    base_guess = 2
-  elif s.startswith('0o'):
-    base_guess = 8
-  return int(s, base_guess)
-
-
-def _ParseIntList(items: abc.Iterable[str], /) -> list[int]:
-  """Parse list of strings into list of ints.
-
-  Args:
-      items (Iterable[str]): putative int list
-
-  Returns:
-      list[int]: parsed list
-
-  """
-  return [_ParseInt(x) for x in items]
-
-
-def _BytesFromText(text: str, fmt: IOFormat, /) -> bytes:
-  """Parse bytes according to `fmt` (IOFormat.hex|b64|bin).
-
-  Args:
-      text (str): text
-      fmt (IOFormat): input format
-
-  Returns:
-      bytes: parsed bytes
-
-  """
-  match fmt:
-    case IOFormat.bin:
-      return text.encode('utf-8')
-    case IOFormat.hex:
-      return base.HexToBytes(text)
-    case IOFormat.b64:
-      return base.EncodedToBytes(text)
-
-
-def _BytesToText(b: bytes, fmt: IOFormat, /) -> str:
-  """Format bytes according to `fmt` (IOFormat.hex|b64|bin).
-
-  Args:
-      b (bytes): blob
-      fmt (IOFormat): output format
-
-  Returns:
-      str: formatted string
-
-  """
-  match fmt:
-    case IOFormat.bin:
-      return b.decode('utf-8', errors='replace')
-    case IOFormat.hex:
-      return base.BytesToHex(b)
-    case IOFormat.b64:
-      return base.BytesToEncoded(b)
-
-
-def _MaybePasswordKey(password: str | None, /) -> aes.AESKey | None:
-  """Generate a key if there is a password.
-
-  Args:
-      password (str | None): password string
-
-  Returns:
-      aes.AESKey | None: AES key
-
-  """
-  return aes.AESKey.FromStaticPassword(password) if password else None
-
-
-def _SaveObj(obj: Any, path: str, password: str | None, /) -> None:  # noqa: ANN401
-  """Save object."""
-  key: aes.AESKey | None = _MaybePasswordKey(password)
-  blob: bytes = base.Serialize(obj, file_path=path, key=key)
-  logging.info('saved object: %s (%s)', path, base.HumanizedBytes(len(blob)))
-
-
-def _LoadObj(path: str, password: str | None, expect: type, /) -> Any:  # noqa: ANN401
-  """Load object.
-
-  Args:
-      path (str): path
-      password (str | None): password
-      expect (type): type to expect
-
-  Raises:
-      base.InputError: input error
-
-  Returns:
-      Any: loaded object
-
-  """
-  key: aes.AESKey | None = _MaybePasswordKey(password)
-  obj: Any = base.DeSerialize(file_path=path, key=key)
-  if not isinstance(obj, expect):
-    raise base.InputError(
-      f'Object loaded from {path} is of invalid type {type(obj)}, expected {expect}'
-    )
-  return obj
