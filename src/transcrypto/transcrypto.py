@@ -76,7 +76,7 @@ poetry run transcrypto -o bin bid verify
 poetry run transcrypto -p sss-key sss new 3 --bits 1024
 poetry run transcrypto -p sss-key sss rawshares <secret> <n>
 poetry run transcrypto -p sss-key sss rawrecover
-poetry run transcrypto -p sss-key sss rawverify <secret>'
+poetry run transcrypto -p sss-key sss rawverify <secret>
 poetry run transcrypto -i bin -p sss-key sss shares <secret> <n>
 poetry run transcrypto -o bin -p sss-key sss recover
 
@@ -113,7 +113,6 @@ from . import (
 )
 
 _HEX_RE = re.compile(r'^[0-9a-fA-F]+$')
-_NULL_AES_KEY = aes.AESKey(key256=b'\x00' * 32)
 
 
 def _RequireKeyPath(config: TransConfig, command: str, /) -> str:
@@ -519,10 +518,12 @@ def PrimeGenCLI(  # documentation is help/epilog/args # noqa: D103
 def MersenneCLI(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
-  min_k: int = typer.Option(1, '-k', '--min-k', min=1, help='Starting exponent `k`, ≥ 1'),
-  max_k: int = typer.Option(10000, '-m', '--max-k', min=1, help='Stop once `k` > `max-k`, ≥ 1'),
+  min_k: int = typer.Option(2, '-k', '--min-k', min=1, help='Starting exponent `k`, ≥ 2'),
+  max_k: int = typer.Option(10000, '-m', '--max-k', min=1, help='Stop once `k` > `max-k`, ≥ 2'),
 ) -> None:
   config: TransConfig = ctx.obj
+  if max_k < min_k:
+    raise base.InputError(f'max-k ({max_k}) must be >= min-k ({min_k})')
   for k, m, perfect in modmath.MersennePrimesGenerator(min_k):
     if k > max_k:
       return
@@ -1154,6 +1155,8 @@ def AESECBEncrypt(  # documentation is help/epilog/args # noqa: D103
   plaintext = plaintext.strip()
   if len(plaintext) != 32:  # noqa: PLR2004
     raise base.InputError('hexadecimal string must be exactly 32 hex chars')
+  if not _HEX_RE.match(plaintext):
+    raise base.InputError(f'invalid hexadecimal string: {plaintext!r}')
   aes_key: aes.AESKey
   if key:
     key_bytes: bytes = _BytesFromText(key, config.input_format)
@@ -1201,6 +1204,8 @@ def AESECBDecrypt(  # documentation is help/epilog/args # noqa: D103
   ciphertext = ciphertext.strip()
   if len(ciphertext) != 32:  # noqa: PLR2004
     raise base.InputError('hexadecimal string must be exactly 32 hex chars')
+  if not _HEX_RE.match(ciphertext):
+    raise base.InputError(f'invalid hexadecimal string: {ciphertext!r}')
   aes_key: aes.AESKey
   if key:
     key_bytes: bytes = _BytesFromText(key, config.input_format)
@@ -2233,6 +2238,10 @@ def SSSRawShares(  # documentation is help/epilog/args # noqa: D103
   sss_priv: sss.ShamirSharedSecretPrivate = _LoadObj(
     base_path + '.priv', config.protect, sss.ShamirSharedSecretPrivate
   )
+  if count < sss_priv.minimum:
+    raise base.InputError(
+      f'count ({count}) must be >= minimum ({sss_priv.minimum}) to allow secret recovery'
+    )
   secret_i: int = _ParseInt(secret, min_value=1)
   for i, share in enumerate(sss_priv.RawShares(secret_i, max_shares=count)):
     _SaveObj(share, f'{base_path}.share.{i + 1}', config.protect)
@@ -2338,6 +2347,10 @@ def SSSShares(  # documentation is help/epilog/args # noqa: D103
   sss_priv: sss.ShamirSharedSecretPrivate = _LoadObj(
     base_path + '.priv', config.protect, sss.ShamirSharedSecretPrivate
   )
+  if count < sss_priv.minimum:
+    raise base.InputError(
+      f'count ({count}) must be >= minimum ({sss_priv.minimum}) to allow secret recovery'
+    )
   pt: bytes = _BytesFromText(secret, config.input_format)
   for i, data_share in enumerate(sss_priv.MakeDataShares(pt, count)):
     _SaveObj(data_share, f'{base_path}.share.{i + 1}', config.protect)

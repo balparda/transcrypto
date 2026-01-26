@@ -201,7 +201,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
     if not 1 <= share_key < self.modulus:
       if not share_key:  # default is zero, and that means we generate it here
         share_key = 0
-        while not share_key or share_key in self.polynomial:
+        while not share_key or share_key in self.polynomial or share_key >= self.modulus:
           share_key = base.RandBits(self.modulus.bit_length() - 1)
       else:
         raise base.InputError(f'invalid share_key: {share_key=}')
@@ -240,7 +240,12 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
     used_keys: set[int] = set()
     while not max_shares or count < max_shares:
       share_key: int = 0
-      while not share_key or share_key in self.polynomial or share_key in used_keys:
+      while (
+        not share_key
+        or share_key in self.polynomial
+        or share_key in used_keys
+        or share_key >= self.modulus
+      ):
         share_key = base.RandBits(self.modulus.bit_length() - 1)
       try:
         yield self.RawShare(secret, share_key=share_key)
@@ -418,6 +423,7 @@ class ShamirShareData(ShamirSharePrivate):
   Attributes:
     share_key (int): share secret key; a randomly picked value, 1 ≤ k < modulus
     share_value (int): share secret value, 1 ≤ v < modulus; (k, v) is a "point" of f(k)=v
+    encrypted_data (bytes): AES-256-GCM encrypted secret data with IV and tag
 
   """
 

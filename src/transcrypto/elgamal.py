@@ -126,7 +126,7 @@ class ElGamalSharedPublicKey(base.CryptoKey):
     # generate random prime and number, create object (should never fail)
     p: int = modmath.NBitRandomPrimes(bit_length).pop()
     g: int = 0
-    while not 2 < g < p - 1:  # noqa: PLR2004
+    while not 2 < g < p:  # noqa: PLR2004
       g = base.RandBits(bit_length)
     return cls(prime_modulus=p, group_base=g)
 
@@ -175,14 +175,17 @@ class ElGamalPublicKey(ElGamalSharedPublicKey, base.Encryptor, base.Verifier):
     """Make an ephemeral key adequate to be used with El-Gamal.
 
     Returns:
-      (key, key_inverse), where 2 ≤ k < modulus - 1 and
+      (key, key_inverse), where 2 ≤ k < modulus and
           GCD(k, modulus - 1) == 1 and (k*i) % (p-1) == 1
 
     """
     ephemeral_key: int = 0
     p_1: int = self.prime_modulus - 1
     bit_length: int = self.prime_modulus.bit_length()
-    while not 1 < ephemeral_key < p_1 or ephemeral_key in {self.group_base, self.individual_base}:
+    while not 1 < ephemeral_key < self.prime_modulus or ephemeral_key in {
+      self.group_base,
+      self.individual_base,
+    }:
       ephemeral_key = base.RandBits(bit_length)
       if base.GCD(ephemeral_key, p_1) != 1:
         ephemeral_key = 0  # we have to try again
@@ -248,7 +251,7 @@ class ElGamalPublicKey(ElGamalSharedPublicKey, base.Encryptor, base.Verifier):
     """
     # generate random r and encrypt it
     r: int = 0
-    while not 1 < r < self.prime_modulus - 1:
+    while not 1 < r < self.prime_modulus:
       r = base.RandBits(self.prime_modulus.bit_length())
     k: int = self.modulus_size
     i_ct: tuple[int, int] = self.RawEncrypt(r)
@@ -540,7 +543,7 @@ class ElGamalPrivateKey(ElGamalPublicKey, base.Decryptor, base.Signer):
         # generate private key differing from group_base
         decrypt_exp: int = 0
         while (
-          not 2 < decrypt_exp < shared_key.prime_modulus - 1 or decrypt_exp == shared_key.group_base  # noqa: PLR2004
+          not 2 < decrypt_exp < shared_key.prime_modulus or decrypt_exp == shared_key.group_base  # noqa: PLR2004
         ):
           decrypt_exp = base.RandBits(bit_length)
         # make the object

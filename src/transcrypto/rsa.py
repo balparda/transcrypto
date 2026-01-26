@@ -435,7 +435,7 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):
       # if decrypt_exp < public_modulus**(1/4)/3, then decrypt_exp can be computed efficiently
       # from public_modulus and encrypt_exp so we make sure it is larger than public_modulus**(1/2)
       raise base.InputError(f'invalid decrypt_exp: {self}')
-    if self.remainder_p < 2 or self.remainder_p < 2 or self.q_inverse_p < 2:  # noqa: PLR2004
+    if self.remainder_p < 2 or self.remainder_q < 2 or self.q_inverse_p < 2:  # noqa: PLR2004
       raise base.InputError(f'trivial remainder_p/remainder_q/q_inverse_p: {self}')
     if self.modulus_p * self.modulus_q != self.public_modulus:
       raise base.CryptoError(f'inconsistent modulus_p * modulus_q: {self}')

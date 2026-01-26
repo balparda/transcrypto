@@ -226,7 +226,12 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
       Returns:
           str: encrypted hexadecimal block (length==64)
 
+      Raises:
+          InputError: invalid inputs
+
       """
+      if len(plaintext_hex) != 64:  # noqa: PLR2004
+        raise base.InputError(f'plaintext_hex must be 64 chars long, got {len(plaintext_hex)}')
       return self.EncryptHex(plaintext_hex[:32]) + self.EncryptHex(plaintext_hex[32:])
 
     def DecryptHex(self, ciphertext_hex: str, /) -> str:
@@ -256,7 +261,12 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
       Returns:
           str: plaintext hexadecimal block (length==64)
 
+      Raises:
+          InputError: invalid inputs
+
       """
+      if len(ciphertext_hex) != 64:  # noqa: PLR2004
+        raise base.InputError(f'ciphertext_hex must be 64 chars long, got {len(ciphertext_hex)}')
       return self.DecryptHex(ciphertext_hex[:32]) + self.DecryptHex(ciphertext_hex[32:])
 
   def ECBEncoder(self) -> AESKey.ECBEncoderClass:

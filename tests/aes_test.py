@@ -149,6 +149,11 @@ def test_ECBEncoder(s_key: str, pth: str, ct1: str, ct101: str) -> None:
     encoder.Decrypt(b'\x00\x00\x00\x01\x00')
   with pytest.raises(base.InputError, match='AES/ECB does not support associated_data'):
     encoder.Decrypt(ct, associated_data=b'123')
+  # test Hex256 validation
+  with pytest.raises(base.InputError, match='plaintext_hex must be 64 chars long'):
+    encoder.EncryptHex256('a' * 63)
+  with pytest.raises(base.InputError, match='ciphertext_hex must be 64 chars long'):
+    encoder.DecryptHex256('a' * 63)
 
 
 @pytest.mark.parametrize(

@@ -140,7 +140,7 @@ def Main(  # documentation is help/epilog/args # noqa: D103
     serial=serial,
     repeats=repeats,
     confidence=confidence,
-    bits=int_bits,
+    bits=(int_bits[0], int_bits[1], int_bits[2]),
   )
 
 

@@ -256,7 +256,7 @@ class DSASharedPublicKey(base.CryptoKey):
     p, q, m = NBitRandomDSAPrimes(p_bits, q_bits)
     # generate random number, create object (should never fail)
     g: int = 0
-    while g < 2:  # noqa: PLR2004
+    while g < 3:  # noqa: PLR2004
       h: int = base.RandBits(p_bits - 1)
       g = int(gmpy2.powmod(h, m, p))
     return cls(prime_modulus=p, prime_seed=q, group_base=g)
@@ -415,7 +415,7 @@ class DSAPrivateKey(DSAPublicKey, base.Signer):
   No measures are taken here to prevent timing attacks.
 
   Attributes:
-    decrypt_exp (int): individual decryption exponent, 3 ≤ i < prime_modulus
+    decrypt_exp (int): individual decryption exponent, 3 ≤ i < prime_seed
 
   """
 
@@ -540,7 +540,7 @@ class DSAPrivateKey(DSAPublicKey, base.Signer):
         # generate private key differing from group_base
         decrypt_exp: int = 0
         while (
-          not 2 < decrypt_exp < shared_key.prime_seed - 1 or decrypt_exp == shared_key.group_base  # noqa: PLR2004
+          not 2 < decrypt_exp < shared_key.prime_seed or decrypt_exp == shared_key.group_base  # noqa: PLR2004
         ):
           decrypt_exp = base.RandBits(bit_length - 1)
         # make the object

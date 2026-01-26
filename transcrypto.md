@@ -901,8 +901,8 @@ Usage: transcrypto mersenne [OPTIONS]
  starting at `min-k` and stopping once `k` > `max-k`.                                                                                                      
                                                                                                                                                            
 ╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --min-k  -k      INTEGER RANGE   Starting exponent `k`, ≥ 1                                                                           │
-│ --max-k  -m      INTEGER RANGE   Stop once `k` > `max-k`, ≥ 1                                                                     │
+│ --min-k  -k      INTEGER RANGE   Starting exponent `k`, ≥ 2                                                                           │
+│ --max-k  -m      INTEGER RANGE   Stop once `k` > `max-k`, ≥ 2                                                                     │
 │ --help                                 Show this message and exit.                                                                                      │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
                                                                                                                                                            

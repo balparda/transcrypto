@@ -294,6 +294,13 @@ def test_cli_random_int_invalid_range_prints_error() -> None:
   assert 'int must be ≥ 10, got 5' in res.output
 
 
+def test_cli_mersenne_max_lt_min_prints_error() -> None:
+  """Cover Mersenne CLI error branch when max_k < min_k."""
+  res: click_testing.Result = _CallCLI(['mersenne', '--min-k', '10', '--max-k', '5'])
+  assert res.exit_code == 0
+  assert 'max-k (5) must be >= min-k (10)' in res.output
+
+
 def test_cli_internal_parse_helpers_error_branches() -> None:
   """Cover small helper branches that are hard to hit via CLI parsing."""
   # _ParseInt: empty string and invalid literal.
@@ -956,6 +963,11 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
   res: click_testing.Result = _CallCLI(['-p', str(base_path), 'sss', 'new', '3', '--bits', '128'])
   assert res.exit_code == 0 and 'SSS private/public keys saved to' in res.output
   assert priv_path.exists() and pub_path.exists()
+  # Test count < minimum validation (rawshares)
+  base.ResetConsole()
+  res = _CallCLI(['-p', str(base_path), 'sss', 'rawshares', '999', '2'])
+  assert res.exit_code == 0
+  assert 'count (2) must be >= minimum (3)' in res.output
   # Issue 3 shares for a known secret
   sss_message = 999
   # Reset CLI singletons before calling CLI again in the same test
@@ -1004,6 +1016,11 @@ def test_sss_shares_recover_safe(tmp_path: pathlib.Path) -> None:
   res: click_testing.Result = _CallCLI(['-p', str(base_path), 'sss', 'new', '3', '--bits', '384'])
   assert res.exit_code == 0 and priv_path.exists() and pub_path.exists()
   assert 'SSS private/public keys saved to' in res.output
+  # Test count < minimum validation (shares)
+  base.ResetConsole()
+  res = _CallCLI(['--input-format', 'bin', '-p', str(base_path), 'sss', 'shares', 'abcde', '2'])
+  assert res.exit_code == 0
+  assert 'count (2) must be >= minimum (3)' in res.output
   # Issue 3 data shares for secret "abcde" (bin so it's treated as bytes)
   # Reset CLI singletons before calling CLI again in the same test
   base.ResetConsole()
@@ -1176,6 +1193,16 @@ def test_aes_ecb_wrong_length_input() -> None:
   )
   assert res.exit_code == 0
   assert 'must be exactly 32 hex chars' in res.output
+  # Invalid hexadecimal string (not hex) - encrypt - 32 chars with 'Z' which is not hex
+  base.ResetConsole()
+  res = _CallCLI(['--input-format', 'b64', 'aes', 'ecb', 'encrypt', '-k', key_b64, 'Z' * 32])
+  assert res.exit_code == 0
+  assert 'invalid hexadecimal string' in res.output
+  # Invalid hexadecimal in decrypt - 32 chars with 'Z' which is not hex
+  base.ResetConsole()
+  res = _CallCLI(['--input-format', 'b64', 'aes', 'ecb', 'decrypt', '-k', key_b64, 'Z' * 32])
+  assert res.exit_code == 0
+  assert 'invalid hexadecimal string' in res.output
   # Wrong-length ciphertext
   base.ResetConsole()
   res2: click_testing.Result = _CallCLI(

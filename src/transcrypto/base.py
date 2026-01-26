@@ -1792,15 +1792,15 @@ def CLIErrorGuard[**P](fn: abc.Callable[P, None], /) -> abc.Callable[P, None]:
       if isinstance(ctx, typer.Context):
         # we have context
         obj: CLIConfig = cast('CLIConfig', ctx.obj)
-        if obj.verbose >= logging.INFO:
+        if obj.verbose >= 2:  # verbose >= 2 means INFO level or more verbose  # noqa: PLR2004
           obj.console.print_exception()  # print full traceback
         else:
           obj.console.print(str(err))  # print only error message
       # no context
-      elif logging.getLogger().getEffectiveLevel() >= logging.INFO:
-        Console().print_exception()  # print full traceback
+      elif logging.getLogger().getEffectiveLevel() < logging.INFO:
+        Console().print(str(err))  # print only error message (DEBUG level is verbose already)
       else:
-        Console().print(str(err))  # print only error message
+        Console().print_exception()  # print full traceback (less verbose mode needs it)
 
   return _Wrapper
 

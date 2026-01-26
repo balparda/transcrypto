@@ -347,7 +347,7 @@ def _MillerRabinWitnesses(n: int, /) -> set[int]:  # noqa: PLR0911
   # here n should be greater than 2 ** 81, so safety should be 34 or less
   n_bits: int = n.bit_length()
   assert n_bits >= 82, f'should never happen: {n=} -> {n_bits=}'  # noqa: PLR2004, S101
-  safety: int = math.ceil(0.375 + 1.59 / (0.000590 * n_bits)) if n_bits <= 1700 else 2  # noqa: PLR2004
+  safety: int = max(2, math.ceil(0.375 + 1.59 / (0.000590 * n_bits))) if n_bits <= 1700 else 2  # noqa: PLR2004
   assert 1 < safety <= 34, f'should never happen: {n=} -> {n_bits=} ; {safety=}'  # noqa: PLR2004, S101
   return set(constants.FIRST_5K_PRIMES_SORTED[:safety])
 
@@ -590,7 +590,7 @@ def FirstNPrimesSorted(n: int) -> abc.Generator[int]:
 
 
 def MersennePrimesGenerator(start: int, /) -> abc.Generator[tuple[int, int, int]]:
-  """Generate all Mersenne prime (2 ** n - 1) exponents from 2**start until loop is broken.
+  """Generate all Mersenne prime (2 ** n - 1) exponents from start until loop is broken.
 
   <https://en.wikipedia.org/wiki/List_of_Mersenne_primes_and_perfect_numbers>
 
