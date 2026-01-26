@@ -36,4 +36,5 @@ This project follows a pragmatic versioning approach:
   - **Rich** terminal text.
 
 - Fixed
-  - Minor documentation and bugs.
+  - Minor documentation
+  - Bugs
