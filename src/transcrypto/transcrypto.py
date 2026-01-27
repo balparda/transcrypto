@@ -101,6 +101,8 @@ from typing import Any
 import click
 import typer
 
+from transcrypto.cli import clibase
+
 from . import (
   __version__,
   aes,
@@ -277,7 +279,7 @@ class IOFormat(enum.Enum):
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
-class TransConfig(base.CLIConfig):
+class TransConfig(clibase.CLIConfig):
   """CLI global context, storing the configuration."""
 
   input_format: IOFormat
@@ -434,7 +436,7 @@ def Main(  # documentation is help/epilog/args # noqa: D103
   if version:
     typer.echo(__version__)
     raise typer.Exit(0)
-  console, verbose, color = base.InitLogging(
+  console, verbose, color = clibase.InitLogging(
     verbose,
     color=color,
     include_process=False,  # decide if you want process names in logs
@@ -465,7 +467,7 @@ def Main(  # documentation is help/epilog/args # noqa: D103
     'False'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def IsPrimeCLI(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -481,7 +483,7 @@ def IsPrimeCLI(  # documentation is help/epilog/args # noqa: D103
   help='Generate (stream) primes ≥ `start` (prints a limited `count` by default).',
   epilog=('Example:\n\n\n\n$ poetry run transcrypto primegen 100 -c 3\n\n101\n\n103\n\n107'),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def PrimeGenCLI(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -514,7 +516,7 @@ def PrimeGenCLI(  # documentation is help/epilog/args # noqa: D103
     'k=17  M=131071  perfect=8589869056'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def MersenneCLI(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -546,7 +548,7 @@ def MersenneCLI(  # documentation is help/epilog/args # noqa: D103
     '1'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def GcdCLI(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -577,7 +579,7 @@ def GcdCLI(  # documentation is help/epilog/args # noqa: D103
     '(1, 4, -39)'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def XgcdCLI(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -607,7 +609,7 @@ app.add_typer(random_app, name='random')
   help='Random integer with exact bit length = `bits` (MSB will be 1).',
   epilog=('Example:\n\n\n\n$ poetry run transcrypto random bits 16\n\n36650'),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def RandomBits(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -622,7 +624,7 @@ def RandomBits(  # documentation is help/epilog/args # noqa: D103
   help='Uniform random integer in `[min, max]` range, inclusive.',
   epilog=('Example:\n\n\n\n$ poetry run transcrypto random int 1000 2000\n\n1628'),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def RandomInt(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -644,7 +646,7 @@ def RandomInt(  # documentation is help/epilog/args # noqa: D103
     '6c6f1f88cb93c4323285a2224373d6e59c72a9c2b82e20d1c376df4ffbe9507f'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def RandomBytes(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -659,7 +661,7 @@ def RandomBytes(  # documentation is help/epilog/args # noqa: D103
   help='Generate a random prime with exact bit length = `bits` (MSB will be 1).',
   epilog=('Example:\n\n\n\n$ poetry run transcrypto random prime 32\n\n2365910551'),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def RandomPrime(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -695,7 +697,7 @@ app.add_typer(mod_app, name='mod')
     '<<INVALID>> no modular inverse exists (ModularDivideError)'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def ModInv(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -725,7 +727,7 @@ def ModInv(  # documentation is help/epilog/args # noqa: D103
     '<<INVALID>> divide-by-zero or not invertible (ModularDivideError)'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def ModDiv(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -754,7 +756,7 @@ def ModDiv(  # documentation is help/epilog/args # noqa: D103
     '60622'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def ModExp(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -783,7 +785,7 @@ def ModExp(  # documentation is help/epilog/args # noqa: D103
     '42  # (3+1×10³+1×10⁴ ≡ 42 (mod 97))'  # noqa: RUF001
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def ModPoly(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -815,7 +817,7 @@ def ModPoly(  # documentation is help/epilog/args # noqa: D103
     '24  # passes through (1,1), (2,4), (3,9), (4,16), (5,25)'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def ModLagrange(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -849,7 +851,7 @@ def ModLagrange(  # documentation is help/epilog/args # noqa: D103
     '<<INVALID>> moduli m1/m2 not co-prime (ModularDivideError)'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def ModCRT(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -890,7 +892,7 @@ app.add_typer(hash_app, name='hash')
     '3608bca1e44ea6c4d268eb6db02260269892c0b42b86bbf1e77a6fa16c3c9282'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def Hash256(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -914,7 +916,7 @@ def Hash256(  # documentation is help/epilog/args # noqa: D103
     '8e183c1a6086e91ba3e821d926f5fdeb37761c7ca0328a963f5e92870675b728'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def Hash512(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -935,7 +937,7 @@ def Hash512(  # documentation is help/epilog/args # noqa: D103
     'f8595502f8a420608911b87d336d9e83c890f0e7ec11a76cb10b03e757f78aea'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def HashFile(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -989,7 +991,7 @@ app.add_typer(aes_app, name='aes')
     "AES key saved to 'keyfile.out'"
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def AESKeyFromPass(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1023,7 +1025,7 @@ def AESKeyFromPass(  # documentation is help/epilog/args # noqa: D103
     'xOlAHPUPpeyZHId-f3VQ_QKKMxjIW0_FBo9WOfIBrzjn0VkVV6xTRA=='  # cspell:disable-line
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def AESEncrypt(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1075,7 +1077,7 @@ def AESEncrypt(  # documentation is help/epilog/args # noqa: D103
     'AAAAAAB4eXo='  # cspell:disable-line
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def AESDecrypt(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1136,7 +1138,7 @@ aes_app.add_typer(aes_ecb_app, name='ecb')
     '54ec742ca3da7b752e527b74e3a798d7'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def AESECBEncrypt(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1185,7 +1187,7 @@ def AESECBEncrypt(  # documentation is help/epilog/args # noqa: D103
     '00112233445566778899aabbccddeeff'  # cspell:disable-line
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def AESECBDecrypt(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1250,7 +1252,7 @@ app.add_typer(rsa_app, name='rsa')
     "RSA private/public keys saved to 'rsa-key.priv/.pub'"
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def RSANew(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1282,7 +1284,7 @@ def RSANew(  # documentation is help/epilog/args # noqa: D103
     '6354905961171348600'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def RSARawEncrypt(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1309,7 +1311,7 @@ def RSARawEncrypt(  # documentation is help/epilog/args # noqa: D103
     '999'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def RSARawDecrypt(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1333,7 +1335,7 @@ def RSARawDecrypt(  # documentation is help/epilog/args # noqa: D103
     '7632909108672871784'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def RSARawSign(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1360,7 +1362,7 @@ def RSARawSign(  # documentation is help/epilog/args # noqa: D103
     'RSA signature: INVALID'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def RSARawVerify(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1393,7 +1395,7 @@ def RSARawVerify(  # documentation is help/epilog/args # noqa: D103
     'AO6knI6xwq6TGR…Qy22jiFhXi1eQ=='
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def RSAEncrypt(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1424,7 +1426,7 @@ def RSAEncrypt(  # documentation is help/epilog/args # noqa: D103
     'abcde'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def RSADecrypt(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1454,7 +1456,7 @@ def RSADecrypt(  # documentation is help/epilog/args # noqa: D103
     '91TS7gC6LORiL…6RD23Aejsfxlw=='  # cspell:disable-line
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def RSASign(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1488,7 +1490,7 @@ def RSASign(  # documentation is help/epilog/args # noqa: D103
     'RSA signature: INVALID'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def RSAVerify(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1546,7 +1548,7 @@ app.add_typer(eg_app, name='elgamal')
     "El-Gamal shared key saved to 'eg-key.shared'"
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def ElGamalShared(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1574,7 +1576,7 @@ def ElGamalShared(  # documentation is help/epilog/args # noqa: D103
     "El-Gamal private/public keys saved to 'eg-key.priv/.pub'"
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def ElGamalNew(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
   base_path: str = _RequireKeyPath(config, 'elgamal')
@@ -1600,7 +1602,7 @@ def ElGamalNew(*, ctx: typer.Context) -> None:  # documentation is help/epilog/a
     '2948854810728206041:15945988196340032688'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def ElGamalRawEncrypt(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1631,7 +1633,7 @@ def ElGamalRawEncrypt(  # documentation is help/epilog/args # noqa: D103
     '999'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def ElGamalRawDecrypt(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1662,7 +1664,7 @@ def ElGamalRawDecrypt(  # documentation is help/epilog/args # noqa: D103
     '4674885853217269088:14532144906178302633'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def ElGamalRawSign(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1694,7 +1696,7 @@ def ElGamalRawSign(  # documentation is help/epilog/args # noqa: D103
     'El-Gamal signature: INVALID'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def ElGamalRawVerify(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1731,7 +1733,7 @@ def ElGamalRawVerify(  # documentation is help/epilog/args # noqa: D103
     'CdFvoQ_IIPFPZLua…kqjhcUTspISxURg=='  # cspell:disable-line
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def ElGamalEncrypt(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1762,7 +1764,7 @@ def ElGamalEncrypt(  # documentation is help/epilog/args # noqa: D103
     'abcde'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def ElGamalDecrypt(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1792,7 +1794,7 @@ def ElGamalDecrypt(  # documentation is help/epilog/args # noqa: D103
     'Xl4hlYK8SHVGw…0fCKJE1XVzA=='  # cspell:disable-line
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def ElGamalSign(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1826,7 +1828,7 @@ def ElGamalSign(  # documentation is help/epilog/args # noqa: D103
     'El-Gamal signature: INVALID'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def ElGamalVerify(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1885,7 +1887,7 @@ app.add_typer(dsa_app, name='dsa')
     "DSA shared key saved to 'dsa-key.shared'"
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def DSAShared(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1923,7 +1925,7 @@ def DSAShared(  # documentation is help/epilog/args # noqa: D103
     "DSA private/public keys saved to 'dsa-key.priv/.pub'"
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def DSANew(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
   base_path: str = _RequireKeyPath(config, 'dsa')
@@ -1949,7 +1951,7 @@ def DSANew(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args 
     '2395961484:3435572290'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def DSARawSign(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -1980,7 +1982,7 @@ def DSARawSign(  # documentation is help/epilog/args # noqa: D103
     'DSA signature: INVALID'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def DSARawVerify(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -2017,7 +2019,7 @@ def DSARawVerify(  # documentation is help/epilog/args # noqa: D103
     'yq8InJVpViXh9…BD4par2XuA='
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def DSASign(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -2051,7 +2053,7 @@ def DSASign(  # documentation is help/epilog/args # noqa: D103
     'DSA signature: INVALID'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def DSAVerify(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -2101,7 +2103,7 @@ app.add_typer(bid_app, name='bid')
     "Bid private/public commitments saved to 'my-bid.priv/.pub'"
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def BidNew(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -2128,7 +2130,7 @@ def BidNew(  # documentation is help/epilog/args # noqa: D103
     'tomorrow it will rain'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def BidVerify(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
   base_path: str = _RequireKeyPath(config, 'bid')
@@ -2178,7 +2180,7 @@ app.add_typer(sss_app, name='sss')
     "SSS private/public keys saved to 'sss-key.priv/.pub'"
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def SSSNew(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -2219,7 +2221,7 @@ def SSSNew(  # documentation is help/epilog/args # noqa: D103
     '$ rm sss-key.share.2 sss-key.share.4  # this is to simulate only having shares 1,3,5'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def SSSRawShares(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -2266,7 +2268,7 @@ def SSSRawShares(  # documentation is help/epilog/args # noqa: D103
     '999'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def SSSRawRecover(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
   base_path: str = _RequireKeyPath(config, 'sss')
@@ -2299,7 +2301,7 @@ def SSSRawRecover(*, ctx: typer.Context) -> None:  # documentation is help/epilo
     "SSS share 'sss-key.share.1' verification: INVALID"
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def SSSRawVerify(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -2329,7 +2331,7 @@ def SSSRawVerify(  # documentation is help/epilog/args # noqa: D103
     '$ rm sss-key.share.2 sss-key.share.4  # this is to simulate only having shares 1,3,5'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def SSSShares(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,
@@ -2372,7 +2374,7 @@ def SSSShares(  # documentation is help/epilog/args # noqa: D103
     'abcde'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def SSSRecover(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
   base_path: str = _RequireKeyPath(config, 'sss')
@@ -2401,7 +2403,7 @@ def SSSRecover(*, ctx: typer.Context) -> None:  # documentation is help/epilog/a
     'Example:\n\n\n\n$ poetry run transcrypto markdown > transcrypto.md\n\n<<saves CLI doc>>'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def Markdown(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
-  config.console.print(base.GenerateTyperHelpMarkdown(app, prog_name='transcrypto'))
+  config.console.print(clibase.GenerateTyperHelpMarkdown(app, prog_name='transcrypto'))

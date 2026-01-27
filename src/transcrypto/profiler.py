@@ -24,11 +24,13 @@ from collections import abc
 import typer
 from rich import console as rich_console
 
+from transcrypto.cli import clibase
+
 from . import __version__, base, dsa, modmath
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
-class ProfilerConfig(base.CLIConfig):
+class ProfilerConfig(clibase.CLIConfig):
   """CLI global context, storing the configuration."""
 
   serial: bool
@@ -62,6 +64,7 @@ def Run() -> None:
   invoke_without_command=True,  # have only one; this is the "constructor"
   help='Profile TransCrypto library performance.',
 )
+@clibase.CLIErrorGuard
 def Main(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: typer.Context,  # global context
@@ -121,7 +124,7 @@ def Main(  # documentation is help/epilog/args # noqa: D103
   if version:
     typer.echo(__version__)
     raise typer.Exit(0)
-  console, verbose, color = base.InitLogging(
+  console, verbose, color = clibase.InitLogging(
     verbose,
     color=color,
     include_process=False,  # decide if you want process names in logs
@@ -156,7 +159,7 @@ def Main(  # documentation is help/epilog/args # noqa: D103
     'Finished in 40.07 min'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def Primes(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: ProfilerConfig = ctx.obj  # get application global config
   config.console.print(
@@ -186,7 +189,7 @@ def Primes(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args 
     'Finished in 4.12 s'
   ),
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def DSA(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: ProfilerConfig = ctx.obj  # get application global config
   config.console.print(
@@ -206,10 +209,10 @@ def DSA(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # n
   help='Emit Markdown docs for the CLI (see README.md section "Creating a New Version").',
   epilog='Example:\n\n\n\n$ poetry run profiler markdown > profiler.md\n\n<<saves CLI doc>>',
 )
-@base.CLIErrorGuard
+@clibase.CLIErrorGuard
 def Markdown() -> None:  # documentation is help/epilog/args # noqa: D103
-  console: rich_console.Console = base.Console()
-  console.print(base.GenerateTyperHelpMarkdown(app, prog_name='profiler'))
+  console: rich_console.Console = clibase.Console()
+  console.print(clibase.GenerateTyperHelpMarkdown(app, prog_name='profiler'))
 
 
 def _PrimeProfiler(

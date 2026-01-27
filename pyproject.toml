@@ -213,7 +213,7 @@ ignore = [
 
   "TD002",   # allow TODOs without authors
   "TD003",   # allow TODOs without bugs
-  "FIX002",  # fix the todos...  # TODO: remove this line: you usually want this
+  # "FIX002",  # fix the todos...  # TODO: remove this line: you usually want this
   "PGH003",  # allow ignoring type issues without giving extra codes
 
   "LOG015",  # allows for calls into top-level logging methods

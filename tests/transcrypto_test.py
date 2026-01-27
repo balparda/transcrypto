@@ -24,6 +24,7 @@ from rich import console as rich_console
 from typer import testing
 
 from transcrypto import aes, base, modmath, transcrypto
+from transcrypto.cli import clibase
 
 
 @pytest.fixture(autouse=True)
@@ -34,7 +35,7 @@ def reset_cli_logging_singletons() -> abc.Generator[None]:
   Tests invoke the CLI multiple times across test cases, so we must reset that
   singleton to keep tests isolated.
   """
-  base.ResetConsole()
+  clibase.ResetConsole()
   yield  # noqa: PT022
 
 
@@ -341,7 +342,7 @@ def test_aes_key_print_b64_matches_library(tmp_path: pathlib.Path) -> None:
   assert _OneToken(res) == 'DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es='  # cspell:disable-line
   priv_path: pathlib.Path = tmp_path / 'password.priv'
   # Reset CLI singletons before calling CLI again in the same test
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['-p', str(priv_path), 'aes', 'key', 'correct horse battery staple'])
   assert res.exit_code == 0
   assert 'AES key saved to' in res.output
@@ -379,7 +380,7 @@ def test_aes_ecb_encrypthex_decrypthex_roundtrip() -> None:
   assert re.fullmatch(r'[0-9a-f]{32}', _OneToken(res))  # 16-byte block
   # Decrypt back
   # Reset CLI singletons before calling CLI again in the same test
-  base.ResetConsole()
+  clibase.ResetConsole()
   res2: click_testing.Result = _CallCLI(
     ['--input-format', 'b64', 'aes', 'ecb', 'decrypt', '-k', key_b64, _OneToken(res)]
   )
@@ -401,7 +402,7 @@ def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None:
   assert len(ct_hex) >= 32  # IV(16)+TAG(16)+ct → hex length ≥ 64; allow any ≥ minimal sanity
   # Decrypt: ciphertext hex in, ask for raw output so we can compare to original string
   # Reset CLI singletons before calling CLI again in the same test
-  base.ResetConsole()
+  clibase.ResetConsole()
   res2: click_testing.Result = _CallCLI(
     [
       '--input-format',
@@ -434,25 +435,25 @@ def test_rsa_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None:
   # Encrypt/decrypt a small message
   msg = 12345
   # Reset CLI singletons before additional CLI invocations within same test
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['-p', str(priv_path), 'rsa', 'rawencrypt', str(msg)])
   assert res.exit_code == 0
   c = int(_OneToken(res))
   assert c > 0
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['-p', str(priv_path), 'rsa', 'rawdecrypt', str(c)])
   assert res.exit_code == 0
   assert int(_OneToken(res)) == msg
   # Sign/verify
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['-p', str(priv_path), 'rsa', 'rawsign', str(msg)])
   assert res.exit_code == 0
   s = int(_OneToken(res))
   assert s > 0
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['-p', str(priv_path), 'rsa', 'rawverify', str(msg), str(s)])
   assert res.exit_code == 0 and _Out(res) == 'RSA signature: OK'
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['-p', str(priv_path), 'rsa', 'rawverify', str(msg + 1), str(s)])
   assert res.exit_code == 0 and _Out(res) == 'RSA signature: INVALID'
 
@@ -578,7 +579,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
   assert priv_path.exists() and pub_path.exists()
   # Encrypt (bin in → b64 out) with AAD='xyz'
   # Reset CLI singletons before additional CLI invocations within same test
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(
     [
       '--input-format',
@@ -597,7 +598,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
   assert res.exit_code == 0 and len(_OneToken(res)) > 0
   ct_b64 = _OneToken(res)
   # Decrypt (b64 in → bin out) with same AAD (as base64: 'eHl6')
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(
     [
       '--input-format',
@@ -616,7 +617,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
   )
   assert res.exit_code == 0 and _Out(res) == 'abcde'
   # Sign (bin in → b64 out) with AAD='aad'
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(
     [
       '--input-format',
@@ -635,7 +636,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
   assert res.exit_code == 0 and len(_OneToken(res)) > 0
   sig_b64 = _OneToken(res)
   # Verify OK (message='xyz' as b64 'eHl6', AAD='aad' as b64 'YWFk')
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(
     [
       '--input-format',
@@ -653,7 +654,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
   )
   assert res.exit_code == 0 and _Out(res) == 'RSA signature: OK'
   # Verify INVALID with wrong message
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(
     [
       '--input-format',
@@ -683,29 +684,29 @@ def test_elgamal_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None
   assert res.exit_code == 0 and 'El-Gamal shared key saved to' in res.output
   assert shared_path.exists()
   # Reset CLI singletons before calling CLI again in the same test
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['-p', str(base_path), 'elgamal', 'new'])
   assert res.exit_code == 0 and 'El-Gamal private/public keys saved to' in res.output
   assert priv_path.exists()
   assert pub_path.exists()
   # Encrypt/decrypt (public can be derived from private file)
   msg = 42
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['-p', str(priv_path), 'elgamal', 'rawencrypt', str(msg)])
   assert res.exit_code == 0 and len(_OneToken(res)) > 0
   ct = _OneToken(res)
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['-p', str(priv_path), 'elgamal', 'rawdecrypt', ct])
   assert res.exit_code == 0 and int(_OneToken(res)) == msg
   # Sign/verify
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['-p', str(priv_path), 'elgamal', 'rawsign', str(msg)])
   assert res.exit_code == 0 and len(_OneToken(res)) > 0
   sig = _OneToken(res)
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['-p', str(priv_path), 'elgamal', 'rawverify', str(msg), sig])
   assert res.exit_code == 0 and _Out(res) == 'El-Gamal signature: OK'
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['-p', str(priv_path), 'elgamal', 'rawverify', str(msg + 1), sig])
   assert res.exit_code == 0 and _Out(res) == 'El-Gamal signature: INVALID'
 
@@ -725,7 +726,7 @@ def test_elgamal_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) ->
     res.exit_code == 0 and shared_path.exists() and 'El-Gamal shared key saved to' in res.output
   )
   # Reset CLI singletons before calling CLI again in the same test
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['-p', str(base_path), 'elgamal', 'new'])
   assert (
     res.exit_code == 0
@@ -734,7 +735,7 @@ def test_elgamal_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) ->
     and 'El-Gamal private/public keys saved to' in res.output
   )
   # Encrypt (bin in → b64 out) with AAD='xyz'
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(
     [
       '--input-format',
@@ -753,7 +754,7 @@ def test_elgamal_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) ->
   assert res.exit_code == 0 and len(_OneToken(res)) > 0
   ct_b64 = _OneToken(res)
   # Decrypt (b64 in → bin out) with same AAD 'eHl6'
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(
     [
       '--input-format',
@@ -772,7 +773,7 @@ def test_elgamal_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) ->
   )
   assert res.exit_code == 0 and _Out(res) == 'abcde'
   # Sign (bin in → b64 out) with AAD='aad'
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(
     [
       '--input-format',
@@ -791,7 +792,7 @@ def test_elgamal_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) ->
   assert res.exit_code == 0 and len(_OneToken(res)) > 0
   sig_b64 = _OneToken(res)
   # Verify OK and INVALID cases
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(
     [
       '--input-format',
@@ -808,7 +809,7 @@ def test_elgamal_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) ->
     ]
   )
   assert res.exit_code == 0 and _Out(res) == 'El-Gamal signature: OK'
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(
     [
       '--input-format',
@@ -841,20 +842,20 @@ def test_dsa_sign_verify(tmp_path: pathlib.Path) -> None:
   assert res.exit_code == 0 and 'DSA shared key saved to' in res.output
   assert shared_path.exists()
   # Reset CLI singletons before calling CLI again in the same test
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['-p', str(base_path), 'dsa', 'new'])
   assert res.exit_code == 0 and 'DSA private/public keys saved to' in res.output
   assert priv_path.exists()
   assert pub_path.exists()
   msg = 123456
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['-p', str(priv_path), 'dsa', 'rawsign', str(msg)])
   assert res.exit_code == 0 and len(_OneToken(res)) > 0
   sig = _OneToken(res)
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['-p', str(priv_path), 'dsa', 'rawverify', str(msg), sig])
   assert res.exit_code == 0 and _Out(res) == 'DSA signature: OK'
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['-p', str(priv_path), 'dsa', 'rawverify', str(msg + 1), sig])
   assert res.exit_code == 0 and _Out(res) == 'DSA signature: INVALID'
 
@@ -872,12 +873,12 @@ def test_dsa_sign_verify_safe(tmp_path: pathlib.Path) -> None:
   )
   assert res.exit_code == 0 and shared_path.exists() and 'DSA shared key saved to' in res.output
   # Generate private/public keys
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['-p', str(base_path), 'dsa', 'new'])
   assert res.exit_code == 0 and priv_path.exists() and pub_path.exists()
   assert 'DSA private/public keys saved to' in res.output
   # Sign (bin in → b64 out) with AAD='aad'
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(
     [
       '--input-format',
@@ -896,7 +897,7 @@ def test_dsa_sign_verify_safe(tmp_path: pathlib.Path) -> None:
   assert res.exit_code == 0 and len(_OneToken(res)) > 0
   sig_b64 = _OneToken(res)
   # Verify OK (message='xyz' b64) and INVALID (wrong message)
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(
     [
       '--input-format',
@@ -913,7 +914,7 @@ def test_dsa_sign_verify_safe(tmp_path: pathlib.Path) -> None:
     ]
   )
   assert res.exit_code == 0 and _Out(res) == 'DSA signature: OK'
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(
     [
       '--input-format',
@@ -949,7 +950,7 @@ def test_bid_commit_verify(tmp_path: pathlib.Path) -> None:
   assert pub_path.exists()
   # Verify: should print OK and echo the secret back
   # Reset CLI singletons before calling CLI again in the same test
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['--output-format', 'bin', '-p', str(key_base), 'bid', 'verify'])
   assert res.exit_code == 0 and _Out(res) == 'Bid commitment: OK\nBid secret:\nbid-message-123'
 
@@ -964,14 +965,14 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
   assert res.exit_code == 0 and 'SSS private/public keys saved to' in res.output
   assert priv_path.exists() and pub_path.exists()
   # Test count < minimum validation (rawshares)
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['-p', str(base_path), 'sss', 'rawshares', '999', '2'])
   assert res.exit_code == 0
   assert 'count (2) must be >= minimum (3)' in res.output
   # Issue 3 shares for a known secret
   sss_message = 999
   # Reset CLI singletons before calling CLI again in the same test
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['-p', str(base_path), 'sss', 'rawshares', str(sss_message), '3'])
   assert res.exit_code == 0
   assert 'SSS 3 individual (private) shares saved to' in res.output and '1…3' in res.output
@@ -979,7 +980,7 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
     share_path = pathlib.Path(f'{base_path}.share.{i + 1}')
     assert share_path.exists()
   # Recover with public key
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['-p', str(base_path), 'sss', 'rawrecover'])
   assert res.exit_code == 0
   lines: list[str] = _Out(res).splitlines()
@@ -987,14 +988,14 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
   assert 'Loaded SSS share' in lines[0]
   assert int(lines[-1]) == sss_message
   # Verify a share against the same secret with private key
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['-p', str(base_path), 'sss', 'rawverify', str(sss_message)])
   assert res.exit_code == 0
   lines = _Out(res).splitlines()
   assert len(lines) == 3
   for line in lines:
     assert 'verification: OK' in line
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['-p', str(base_path), 'sss', 'rawverify', str(sss_message + 1)])
   assert res.exit_code == 0
   lines = _Out(res).splitlines()
@@ -1002,7 +1003,7 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
   for line in lines:
     assert 'verification: INVALID' in line
   # verify sss recover without any data shares → should error
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['-p', str(base_path), 'sss', 'recover'])
   assert res.exit_code == 0 and 'no data share found among the available shares' in res.output
 
@@ -1017,19 +1018,19 @@ def test_sss_shares_recover_safe(tmp_path: pathlib.Path) -> None:
   assert res.exit_code == 0 and priv_path.exists() and pub_path.exists()
   assert 'SSS private/public keys saved to' in res.output
   # Test count < minimum validation (shares)
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['--input-format', 'bin', '-p', str(base_path), 'sss', 'shares', 'abcde', '2'])
   assert res.exit_code == 0
   assert 'count (2) must be >= minimum (3)' in res.output
   # Issue 3 data shares for secret "abcde" (bin so it's treated as bytes)
   # Reset CLI singletons before calling CLI again in the same test
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['--input-format', 'bin', '-p', str(base_path), 'sss', 'shares', 'abcde', '3'])
   assert res.exit_code == 0 and 'SSS 3 individual (private) shares saved' in res.output
   for i in range(1, 4):
     assert pathlib.Path(f'{base_path}.share.{i}').exists()
   # Recover (out as bin) → prints loaded shares then the secret
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['--output-format', 'bin', '-p', str(base_path), 'sss', 'recover'])
   assert res.exit_code == 0
   lines: list[str] = _Out(res).splitlines()
@@ -1146,7 +1147,7 @@ def test_aes_gcm_decrypt_wrong_aad_raises() -> None:
   assert res.exit_code == 0 and re.fullmatch(r'[0-9a-f]+', _OneToken(res))
   # Decrypt with WRONG AAD='B' → should raise CryptoError
   # Reset CLI singletons before calling CLI again in the same test
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(
     [
       '--input-format',
@@ -1177,7 +1178,7 @@ def test_aes_ecb_encrypt_decrypt_with_key_path(tmp_path: pathlib.Path) -> None:
   assert res.exit_code == 0 and re.fullmatch(r'[0-9a-f]{32}', _OneToken(res))
   # Decrypt with --key-path
   # Reset CLI singletons before calling CLI again in the same test
-  base.ResetConsole()
+  clibase.ResetConsole()
   res2: click_testing.Result = _CallCLI(
     ['-p', str(key_path), 'aes', 'ecb', 'decrypt', _OneToken(res)]
   )
@@ -1194,17 +1195,17 @@ def test_aes_ecb_wrong_length_input() -> None:
   assert res.exit_code == 0
   assert 'must be exactly 32 hex chars' in res.output
   # Invalid hexadecimal string (not hex) - encrypt - 32 chars with 'Z' which is not hex
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['--input-format', 'b64', 'aes', 'ecb', 'encrypt', '-k', key_b64, 'Z' * 32])
   assert res.exit_code == 0
   assert 'invalid hexadecimal string' in res.output
   # Invalid hexadecimal in decrypt - 32 chars with 'Z' which is not hex
-  base.ResetConsole()
+  clibase.ResetConsole()
   res = _CallCLI(['--input-format', 'b64', 'aes', 'ecb', 'decrypt', '-k', key_b64, 'Z' * 32])
   assert res.exit_code == 0
   assert 'invalid hexadecimal string' in res.output
   # Wrong-length ciphertext
-  base.ResetConsole()
+  clibase.ResetConsole()
   res2: click_testing.Result = _CallCLI(
     ['--input-format', 'b64', 'aes', 'ecb', 'decrypt', '-k', key_b64, 'abc']
   )
