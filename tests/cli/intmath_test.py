@@ -5,11 +5,20 @@
 from __future__ import annotations
 
 import re
+import textwrap
 
 import pytest
 from click import testing as click_testing
 
+from tests import transcrypto_test
 from transcrypto import modmath
+from transcrypto.cli import clibase
+
+
+@pytest.fixture(autouse=True)
+def _reset_cli() -> None:
+  """Reset CLI singleton before each test."""
+  clibase.ResetConsole()
 
 
 @pytest.mark.parametrize(
@@ -60,12 +69,12 @@ from transcrypto import modmath
 )
 def test_cli_deterministic_pairs(argv: list[str], expected: str) -> None:
   """Test CLI commands with deterministic outputs."""
-  res: click_testing.Result = _CallCLI(argv)
+  res: click_testing.Result = transcrypto_test.CallCLI(argv)
   assert res.exit_code == 0, f'non-zero exit for argv={argv!r}'
   if '\n' in expected:
-    assert _Out(res) == expected
+    assert transcrypto_test.Out(res) == expected
   else:
-    assert _OneToken(res) == expected
+    assert transcrypto_test.OneToken(res) == expected
 
 
 @pytest.mark.parametrize(
@@ -87,59 +96,61 @@ def test_cli_deterministic_pairs(argv: list[str], expected: str) -> None:
 )
 def test_cli_validations_print_errors(argv: list[str], needle: str) -> None:
   """Test CLI argument validations print expected error messages."""
-  res: click_testing.Result = _CallCLI(argv)
+  res: click_testing.Result = transcrypto_test.CallCLI(argv)
   assert res.exit_code == 2
-  assert needle in _CLIOutput(res)
+  assert needle in transcrypto_test.CLIOutput(res)
 
 
 def test_cli_gcd_both_zero_prints_error() -> None:
   """Cover GCD CLI error branch when both inputs are zero."""
-  res: click_testing.Result = _CallCLI(['gcd', '0', '0'])
+  res: click_testing.Result = transcrypto_test.CallCLI(['gcd', '0', '0'])
   assert res.exit_code == 0
   assert "`a` and `b` can't both be zero" in res.output
 
 
 def test_cli_xgcd_both_zero_prints_error() -> None:
   """Cover XGCD CLI error branch when both inputs are zero."""
-  res: click_testing.Result = _CallCLI(['xgcd', '0', '0'])
+  res: click_testing.Result = transcrypto_test.CallCLI(['xgcd', '0', '0'])
   assert res.exit_code == 0
   assert "`a` and `b` can't both be zero" in res.output
 
 
 def test_cli_mersenne_max_lt_min_prints_error() -> None:
   """Cover Mersenne CLI error branch when max_k < min_k."""
-  res: click_testing.Result = _CallCLI(['mersenne', '--min-k', '10', '--max-k', '5'])
+  res: click_testing.Result = transcrypto_test.CallCLI(
+    ['mersenne', '--min-k', '10', '--max-k', '5']
+  )
   assert res.exit_code == 0
   assert 'max-k (5) must be >= min-k (10)' in res.output
 
 
 def test_rand_bits_properties() -> None:
   """Test random bits CLI command output properties."""
-  res: click_testing.Result = _CallCLI(['random', 'bits', '16'])
+  res: click_testing.Result = transcrypto_test.CallCLI(['random', 'bits', '16'])
   assert res.exit_code == 0
-  n = int(_OneToken(res))
+  n = int(transcrypto_test.OneToken(res))
   assert 1 << 15 <= n < (1 << 16)  # exact bit length 16, msb=1
 
 
 def test_rand_int_properties() -> None:
   """Test random int CLI command output properties."""
-  res: click_testing.Result = _CallCLI(['random', 'int', '5', '9'])
+  res: click_testing.Result = transcrypto_test.CallCLI(['random', 'int', '5', '9'])
   assert res.exit_code == 0
-  n = int(_OneToken(res))
+  n = int(transcrypto_test.OneToken(res))
   assert 5 <= n <= 9
 
 
 def test_rand_bytes_shape() -> None:
   """Test random bytes CLI command output shape."""
-  res: click_testing.Result = _CallCLI(['random', 'bytes', '4'])
+  res: click_testing.Result = transcrypto_test.CallCLI(['random', 'bytes', '4'])
   assert res.exit_code == 0
   # CLI prints hex for rand bytes
-  assert re.fullmatch(r'[0-9a-f]{8}', _OneToken(res)) is not None
+  assert re.fullmatch(r'[0-9a-f]{8}', transcrypto_test.OneToken(res)) is not None
 
 
 def test_cli_random_int_invalid_range_prints_error() -> None:
   """Cover RandomInt CLI error branch when max <= min."""
-  res: click_testing.Result = _CallCLI(['random', 'int', '9', '5'])
+  res: click_testing.Result = transcrypto_test.CallCLI(['random', 'int', '9', '5'])
   assert res.exit_code == 0
   assert 'int must be ≥ 10, got 5' in res.output
 
@@ -147,9 +158,9 @@ def test_cli_random_int_invalid_range_prints_error() -> None:
 @pytest.mark.parametrize('bits', [11, 32, 64])
 def test_random_prime_properties(bits: int) -> None:
   """Test randomprime CLI command output properties."""
-  res: click_testing.Result = _CallCLI(['random', 'prime', str(bits)])
+  res: click_testing.Result = transcrypto_test.CallCLI(['random', 'prime', str(bits)])
   assert res.exit_code == 0
-  p = int(_OneToken(res))
+  p = int(transcrypto_test.OneToken(res))
   # exact bit-size guarantee and primality
   assert p.bit_length() == bits
   assert modmath.IsPrime(p) is True

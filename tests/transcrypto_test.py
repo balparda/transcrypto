@@ -13,7 +13,6 @@ import io
 import pathlib
 import re
 import sys
-from collections import abc
 
 import pytest
 import typeguard
@@ -26,15 +25,9 @@ from transcrypto.cli import clibase
 
 
 @pytest.fixture(autouse=True)
-def reset_cli_logging_singletons() -> abc.Generator[None]:
-  """Reset global console/logging state between tests.
-
-  The CLI callback initializes a global Rich console singleton via InitLogging().
-  Tests invoke the CLI multiple times across test cases, so we must reset that
-  singleton to keep tests isolated.
-  """
+def _reset_cli() -> None:
+  """Reset CLI singleton before each test."""
   clibase.ResetConsole()
-  yield  # noqa: PT022
 
 
 def CallCLI(args: list[str]) -> click_testing.Result:
@@ -54,10 +47,28 @@ def CallCLI(args: list[str]) -> click_testing.Result:
 
 
 def Out(res: click_testing.Result) -> str:
+  """Return stripped CLI output.
+
+  Args:
+      res (click_testing.Result): CLI result.
+
+  Returns:
+      str: stripped CLI output.
+
+  """
   return res.output.strip()
 
 
 def OneToken(res: click_testing.Result) -> str:
+  """Return CLI output as a single token with newlines removed.
+
+  Args:
+      res (click_testing.Result): CLI result.
+
+  Returns:
+      str: CLI output as a single token with newlines removed.
+
+  """
   # Rich hard-wrap can insert newlines inside long tokens; normalize for token outputs.
   return Out(res).replace('\n', '')
 
@@ -79,7 +90,7 @@ def CLIOutput(res: click_testing.Result) -> str:
   stdout = getattr(res, 'stdout', '')
   stderr = getattr(res, 'stderr', '')
   combined = (stdout + stderr) if (stdout or stderr) else res.output
-  return _ANSI_ESCAPE_RE.sub('', combined)
+  return ANSI_ESCAPE_RE.sub('', combined)
 
 
 def test_LoadObj_wrong_type_raises(tmp_path: pathlib.Path) -> None:
@@ -87,41 +98,41 @@ def test_LoadObj_wrong_type_raises(tmp_path: pathlib.Path) -> None:
   path: pathlib.Path = tmp_path / 'obj.saved'
   # Save an AESKey object…
   key = aes.AESKey(key256=b'\x00' * 32)
-  transcrypto._SaveObj(key, str(path), None)
+  transcrypto.SaveObj(key, str(path), None)
   # …then try to load it expecting a completely different type.
   with pytest.raises(base.InputError, match=r'invalid type.*AESKey.*expected.*PublicBid'):
-    transcrypto._LoadObj(str(path), None, base.PublicBid512)  # expecting PublicBid, got AESKey
+    transcrypto.LoadObj(str(path), None, base.PublicBid512)  # expecting PublicBid, got AESKey
 
 
 def test_cli_markdown_has_header() -> None:
   """Test CLI markdown command output has expected header."""
-  res: click_testing.Result = _CallCLI(['markdown'])
+  res: click_testing.Result = CallCLI(['markdown'])
   assert res.exit_code == 0
   assert '# `transcrypto`' in res.output
 
 
 def test_cli_version_exits_zero() -> None:
   """Test CLI --version shows version and exits zero."""
-  res: click_testing.Result = _CallCLI(['--version'])
+  res: click_testing.Result = CallCLI(['--version'])
   assert res.exit_code == 0
   assert transcrypto.__version__ in res.output  # type: ignore[attr-defined]
 
 
 def test_cli_internal_parse_helpers_error_branches() -> None:
   """Cover small helper branches that are hard to hit via CLI parsing."""
-  # _ParseInt: empty string and invalid literal.
+  # ParseInt: empty string and invalid literal.
   with pytest.raises(base.InputError, match=r'invalid int'):
-    transcrypto._ParseInt('   ')
+    transcrypto.ParseInt('   ')
   with pytest.raises(base.InputError, match=r'invalid int'):
-    transcrypto._ParseInt('not_an_int')
+    transcrypto.ParseInt('not_an_int')
 
-  # _ParseIntPairCLI: invalid pair formatting.
+  # ParseIntPairCLI: invalid pair formatting.
   with pytest.raises(base.InputError, match=r'invalid int\(s\)'):
-    transcrypto._ParseIntPairCLI('1')
+    transcrypto.ParseIntPairCLI('1')
   with pytest.raises(base.InputError, match=r'invalid int'):
-    transcrypto._ParseIntPairCLI('1:')
+    transcrypto.ParseIntPairCLI('1:')
   with pytest.raises(base.InputError, match=r'invalid int'):
-    transcrypto._ParseIntPairCLI(':2')
+    transcrypto.ParseIntPairCLI(':2')
 
 
 def test_transcrypto_run_exits_zero(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -150,7 +161,7 @@ def test_transcrypto_run_exits_zero(monkeypatch: pytest.MonkeyPatch) -> None:
 )
 def test_group_help_outputs(argv: list[str]) -> None:
   """Group-only invocations should show help."""
-  res: click_testing.Result = _CallCLI(argv)
+  res: click_testing.Result = CallCLI(argv)
   assert res.exit_code in {0, 2}
   assert 'Usage:' in res.output
 
@@ -158,7 +169,7 @@ def test_group_help_outputs(argv: list[str]) -> None:
 @pytest.mark.parametrize('subapp', ['rsa', 'elgamal', 'dsa', 'bid', 'sss', 'random', 'mod'])
 def test_cli_subapps_show_help_when_no_subcommand(subapp: str) -> None:
   """Subapp-only invocations should show help."""
-  res: click_testing.Result = _CallCLI([subapp])
+  res: click_testing.Result = CallCLI([subapp])
   assert res.exit_code in {0, 2}
   assert 'Usage:' in res.output
 
@@ -172,13 +183,13 @@ def test_cli_subapps_show_help_when_no_subcommand(subapp: str) -> None:
   ],
 )
 def test_bytes_from_to_text_modes(mode: transcrypto.IOFormat, text: str, expect_hex: str) -> None:
-  """Exercise _BytesFromText/_BytesToText in all 3 branches."""
-  b: bytes = transcrypto._BytesFromText(text, mode)
+  """Exercise BytesFromText/BytesToText in all 3 branches."""
+  b: bytes = transcrypto.BytesFromText(text, mode)
   # Convert to hex using the CLI helper to normalize
-  hex_out: str = transcrypto._BytesToText(b, transcrypto.IOFormat.hex)
+  hex_out: str = transcrypto.BytesToText(b, transcrypto.IOFormat.hex)
   assert hex_out == expect_hex
   # Round-trip each mode back to itself (bin/b64 produce readable strings)
-  s_again: str = transcrypto._BytesToText(transcrypto._BytesFromText(text, mode), mode)
+  s_again: str = transcrypto.BytesToText(transcrypto.BytesFromText(text, mode), mode)
   # RAW returns original (utf-8), HEX and B64 return normalized encodings;
   # we just assert it doesn't crash and is non-empty.
   assert isinstance(s_again, str) and len(s_again) > 0
@@ -186,14 +197,14 @@ def test_bytes_from_to_text_modes(mode: transcrypto.IOFormat, text: str, expect_
 
 def test_markdown_includes_deep_path() -> None:
   """Ensure markdown docs include a representative deep path."""
-  res: click_testing.Result = _CallCLI(['markdown'])
+  res: click_testing.Result = CallCLI(['markdown'])
   assert res.exit_code == 0
   md = res.output
   assert 'aes ecb encrypt' in md
 
 
 def test_require_keypath_rejects_directory(tmp_path: pathlib.Path) -> None:
-  """Cover _RequireKeyPath directory error path."""
+  """Cover RequireKeyPath directory error path."""
   c = rich_console.Console(file=io.StringIO(), force_terminal=False, color_system=None, record=True)
   cfg = transcrypto.TransConfig(
     console=c,
@@ -205,4 +216,4 @@ def test_require_keypath_rejects_directory(tmp_path: pathlib.Path) -> None:
     protect='',
   )
   with pytest.raises(base.InputError):
-    transcrypto._RequireKeyPath(cfg, 'rsa')
+    transcrypto.RequireKeyPath(cfg, 'rsa')
