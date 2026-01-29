@@ -24,7 +24,7 @@
   "autoDocstring.includeExtendedSummary": true,
   "autoDocstring.includeName": false,
   "autoDocstring.guessTypes": true,
-  // "autoDocstring.quoteStyle": "tripleDouble",
+  "autoDocstring.quoteStyle": "tripleDouble",
 
   // --- Testing ---
   "python.testing.pytestEnabled": true,
