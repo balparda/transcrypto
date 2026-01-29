@@ -458,4 +458,4 @@ def Markdown(*, ctx: typer.Context) -> None:  # documentation is help/epilog/arg
 
 
 # Import CLI modules to register their commands with the app
-from transcrypto.cli import aeshash, bidsecret, intmath, publicalgos  # noqa: E402, F401
+from transcrypto.cli import aeshash, bidsecret, intmath, publicalgos  # pyright: ignore[reportUnusedImport] # noqa: I001, E402, F401

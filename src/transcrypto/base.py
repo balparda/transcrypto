@@ -26,6 +26,7 @@ from typing import (
   Any,
   Protocol,
   Self,
+  cast,
   final,
   runtime_checkable,
 )
@@ -38,8 +39,13 @@ from scipy import stats
 
 # TODO: look at more Any types around the modules to convert to more precise types
 
+# JSON types
 type JSONValue = bool | int | float | str | list[JSONValue] | dict[str, JSONValue] | None
 type JSONDict = dict[str, JSONValue]
+
+# Crypto types: add bytes for cryptographic data; has to be encoded for JSON serialization
+type CryptValue = bool | int | float | str | bytes | list[CryptValue] | dict[str, CryptValue] | None
+type CryptDict = dict[str, CryptValue]
 
 BytesToHex: abc.Callable[[bytes], str] = lambda b: b.hex()
 BytesToInt: abc.Callable[[bytes], int] = lambda b: int.from_bytes(b, 'big', signed=False)
@@ -105,7 +111,7 @@ _JSON_DATACLASS_TYPES: set[str] = {
   'list[float]',
   'list[str]',
   'list[bool]',
-  # need conversion/encoding
+  # need conversion/encoding: see CryptValue/CryptDict
   'bytes',
 }
 
@@ -992,7 +998,7 @@ class CryptoKey(abstract.ABC):
       ImplementationError: object has types that are not supported in JSON
 
     """
-    self_dict: dict[str, Any] = dataclasses.asdict(self)
+    self_dict: CryptDict = dataclasses.asdict(self)
     for field in dataclasses.fields(self):
       # check the type is OK
       if field.type not in _JSON_DATACLASS_TYPES:
@@ -1001,8 +1007,8 @@ class CryptoKey(abstract.ABC):
         )
       # convert types that we accept but JSON does not
       if field.type == 'bytes':
-        self_dict[field.name] = BytesToEncoded(self_dict[field.name])
-    return self_dict
+        self_dict[field.name] = BytesToEncoded(cast('bytes', self_dict[field.name]))
+    return cast('JSONDict', self_dict)
 
   @final
   @property

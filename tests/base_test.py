@@ -17,7 +17,6 @@ import sys
 import tempfile
 import time
 from collections import abc
-from typing import Any
 from unittest import mock
 
 import pytest
@@ -1100,19 +1099,6 @@ def test_CryptoKey_base() -> None:
   assert _ToyCrypto1.Load(blob_crypto, key=key) == crypto
   encoded_crypto: str = crypto.Encoded(key=key)
   assert _ToyCrypto1.Load(encoded_crypto, key=key) == crypto
-  with typeguard.suppress_type_checks():
-    with pytest.raises(base.InputError, match=r'input decode error.*invalid start byte'):
-      _ToyCrypto1.Load(base.Serialize({1: 2, 3: 4}, compress=None))  # binary is a dict
-    with pytest.raises(base.InputError, match='decoded to unexpected fields'):
-      _ToyCrypto1.Load(
-        base.Serialize({1: 2, 3: 4}, compress=None, pickler=base.PickleJSON)
-      )  # binary is a dict
-    with pytest.raises(base.InputError, match='JSON data decoded to unexpected type'):
-      _ToyCrypto1.FromJSON(json.dumps([1, 2]))
-  with pytest.raises(base.ImplementationError, match='Unsupported JSON field'):
-    _ = _ToyCrypto3(modulus=10, inv={'a': 'b'}).json
-  with pytest.raises(base.ImplementationError, match='Unsupported JSON field'):
-    _ToyCrypto3._FromJSONDict({'modulus': 34, 'inv': {'a': 'b'}})
   crypto2 = _ToyCrypto2(
     key=b'ijk5845976584',
     secret='abc',  # noqa: S106
@@ -1129,6 +1115,19 @@ def test_CryptoKey_base() -> None:
     'poly2': ['xz', 'yz'],
     'secret': 'abc',
   }
+  with typeguard.suppress_type_checks():
+    with pytest.raises(base.InputError, match=r'input decode error.*invalid start byte'):
+      _ToyCrypto1.Load(base.Serialize(crypto2._json_dict, compress=None))  # binary is a dict
+    with pytest.raises(base.InputError, match='decoded to unexpected fields'):
+      _ToyCrypto1.Load(
+        base.Serialize(crypto2._json_dict, compress=None, pickler=base.PickleJSON)
+      )  # binary is a dict
+    with pytest.raises(base.InputError, match='JSON data decoded to unexpected type'):
+      _ToyCrypto1.FromJSON(json.dumps([1, 2]))
+  with pytest.raises(base.ImplementationError, match='Unsupported JSON field'):
+    _ = _ToyCrypto3(modulus=10, inv={'a': 'b'}).json
+  with pytest.raises(base.ImplementationError, match='Unsupported JSON field'):
+    _ToyCrypto3._FromJSONDict({'modulus': 34, 'inv': {'a': 'b'}})
   assert crypto2.json == (
     '{"key":"aWprNTg0NTk3NjU4NA==","secret":"abc","modulus":123,'
     '"poly1":[13,17,19],"poly2":["xz","yz"],"is_x":true}'
@@ -1159,11 +1158,11 @@ def test_CryptoKey_base() -> None:
 
 
 @pytest.fixture
-def sample_obj() -> dict[str, Any]:
+def sample_obj() -> base.CryptDict:
   """Sample object fixture.
 
   Returns:
-      dict[str, Any]: sample object
+      base.CryptDict: sample object
 
   """
   # moderately nested object to exercise pickle well
@@ -1174,48 +1173,48 @@ def sample_obj() -> dict[str, Any]:
   }
 
 
-def test_serialize_deserialize_no_compress_no_encrypt(sample_obj: dict[str, Any]) -> None:
+def test_serialize_deserialize_no_compress_no_encrypt(sample_obj: base.CryptDict) -> None:
   """Test."""
   blob: bytes = base.Serialize(sample_obj, compress=None)
   # should NOT look like zstd: DeSerialize should skip decompression path
-  obj2 = base.DeSerialize(data=blob)
+  obj2: base.CryptDict = base.DeSerialize(data=blob)
   assert obj2 == sample_obj
 
 
-def test_serialize_deserialize_with_compress_negative_clamped(sample_obj: dict[str, Any]) -> None:
+def test_serialize_deserialize_with_compress_negative_clamped(sample_obj: base.CryptDict) -> None:
   """Test."""
   # request a very fast negative level; function clamps to >= -22 then compresses
   blob: bytes = base.Serialize(sample_obj, compress=-100)  # expect clamp to -22 internally
   # Verify magic-detected zstd path and successful round-trip
-  obj2 = base.DeSerialize(data=blob)
+  obj2: base.CryptDict = base.DeSerialize(data=blob)
   assert obj2 == sample_obj
 
 
-def test_serialize_deserialize_with_compress_high_clamped(sample_obj: dict[str, Any]) -> None:
+def test_serialize_deserialize_with_compress_high_clamped(sample_obj: base.CryptDict) -> None:
   """Test."""
   # request above max; function clamps to 22
   blob: bytes = base.Serialize(sample_obj, compress=99)
-  obj2 = base.DeSerialize(data=blob)
+  obj2: base.CryptDict = base.DeSerialize(data=blob)
   assert obj2 == sample_obj
 
 
-def test_serialize_deserialize_with_encrypt_ok(sample_obj: dict[str, Any]) -> None:
+def test_serialize_deserialize_with_encrypt_ok(sample_obj: base.CryptDict) -> None:
   """Test."""
   key = aes.AESKey(key256=b'x' * 32)
   blob: bytes = base.Serialize(sample_obj, compress=3, key=key)
   # must supply same key (and same AAD inside implementation)
-  obj2 = base.DeSerialize(data=blob, key=key)
+  obj2: base.CryptDict = base.DeSerialize(data=blob, key=key)
   assert obj2 == sample_obj
 
 
 def test_serialize_save_and_load_from_file(
-  tmp_path: pathlib.Path, sample_obj: dict[str, Any]
+  tmp_path: pathlib.Path, sample_obj: base.CryptDict
 ) -> None:
   """Test."""
   p: pathlib.Path = tmp_path / 'payload.bin'
   blob: bytes = base.Serialize(sample_obj, compress=3, file_path=str(p))
   assert p.exists() and p.stat().st_size == len(blob)
-  obj2 = base.DeSerialize(file_path=str(p))
+  obj2: base.CryptDict = base.DeSerialize(file_path=str(p))
   assert obj2 == sample_obj
 
 
@@ -1237,7 +1236,7 @@ def test_deserialize_invalid_calls() -> None:
     base.DeSerialize(data=b'\x00\x01\x02')
 
 
-def test_deserialize_wrong_key_raises(sample_obj: dict[str, Any]) -> None:
+def test_deserialize_wrong_key_raises(sample_obj: base.CryptDict) -> None:
   """Test."""
   key_ok = aes.AESKey(key256=b'x' * 32)
   key_bad = aes.AESKey(key256=b'y' * 32)
@@ -1246,7 +1245,7 @@ def test_deserialize_wrong_key_raises(sample_obj: dict[str, Any]) -> None:
     base.DeSerialize(data=blob, key=key_bad)
 
 
-def test_deserialize_corrupted_zstd_raises(sample_obj: dict[str, Any]) -> None:
+def test_deserialize_corrupted_zstd_raises(sample_obj: base.CryptDict) -> None:
   """Test."""
   # create a valid zstd-compressed blob
   blob: bytes = base.Serialize(sample_obj, compress=3)
@@ -1261,12 +1260,12 @@ def test_deserialize_corrupted_zstd_raises(sample_obj: dict[str, Any]) -> None:
     base.DeSerialize(data=corrupted)
 
 
-def test_deserialize_no_compression_detected_branch(sample_obj: dict[str, Any]) -> None:
+def test_deserialize_no_compression_detected_branch(sample_obj: base.CryptDict) -> None:
   """Test."""
   # Craft a blob that is NOT zstd: disable compression
   blob: bytes = base.Serialize(sample_obj, compress=None)
   # This exercises the "(no compression detected)" branch
-  obj2 = base.DeSerialize(data=blob)
+  obj2: base.CryptDict = base.DeSerialize(data=blob)
   assert obj2 == sample_obj
 
 
