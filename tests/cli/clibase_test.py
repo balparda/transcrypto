@@ -23,7 +23,7 @@ from transcrypto.cli import clibase
 
 
 @pytest.fixture(autouse=True)
-def _reset_logging_and_singleton() -> abc.Generator[None]:  # pyright: ignore[reportUnusedFunction]
+def reset_logging_and_singleton() -> abc.Generator[None]:
   """Prevent cross-test pollution.
 
   - Restore root logger handlers/level
