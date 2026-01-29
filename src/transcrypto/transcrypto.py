@@ -372,6 +372,7 @@ def Run() -> None:
   invoke_without_command=True,  # have only one; this is the "constructor"
   help='transcrypto: CLI for number theory, hash, AES, RSA, El-Gamal, DSA, bidding, SSS, and more.',
 )  # keep message in sync with app.help
+@clibase.CLIErrorGuard
 def Main(  # documentation is help/epilog/args # noqa: D103
   *,
   ctx: click.Context,  # global context
@@ -430,7 +431,7 @@ def Main(  # documentation is help/epilog/args # noqa: D103
   console, verbose, color = clibase.InitLogging(
     verbose,
     color=color,
-    include_process=False,  # decide if you want process names in logs
+    include_process=False,
   )
   # create context with the arguments we received.
   ctx.obj = TransConfig(

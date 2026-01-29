@@ -46,6 +46,19 @@ type JSONDict = dict[str, JSONValue]
 # Crypto types: add bytes for cryptographic data; has to be encoded for JSON serialization
 type CryptValue = bool | int | float | str | bytes | list[CryptValue] | dict[str, CryptValue] | None
 type CryptDict = dict[str, CryptValue]
+_JSON_DATACLASS_TYPES: set[str] = {
+  # native support
+  'int',
+  'float',
+  'str',
+  'bool',
+  'list[int]',
+  'list[float]',
+  'list[str]',
+  'list[bool]',
+  # need conversion/encoding: see CryptValue/CryptDict
+  'bytes',
+}
 
 BytesToHex: abc.Callable[[bytes], str] = lambda b: b.hex()
 BytesToInt: abc.Callable[[bytes], int] = lambda b: int.from_bytes(b, 'big', signed=False)
@@ -100,20 +113,6 @@ _PICKLE_AAD = b'transcrypto.base.Serialize.1.0'  # do NOT ever change!
 _ZSTD_MAGIC_FRAME = 0xFD2FB528
 _ZSTD_MAGIC_SKIPPABLE_MIN = 0x184D2A50
 _ZSTD_MAGIC_SKIPPABLE_MAX = 0x184D2A5F
-# JSON
-_JSON_DATACLASS_TYPES: set[str] = {
-  # native support
-  'int',
-  'float',
-  'str',
-  'bool',
-  'list[int]',
-  'list[float]',
-  'list[str]',
-  'list[bool]',
-  # need conversion/encoding: see CryptValue/CryptDict
-  'bytes',
-}
 
 
 class Error(Exception):
