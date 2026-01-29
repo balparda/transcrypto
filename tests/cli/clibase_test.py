@@ -14,6 +14,7 @@ from typing import Any
 import click
 import pytest
 import typer
+from click import testing as click_testing
 from rich import console as rich_console
 from rich import logging as rich_logging
 
@@ -348,9 +349,6 @@ def test_generate_help_includes_real_app_sections() -> None:
 
 def test_generate_help_markdown_skips_invalid_commands(monkeypatch: pytest.MonkeyPatch) -> None:
   """Test that GenerateTyperHelpMarkdown skips commands that fail without output (line 1894)."""
-  # Import click.testing here
-  from click import testing as click_testing  # noqa: PLC0415
-
   # Create a multi-command app so it becomes a group
   app = typer.Typer()
 
@@ -392,7 +390,6 @@ def test_generate_help_markdown_skips_invalid_commands(monkeypatch: pytest.Monke
     return original_invoke(self, cli, args, **kwargs)  # type: ignore[arg-type]
 
   monkeypatch.setattr(click_testing.CliRunner, 'invoke', _mock_invoke)
-
   # Generate markdown - should skip the failing command and continue
   md: str = clibase.GenerateTyperHelpMarkdown(app, prog_name='test', heading_level=1)
   # Should have output for root and cmd1, but skip cmd2

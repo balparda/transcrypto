@@ -26,17 +26,22 @@ Usage: transcrypto [OPTIONS] COMMAND [ARGS]...
 │ --help                                                           Show this message and exit.                                                            │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ markdown  Emit Markdown docs for the CLI (see README.md section "Creating a New Version").                                                              │
 │ isprime   Primality test with safe defaults, useful for any integer size.                                                                               │
 │ primegen  Generate (stream) primes ≥ `start` (prints a limited `count` by default).                                                                     │
 │ mersenne  Generate (stream) Mersenne prime exponents `k`, also outputting `2^k-1` (the Mersenne prime, `M`) and `M×2^(k-1)` (the associated perfect     │
 │           number), starting at `min-k` and stopping once `k` > `max-k`.                                                                                 │
 │ gcd       Greatest Common Divisor (GCD) of integers `a` and `b`.                                                                                        │
 │ xgcd      Extended Greatest Common Divisor (x-GCD) of integers `a` and `b`, will return `(g, x, y)` where `a×x+b×y==g`.                                 │
-│ markdown  Emit Markdown docs for the CLI (see README.md section "Creating a New Version").                                                              │
-│ random    Cryptographically secure randomness, from the OS CSPRNG.                                                                                      │
-│ mod       Modular arithmetic helpers.                                                                                                                   │
 │ hash      Cryptographic Hashing (SHA-256 / SHA-512 / file).                                                                                             │
 │ aes       AES-256 operations (GCM/ECB) and key derivation. No measures are taken here to prevent timing attacks.                                        │
+│ bid       Bidding on a `secret` so that you can cryptographically convince a neutral party that the `secret` that was committed to previously was not   │
+│           changed. All methods require file key(s) as `-p`/`--key-path` (see provided examples). All non-int inputs are raw, or you can use             │
+│           `--input-format <hex|b64|bin>`. No measures are taken here to prevent timing attacks.                                                         │
+│ sss       SSS (Shamir Shared Secret) secret sharing crypto scheme. All methods require file key(s) as `-p`/`--key-path` (see provided examples). All    │
+│           non-int inputs are raw, or you can use `--input-format <hex|b64|bin>`. No measures are taken here to prevent timing attacks.                  │
+│ random    Cryptographically secure randomness, from the OS CSPRNG.                                                                                      │
+│ mod       Modular arithmetic helpers.                                                                                                                   │
 │ rsa       RSA (Rivest-Shamir-Adleman) asymmetric cryptography. All methods require file key(s) as `-p`/`--key-path` (see provided examples). All        │
 │           non-int inputs are raw, or you can use `--input-format <hex|b64|bin>`. Attention: if you provide `-a`/`--aad` (associated data, AAD), you     │
 │           will need to provide the same AAD when decrypting/verifying and it is NOT included in the `ciphertext`/CT or `signature` returned by these    │
@@ -49,11 +54,6 @@ Usage: transcrypto [OPTIONS] COMMAND [ARGS]...
 │           All non-int inputs are raw, or you can use `--input-format <hex|b64|bin>`. Attention: if you provide `-a`/`--aad` (associated data, AAD), you │
 │           will need to provide the same AAD when decrypting/verifying and it is NOT included in the `signature` returned by these methods! No measures  │
 │           are taken here to prevent timing attacks.                                                                                                     │
-│ bid       Bidding on a `secret` so that you can cryptographically convince a neutral party that the `secret` that was committed to previously was not   │
-│           changed. All methods require file key(s) as `-p`/`--key-path` (see provided examples). All non-int inputs are raw, or you can use             │
-│           `--input-format <hex|b64|bin>`. No measures are taken here to prevent timing attacks.                                                         │
-│ sss       SSS (Shamir Shared Secret) secret sharing crypto scheme. All methods require file key(s) as `-p`/`--key-path` (see provided examples). All    │
-│           non-int inputs are raw, or you can use `--input-format <hex|b64|bin>`. No measures are taken here to prevent timing attacks.                  │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
                                                                                                                                                            
  Example:                                                                                                                                                  

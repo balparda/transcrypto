@@ -25,7 +25,7 @@ from transcrypto.cli import clibase
 
 
 @pytest.fixture(autouse=True)
-def _reset_cli() -> None:
+def reset_cli() -> None:
   """Reset CLI singleton before each test."""
   clibase.ResetConsole()
 

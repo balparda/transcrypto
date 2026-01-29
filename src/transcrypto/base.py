@@ -26,7 +26,6 @@ from typing import (
   Any,
   Protocol,
   Self,
-  TypeVar,
   final,
   runtime_checkable,
 )
@@ -36,6 +35,11 @@ import zstandard
 from scipy import stats
 
 # Data conversion utils
+
+# TODO: look at more Any types around the modules to convert to more precise types
+
+type JSONValue = bool | int | float | str | list[JSONValue] | dict[str, JSONValue] | None
+type JSONDict = dict[str, JSONValue]
 
 BytesToHex: abc.Callable[[bytes], str] = lambda b: b.hex()
 BytesToInt: abc.Callable[[bytes], int] = lambda b: int.from_bytes(b, 'big', signed=False)
@@ -81,10 +85,10 @@ _SI_PREFIXES: dict[int, str] = {
 _PICKLE_PROTOCOL = 4  # protocol 4 available since python v3.8 # do NOT ever change!
 PickleGeneric: abc.Callable[[Any], bytes] = lambda o: pickle.dumps(o, protocol=_PICKLE_PROTOCOL)
 UnpickleGeneric: abc.Callable[[bytes], Any] = pickle.loads  # noqa: S301
-PickleJSON: abc.Callable[[dict[str, Any]], bytes] = lambda d: json.dumps(
-  d, separators=(',', ':')
-).encode('utf-8')
-UnpickleJSON: abc.Callable[[bytes], dict[str, Any]] = lambda b: json.loads(b.decode('utf-8'))
+PickleJSON: abc.Callable[[JSONDict], bytes] = lambda d: json.dumps(d, separators=(',', ':')).encode(
+  'utf-8'
+)
+UnpickleJSON: abc.Callable[[bytes], JSONDict] = lambda b: json.loads(b.decode('utf-8'))
 _PICKLE_AAD = b'transcrypto.base.Serialize.1.0'  # do NOT ever change!
 # these help find compressed files, do NOT change unless zstandard changes
 _ZSTD_MAGIC_FRAME = 0xFD2FB528
@@ -531,10 +535,7 @@ class Timer:
     """Stop the timer when exiting the context."""
     self.Stop()
 
-  # TODO: audit use of Any in the whole module so we can tighten types by adding [T]-like generics
-  _F = TypeVar('_F', bound=abc.Callable[..., Any])
-
-  def __call__(self, func: Timer._F) -> Timer._F:
+  def __call__[**F, R](self, func: abc.Callable[F, R]) -> abc.Callable[F, R]:
     """Allow the Timer to be used as a decorator.
 
     Args:
@@ -546,11 +547,11 @@ class Timer:
     """
 
     @functools.wraps(func)
-    def _Wrapper(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+    def _Wrapper(*args: F.args, **kwargs: F.kwargs) -> R:
       with self.__class__(self.label, emit_log=self.emit_log, emit_print=self.emit_print):
         return func(*args, **kwargs)
 
-    return _Wrapper  # type:ignore
+    return _Wrapper
 
 
 def RandBits(n_bits: int, /) -> int:
@@ -604,7 +605,7 @@ def RandInt(min_int: int, max_int: int, /) -> int:
   return n
 
 
-def RandShuffle[T: Any](seq: abc.MutableSequence[T], /) -> None:
+def RandShuffle[T](seq: abc.MutableSequence[T], /) -> None:
   """In-place Crypto-random shuffle order for `seq` mutable sequence.
 
   Args:
@@ -981,11 +982,11 @@ class CryptoKey(abstract.ABC):
 
   @final
   @property
-  def _json_dict(self) -> dict[str, Any]:
+  def _json_dict(self) -> JSONDict:
     """Dictionary representation of the object suitable for JSON conversion.
 
     Returns:
-      dict[str, Any]: representation of the object suitable for JSON conversion
+      JSONDict: representation of the object suitable for JSON conversion
 
     Raises:
       ImplementationError: object has types that are not supported in JSON
@@ -1027,11 +1028,11 @@ class CryptoKey(abstract.ABC):
 
   @final
   @classmethod
-  def _FromJSONDict(cls, json_dict: dict[str, Any], /) -> Self:
+  def _FromJSONDict(cls, json_dict: JSONDict, /) -> Self:
     """Create object from JSON representation.
 
     Args:
-      json_dict (dict[str, Any]): JSON dict
+      json_dict (JSONDict): JSON dict
 
     Returns:
       a CryptoKey object ready for use
@@ -1053,7 +1054,7 @@ class CryptoKey(abstract.ABC):
           f'Unsupported JSON field {field.name!r}/{field.type} not in {_JSON_DATACLASS_TYPES}'
         )
       if field.type == 'bytes':
-        json_dict[field.name] = EncodedToBytes(json_dict[field.name])
+        json_dict[field.name] = EncodedToBytes(json_dict[field.name])  # type: ignore[assignment, arg-type]
     # build the object
     return cls(**json_dict)
 
@@ -1073,7 +1074,7 @@ class CryptoKey(abstract.ABC):
 
     """
     # get the dict back
-    json_dict: dict[str, Any] = json.loads(json_data)
+    json_dict: JSONDict = json.loads(json_data)
     if not isinstance(json_dict, dict):  # pyright: ignore[reportUnnecessaryIsInstance]
       raise InputError(f'JSON data decoded to unexpected type: {type(json_dict)}')
     return cls._FromJSONDict(json_dict)
@@ -1201,9 +1202,7 @@ class CryptoKey(abstract.ABC):
       data = BytesFromInput(data)
     # we now have bytes and we suppose it came from CryptoKey.blob()/CryptoKey.CryptoBlob()
     try:
-      json_dict: dict[str, Any] = DeSerialize(
-        data=data, key=key, silent=silent, unpickler=UnpickleJSON
-      )
+      json_dict: JSONDict = DeSerialize(data=data, key=key, silent=silent, unpickler=UnpickleJSON)
       return cls._FromJSONDict(json_dict)
     except Exception as err:
       raise InputError(f'input decode error: {err}') from err
@@ -1318,15 +1317,15 @@ class Signer(Protocol):
     """
 
 
-def Serialize(
-  python_obj: Any,  # noqa: ANN401
+def Serialize[T](
+  python_obj: T,
   /,
   *,
   file_path: str | None = None,
   compress: int | None = 3,
   key: Encryptor | None = None,
   silent: bool = False,
-  pickler: abc.Callable[[Any], bytes] = PickleGeneric,
+  pickler: abc.Callable[[T], bytes] = PickleGeneric,
 ) -> bytes:
   """Serialize a Python object into a BLOB, optionally compress / encrypt / save to disk.
 
@@ -1396,14 +1395,14 @@ def Serialize(
   return obj
 
 
-def DeSerialize(  # noqa: C901
+def DeSerialize[T](  # noqa: C901
   *,
   data: bytes | None = None,
   file_path: str | None = None,
   key: Decryptor | None = None,
   silent: bool = False,
-  unpickler: abc.Callable[[bytes], Any] = UnpickleGeneric,
-) -> Any:  # noqa: ANN401
+  unpickler: abc.Callable[[bytes], T] = UnpickleGeneric,
+) -> T:
   """Load (de-serializes) a BLOB back to a Python object, optionally decrypting / decompressing.
 
   Data path is:
@@ -1475,7 +1474,7 @@ def DeSerialize(  # noqa: C901
       messages.append('    (no compression detected)')
     # create the actual object = unpickle
     with Timer('UNPICKLE', emit_log=False) as tm_unpickle:
-      python_obj: Any = unpickler(obj)
+      python_obj: T = unpickler(obj)
     if not silent:
       messages.append(f'    {tm_unpickle}')
   # log and return
