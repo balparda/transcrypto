@@ -27,6 +27,25 @@ from tests import util
 from transcrypto.core import aes, base
 
 
+@pytest.fixture(autouse=True)
+def ResetLoggingHandlers() -> abc.Generator[None]:
+  """Reset logging handlers before and after each test to prevent pollution."""
+  root: logging.Logger = logging.getLogger()
+  saved_handlers = list(root.handlers)
+  saved_level = root.level
+  try:
+    for h in list(root.handlers):
+      root.removeHandler(h)
+    root.setLevel(logging.WARNING)
+    yield
+  finally:
+    for h in list(root.handlers):
+      root.removeHandler(h)
+    for h in saved_handlers:
+      root.addHandler(h)
+    root.setLevel(saved_level)
+
+
 def test_time_utils() -> None:
   """Test."""
   assert base.MIN_TM == 946684800
