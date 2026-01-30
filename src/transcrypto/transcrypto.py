@@ -99,8 +99,7 @@ import click
 import typer
 
 from transcrypto.cli import clibase
-from transcrypto.core import aes
-from transcrypto.core import key as cryptokey
+from transcrypto.core import aes, key
 from transcrypto.utils import base, human
 
 from . import __version__
@@ -116,7 +115,15 @@ class IOFormat(enum.Enum):
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class TransConfig(clibase.CLIConfig):
-  """CLI global context, storing the configuration."""
+  """CLI global context, storing the configuration.
+
+  Attributes:
+    input_format (IOFormat): Input data format (hex, b64, bin)
+    output_format (IOFormat): Output data format (hex, b64, bin)
+    key_path (pathlib.Path | None): Path to key file for crypto operations
+    protect (str | None): Password protection for key operations
+
+  """
 
   input_format: IOFormat
   output_format: IOFormat
@@ -239,7 +246,7 @@ def BytesToText(b: bytes, fmt: IOFormat, /) -> str:
       return base.BytesToEncoded(b)
 
 
-def SaveObj(obj: cryptokey.CryptoKey, path: str, password: str | None, /) -> None:
+def SaveObj(obj: key.CryptoKey, path: str, password: str | None, /) -> None:
   """Save object.
 
   Args:
@@ -248,8 +255,8 @@ def SaveObj(obj: cryptokey.CryptoKey, path: str, password: str | None, /) -> Non
       password (str | None): password
 
   """
-  key: aes.AESKey | None = aes.AESKey.FromStaticPassword(password) if password else None
-  blob: bytes = cryptokey.Serialize(obj, file_path=path, key=key)
+  encryption_key: aes.AESKey | None = aes.AESKey.FromStaticPassword(password) if password else None
+  blob: bytes = key.Serialize(obj, file_path=path, encryption_key=encryption_key)
   logging.info('saved object: %s (%s)', path, human.HumanizedBytes(len(blob)))
 
 
@@ -268,8 +275,8 @@ def LoadObj[T](path: str, password: str | None, expect: type[T], /) -> T:
       T: loaded object
 
   """
-  key: aes.AESKey | None = aes.AESKey.FromStaticPassword(password) if password else None
-  obj: T = cryptokey.DeSerialize(file_path=path, key=key)
+  decryption_key: aes.AESKey | None = aes.AESKey.FromStaticPassword(password) if password else None
+  obj: T = key.DeSerialize(file_path=path, decryption_key=decryption_key)
   if not isinstance(obj, expect):
     raise base.InputError(
       f'Object loaded from {path} is of invalid type {type(obj)}, expected {expect}'

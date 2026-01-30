@@ -308,7 +308,7 @@ class CryptoKey(abstract.ABC):
       a CryptoKey object ready for use
 
     Raises:
-      InputError: unexpected type/fields
+      base.InputError: unexpected type/fields
 
     """
     # get the dict back
@@ -490,8 +490,8 @@ class Encryptor(Protocol):
       must encode it within the returned bytes (or document how to retrieve it)
 
     Raises:
-      InputError: invalid inputs
-      CryptoError: internal crypto failures
+      base.InputError: invalid inputs
+      key.CryptoError: internal crypto failures
 
     """
 
@@ -512,8 +512,8 @@ class Decryptor(Protocol):
       bytes: Decrypted plaintext bytes
 
     Raises:
-      InputError: invalid inputs
-      CryptoError: internal crypto failures, authentication failure, key mismatch, etc
+      base.InputError: invalid inputs
+      key.CryptoError: internal crypto failures, authentication failure, key mismatch, etc
 
     """
 
@@ -537,8 +537,8 @@ class Verifier(Protocol):
       True if signature is valid, False otherwise
 
     Raises:
-      InputError: invalid inputs
-      CryptoError: internal crypto failures, authentication failure, key mismatch, etc
+      base.InputError: invalid inputs
+      key.CryptoError: internal crypto failures, authentication failure, key mismatch, etc
 
     """
 
@@ -561,8 +561,8 @@ class Signer(Protocol):
       must encode it within the returned bytes (or document how to retrieve it)
 
     Raises:
-      InputError: invalid inputs
-      CryptoError: internal crypto failures
+      base.InputError: invalid inputs
+      key.CryptoError: internal crypto failures
 
     """
 

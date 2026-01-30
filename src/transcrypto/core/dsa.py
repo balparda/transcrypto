@@ -427,7 +427,7 @@ class DSAPrivateKey(DSAPublicKey, key.Signer):
 
     Raises:
       base.InputError: invalid inputs
-      CryptoError: modulus math is inconsistent with values
+      key.CryptoError: modulus math is inconsistent with values
 
     """
     super(DSAPrivateKey, self).__post_init__()
@@ -503,7 +503,7 @@ class DSAPrivateKey(DSAPublicKey, key.Signer):
       bytes: Signature; salt || Padded(s, k) - see above
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     k: int = self.modulus_size[1]  # use prime_seed size

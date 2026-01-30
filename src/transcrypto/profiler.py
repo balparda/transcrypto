@@ -33,7 +33,15 @@ from . import __version__
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class ProfilerConfig(clibase.CLIConfig):
-  """CLI global context, storing the configuration."""
+  """CLI global context, storing the configuration.
+
+  Attributes:
+    serial (bool): Whether to run profiling serially (vs parallel)
+    repeats (int): Number of repetitions for each profiling run
+    confidence (int): Confidence level percentage for statistical analysis
+    bits (tuple[int, int, int]): Bit sizes range (start, stop, step) for profiling
+
+  """
 
   serial: bool
   repeats: int

@@ -96,13 +96,13 @@ def InitLogging(
         (The initialized console instance, actual log level, actual color use)
 
   Raises:
-    RuntimeError: if you call this more than once
+    base.Error: if you call this more than once
 
   """
   global __console_singleton  # noqa: PLW0603
   with __console_lock:
     if __console_singleton is not None:
-      raise RuntimeError(
+      raise base.Error(
         'calling InitLogging() more than once is forbidden; '
         'use Console() to get a console after first creation'
       )
@@ -148,7 +148,14 @@ def InitLogging(
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class CLIConfig:
-  """CLI global context, storing the configuration."""
+  """CLI global context, storing the configuration.
+
+  Attributes:
+    console (rich_console.Console): Rich console instance for output
+    verbose (int): Verbosity level (0-3)
+    color (bool | None): Color preference (None=auto, True=force, False=disable)
+
+  """
 
   console: rich_console.Console
   verbose: int

@@ -434,7 +434,7 @@ class ShamirShareData(ShamirSharePrivate):
     """Check data.
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     super(ShamirShareData, self).__post_init__()
