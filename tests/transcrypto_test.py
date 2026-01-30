@@ -2,9 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """transcrypto.py unittest.
 
-Run this test with:
-
-poetry run pytest -vvv tests/transcrypto_test.py
+Run with:
+  poetry run pytest -vvv tests/transcrypto_test.py
 """
 
 from __future__ import annotations

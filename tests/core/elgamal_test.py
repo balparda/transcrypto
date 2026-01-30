@@ -1,6 +1,10 @@
 # SPDX-FileCopyrightText: Copyright 2026 Daniel Balparda <balparda@github.com>
 # SPDX-License-Identifier: Apache-2.0
-"""elgamal.py unittest."""
+"""core/elgamal.py unittest.
+
+Run with:
+  poetry run pytest -vvv tests/core/elgamal_test.py
+"""
 
 from __future__ import annotations
 

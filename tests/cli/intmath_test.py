@@ -1,6 +1,10 @@
 # SPDX-FileCopyrightText: Copyright 2026 Daniel Balparda <balparda@github.com>
 # SPDX-License-Identifier: Apache-2.0
-"""cli/intmath.py unittest."""
+"""cli/intmath.py unittest.
+
+Run with:
+  poetry run pytest -vvv tests/cli/intmath_test.py
+"""
 
 from __future__ import annotations
 

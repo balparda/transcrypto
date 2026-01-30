@@ -2,9 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """profiler.py unittest.
 
-Run this test with:
-
-poetry run pytest -vvv tests/profiler_test.py
+Run with:
+  poetry run pytest -vvv tests/profiler_test.py
 """
 
 from __future__ import annotations

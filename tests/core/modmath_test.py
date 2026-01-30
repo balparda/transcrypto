@@ -1,6 +1,10 @@
 # SPDX-FileCopyrightText: Copyright 2026 Daniel Balparda <balparda@github.com>
 # SPDX-License-Identifier: Apache-2.0
-"""modmath.py unittest."""
+"""core/modmath.py unittest.
+
+Run with:
+  poetry run pytest -vvv tests/core/modmath_test.py
+"""
 
 from __future__ import annotations
 
@@ -11,6 +15,63 @@ import gmpy2
 import pytest
 
 from transcrypto.core import base, constants, modmath
+
+
+@pytest.mark.parametrize('n', [1, 17, 10**12])
+def test_GCD_same_number(n: int) -> None:
+  """Test."""
+  assert base.GCD(n, n) == n
+  g, x, y = base.ExtendedGCD(n, n)
+  assert g == n == n * (x + y)  # because x or y will be 0
+
+
+@pytest.mark.parametrize(
+  ('a', 'b', 'gcd', 'x', 'y'),
+  [
+    (0, 1, 1, 0, 1),
+    (1, 0, 1, 1, 0),
+    (1, 2, 1, 1, 0),
+    (2, 1, 1, 0, 1),
+    (12, 18, 6, -1, 1),
+    (3, 7, 1, -2, 1),
+    (7, 3, 1, 1, -2),
+    (100, 24, 4, 1, -4),
+    (100, 0, 100, 1, 0),
+    (24, 100, 4, -4, 1),
+    (367613542, 2136213, 59, 15377, -2646175),
+    (2354153438, 65246322, 2, 4133449, -149139030),
+    (7238649876345, 36193249381725, 7238649876345, 1, 0),
+  ],
+)
+def test_GCD(a: int, b: int, gcd: int, x: int, y: int) -> None:
+  """Test."""
+  assert base.GCD(a, b) == gcd
+  assert base.ExtendedGCD(a, b) == (gcd, x, y)
+  assert gcd == a * x + b * y
+
+
+@pytest.mark.parametrize(
+  ('a', 'b'),
+  [
+    (-1, 1),
+    (1, -1),
+    (0, 0),
+  ],
+)
+def test_GCD_negative(a: int, b: int) -> None:
+  """Test."""
+  with pytest.raises(base.InputError, match='negative input'):
+    base.GCD(a, b)
+  with pytest.raises(base.InputError, match='negative input'):
+    base.ExtendedGCD(a, b)
+
+
+def test_NegativeZero() -> None:
+  """Test."""
+  assert base.GCD(-0, 5) == 5  # Python's -0 is 0
+  g, x, y = base.ExtendedGCD(-0, 5)
+  assert g == 5 and 5 * y == 5 and not x
+  assert 0 == -0
 
 
 @pytest.mark.parametrize(
