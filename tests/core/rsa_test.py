@@ -13,10 +13,11 @@ from unittest import mock
 import pytest
 
 from tests import util
-from transcrypto.core import base, rsa
+from transcrypto.core import key, rsa
+from transcrypto.utils import base
 
 
-@mock.patch('transcrypto.core.base.RandBits', autospec=True)
+@mock.patch('transcrypto.utils.saferandom.RandBits', autospec=True)
 @mock.patch('transcrypto.core.modmath.NBitRandomPrimes', autospec=True)
 def test_RSA_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
   """Test."""
@@ -34,7 +35,7 @@ def test_RSA_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
   private: rsa.RSAPrivateKey = rsa.RSAPrivateKey.New(11)
   with pytest.MonkeyPatch().context() as mp:
     mp.setattr(rsa, '_MAX_KEY_GENERATION_FAILURES', 2)
-    with pytest.raises(base.CryptoError, match='failed key generation'):
+    with pytest.raises(key.CryptoError, match='failed key generation'):
       rsa.RSAPrivateKey.New(11)
   assert private == rsa.RSAPrivateKey(
     public_modulus=1271,
@@ -160,7 +161,7 @@ def test_RSA_raw(
     public.Verify(b'msg', b'sig')
   with pytest.raises(base.InputError, match='modulus too small for signing operations'):
     private.Sign(b'msg')
-  with pytest.raises(base.CryptoError, match=r'hash output.*is out of range/invalid'):
+  with pytest.raises(key.CryptoError, match=r'hash output.*is out of range/invalid'):
     private._DomainSeparatedHash(b'msg', b'aad', b's' * 64)
   cypher: int = public.RawEncrypt(message)
   with pytest.raises(base.InputError, match='invalid message'):
@@ -184,11 +185,11 @@ def test_RSA_raw(
   assert not public.RawVerify(message, signed + 1)
   assert not public.RawVerify(message + 1, signed)
   assert ob.RevealOriginalSignature(message, obfuscated_signed) == signed
-  with pytest.raises(base.CryptoError, match='obfuscated message was not signed'):
+  with pytest.raises(key.CryptoError, match='obfuscated message was not signed'):
     ob.RevealOriginalSignature(message, obfuscated_signed + 1)
   with mock.patch('transcrypto.core.rsa.RSAPublicKey.RawVerify', autospec=True) as verify:
     verify.side_effect = [True, False]
-    with pytest.raises(base.CryptoError, match='failed signature recovery'):
+    with pytest.raises(key.CryptoError, match='failed signature recovery'):
       ob.RevealOriginalSignature(message + 1, obfuscated_signed)
 
 
@@ -227,7 +228,7 @@ def test_RSA() -> None:
     assert base.BytesToHex(base.IntToBytes(dsh))[:16] == h_dsh
 
 
-@mock.patch('transcrypto.core.base.RandBits', autospec=True)
+@mock.patch('transcrypto.utils.saferandom.RandBits', autospec=True)
 def test_RSAObfuscationPair_New(mock_bits: mock.MagicMock) -> None:
   """Test."""
   mock_bits.side_effect = [3, 8, 3]
@@ -237,7 +238,7 @@ def test_RSAObfuscationPair_New(mock_bits: mock.MagicMock) -> None:
   )
   with pytest.MonkeyPatch().context() as mp:
     mp.setattr(rsa, '_MAX_KEY_GENERATION_FAILURES', 1)
-    with pytest.raises(base.CryptoError, match='failed key generation'):
+    with pytest.raises(key.CryptoError, match='failed key generation'):
       rsa.RSAObfuscationPair.New(public)
   assert mock_bits.call_args_list == [mock.call(3)] * 3
 
@@ -263,7 +264,7 @@ def test_RSAObfuscationPair_invalid() -> None:
     rsa.RSAObfuscationPair(public_modulus=22, encrypt_exp=7, random_key=5, key_inverse=22)
   with pytest.raises(base.InputError, match='invalid keys'):
     rsa.RSAObfuscationPair(public_modulus=22, encrypt_exp=7, random_key=9, key_inverse=9)
-  with pytest.raises(base.CryptoError, match='inconsistent keys'):
+  with pytest.raises(key.CryptoError, match='inconsistent keys'):
     rsa.RSAObfuscationPair(public_modulus=22, encrypt_exp=7, random_key=9, key_inverse=3)
   rsa.RSAObfuscationPair(public_modulus=22, encrypt_exp=7, random_key=9, key_inverse=5)
 
@@ -314,7 +315,7 @@ def test_RSAPrivateKey_invalid() -> None:
       remainder_q=25,
       q_inverse_p=16,
     )
-  with pytest.raises(base.CryptoError, match=r'inconsistent modulus_p \* modulus_q'):
+  with pytest.raises(key.CryptoError, match=r'inconsistent modulus_p \* modulus_q'):
     rsa.RSAPrivateKey(
       public_modulus=1357,
       encrypt_exp=7,
@@ -325,7 +326,7 @@ def test_RSAPrivateKey_invalid() -> None:
       remainder_q=25,
       q_inverse_p=16,
     )
-  with pytest.raises(base.CryptoError, match='inconsistent exponents'):
+  with pytest.raises(key.CryptoError, match='inconsistent exponents'):
     rsa.RSAPrivateKey(
       public_modulus=1357,
       encrypt_exp=7,
@@ -348,7 +349,7 @@ def test_RSAPrivateKey_invalid() -> None:
       q_inverse_p=16,
     )
   with pytest.raises(
-    base.CryptoError, match='inconsistent speedup remainder_p/remainder_q/q_inverse_p'
+    key.CryptoError, match='inconsistent speedup remainder_p/remainder_q/q_inverse_p'
   ):
     rsa.RSAPrivateKey(
       public_modulus=1357,

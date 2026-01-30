@@ -13,11 +13,12 @@ from unittest import mock
 import pytest
 
 from tests import util
-from transcrypto.core import base, dsa, modmath
+from transcrypto.core import dsa, key, modmath
+from transcrypto.utils import base
 
 
-@mock.patch('transcrypto.core.base.RandBits', autospec=True)
-@mock.patch('transcrypto.core.base.RandInt', autospec=True)
+@mock.patch('transcrypto.utils.saferandom.RandBits', autospec=True)
+@mock.patch('transcrypto.utils.saferandom.RandInt', autospec=True)
 @mock.patch('transcrypto.core.modmath.NBitRandomPrimes', autospec=True)
 def test_DSA_keys_creation(
   prime: mock.MagicMock, randint: mock.MagicMock, randbits: mock.MagicMock
@@ -55,7 +56,7 @@ def test_DSA_keys_creation(
     mp.setattr(dsa, '_MAX_KEY_GENERATION_FAILURES', 2)
     with mock.patch('transcrypto.core.modmath.gmpy2.powmod', autospec=True) as powmod:
       powmod.return_value = 1144026
-      with pytest.raises(base.CryptoError, match='failed key generation'):
+      with pytest.raises(key.CryptoError, match='failed key generation'):
         dsa.DSAPrivateKey.New(group)
       assert powmod.call_args_list == [
         mock.call(2508153, 10, 3971141),
@@ -208,7 +209,7 @@ def test_DSA_raw(
     public.Verify(b'msg', b'sig')
   with pytest.raises(base.InputError, match='modulus/seed too small for signing operations'):
     private.Sign(b'msg')
-  with pytest.raises(base.CryptoError, match=r'hash output.*is out of range/invalid'):
+  with pytest.raises(key.CryptoError, match=r'hash output.*is out of range/invalid'):
     shared._DomainSeparatedHash(b'msg', b'aad', b's' * 64)
   # check signatures with public key
   assert public.RawVerify(message, signed)
@@ -331,7 +332,7 @@ def test_DSAKey_invalid() -> None:
       individual_base=1144026,
       decrypt_exp=1144026,
     )
-  with pytest.raises(base.CryptoError, match=r'inconsistent g.* == i'):
+  with pytest.raises(key.CryptoError, match=r'inconsistent g.* == i'):
     dsa.DSAPrivateKey(
       prime_modulus=3971141,
       prime_seed=1097,

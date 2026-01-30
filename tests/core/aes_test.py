@@ -13,7 +13,8 @@ from unittest import mock
 import pytest
 
 from tests import util
-from transcrypto.core import aes, base
+from transcrypto.core import aes, key
+from transcrypto.utils import base
 
 
 @pytest.mark.slow
@@ -277,44 +278,44 @@ def test_ECBEncoder(s_key: str, pth: str, ct1: str, ct101: str) -> None:
     ),
   ],
 )
-@mock.patch('transcrypto.core.base.RandBytes', autospec=True)
+@mock.patch('transcrypto.utils.saferandom.RandBytes', autospec=True)
 def test_GCMEncoder(
   rand_bytes: mock.MagicMock, s_key: str, pt: bytes, aad: bytes, ct1: str
 ) -> None:
   """Test."""
   rand_bytes.return_value = base.HexToBytes('236a19ef586840b2ad548b0d58366efc')
   # create based on key and test basics
-  key = aes.AESKey(key256=base.HexToBytes(s_key))
-  ct: bytes = key.Encrypt(pt, associated_data=aad)
+  aes_key = aes.AESKey(key256=base.HexToBytes(s_key))
+  ct: bytes = aes_key.Encrypt(pt, associated_data=aad)
   assert base.BytesToEncoded(ct) == ct1
-  assert key.Decrypt(ct, associated_data=aad) == pt
-  ct = key.Encrypt(pt)
+  assert aes_key.Decrypt(ct, associated_data=aad) == pt
+  ct = aes_key.Encrypt(pt)
   assert base.BytesToEncoded(ct) != ct1 if aad else base.BytesToEncoded(ct) == ct1
-  assert key.Decrypt(ct) == pt
+  assert aes_key.Decrypt(ct) == pt
   # test error cases
   if aad:
-    with pytest.raises(base.CryptoError, match='failed decryption'):
-      key.Decrypt(ct, associated_data=aad)  # should not have aad
+    with pytest.raises(key.CryptoError, match='failed decryption'):
+      aes_key.Decrypt(ct, associated_data=aad)  # should not have aad
   with pytest.raises(base.InputError, match=r'AES256\+GCM should have ≥32 bytes IV/CT/tag'):
-    key.Decrypt(b'123', associated_data=aad)  # ct too short
-  ct = key.Encrypt(pt, associated_data=aad)
+    aes_key.Decrypt(b'123', associated_data=aad)  # ct too short
+  ct = aes_key.Encrypt(pt, associated_data=aad)
   if len(aad) > 2:
     bad_aad: bytearray = bytearray(ct)
     bad_aad[2] ^= 0x01  # flip a bit in the AAD
-    with pytest.raises(base.CryptoError, match='failed decryption'):
-      key.Decrypt(ct, associated_data=bytes(bad_aad))  # should not have aad
+    with pytest.raises(key.CryptoError, match='failed decryption'):
+      aes_key.Decrypt(ct, associated_data=bytes(bad_aad))  # should not have aad
   bad_ct: bytearray = bytearray(ct)
   bad_ct[2] ^= 0x01  # flip a bit in the IV/nonce part
-  with pytest.raises(base.CryptoError, match='failed decryption'):
-    key.Decrypt(bytes(bad_ct), associated_data=aad)
+  with pytest.raises(key.CryptoError, match='failed decryption'):
+    aes_key.Decrypt(bytes(bad_ct), associated_data=aad)
   if len(ct) > 2:
     bad_ct = bytearray(ct)
     bad_ct[18] ^= 0x01  # flip a bit in the ciphertext part
-    with pytest.raises(base.CryptoError, match='failed decryption'):
-      key.Decrypt(bytes(bad_ct), associated_data=aad)
+    with pytest.raises(key.CryptoError, match='failed decryption'):
+      aes_key.Decrypt(bytes(bad_ct), associated_data=aad)
   bad_ct = bytearray(ct)
   bad_ct[-2] ^= 0x01  # flip a bit in the tag part
-  with pytest.raises(base.CryptoError, match='failed decryption'):
-    key.Decrypt(bytes(bad_ct), associated_data=aad)
+  with pytest.raises(key.CryptoError, match='failed decryption'):
+    aes_key.Decrypt(bytes(bad_ct), associated_data=aad)
   # check calls
   assert rand_bytes.call_args_list == [mock.call(16)] * 3

@@ -18,7 +18,8 @@ import pytest
 import typeguard
 import zstandard
 
-from transcrypto.core import aes, base
+from transcrypto.core import aes, hashes, key
+from transcrypto.utils import base
 
 
 @pytest.mark.parametrize(
@@ -26,17 +27,17 @@ from transcrypto.core import aes, base
   [
     ('', None),
     ('sss', None),
-    ('@xxx', base.CryptoInputType.PATH),
-    ('@-', base.CryptoInputType.STDIN),
-    ('hex:aaaa', base.CryptoInputType.HEX),
-    ('b64:eHl6', base.CryptoInputType.BASE64),
-    ('str:sss', base.CryptoInputType.STR),
-    ('raw:"rr\\x00r"', base.CryptoInputType.RAW),
+    ('@xxx', key.CryptoInputType.PATH),
+    ('@-', key.CryptoInputType.STDIN),
+    ('hex:aaaa', key.CryptoInputType.HEX),
+    ('b64:eHl6', key.CryptoInputType.BASE64),
+    ('str:sss', key.CryptoInputType.STR),
+    ('raw:"rr\\x00r"', key.CryptoInputType.RAW),
   ],
 )
-def test_DetectInputType(inp: str, tp: base.CryptoInputType | None) -> None:
+def test_DetectInputType(inp: str, tp: key.CryptoInputType | None) -> None:
   """Test."""
-  assert base.DetectInputType(inp) == tp
+  assert key.DetectInputType(inp) == tp
 
 
 @pytest.mark.parametrize(
@@ -44,53 +45,53 @@ def test_DetectInputType(inp: str, tp: base.CryptoInputType | None) -> None:
   [
     # hex
     ('hex:aaaa', None, b'\xaa\xaa'),
-    ('hex:aaaa', base.CryptoInputType.HEX, b'\xaa\xaa'),
-    ('aaaa', base.CryptoInputType.HEX, b'\xaa\xaa'),
+    ('hex:aaaa', key.CryptoInputType.HEX, b'\xaa\xaa'),
+    ('aaaa', key.CryptoInputType.HEX, b'\xaa\xaa'),
     # encoded
     ('b64:eHl6', None, b'xyz'),
-    ('b64:eHl6', base.CryptoInputType.BASE64, b'xyz'),
-    ('eHl6', base.CryptoInputType.BASE64, b'xyz'),
+    ('b64:eHl6', key.CryptoInputType.BASE64, b'xyz'),
+    ('eHl6', key.CryptoInputType.BASE64, b'xyz'),
     # str
     ('str:sss', None, b'sss'),
-    ('str:sss', base.CryptoInputType.STR, b'sss'),
-    ('sss', base.CryptoInputType.STR, b'sss'),
+    ('str:sss', key.CryptoInputType.STR, b'sss'),
+    ('sss', key.CryptoInputType.STR, b'sss'),
     ('sss', None, b'sss'),  # the default when nothing is said
     # raw
     ('raw:"rr\\x00r"', None, b'rr\x00r'),
-    ('raw:"rr\\x00r"', base.CryptoInputType.RAW, b'rr\x00r'),
-    ('"rr\\x00r"', base.CryptoInputType.RAW, b'rr\x00r'),
+    ('raw:"rr\\x00r"', key.CryptoInputType.RAW, b'rr\x00r'),
+    ('"rr\\x00r"', key.CryptoInputType.RAW, b'rr\x00r'),
   ],
 )
-def test_BytesFromInput(inp: str, exp: base.CryptoInputType | None, b: bytes) -> None:
+def test_BytesFromInput(inp: str, exp: key.CryptoInputType | None, b: bytes) -> None:
   """Test."""
-  assert base.BytesFromInput(inp, expect=exp) == b
+  assert key.BytesFromInput(inp, expect=exp) == b
 
 
 @pytest.mark.parametrize(
   ('inp', 'exp', 'm'),
   [
-    ('@-', base.CryptoInputType.HEX, r'Expected type.*is different from detected type'),
-    ('@xxx', base.CryptoInputType.HEX, r'Expected type.*is different from detected type'),
+    ('@-', key.CryptoInputType.HEX, r'Expected type.*is different from detected type'),
+    ('@xxx', key.CryptoInputType.HEX, r'Expected type.*is different from detected type'),
     # hex
     ('hex:aaa', None, r'fromhex\(\) arg'),
-    ('aaa', base.CryptoInputType.HEX, r'fromhex\(\) arg'),
-    ('str:aaaa', base.CryptoInputType.HEX, r'Expected type.*is different from detected type'),
+    ('aaa', key.CryptoInputType.HEX, r'fromhex\(\) arg'),
+    ('str:aaaa', key.CryptoInputType.HEX, r'Expected type.*is different from detected type'),
     # encoded
     ('b64:e^%Hll6', None, 'Invalid base64-encoded string'),
-    ('e^%Hll6', base.CryptoInputType.BASE64, 'Invalid base64-encoded string'),
-    ('hex:eHl6', base.CryptoInputType.BASE64, r'Expected type.*is different from detected type'),
+    ('e^%Hll6', key.CryptoInputType.BASE64, 'Invalid base64-encoded string'),
+    ('hex:eHl6', key.CryptoInputType.BASE64, r'Expected type.*is different from detected type'),
     # str
-    ('hex:sss', base.CryptoInputType.STR, r'Expected type.*is different from detected type'),
+    ('hex:sss', key.CryptoInputType.STR, r'Expected type.*is different from detected type'),
     # raw
     (r'raw:\u20ac', None, "invalid input: 'latin-1' codec can't encode"),
-    (r'\u20ac', base.CryptoInputType.RAW, "invalid input: 'latin-1' codec can't encode"),
-    ('hex:"rr\\x00r"', base.CryptoInputType.RAW, r'Expected type.*is different from detected type'),
+    (r'\u20ac', key.CryptoInputType.RAW, "invalid input: 'latin-1' codec can't encode"),
+    ('hex:"rr\\x00r"', key.CryptoInputType.RAW, r'Expected type.*is different from detected type'),
   ],
 )
-def test_BytesFromInput_invalid(inp: str, exp: base.CryptoInputType | None, m: str) -> None:
+def test_BytesFromInput_invalid(inp: str, exp: key.CryptoInputType | None, m: str) -> None:
   """Test."""
   with pytest.raises(base.InputError, match=m):
-    base.BytesFromInput(inp, expect=exp)
+    key.BytesFromInput(inp, expect=exp)
 
 
 def test_BytesFromInput_type() -> None:
@@ -99,7 +100,7 @@ def test_BytesFromInput_type() -> None:
     typeguard.suppress_type_checks(),
     pytest.raises(base.InputError, match="invalid input: invalid type 'inv:'"),
   ):
-    base.BytesFromInput('sss', expect='inv:')  # type:ignore
+    key.BytesFromInput('sss', expect='inv:')  # type:ignore
 
 
 def test_BytesFromInput_path(tmp_path: pathlib.Path) -> None:
@@ -107,11 +108,11 @@ def test_BytesFromInput_path(tmp_path: pathlib.Path) -> None:
   inp_path: str = str(tmp_path / 'blob.bin')
   data = b'rr\x00r'
   pathlib.Path(inp_path).write_bytes(data)
-  assert base.BytesFromInput('@' + inp_path) == data
-  assert base.BytesFromInput('@' + inp_path, expect=base.CryptoInputType.PATH) == data
-  assert base.BytesFromInput(inp_path, expect=base.CryptoInputType.PATH) == data
+  assert key.BytesFromInput('@' + inp_path) == data
+  assert key.BytesFromInput('@' + inp_path, expect=key.CryptoInputType.PATH) == data
+  assert key.BytesFromInput(inp_path, expect=key.CryptoInputType.PATH) == data
   with pytest.raises(base.InputError, match='invalid input: cannot find file'):
-    base.BytesFromInput('@' + inp_path + 'xxx')
+    key.BytesFromInput('@' + inp_path + 'xxx')
 
 
 def test_BytesFromInput_stdin_binary(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -125,10 +126,10 @@ def test_BytesFromInput_stdin_binary(monkeypatch: pytest.MonkeyPatch) -> None:
   fake = _FakeStdin(data)
   monkeypatch.setattr(sys, 'stdin', fake)
   # Using explicit @- prefix
-  assert base.BytesFromInput('@-') == data
+  assert key.BytesFromInput('@-') == data
   # Using expect=STDIN without the prefix should also read from stdin
   monkeypatch.setattr(sys, 'stdin', _FakeStdin(data))
-  assert base.BytesFromInput('', expect=base.CryptoInputType.STDIN) == data
+  assert key.BytesFromInput('', expect=key.CryptoInputType.STDIN) == data
 
 
 def test_BytesFromInput_stdin_text(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -137,10 +138,10 @@ def test_BytesFromInput_stdin_text(monkeypatch: pytest.MonkeyPatch) -> None:
   text = 'hé\n'
   monkeypatch.setattr(sys, 'stdin', io.StringIO(text))
   # With @- prefix
-  assert base.BytesFromInput('@-') == text.encode('utf-8')
+  assert key.BytesFromInput('@-') == text.encode('utf-8')
   # With expect=STDIN and no prefix
   monkeypatch.setattr(sys, 'stdin', io.StringIO(text))
-  assert base.BytesFromInput('', expect=base.CryptoInputType.STDIN) == text.encode('utf-8')
+  assert key.BytesFromInput('', expect=key.CryptoInputType.STDIN) == text.encode('utf-8')
 
 
 def test_stdin_non_text_data_text_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -155,7 +156,7 @@ def test_stdin_non_text_data_text_fallback(monkeypatch: pytest.MonkeyPatch) -> N
     typeguard.suppress_type_checks(),
     pytest.raises(base.InputError, match=r'invalid input: sys.stdin.read.*produced non-text data'),
   ):
-    base.BytesFromInput('@-')
+    key.BytesFromInput('@-')
 
 
 def test_stdin_non_text_data_binary(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -176,11 +177,11 @@ def test_stdin_non_text_data_binary(monkeypatch: pytest.MonkeyPatch) -> None:
       base.InputError, match=r'invalid input: sys.stdin.buffer.read.*produced non-binary data'
     ),
   ):
-    base.BytesFromInput('@-')
+    key.BytesFromInput('@-')
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
-class _ToyCrypto1(base.CryptoKey):
+class _ToyCrypto1(key.CryptoKey):
   """Toy class 1."""
 
   key: bytes
@@ -192,14 +193,14 @@ class _ToyCrypto1(base.CryptoKey):
 
   def __str__(self) -> str:
     return (
-      f'_ToyCrypto(key={base.ObfuscateSecret(self.key)}, '
-      f'secret={base.ObfuscateSecret(self.secret)}, '
-      f'modulus={base.ObfuscateSecret(self.modulus)})'
+      f'_ToyCrypto(key={hashes.ObfuscateSecret(self.key)}, '
+      f'secret={hashes.ObfuscateSecret(self.secret)}, '
+      f'modulus={hashes.ObfuscateSecret(self.modulus)})'
     )
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
-class _ToyCrypto2(base.CryptoKey):
+class _ToyCrypto2(key.CryptoKey):
   """Toy class 2."""
 
   key: bytes
@@ -217,7 +218,7 @@ class _ToyCrypto2(base.CryptoKey):
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
-class _ToyCrypto3(base.CryptoKey):
+class _ToyCrypto3(key.CryptoKey):
   """Toy class 3."""
 
   modulus: int
@@ -233,7 +234,7 @@ class _ToyCrypto3(base.CryptoKey):
 def test_CryptoKey_base() -> None:
   """Test."""
   crypto = _ToyCrypto1(key=b'abc', secret='cba', modulus=123)  # noqa: S106
-  key = aes.AESKey(key256=b'x' * 32)
+  aes_key = aes.AESKey(key256=b'x' * 32)
   assert str(crypto) == '_ToyCrypto(key=ddaf35a1…, secret=3b1d17bf…, modulus=c2d03c6e…)'
   assert str(crypto) == repr(crypto)
   assert crypto._DebugDump() == "_ToyCrypto1(key=b'abc', secret='cba', modulus=123)"
@@ -255,10 +256,10 @@ def test_CryptoKey_base() -> None:
     'raw:"(\\xb5/\\xfd +Y\\x01\\x00{\\"key\\":\\"YWJj\\",\\"secret\\":\\"cba\\",\\"modulus\\":123}"'
   )
   assert _ToyCrypto1.Load(crypto.encoded) == crypto
-  blob_crypto: bytes = crypto.Blob(key=key)
-  assert _ToyCrypto1.Load(blob_crypto, key=key) == crypto
-  encoded_crypto: str = crypto.Encoded(key=key)
-  assert _ToyCrypto1.Load(encoded_crypto, key=key) == crypto
+  blob_crypto: bytes = crypto.Blob(encryption_key=aes_key)
+  assert _ToyCrypto1.Load(blob_crypto, decryption_key=aes_key) == crypto
+  encoded_crypto: str = crypto.Encoded(encryption_key=aes_key)
+  assert _ToyCrypto1.Load(encoded_crypto, decryption_key=aes_key) == crypto
   crypto2 = _ToyCrypto2(
     key=b'ijk5845976584',
     secret='abc',  # noqa: S106
@@ -277,10 +278,10 @@ def test_CryptoKey_base() -> None:
   }
   with typeguard.suppress_type_checks():
     with pytest.raises(base.InputError, match=r'input decode error.*invalid start byte'):
-      _ToyCrypto1.Load(base.Serialize(crypto2._json_dict, compress=None))  # binary is a dict
+      _ToyCrypto1.Load(key.Serialize(crypto2._json_dict, compress=None))  # binary is a dict
     with pytest.raises(base.InputError, match='decoded to unexpected fields'):
       _ToyCrypto1.Load(
-        base.Serialize(crypto2._json_dict, compress=None, pickler=base.PickleJSON)
+        key.Serialize(crypto2._json_dict, compress=None, pickler=key.PickleJSON)
       )  # binary is a dict
     with pytest.raises(base.InputError, match='JSON data decoded to unexpected type'):
       _ToyCrypto1.FromJSON(json.dumps([1, 2]))
@@ -318,11 +319,11 @@ def test_CryptoKey_base() -> None:
 
 
 @pytest.fixture
-def sample_obj() -> base.CryptDict:
+def sample_obj() -> key.CryptDict:
   """Sample object fixture.
 
   Returns:
-      base.CryptDict: sample object
+      key.CryptDict: sample object
 
   """
   # moderately nested object to exercise pickle well
@@ -333,48 +334,48 @@ def sample_obj() -> base.CryptDict:
   }
 
 
-def test_serialize_deserialize_no_compress_no_encrypt(sample_obj: base.CryptDict) -> None:
+def test_serialize_deserialize_no_compress_no_encrypt(sample_obj: key.CryptDict) -> None:
   """Test."""
-  blob: bytes = base.Serialize(sample_obj, compress=None)
+  blob: bytes = key.Serialize(sample_obj, compress=None)
   # should NOT look like zstd: DeSerialize should skip decompression path
-  obj2: base.CryptDict = base.DeSerialize(data=blob)
+  obj2: key.CryptDict = key.DeSerialize(data=blob)
   assert obj2 == sample_obj
 
 
-def test_serialize_deserialize_with_compress_negative_clamped(sample_obj: base.CryptDict) -> None:
+def test_serialize_deserialize_with_compress_negative_clamped(sample_obj: key.CryptDict) -> None:
   """Test."""
   # request a very fast negative level; function clamps to >= -22 then compresses
-  blob: bytes = base.Serialize(sample_obj, compress=-100)  # expect clamp to -22 internally
+  blob: bytes = key.Serialize(sample_obj, compress=-100)  # expect clamp to -22 internally
   # Verify magic-detected zstd path and successful round-trip
-  obj2: base.CryptDict = base.DeSerialize(data=blob)
+  obj2: key.CryptDict = key.DeSerialize(data=blob)
   assert obj2 == sample_obj
 
 
-def test_serialize_deserialize_with_compress_high_clamped(sample_obj: base.CryptDict) -> None:
+def test_serialize_deserialize_with_compress_high_clamped(sample_obj: key.CryptDict) -> None:
   """Test."""
   # request above max; function clamps to 22
-  blob: bytes = base.Serialize(sample_obj, compress=99)
-  obj2: base.CryptDict = base.DeSerialize(data=blob)
+  blob: bytes = key.Serialize(sample_obj, compress=99)
+  obj2: key.CryptDict = key.DeSerialize(data=blob)
   assert obj2 == sample_obj
 
 
-def test_serialize_deserialize_with_encrypt_ok(sample_obj: base.CryptDict) -> None:
+def test_serialize_deserialize_with_encrypt_ok(sample_obj: key.CryptDict) -> None:
   """Test."""
-  key = aes.AESKey(key256=b'x' * 32)
-  blob: bytes = base.Serialize(sample_obj, compress=3, key=key)
+  aes_key = aes.AESKey(key256=b'x' * 32)
+  blob: bytes = key.Serialize(sample_obj, compress=3, encryption_key=aes_key)
   # must supply same key (and same AAD inside implementation)
-  obj2: base.CryptDict = base.DeSerialize(data=blob, key=key)
+  obj2: key.CryptDict = key.DeSerialize(data=blob, decryption_key=aes_key)
   assert obj2 == sample_obj
 
 
 def test_serialize_save_and_load_from_file(
-  tmp_path: pathlib.Path, sample_obj: base.CryptDict
+  tmp_path: pathlib.Path, sample_obj: key.CryptDict
 ) -> None:
   """Test."""
   p: pathlib.Path = tmp_path / 'payload.bin'
-  blob: bytes = base.Serialize(sample_obj, compress=3, file_path=str(p))
+  blob: bytes = key.Serialize(sample_obj, compress=3, file_path=str(p))
   assert p.exists() and p.stat().st_size == len(blob)
-  obj2: base.CryptDict = base.DeSerialize(file_path=str(p))
+  obj2: key.CryptDict = key.DeSerialize(file_path=str(p))
   assert obj2 == sample_obj
 
 
@@ -383,32 +384,32 @@ def test_deserialize_exclusivity_both_args(tmp_path: pathlib.Path) -> None:
   p: pathlib.Path = tmp_path / 'x.bin'
   p.write_bytes(b'data')
   with pytest.raises(base.InputError, match='you must provide only one of either'):
-    base.DeSerialize(data=b'data', file_path=str(p))
+    key.DeSerialize(data=b'data', file_path=str(p))
 
 
 def test_deserialize_invalid_calls() -> None:
   """Test."""
   with pytest.raises(base.InputError, match='you must provide only one of either'):
-    base.DeSerialize()
+    key.DeSerialize()
   with pytest.raises(base.InputError, match='invalid file_path'):
-    base.DeSerialize(file_path='/definitely/not/here.bin')
+    key.DeSerialize(file_path='/definitely/not/here.bin')
   with pytest.raises(base.InputError, match='invalid data: too small'):
-    base.DeSerialize(data=b'\x00\x01\x02')
+    key.DeSerialize(data=b'\x00\x01\x02')
 
 
-def test_deserialize_wrong_key_raises(sample_obj: base.CryptDict) -> None:
+def test_deserialize_wrong_key_raises(sample_obj: key.CryptDict) -> None:
   """Test."""
   key_ok = aes.AESKey(key256=b'x' * 32)
   key_bad = aes.AESKey(key256=b'y' * 32)
-  blob: bytes = base.Serialize(sample_obj, compress=3, key=key_ok)
-  with pytest.raises(base.CryptoError):
-    base.DeSerialize(data=blob, key=key_bad)
+  blob: bytes = key.Serialize(sample_obj, compress=3, encryption_key=key_ok)
+  with pytest.raises(key.CryptoError):
+    key.DeSerialize(data=blob, decryption_key=key_bad)
 
 
-def test_deserialize_corrupted_zstd_raises(sample_obj: base.CryptDict) -> None:
+def test_deserialize_corrupted_zstd_raises(sample_obj: key.CryptDict) -> None:
   """Test."""
   # create a valid zstd-compressed blob
-  blob: bytes = base.Serialize(sample_obj, compress=3)
+  blob: bytes = key.Serialize(sample_obj, compress=3)
   # corrupt a byte beyond the first 4 (to keep magic intact)
   mutable = bytearray(blob)
   if len(mutable) <= 10:
@@ -417,13 +418,13 @@ def test_deserialize_corrupted_zstd_raises(sample_obj: base.CryptDict) -> None:
   corrupted = bytes(mutable)
   # DeSerialize should detect zstd via magic, attempt to decompress, and zstd should error
   with pytest.raises(zstandard.ZstdError):
-    base.DeSerialize(data=corrupted)
+    key.DeSerialize(data=corrupted)
 
 
-def test_deserialize_no_compression_detected_branch(sample_obj: base.CryptDict) -> None:
+def test_deserialize_no_compression_detected_branch(sample_obj: key.CryptDict) -> None:
   """Test."""
   # Craft a blob that is NOT zstd: disable compression
-  blob: bytes = base.Serialize(sample_obj, compress=None)
+  blob: bytes = key.Serialize(sample_obj, compress=None)
   # This exercises the "(no compression detected)" branch
-  obj2: base.CryptDict = base.DeSerialize(data=blob)
+  obj2: key.CryptDict = key.DeSerialize(data=blob)
   assert obj2 == sample_obj

@@ -17,7 +17,7 @@ from click import testing as click_testing
 from typer import testing
 
 from transcrypto import profiler
-from transcrypto.cli import clibase
+from transcrypto.utils import logging as tc_logging
 
 
 def _CallCLI(args: list[str]) -> click_testing.Result:
@@ -44,7 +44,7 @@ def reset_cli_logging_singletons() -> abc.Generator[None]:
   Tests invoke the CLI multiple times across test cases, so we must reset that
   singleton to keep tests isolated.
   """
-  clibase.ResetConsole()
+  tc_logging.ResetConsole()
   yield  # noqa: PT022
 
 

@@ -14,14 +14,15 @@ from unittest import mock
 import gmpy2
 import pytest
 
-from transcrypto.core import base, constants, modmath
+from transcrypto.core import constants, modmath
+from transcrypto.utils import base
 
 
 @pytest.mark.parametrize('n', [1, 17, 10**12])
 def test_GCD_same_number(n: int) -> None:
   """Test."""
-  assert base.GCD(n, n) == n
-  g, x, y = base.ExtendedGCD(n, n)
+  assert modmath.GCD(n, n) == n
+  g, x, y = modmath.ExtendedGCD(n, n)
   assert g == n == n * (x + y)  # because x or y will be 0
 
 
@@ -45,8 +46,8 @@ def test_GCD_same_number(n: int) -> None:
 )
 def test_GCD(a: int, b: int, gcd: int, x: int, y: int) -> None:
   """Test."""
-  assert base.GCD(a, b) == gcd
-  assert base.ExtendedGCD(a, b) == (gcd, x, y)
+  assert modmath.GCD(a, b) == gcd
+  assert modmath.ExtendedGCD(a, b) == (gcd, x, y)
   assert gcd == a * x + b * y
 
 
@@ -61,15 +62,15 @@ def test_GCD(a: int, b: int, gcd: int, x: int, y: int) -> None:
 def test_GCD_negative(a: int, b: int) -> None:
   """Test."""
   with pytest.raises(base.InputError, match='negative input'):
-    base.GCD(a, b)
+    modmath.GCD(a, b)
   with pytest.raises(base.InputError, match='negative input'):
-    base.ExtendedGCD(a, b)
+    modmath.ExtendedGCD(a, b)
 
 
 def test_NegativeZero() -> None:
   """Test."""
-  assert base.GCD(-0, 5) == 5  # Python's -0 is 0
-  g, x, y = base.ExtendedGCD(-0, 5)
+  assert modmath.GCD(-0, 5) == 5  # Python's -0 is 0
+  g, x, y = modmath.ExtendedGCD(-0, 5)
   assert g == 5 and 5 * y == 5 and not x
   assert 0 == -0
 
@@ -546,7 +547,7 @@ def test_PrimeGenerator() -> None:
   assert next(g) == 2**100 + 331
 
 
-@mock.patch('transcrypto.core.base.RandBits', autospec=True)
+@mock.patch('transcrypto.utils.saferandom.RandBits', autospec=True)
 def test_NBitRandomPrimes(mock_bits: mock.MagicMock) -> None:
   """Test."""
   with pytest.raises(base.InputError, match='invalid n:'):

@@ -8,7 +8,7 @@ Run with:
 
 from __future__ import annotations
 
-from transcrypto.core import base
+from transcrypto.utils import base
 
 
 def test_bytes_conversions() -> None:

@@ -13,7 +13,8 @@ import tempfile
 import pytest
 import typeguard
 
-from transcrypto.core import base
+from transcrypto.core import hashes
+from transcrypto.utils import base
 
 
 @pytest.mark.parametrize(
@@ -62,11 +63,11 @@ def test_Hash(data: str, hash256: str, hash512: str) -> None:
   """Test."""
   bytes_data: bytes = data.encode('utf-8')
   # raw SHA-256
-  h1: bytes = base.Hash256(bytes_data)
+  h1: bytes = hashes.Hash256(bytes_data)
   assert len(h1) == 32
   assert base.BytesToHex(h1) == hash256.replace(' ', '')
   # raw SHA-512
-  h2: bytes = base.Hash512(bytes_data)
+  h2: bytes = hashes.Hash512(bytes_data)
   assert len(h2) == 64
   assert base.BytesToHex(h2) == hash512.replace(' ', '')
   # save data to temp file
@@ -75,29 +76,29 @@ def test_Hash(data: str, hash256: str, hash512: str) -> None:
     temp_file.flush()
     file_path: str = temp_file.name
     # SHA-256 file
-    h3: bytes = base.FileHash(file_path)
+    h3: bytes = hashes.FileHash(file_path)
     assert len(h3) == 32
     assert base.BytesToHex(h3) == hash256.replace(' ', '')
     # SHA-512 file
-    h4: bytes = base.FileHash(file_path, digest='sha512')
+    h4: bytes = hashes.FileHash(file_path, digest='sha512')
     assert len(h4) == 64
     assert base.BytesToHex(h4) == hash512.replace(' ', '')
     # invalid digest type, but file exits
     with pytest.raises(base.InputError, match='unrecognized digest'):
-      base.FileHash(file_path, digest='sha100')
+      hashes.FileHash(file_path, digest='sha100')
 
 
 def test_FileHash_missing_file() -> None:
   """Test."""
   with pytest.raises(base.InputError, match=r'file .* not found for hashing'):
-    base.FileHash('/path/to/surely/not/exist-123')
+    hashes.FileHash('/path/to/surely/not/exist-123')
 
 
 @typeguard.suppress_type_checks
 def test_ObfuscateSecret() -> None:
   """Test."""
-  assert base.ObfuscateSecret('abc') == 'ddaf35a1…'
-  assert base.ObfuscateSecret(b'abcd') == 'd8022f20…'
-  assert base.ObfuscateSecret(123) == 'c2d03c6e…'
+  assert hashes.ObfuscateSecret('abc') == 'ddaf35a1…'
+  assert hashes.ObfuscateSecret(b'abcd') == 'd8022f20…'
+  assert hashes.ObfuscateSecret(123) == 'c2d03c6e…'
   with pytest.raises(base.InputError, match=r'invalid type for data.*float'):
-    base.ObfuscateSecret(123.4)  # type:ignore
+    hashes.ObfuscateSecret(123.4)  # type:ignore

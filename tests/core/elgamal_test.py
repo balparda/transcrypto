@@ -13,10 +13,11 @@ from unittest import mock
 import pytest
 
 from tests import util
-from transcrypto.core import base, elgamal, modmath
+from transcrypto.core import elgamal, key, modmath
+from transcrypto.utils import base
 
 
-@mock.patch('transcrypto.core.base.RandBits', autospec=True)
+@mock.patch('transcrypto.utils.saferandom.RandBits', autospec=True)
 @mock.patch('transcrypto.core.modmath.NBitRandomPrimes', autospec=True)
 def test_ElGamal_keys_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
   """Test."""
@@ -41,7 +42,7 @@ def test_ElGamal_keys_creation(prime: mock.MagicMock, randbits: mock.MagicMock) 
   )
   with pytest.MonkeyPatch().context() as mp:
     mp.setattr(elgamal, '_MAX_KEY_GENERATION_FAILURES', 2)
-    with pytest.raises(base.CryptoError, match='failed key generation'):
+    with pytest.raises(key.CryptoError, match='failed key generation'):
       elgamal.ElGamalPrivateKey.New(group)
   assert private._MakeEphemeralKey() == (149, 299)
   assert prime.call_args_list == [mock.call(11)]
@@ -171,7 +172,7 @@ def test_ElGamal_raw(
     public.Verify(b'msg', b'sig')
   with pytest.raises(base.InputError, match='modulus too small for signing operations'):
     private.Sign(b'msg')
-  with pytest.raises(base.CryptoError, match=r'hash output.*is out of range/invalid'):
+  with pytest.raises(key.CryptoError, match=r'hash output.*is out of range/invalid'):
     shared._DomainSeparatedHash(b'msg', b'aad', b's' * 64)
   # do private key operations
   with pytest.raises(base.InputError, match='invalid message'):
@@ -273,7 +274,7 @@ def test_ElGamalKey_invalid() -> None:
     elgamal.ElGamalPrivateKey(
       prime_modulus=1693, group_base=83, individual_base=156, decrypt_exp=156
     )
-  with pytest.raises(base.CryptoError, match=r'inconsistent g.* == i'):
+  with pytest.raises(key.CryptoError, match=r'inconsistent g.* == i'):
     elgamal.ElGamalPrivateKey(
       prime_modulus=1693, group_base=82, individual_base=156, decrypt_exp=1007
     )

@@ -12,19 +12,19 @@ import math
 
 import pytest
 
-from transcrypto.core import base
+from transcrypto.utils import base, stats
 
 
 def test_measurement_stats_failures() -> None:
   """Tests."""
   # no data
   with pytest.raises(base.InputError, match='no data'):
-    base.MeasurementStats([])
+    stats.MeasurementStats([])
   # invalid confidence
   with pytest.raises(base.InputError, match='invalid confidence'):
-    base.MeasurementStats([1, 2, 3], confidence=0.0)
+    stats.MeasurementStats([1, 2, 3], confidence=0.0)
   with pytest.raises(base.InputError, match='invalid confidence'):
-    base.MeasurementStats([1, 2, 3], confidence=1.1)
+    stats.MeasurementStats([1, 2, 3], confidence=1.1)
 
 
 @pytest.mark.parametrize(
@@ -59,7 +59,7 @@ def test_measurement_stats_failures() -> None:
 )
 def test_GammaLanczos_known_values(z: float, expected: float) -> None:
   """Test _GammaLanczos against known gamma function values."""
-  result: float = base.GammaLanczos(z)
+  result: float = stats.GammaLanczos(z)
   assert math.isclose(result, expected, rel_tol=1e-10), f'Γ({z}) = {result}, expected {expected}'
 
 
@@ -69,7 +69,7 @@ def test_GammaLanczos_known_values(z: float, expected: float) -> None:
 )
 def test_GammaLanczos_matches_math_gamma(z: float) -> None:
   """Test _GammaLanczos matches stdlib math.gamma for positive values."""
-  result: float = base.GammaLanczos(z)
+  result: float = stats.GammaLanczos(z)
   expected: float = math.gamma(z)
   assert math.isclose(result, expected, rel_tol=1e-10), f'Γ({z}): got {result}, expected {expected}'
 
@@ -100,16 +100,16 @@ def test_GammaLanczos_matches_math_gamma(z: float) -> None:
 )
 def test_BetaIncomplete_known_values(a: float, b: float, x: float, expected: float) -> None:
   """Test _BetaIncomplete against known incomplete beta values."""
-  result: float = base.BetaIncomplete(a, b, x)
+  result: float = stats.BetaIncomplete(a, b, x)
   assert math.isclose(result, expected, rel_tol=1e-4), f'I_{x}({a},{b}) = {result}, exp {expected}'
 
 
 def test_BetaIncomplete_invalid_x() -> None:
   """Test _BetaIncomplete raises error for x outside [0, 1]."""
   with pytest.raises(base.InputError, match='x must be in'):
-    base.BetaIncomplete(1.0, 1.0, -0.1)
+    stats.BetaIncomplete(1.0, 1.0, -0.1)
   with pytest.raises(base.InputError, match='x must be in'):
-    base.BetaIncomplete(1.0, 1.0, 1.5)
+    stats.BetaIncomplete(1.0, 1.0, 1.5)
 
 
 @pytest.mark.parametrize(
@@ -130,11 +130,11 @@ def test_BetaIncomplete_invalid_x() -> None:
 )
 def test_BetaIncompleteCF_edge_cases(a: float, b: float, x: float) -> None:
   """Test _BetaIncomplete with edge cases that exercise underflow protection."""
-  result: float = base.BetaIncomplete(a, b, x)
+  result: float = stats.BetaIncomplete(a, b, x)
   # Just verify it returns a valid probability
   assert 0.0 <= result <= 1.0, f'I_{x}({a},{b}) = {result} out of bounds'
   # Verify consistency with symmetry property
-  result_sym: float = base.BetaIncomplete(b, a, 1.0 - x)
+  result_sym: float = stats.BetaIncomplete(b, a, 1.0 - x)
   assert math.isclose(result + result_sym, 1.0, rel_tol=1e-6)
 
 
@@ -151,8 +151,8 @@ def test_BetaIncompleteCF_edge_cases(a: float, b: float, x: float) -> None:
 )
 def test_BetaIncomplete_symmetry(a: float, b: float, x: float) -> None:
   """Test _BetaIncomplete symmetry property: I_x(a,b) + I_(1-x)(b,a) = 1."""
-  result1: float = base.BetaIncomplete(a, b, x)
-  result2: float = base.BetaIncomplete(b, a, 1.0 - x)
+  result1: float = stats.BetaIncomplete(a, b, x)
+  result2: float = stats.BetaIncomplete(b, a, 1.0 - x)
   assert math.isclose(result1 + result2, 1.0, rel_tol=1e-10)
 
 
@@ -179,7 +179,7 @@ def test_BetaIncomplete_symmetry(a: float, b: float, x: float) -> None:
 )
 def test_StudentTCDF_known_values(t_val: float, df: int, expected: float) -> None:
   """Test _StudentTCDF against known t-distribution CDF values."""
-  result: float = base.StudentTCDF(t_val, df)
+  result: float = stats.StudentTCDF(t_val, df)
   assert math.isclose(result, expected, rel_tol=0.01), (
     f'CDF({t_val}, {df}) = {result}, exp {expected}'
   )
@@ -192,8 +192,8 @@ def test_StudentTCDF_known_values(t_val: float, df: int, expected: float) -> Non
 def test_StudentTCDF_symmetry(df: int) -> None:
   """Test _StudentTCDF symmetry: CDF(-t) = 1 - CDF(t)."""
   for t_val in [0.5, 1.0, 1.5, 2.0, 3.0]:
-    cdf_pos: float = base.StudentTCDF(t_val, df)
-    cdf_neg: float = base.StudentTCDF(-t_val, df)
+    cdf_pos: float = stats.StudentTCDF(t_val, df)
+    cdf_neg: float = stats.StudentTCDF(-t_val, df)
     assert math.isclose(cdf_pos + cdf_neg, 1.0, rel_tol=1e-10)
 
 
@@ -204,7 +204,7 @@ def test_StudentTCDF_symmetry(df: int) -> None:
 def test_StudentTCDF_monotonic(df: int) -> None:
   """Test _StudentTCDF is monotonically increasing."""
   t_values: list[float] = [-3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0]
-  cdf_values: list[float] = [base.StudentTCDF(t, df) for t in t_values]
+  cdf_values: list[float] = [stats.StudentTCDF(t, df) for t in t_values]
   for i in range(len(cdf_values) - 1):
     assert cdf_values[i] < cdf_values[i + 1], f'CDF not monotonic at df={df}'
 
@@ -216,7 +216,7 @@ def test_StudentTCDF_monotonic(df: int) -> None:
 def test_StudentTCDF_bounds(df: int) -> None:
   """Test _StudentTCDF returns values in [0, 1]."""
   for t_val in [-100, -10, -1, 0, 1, 10, 100]:
-    cdf: float = base.StudentTCDF(t_val, df)
+    cdf: float = stats.StudentTCDF(t_val, df)
     assert 0.0 <= cdf <= 1.0, f'CDF({t_val}, {df}) = {cdf} out of bounds'
 
 
@@ -249,20 +249,20 @@ def test_StudentTCDF_bounds(df: int) -> None:
 )
 def test_StudentTPPF_known_values(q: float, df: int, expected: float) -> None:
   """Test _StudentTPPF against known t-distribution quantiles."""
-  result: float = base.StudentTPPF(q, df)
+  result: float = stats.StudentTPPF(q, df)
   assert math.isclose(result, expected, rel_tol=0.01), f'PPF({q}, {df}) = {result}, exp {expected}'
 
 
 def test_StudentTPPF_invalid_q() -> None:
   """Test _StudentTPPF raises error for q outside (0, 1)."""
   with pytest.raises(base.InputError, match='q must be in'):
-    base.StudentTPPF(0.0, 10)
+    stats.StudentTPPF(0.0, 10)
   with pytest.raises(base.InputError, match='q must be in'):
-    base.StudentTPPF(1.0, 10)
+    stats.StudentTPPF(1.0, 10)
   with pytest.raises(base.InputError, match='q must be in'):
-    base.StudentTPPF(-0.5, 10)
+    stats.StudentTPPF(-0.5, 10)
   with pytest.raises(base.InputError, match='q must be in'):
-    base.StudentTPPF(1.5, 10)
+    stats.StudentTPPF(1.5, 10)
 
 
 @pytest.mark.parametrize(
@@ -272,8 +272,8 @@ def test_StudentTPPF_invalid_q() -> None:
 def test_StudentTPPF_symmetry(df: int) -> None:
   """Test _StudentTPPF symmetry: PPF(q) = -PPF(1-q)."""
   for q in [0.1, 0.25, 0.4, 0.6, 0.75, 0.9]:
-    ppf_q: float = base.StudentTPPF(q, df)
-    ppf_1mq: float = base.StudentTPPF(1.0 - q, df)
+    ppf_q: float = stats.StudentTPPF(q, df)
+    ppf_1mq: float = stats.StudentTPPF(1.0 - q, df)
     assert math.isclose(ppf_q, -ppf_1mq, rel_tol=1e-8), f'PPF symmetry failed for q={q}, df={df}'
 
 
@@ -297,8 +297,8 @@ def test_StudentTPPF_symmetry(df: int) -> None:
 )
 def test_StudentTPPF_CDF_inverse(df: int, q: float) -> None:
   """Test _StudentTPPF is the inverse of _StudentTCDF: CDF(PPF(q)) ≈ q."""
-  t_val: float = base.StudentTPPF(q, df)
-  cdf_val: float = base.StudentTCDF(t_val, df)
+  t_val: float = stats.StudentTPPF(q, df)
+  cdf_val: float = stats.StudentTCDF(t_val, df)
   assert math.isclose(cdf_val, q, rel_tol=1e-8), f'CDF(PPF({q})) = {cdf_val} ≠ {q} for df={df}'
 
 
@@ -309,7 +309,7 @@ def test_StudentTPPF_CDF_inverse(df: int, q: float) -> None:
 def test_StudentTPPF_monotonic(df: int) -> None:
   """Test _StudentTPPF is monotonically increasing."""
   q_values: list[float] = [0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99]
-  ppf_values: list[float] = [base.StudentTPPF(q, df) for q in q_values]
+  ppf_values: list[float] = [stats.StudentTPPF(q, df) for q in q_values]
   for i in range(len(ppf_values) - 1):
     assert ppf_values[i] < ppf_values[i + 1], f'PPF not monotonic at df={df}'
 
@@ -332,7 +332,7 @@ def test_StudentTPPF_monotonic(df: int) -> None:
 )
 def test_SampleVariance(data: list[float], expected_mean: float, expected_variance: float) -> None:
   """Test _SampleVariance computes correct sample variance with Bessel's correction."""
-  result: float = base.SampleVariance(data, expected_mean)
+  result: float = stats.SampleVariance(data, expected_mean)
   assert math.isclose(result, expected_variance, rel_tol=1e-10)
 
 
@@ -340,7 +340,7 @@ def test_SampleVariance(data: list[float], expected_mean: float, expected_varian
 def test_SampleVariance_failures(data: list[float], mean: float) -> None:
   """Test SampleVariance raises InputError for insufficient data points."""
   with pytest.raises(base.InputError):
-    base.SampleVariance(data, mean)
+    stats.SampleVariance(data, mean)
 
 
 @pytest.mark.parametrize(
@@ -360,7 +360,7 @@ def test_StandardErrorOfMean(data: list[float], expected_mean: float, expected_s
   """Test _StandardErrorOfMean computes correct mean and SEM."""
   mean: float
   sem: float
-  mean, sem = base.StandardErrorOfMean(data)
+  mean, sem = stats.StandardErrorOfMean(data)
   assert math.isclose(mean, expected_mean, rel_tol=1e-10)
   assert math.isclose(sem, expected_sem, rel_tol=1e-10)
 
@@ -379,7 +379,7 @@ def test_StudentTInterval_symmetric(confidence: float, df: int, loc: float, scal
   """Test _StudentTInterval produces symmetric interval around loc."""
   lower: float
   upper: float
-  lower, upper = base.StudentTInterval(confidence, df, loc, scale)
+  lower, upper = stats.StudentTInterval(confidence, df, loc, scale)
   # Check symmetry
   assert math.isclose(upper - loc, loc - lower, rel_tol=1e-10)
   # Check loc is inside interval
@@ -406,7 +406,7 @@ def test_StudentTInterval_width(
   """Test _StudentTInterval produces correct interval width."""
   lower: float
   upper: float
-  lower, upper = base.StudentTInterval(confidence, df, loc, scale)
+  lower, upper = stats.StudentTInterval(confidence, df, loc, scale)
   half_width: float = (upper - lower) / 2.0
   assert math.isclose(half_width, expected_half_width, rel_tol=0.01)
 
@@ -423,8 +423,8 @@ def test_StudentTInterval_higher_confidence_wider(
   confidence1: float, confidence2: float, df: int
 ) -> None:
   """Test higher confidence produces wider interval."""
-  lower1, upper1 = base.StudentTInterval(confidence1, df, 0.0, 1.0)
-  lower2, upper2 = base.StudentTInterval(confidence2, df, 0.0, 1.0)
+  lower1, upper1 = stats.StudentTInterval(confidence1, df, 0.0, 1.0)
+  lower2, upper2 = stats.StudentTInterval(confidence2, df, 0.0, 1.0)
   width1: float = upper1 - lower1
   width2: float = upper2 - lower2
   assert width1 < width2, f'{confidence1} CI should be narrower than {confidence2} CI'
@@ -446,7 +446,7 @@ def test_measurement_stats_success(data: list[int | float], confidence: float) -
   error: float
   ci: tuple[float, float]
   conf: float
-  n, mean, sem, error, ci, conf = base.MeasurementStats(data, confidence=confidence)
+  n, mean, sem, error, ci, conf = stats.MeasurementStats(data, confidence=confidence)
   assert math.isclose(conf, confidence, rel_tol=1e-12)
   assert n == len(data)
   if n == 1:

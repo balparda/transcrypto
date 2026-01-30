@@ -20,14 +20,15 @@ from rich import console as rich_console
 from typer import testing
 
 from transcrypto import transcrypto
-from transcrypto.cli import clibase
-from transcrypto.core import aes, base
+from transcrypto.core import aes, bid
+from transcrypto.utils import base
+from transcrypto.utils import logging as tc_logging
 
 
 @pytest.fixture(autouse=True)
 def reset_cli() -> None:
   """Reset CLI singleton before each test."""
-  clibase.ResetConsole()
+  tc_logging.ResetConsole()
 
 
 def CallCLI(args: list[str]) -> click_testing.Result:
@@ -97,11 +98,11 @@ def test_LoadObj_wrong_type_raises(tmp_path: pathlib.Path) -> None:
   """_LoadObj should raise if the on-disk object is not of the expected type."""
   path: pathlib.Path = tmp_path / 'obj.saved'
   # Save an AESKey object…
-  key = aes.AESKey(key256=b'\x00' * 32)
-  transcrypto.SaveObj(key, str(path), None)
+  aes_key = aes.AESKey(key256=b'\x00' * 32)
+  transcrypto.SaveObj(aes_key, str(path), None)
   # …then try to load it expecting a completely different type.
   with pytest.raises(base.InputError, match=r'invalid type.*AESKey.*expected.*PublicBid'):
-    transcrypto.LoadObj(str(path), None, base.PublicBid512)  # expecting PublicBid, got AESKey
+    transcrypto.LoadObj(str(path), None, bid.PublicBid512)  # expecting PublicBid, got AESKey
 
 
 def test_cli_markdown_has_header() -> None:

@@ -13,7 +13,7 @@ from collections import abc
 
 import pytest
 
-from transcrypto.core import base
+from transcrypto.utils import base, human
 
 
 @pytest.mark.parametrize(
@@ -38,7 +38,7 @@ from transcrypto.core import base
 )
 def test_HumanizedBytes(value: int, message: str) -> None:
   """Test."""
-  assert base.HumanizedBytes(value) == message
+  assert human.HumanizedBytes(value) == message
 
 
 @pytest.mark.parametrize(
@@ -79,8 +79,8 @@ def test_HumanizedBytes(value: int, message: str) -> None:
 )
 def test_HumanizedDecimal(value: float, message: str, unit: str, unit_message: str) -> None:
   """Test."""
-  assert base.HumanizedDecimal(value) == message
-  assert base.HumanizedDecimal(value, unit=unit) == unit_message
+  assert human.HumanizedDecimal(value) == message
+  assert human.HumanizedDecimal(value, unit=unit) == unit_message
 
 
 @pytest.mark.parametrize(
@@ -113,25 +113,25 @@ def test_HumanizedDecimal(value: float, message: str, unit: str, unit_message: s
 )
 def test_HumanizedSeconds(value: float, message: str) -> None:
   """Test."""
-  assert base.HumanizedSeconds(value) == message
+  assert human.HumanizedSeconds(value) == message
 
 
 def test_Humanized_fail() -> None:
   """Test."""
   with pytest.raises(base.InputError, match='input should be >=0'):
-    base.HumanizedBytes(-1)
+    human.HumanizedBytes(-1)
   with pytest.raises(base.InputError, match='input should be >=0'):
-    base.HumanizedSeconds(-1)
+    human.HumanizedSeconds(-1)
   # NaN
   with pytest.raises(base.InputError, match='input should finite'):
-    base.HumanizedDecimal(math.nan)
+    human.HumanizedDecimal(math.nan)
   with pytest.raises(base.InputError, match='input should be >=0'):
-    base.HumanizedSeconds(math.nan)
+    human.HumanizedSeconds(math.nan)
   # infinity
   with pytest.raises(base.InputError, match='input should finite'):
-    base.HumanizedDecimal(math.inf)
+    human.HumanizedDecimal(math.inf)
   with pytest.raises(base.InputError, match='input should be >=0'):
-    base.HumanizedSeconds(math.inf)
+    human.HumanizedSeconds(math.inf)
 
 
 @pytest.mark.parametrize(
@@ -146,7 +146,7 @@ def test_Humanized_fail() -> None:
 )
 def test_SigFigs_edge_cases(value: float, expected: str) -> None:
   """Test _SigFigs handles edge cases correctly."""
-  assert base._SigFigs(value) == expected
+  assert human._SigFigs(value) == expected
 
 
 @pytest.mark.parametrize(
@@ -191,14 +191,14 @@ def test_SigFigs_edge_cases(value: float, expected: str) -> None:
 )
 def test_SigFigs_regular_cases(value: float, expected: str) -> None:
   """Test _SigFigs formats regular numbers with 6 significant figures."""
-  assert base._SigFigs(value) == expected
+  assert human._SigFigs(value) == expected
 
 
 def test_HumanizedMeasurements_failures() -> None:
   """Tests."""
   # no data → should bubble up InputError from MeasurementStats
   with pytest.raises(base.InputError):
-    base.HumanizedMeasurements([])
+    human.HumanizedMeasurements([])
 
 
 @pytest.mark.parametrize(
@@ -217,7 +217,7 @@ def test_HumanizedMeasurements_success(
 ) -> None:
   """Tests."""
   result: str
-  result = base.HumanizedMeasurements(data, **kwargs)  # type:ignore
+  result = human.HumanizedMeasurements(data, **kwargs)  # type:ignore
   # Always contains '@n'
   assert f'@{len(data)}' in result
   # Always contains ±
@@ -233,11 +233,11 @@ def test_HumanizedMeasurements_success(
   [
     ([42], '', None, 0.95, '42.0000 ±? @1'),
     ([0.0000042], 'Hz', None, 0.95, '4.20000e-06Hz ±? @1'),
-    ([42000000000000000], 'Hz', base.HumanizedDecimal, 0.95, '42.000 PHz ±? @1'),
+    ([42000000000000000], 'Hz', human.HumanizedDecimal, 0.95, '42.000 PHz ±? @1'),
     (
       [42000000000000000],
       '',
-      lambda x: base.HumanizedDecimal(x, unit='Hz'),  # pyright: ignore
+      lambda x: human.HumanizedDecimal(x, unit='Hz'),  # pyright: ignore
       0.95,
       '42.000 PHz ±? @1',
     ),
@@ -258,7 +258,7 @@ def test_HumanizedMeasurements_success(
     (
       [0.0000011, 0.0000012, 0.0000013, 0.0000013, 0.0000012, 0.000001, 0.0000008, 0.0000013],
       'WH',
-      base.HumanizedDecimal,
+      human.HumanizedDecimal,
       0.95,
       '1.150 µWH ± 148.211 nWH [1.002 µWH … 1.298 µWH]95%CI@8',  # noqa: RUF001
     ),
@@ -278,7 +278,7 @@ def test_HumanizedMeasurements_success(
         12600000,
       ],
       'Hz',
-      base.HumanizedDecimal,
+      human.HumanizedDecimal,
       0.95,
       '12.383 MHz ± 252.458 kHz [12.131 MHz … 12.636 MHz]95%CI@12',
     ),
@@ -298,7 +298,7 @@ def test_HumanizedMeasurements_success(
         12600000,
       ],
       '',
-      lambda x: base.HumanizedDecimal(x, unit='Hz'),  # pyright: ignore
+      lambda x: human.HumanizedDecimal(x, unit='Hz'),  # pyright: ignore
       0.95,
       '12.383 MHz ± 252.458 kHz [12.131 MHz … 12.636 MHz]95%CI@12',
     ),
@@ -318,7 +318,7 @@ def test_HumanizedMeasurements_success(
         12600000,
       ],
       '',
-      lambda x: base.HumanizedDecimal(x, unit='Hz'),  # pyright: ignore
+      lambda x: human.HumanizedDecimal(x, unit='Hz'),  # pyright: ignore
       0.99,
       '12.383 MHz ± 356.242 kHz [12.027 MHz … 12.740 MHz]99%CI@12',
     ),
@@ -337,7 +337,7 @@ def test_HumanizedMeasurements_success(
         12600000,
       ],
       'Hz',
-      base.HumanizedDecimal,
+      human.HumanizedDecimal,
       0.98,
       '12.336 MHz ± 316.816 kHz [12.020 MHz … 12.653 MHz]98%CI@11',
     ),
@@ -355,14 +355,14 @@ def test_HumanizedMeasurements_success(
         12600000,
       ],
       'Hz',
-      base.HumanizedDecimal,
+      human.HumanizedDecimal,
       0.98,
       '12.320 MHz ± 353.900 kHz [11.966 MHz … 12.674 MHz]98%CI@10',
     ),
     (
       [-12100000, -12300000, -13000000, -11500000, -12100000, -12200000, -12600000, -12600000],
       'Hz',
-      base.HumanizedDecimal,
+      human.HumanizedDecimal,
       0.98,
       '-12.300 MHz ± 474.018 kHz [-12.774 MHz … -11.826 MHz]98%CI@8',
     ),
@@ -377,7 +377,7 @@ def test_HumanizedMeasurements_validation(
 ) -> None:
   """Tests."""
   assert (
-    base.HumanizedMeasurements(
+    human.HumanizedMeasurements(
       data, unit=unit, parser=parser, confidence=confidence, clip_negative=False
     )
     == out

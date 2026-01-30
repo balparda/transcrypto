@@ -17,7 +17,8 @@ import pytest
 from rich import console as rich_console
 from rich import logging as rich_logging
 
-from transcrypto.cli import clibase
+from transcrypto.utils import base
+from transcrypto.utils import logging as tc_logging
 
 
 @pytest.fixture(autouse=True)
@@ -33,7 +34,7 @@ def reset_logging_and_singleton() -> abc.Generator[None]:
   saved_root_handlers = list(root.handlers)
   saved_root_level = root.level
   saved_providers: dict[str, dict[str, Any]] = {}
-  for name in clibase._LOG_COMMON_PROVIDERS:
+  for name in tc_logging._LOG_COMMON_PROVIDERS:
     lg: logging.Logger = logging.getLogger(name)
     saved_providers[name] = {
       'handlers': list(lg.handlers),
@@ -49,7 +50,7 @@ def reset_logging_and_singleton() -> abc.Generator[None]:
       root.removeHandler(h)
     root.setLevel(logging.WARNING)
     # Reset singleton
-    clibase.ResetConsole()
+    tc_logging.ResetConsole()
     yield
   finally:
     # Restore root logger
@@ -73,14 +74,14 @@ def reset_logging_and_singleton() -> abc.Generator[None]:
 
 
 def _expected_level(verbosity: int) -> int:
-  idx: int = max(0, min(verbosity, len(clibase._LOG_LEVELS) - 1))
-  return clibase._LOG_LEVELS[idx]
+  idx: int = max(0, min(verbosity, len(tc_logging._LOG_LEVELS) - 1))
+  return tc_logging._LOG_LEVELS[idx]
 
 
 def test_console_returns_fallback_when_not_initialized() -> None:
   """Test."""
-  c1: rich_console.Console = clibase.Console()
-  c2: rich_console.Console = clibase.Console()
+  c1: rich_console.Console = tc_logging.Console()
+  c2: rich_console.Console = tc_logging.Console()
   assert isinstance(c1, rich_console.Console)
   # Not initialized => each call returns a fresh fallback Console
   assert c1 is not c2
@@ -88,30 +89,30 @@ def test_console_returns_fallback_when_not_initialized() -> None:
 
 def test_initlogging_sets_singleton_and_console_returns_it() -> None:
   """Test."""
-  c: rich_console.Console = clibase.InitLogging(2, include_process=False)[0]
+  c: rich_console.Console = tc_logging.InitLogging(2, include_process=False)[0]
   assert isinstance(c, rich_console.Console)
-  assert clibase.Console() is c
+  assert tc_logging.Console() is c
 
 
 def test_initlogging_raises_after_first_call() -> None:
   """Test."""
-  clibase.InitLogging(2, include_process=False)
-  with pytest.raises(RuntimeError):
-    clibase.InitLogging(0, include_process=True)
+  tc_logging.InitLogging(2, include_process=False)
+  with pytest.raises(base.Error):
+    tc_logging.InitLogging(0, include_process=True)
 
 
 def test_root_logger_level_is_set_and_clamped() -> None:
   """Test."""
-  clibase.InitLogging(-10, include_process=False)
+  tc_logging.InitLogging(-10, include_process=False)
   assert logging.getLogger().level == _expected_level(-10)
-  clibase.ResetConsole()
-  clibase.InitLogging(999, include_process=False)
+  tc_logging.ResetConsole()
+  tc_logging.InitLogging(999, include_process=False)
   assert logging.getLogger().level == _expected_level(999)
 
 
 def test_root_has_exactly_one_richhandler_bound_to_returned_console() -> None:
   """Test."""
-  console: rich_console.Console = clibase.InitLogging(2, include_process=False)[0]
+  console: rich_console.Console = tc_logging.InitLogging(2, include_process=False)[0]
   root: logging.Logger = logging.getLogger()
   rich_handlers: list[rich_logging.RichHandler] = [
     h for h in root.handlers if isinstance(h, rich_logging.RichHandler)
@@ -121,25 +122,25 @@ def test_root_has_exactly_one_richhandler_bound_to_returned_console() -> None:
   assert h.console is console
   # Handler formatter should match selected format string
   assert h.formatter is not None
-  assert h.formatter._fmt == clibase._LOG_FORMAT_NO_PROCESS
+  assert h.formatter._fmt == tc_logging._LOG_FORMAT_NO_PROCESS
 
 
 def test_include_process_uses_process_format_on_first_init() -> None:
   """Test."""
-  console = clibase.InitLogging(2, include_process=True)[0]
+  console = tc_logging.InitLogging(2, include_process=True)[0]
   assert isinstance(console, rich_console.Console)
   h: rich_logging.RichHandler = next(
     h for h in logging.getLogger().handlers if isinstance(h, rich_logging.RichHandler)
   )
-  assert h.formatter._fmt == clibase._LOG_FORMAT_WITH_PROCESS  # type: ignore
+  assert h.formatter._fmt == tc_logging._LOG_FORMAT_WITH_PROCESS  # type: ignore
 
 
 def test_common_provider_loggers_are_routed_to_root() -> None:
   """Test."""
   verbosity = 1
   expected: int = _expected_level(verbosity)
-  clibase.InitLogging(verbosity, include_process=False)
-  for name in clibase._LOG_COMMON_PROVIDERS:
+  tc_logging.InitLogging(verbosity, include_process=False)
+  for name in tc_logging._LOG_COMMON_PROVIDERS:
     lg: logging.Logger = logging.getLogger(name)
     assert lg.handlers == []
     assert lg.propagate is True
@@ -157,5 +158,5 @@ def test_initlogging_emits_startup_log(monkeypatch: pytest.MonkeyPatch) -> None:
     seen['msg'] = msg
 
   monkeypatch.setattr(logging, 'info', _fake_info)
-  clibase.InitLogging(2, include_process=False)
+  tc_logging.InitLogging(2, include_process=False)
   assert 'Logging initialized at level' in seen.get('msg', '')

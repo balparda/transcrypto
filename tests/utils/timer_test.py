@@ -14,7 +14,7 @@ from collections import abc
 
 import pytest
 
-from transcrypto.core import base
+from transcrypto.utils import base, timer
 
 
 @pytest.fixture(autouse=True)
@@ -38,10 +38,10 @@ def ResetLoggingHandlers() -> abc.Generator[None]:
 
 def test_time_utils() -> None:
   """Test."""
-  assert base.MIN_TM == 946684800
-  assert base.TimeStr(base.MIN_TM) == '2000/Jan/01-00:00:00-UTC'
-  assert base.Now() > base.MIN_TM
-  assert base.StrNow()
+  assert timer.MIN_TM == 946684800
+  assert timer.TimeStr(timer.MIN_TM) == '2000/Jan/01-00:00:00-UTC'
+  assert timer.Now() > timer.MIN_TM
+  assert timer.StrNow()
 
 
 def _mock_perf(monkeypatch: pytest.MonkeyPatch, values: list[float]) -> None:
@@ -52,7 +52,7 @@ def _mock_perf(monkeypatch: pytest.MonkeyPatch, values: list[float]) -> None:
 
 def test_Timer_str_unstarted() -> None:
   """Test."""
-  t = base.Timer('T')
+  t = timer.Timer('T')
   assert str(t) == 'T: <UNSTARTED>'
 
 
@@ -60,7 +60,7 @@ def test_Timer_str_partial(monkeypatch: pytest.MonkeyPatch) -> None:
   """Test."""
   # Start at 100.00; __str__ calls perf_counter again (100.12) → delta 0.12 s
   _mock_perf(monkeypatch, [100.00, 100.12])
-  t = base.Timer('P')
+  t = timer.Timer('P')
   t.Start()
   assert str(t) == 'P: <PARTIAL> 120.000 ms'
 
@@ -68,7 +68,7 @@ def test_Timer_str_partial(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_Timer_start_twice_forbidden(monkeypatch: pytest.MonkeyPatch) -> None:
   """Test."""
   _mock_perf(monkeypatch, [1.0])
-  t = base.Timer('X')
+  t = timer.Timer('X')
   t.Start()
   with pytest.raises(base.Error, match='Re-starting timer is forbidden'):
     t.Start()
@@ -76,7 +76,7 @@ def test_Timer_start_twice_forbidden(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_Timer_stop_unstarted_forbidden() -> None:
   """Test."""
-  t = base.Timer('X')
+  t = timer.Timer('X')
   with pytest.raises(base.Error, match='Stopping an unstarted timer'):
     t.Stop()
 
@@ -84,7 +84,7 @@ def test_Timer_stop_unstarted_forbidden() -> None:
 def test_Timer_negative_elapsed(monkeypatch: pytest.MonkeyPatch) -> None:
   """Test."""
   _mock_perf(monkeypatch, [1.0, 0.5])
-  t = base.Timer('X')
+  t = timer.Timer('X')
   t.Start()
   with pytest.raises(base.Error, match='negative/zero delta'):
     t.Stop()
@@ -97,7 +97,7 @@ def test_Timer_stop_twice_forbidden(
   # Start=1.0, Stop=2.5  → elapsed=1.5
   _mock_perf(monkeypatch, [1.0, 2.5])
   caplog.set_level(logging.INFO)
-  t = base.Timer('X')
+  t = timer.Timer('X')
   t.Start()
   t.Stop()
   # A second Stop should error
@@ -119,7 +119,7 @@ def test_Timer_context_manager_logs_and_optionally_prints(
   # Enter=10.00, Exit=10.25 → 0.25 s
   _mock_perf(monkeypatch, [10.00, 10.25])
   caplog.set_level(logging.INFO)
-  with base.Timer('CTX', emit_print=print):
+  with timer.Timer('CTX', emit_print=print):
     pass
   # Logged
   msgs: list[str] = [rec.getMessage() for rec in caplog.records]
@@ -137,7 +137,7 @@ def test_Timer_context_manager_exception_still_times_and_logs(
   _mock_perf(monkeypatch, [5.0, 5.3])
   caplog.set_level(logging.INFO)
 
-  with pytest.raises(base.Error), base.Timer('ERR'):
+  with pytest.raises(base.Error), timer.Timer('ERR'):
     raise base.Error('boom')
   # Stop was called; message logged
   msgs: list[str] = [rec.getMessage() for rec in caplog.records]
@@ -152,7 +152,7 @@ def test_Timer_decorator_logs(
   _mock_perf(monkeypatch, [1.00, 1.40])
   caplog.set_level(logging.INFO)
 
-  @base.Timer('DEC')
+  @timer.Timer('DEC')
   def _f(a: int, b: int) -> int:
     return a + b
 
@@ -171,7 +171,7 @@ def test_Timer_decorator_emit_print_true_prints_and_logs(
   _mock_perf(monkeypatch, [2.00, 2.01])
   caplog.set_level(logging.INFO)
 
-  @base.Timer('PRINT', emit_print=print)
+  @timer.Timer('PRINT', emit_print=print)
   def _g() -> str:
     return 'ok'
 
@@ -191,7 +191,7 @@ def test_Timer_decorator_exception_propagates_and_logs(
   _mock_perf(monkeypatch, [3.0, 3.2])
   caplog.set_level(logging.INFO)
 
-  @base.Timer('ERR')
+  @timer.Timer('ERR')
   def _h() -> None:
     raise base.Error('nope')
 

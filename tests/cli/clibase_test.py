@@ -20,7 +20,8 @@ from rich import console as rich_console
 
 from transcrypto import transcrypto
 from transcrypto.cli import clibase
-from transcrypto.core import base
+from transcrypto.utils import base
+from transcrypto.utils import logging as tc_logging
 
 
 def test_GenerateTyperHelpMarkdown_simple_app() -> None:
@@ -63,7 +64,7 @@ def test_CLIErrorGuard_no_ctx_prints_exception_when_level_ge_INFO(
 ) -> None:
   """Exercise CLIErrorGuard no-ctx traceback branch."""
   dummy = _DummyConsole()
-  monkeypatch.setattr(clibase, 'Console', lambda: dummy)
+  monkeypatch.setattr(tc_logging, 'Console', lambda: dummy)
   logging.getLogger().setLevel(logging.WARNING)  # >= INFO
 
   @clibase.CLIErrorGuard
@@ -80,7 +81,7 @@ def test_CLIErrorGuard_no_ctx_prints_message_when_level_lt_INFO(
 ) -> None:
   """Exercise CLIErrorGuard no-ctx message-only branch."""
   dummy = _DummyConsole()
-  monkeypatch.setattr(clibase, 'Console', lambda: dummy)
+  monkeypatch.setattr(tc_logging, 'Console', lambda: dummy)
   logging.getLogger().setLevel(logging.DEBUG)  # < INFO
 
   @clibase.CLIErrorGuard
@@ -130,7 +131,7 @@ def test_transcrypto_markdown_command_executes(monkeypatch: pytest.MonkeyPatch) 
   """Cover the transcrypto.Markdown command body lines."""
   buf = io.StringIO()
   c = rich_console.Console(file=buf, force_terminal=False, color_system=None, record=True)
-  monkeypatch.setattr(clibase, 'Console', lambda: c)
+  monkeypatch.setattr(tc_logging, 'Console', lambda: c)
   monkeypatch.setattr(clibase, 'GenerateTyperHelpMarkdown', lambda *_a, **_k: 'DOC')  # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
   # Create a mock context object
   cmd = click.Command('markdown', callback=lambda: None)

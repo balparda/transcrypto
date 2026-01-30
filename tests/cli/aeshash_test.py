@@ -16,14 +16,15 @@ import pytest
 from click import testing as click_testing
 
 from tests import transcrypto_test
-from transcrypto.cli import clibase
-from transcrypto.core import aes, base
+from transcrypto.core import aes, key
+from transcrypto.utils import base
+from transcrypto.utils import logging as tc_logging
 
 
 @pytest.fixture(autouse=True)
 def reset_cli() -> None:
   """Reset CLI singleton before each test."""
-  clibase.ResetConsole()
+  tc_logging.ResetConsole()
 
 
 @pytest.mark.parametrize(
@@ -117,7 +118,7 @@ def test_aes_key_print_b64_matches_library(tmp_path: pathlib.Path) -> None:
   )  # cspell:disable-line
   priv_path: pathlib.Path = tmp_path / 'password.priv'
   # Reset CLI singletons before calling CLI again in the same test
-  clibase.ResetConsole()
+  tc_logging.ResetConsole()
   res = transcrypto_test.CallCLI(
     ['-p', str(priv_path), 'aes', 'key', 'correct horse battery staple']
   )
@@ -137,9 +138,9 @@ def aes_key_file(tmp_path: pathlib.Path) -> pathlib.Path:
       pathlib.Path: blob path
 
   """
-  key = aes.AESKey(key256=os.urandom(32))
+  aes_key = aes.AESKey(key256=os.urandom(32))
   blob_path: pathlib.Path = tmp_path / 'aes_key.bin'
-  _: bytes = base.Serialize(key, file_path=str(blob_path))  # no password
+  _: bytes = key.Serialize(aes_key, file_path=str(blob_path))  # no password
   return blob_path
 
 
@@ -157,7 +158,7 @@ def test_aes_ecb_encrypthex_decrypthex_roundtrip() -> None:
   assert re.fullmatch(r'[0-9a-f]{32}', transcrypto_test.OneToken(res))  # 16-byte block
   # Decrypt back
   # Reset CLI singletons before calling CLI again in the same test
-  clibase.ResetConsole()
+  tc_logging.ResetConsole()
   res2: click_testing.Result = transcrypto_test.CallCLI(
     [
       '--input-format',
@@ -188,7 +189,7 @@ def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None:
   assert len(ct_hex) >= 32  # IV(16)+TAG(16)+ct → hex length ≥ 64; allow any ≥ minimal sanity
   # Decrypt: ciphertext hex in, ask for raw output so we can compare to original string
   # Reset CLI singletons before calling CLI again in the same test
-  clibase.ResetConsole()
+  tc_logging.ResetConsole()
   res2: click_testing.Result = transcrypto_test.CallCLI(
     [
       '--input-format',
@@ -290,7 +291,7 @@ def test_aes_gcm_decrypt_wrong_aad_raises() -> None:
   assert res.exit_code == 0 and re.fullmatch(r'[0-9a-f]+', transcrypto_test.OneToken(res))
   # Decrypt with WRONG AAD='B' → should raise CryptoError
   # Reset CLI singletons before calling CLI again in the same test
-  clibase.ResetConsole()
+  tc_logging.ResetConsole()
   res = transcrypto_test.CallCLI(
     [
       '--input-format',
@@ -312,9 +313,9 @@ def test_aes_gcm_decrypt_wrong_aad_raises() -> None:
 def test_aes_ecb_encrypt_decrypt_with_key_path(tmp_path: pathlib.Path) -> None:
   """Cover AES-ECB key selection via --key-path (elif branch)."""
   # Write a serialized AES key file
-  key = aes.AESKey(key256=os.urandom(32))
+  aes_key = aes.AESKey(key256=os.urandom(32))
   key_path: pathlib.Path = tmp_path / 'k.bin'
-  base.Serialize(key, file_path=str(key_path))
+  key.Serialize(aes_key, file_path=str(key_path))
   block_hex = '00112233445566778899aabbccddeeff'
   # Encrypt with --key-path
   res: click_testing.Result = transcrypto_test.CallCLI(
@@ -323,7 +324,7 @@ def test_aes_ecb_encrypt_decrypt_with_key_path(tmp_path: pathlib.Path) -> None:
   assert res.exit_code == 0 and re.fullmatch(r'[0-9a-f]{32}', transcrypto_test.OneToken(res))
   # Decrypt with --key-path
   # Reset CLI singletons before calling CLI again in the same test
-  clibase.ResetConsole()
+  tc_logging.ResetConsole()
   res2: click_testing.Result = transcrypto_test.CallCLI(
     ['-p', str(key_path), 'aes', 'ecb', 'decrypt', transcrypto_test.OneToken(res)]
   )
@@ -340,21 +341,21 @@ def test_aes_ecb_wrong_length_input() -> None:
   assert res.exit_code == 0
   assert 'must be exactly 32 hex chars' in res.output
   # Invalid hexadecimal string (not hex) - encrypt - 32 chars with 'Z' which is not hex
-  clibase.ResetConsole()
+  tc_logging.ResetConsole()
   res = transcrypto_test.CallCLI(
     ['--input-format', 'b64', 'aes', 'ecb', 'encrypt', '-k', key_b64, 'Z' * 32]
   )
   assert res.exit_code == 0
   assert 'invalid hexadecimal string' in res.output
   # Invalid hexadecimal in decrypt - 32 chars with 'Z' which is not hex
-  clibase.ResetConsole()
+  tc_logging.ResetConsole()
   res = transcrypto_test.CallCLI(
     ['--input-format', 'b64', 'aes', 'ecb', 'decrypt', '-k', key_b64, 'Z' * 32]
   )
   assert res.exit_code == 0
   assert 'invalid hexadecimal string' in res.output
   # Wrong-length ciphertext
-  clibase.ResetConsole()
+  tc_logging.ResetConsole()
   res2: click_testing.Result = transcrypto_test.CallCLI(
     ['--input-format', 'b64', 'aes', 'ecb', 'decrypt', '-k', key_b64, 'abc']
   )

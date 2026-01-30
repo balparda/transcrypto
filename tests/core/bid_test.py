@@ -13,7 +13,8 @@ from unittest import mock
 import pytest
 
 from tests import util
-from transcrypto.core import base
+from transcrypto.core import bid, key
+from transcrypto.utils import base
 
 
 @pytest.mark.parametrize(
@@ -51,14 +52,14 @@ from transcrypto.core import base
     ),
   ],
 )
-@mock.patch('transcrypto.core.base.RandBytes', autospec=True)
+@mock.patch('transcrypto.utils.saferandom.RandBytes', autospec=True)
 def test_Bid_with_mock(
   randbytes: mock.MagicMock, secret: bytes, public_hash: str, bid_str: str
 ) -> None:
   """Test."""
   randbytes.side_effect = [b'x' * 64, b'y' * 64]
-  priv: base.PrivateBid512 = base.PrivateBid512.New(secret)
-  pub: base.PublicBid512 = base.PublicBid512.Copy(priv)
+  priv: bid.PrivateBid512 = bid.PrivateBid512.New(secret)
+  pub: bid.PublicBid512 = bid.PublicBid512.Copy(priv)
   assert base.BytesToHex(pub.public_hash) == public_hash
   priv_s = str(priv)
   assert priv_s == bid_str
@@ -80,11 +81,11 @@ def test_Bid_with_mock(
 )
 def test_Bid(secret: bytes) -> None:
   """Test."""
-  priv1: base.PrivateBid512 = base.PrivateBid512.New(secret)
-  priv2: base.PrivateBid512 = base.PrivateBid512.New(secret)
-  pub: base.PublicBid512 = base.PublicBid512.Copy(priv1)
-  util.TestCryptoKeyEncoding(priv1, base.PrivateBid512)
-  util.TestCryptoKeyEncoding(pub, base.PublicBid512)
+  priv1: bid.PrivateBid512 = bid.PrivateBid512.New(secret)
+  priv2: bid.PrivateBid512 = bid.PrivateBid512.New(secret)
+  pub: bid.PublicBid512 = bid.PublicBid512.Copy(priv1)
+  util.TestCryptoKeyEncoding(priv1, bid.PrivateBid512)
+  util.TestCryptoKeyEncoding(pub, bid.PublicBid512)
   assert pub.VerifyBid(priv1.private_key, secret)
   assert not pub.VerifyBid(priv1.private_key, secret + b'x')
   assert not pub.VerifyBid(priv2.private_key, secret)
@@ -97,14 +98,14 @@ def test_Bid(secret: bytes) -> None:
 def test_Bid_invalid() -> None:
   """Test."""
   with pytest.raises(base.InputError, match='invalid public_key or public_hash'):
-    base.PublicBid512(public_key=b'key', public_hash=b'hash')
+    bid.PublicBid512(public_key=b'key', public_hash=b'hash')
   with pytest.raises(base.InputError, match='invalid private_key or secret_bid'):
-    base.PrivateBid512(
+    bid.PrivateBid512(
       public_key=b'k' * 64, public_hash=b'h' * 64, private_key=b'priv', secret_bid=b'secret'
     )
-  with pytest.raises(base.CryptoError, match='inconsistent bid'):
-    base.PrivateBid512(
+  with pytest.raises(key.CryptoError, match='inconsistent bid'):
+    bid.PrivateBid512(
       public_key=b'k' * 64, public_hash=b'h' * 64, private_key=b'p' * 64, secret_bid=b'secret'
     )
   with pytest.raises(base.InputError, match='invalid secret length'):
-    base.PrivateBid512.New(b'')
+    bid.PrivateBid512.New(b'')

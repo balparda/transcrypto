@@ -15,14 +15,14 @@ import pytest
 from click import testing as click_testing
 
 from tests import transcrypto_test
-from transcrypto.cli import clibase
 from transcrypto.core import modmath
+from transcrypto.utils import logging as tc_logging
 
 
 @pytest.fixture(autouse=True)
 def reset_cli() -> None:
   """Reset CLI singleton before each test."""
-  clibase.ResetConsole()
+  tc_logging.ResetConsole()
 
 
 @pytest.mark.parametrize(
