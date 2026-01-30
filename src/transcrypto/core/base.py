@@ -1029,7 +1029,14 @@ def ExtendedGCD(a: int, b: int, /) -> tuple[int, int, int]:
   if not b:
     return (a, 0 if swapped else 1, 1 if swapped else 0)
   # euclid
-  x1, x2, y1, y2 = 0, 1, 1, 0
+  x1: int = 0
+  x2: int = 1
+  y1: int = 1
+  y2: int = 0
+  q: int
+  r: int
+  x: int
+  y: int
   while b:
     q, r = divmod(a, b)
     x, y = x2 - q * x1, y2 - q * y1
