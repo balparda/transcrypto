@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Daniel Balparda <balparda@github.com>
 # SPDX-License-Identifier: Apache-2.0
 
-.PHONY: install fmt lint type test integration cov flakes precommit docs ci
+.PHONY: install fmt lint type test integration cov flakes precommit docs req ci
 
 install:
 	poetry install
@@ -35,5 +35,8 @@ docs:
 	poetry run transcrypto markdown > transcrypto.md
 	poetry run profiler markdown > profiler.md
 
-ci: cov integration precommit docs
-	@echo "CI checks passed! Generated docs."
+req:
+	poetry export --format requirements.txt --without-hashes --output requirements.txt
+
+ci: cov integration precommit docs req
+	@echo "CI checks passed! Generated docs & requirements.txt."

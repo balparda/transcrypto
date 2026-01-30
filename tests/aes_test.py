@@ -8,6 +8,7 @@ from unittest import mock
 
 import pytest
 
+from tests import util
 from transcrypto import aes, base
 
 
@@ -119,7 +120,7 @@ def test_ECBEncoder(s_key: str, pth: str, ct1: str, ct101: str) -> None:
   """Test."""
   # create based on key and test first encryption
   key = aes.AESKey(key256=base.HexToBytes(s_key))
-  aes._TestCryptoKeyEncoding(key, aes.AESKey)
+  util.TestCryptoKeyEncoding(key, aes.AESKey)
   encoder: aes.AESKey.ECBEncoderClass = key.ECBEncoder()
   pt: bytes = base.HexToBytes(pth)
   ct: bytes = encoder.Encrypt(pt)

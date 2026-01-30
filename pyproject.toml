@@ -68,7 +68,6 @@ dependencies = [
 
   "cryptography>=46.0",
   "gmpy2>=2.2",
-  "scipy>=1.17",
   "zstandard>=0.25",
 
 ]
@@ -133,7 +132,6 @@ pyinstrument = "^5.1"
 typeguard = "^4.4"
 tomli = "^2.4"
 gmpy2-stubs = "^2.2"
-scipy-stubs = "^1.17"
 
 [tool.poetry.requires-plugins]
 poetry-plugin-export = "^1.10"

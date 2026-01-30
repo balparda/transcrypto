@@ -8,7 +8,8 @@ from unittest import mock
 
 import pytest
 
-from transcrypto import aes, base, sss
+from tests import util
+from transcrypto import base, sss
 
 
 @pytest.mark.parametrize(
@@ -34,10 +35,10 @@ def test_ShamirSharedSecret_raw(
     share_value=shares[0].share_value,
     encrypted_data=b'x' * 128,
   )
-  aes._TestCryptoKeyEncoding(private, sss.ShamirSharedSecretPrivate)
-  aes._TestCryptoKeyEncoding(public, sss.ShamirSharedSecretPublic)
-  aes._TestCryptoKeyEncoding(shares[0], sss.ShamirSharePrivate)
-  aes._TestCryptoKeyEncoding(data, sss.ShamirShareData)
+  util.TestCryptoKeyEncoding(private, sss.ShamirSharedSecretPrivate)
+  util.TestCryptoKeyEncoding(public, sss.ShamirSharedSecretPublic)
+  util.TestCryptoKeyEncoding(shares[0], sss.ShamirSharePrivate)
+  util.TestCryptoKeyEncoding(data, sss.ShamirShareData)
   # do operations
   assert public.RawRecoverSecret(shares) == secret
   assert public.RawRecoverSecret(shares[1:]) == secret

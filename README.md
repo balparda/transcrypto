@@ -96,7 +96,6 @@ Known dependencies:
 - [zstandard](https://pypi.org/project/zstandard/) ([docs](https://python-zstandard.readthedocs.org/))
 - [cryptography](https://pypi.org/project/cryptography/) ([docs](https://cryptography.io/en/latest/))
 - [gmpy2](https://pypi.org/project/gmpy2/) ([docs](https://gmpy2.readthedocs.io/en/latest/))
-- [scipy](https://pypi.org/project/scipy/) ([docs](https://docs.scipy.org/doc/scipy/))
 
 ### Base Library
 
@@ -997,7 +996,7 @@ Remember to check your diffs before submitting (especially `poetry.lock`) to avo
 When dependencies change, always regenerate `requirements.txt` by running:
 
 ```sh
-poetry export --format requirements.txt --without-hashes --output requirements.txt
+make req  # or: poetry export --format requirements.txt --without-hashes --output requirements.txt
 ```
 
 ### Creating a New Version
@@ -1022,11 +1021,7 @@ poetry build
 poetry publish
 ```
 
-If you changed the CLI interface at all, in any tool, run:
-
-```sh
-make docs
-```
+If you changed the CLI interface at all, in any tool, run `make docs` or even better `make ci`.
 
 You can find the 10 top slowest tests by running:
 

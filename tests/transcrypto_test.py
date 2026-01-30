@@ -87,9 +87,9 @@ def CLIOutput(res: click_testing.Result) -> str:
       str: cleaned CLI output.
 
   """
-  stdout = getattr(res, 'stdout', '')
-  stderr = getattr(res, 'stderr', '')
-  combined = (stdout + stderr) if (stdout or stderr) else res.output
+  stdout: str = getattr(res, 'stdout', '')
+  stderr: str = getattr(res, 'stderr', '')
+  combined: str = (stdout + stderr) if (stdout or stderr) else res.output
   return ANSI_ESCAPE_RE.sub('', combined)
 
 
@@ -199,8 +199,7 @@ def test_markdown_includes_deep_path() -> None:
   """Ensure markdown docs include a representative deep path."""
   res: click_testing.Result = CallCLI(['markdown'])
   assert res.exit_code == 0
-  md = res.output
-  assert 'aes ecb encrypt' in md
+  assert 'aes ecb encrypt' in res.output
 
 
 def test_require_keypath_rejects_directory(tmp_path: pathlib.Path) -> None:

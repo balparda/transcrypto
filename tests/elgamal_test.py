@@ -8,7 +8,8 @@ from unittest import mock
 
 import pytest
 
-from transcrypto import aes, base, elgamal, modmath
+from tests import util
+from transcrypto import base, elgamal, modmath
 
 
 @mock.patch('transcrypto.base.RandBits', autospec=True)
@@ -150,10 +151,10 @@ def test_ElGamal_raw(
     individual_base=individual_base,
     decrypt_exp=decrypt_exp,
   )
-  public = elgamal.ElGamalPublicKey.Copy(private)
-  aes._TestCryptoKeyEncoding(shared, elgamal.ElGamalSharedPublicKey)
-  aes._TestCryptoKeyEncoding(private, elgamal.ElGamalPrivateKey)
-  aes._TestCryptoKeyEncoding(public, elgamal.ElGamalPublicKey)
+  public: elgamal.ElGamalPublicKey = elgamal.ElGamalPublicKey.Copy(private)
+  util.TestCryptoKeyEncoding(shared, elgamal.ElGamalSharedPublicKey)
+  util.TestCryptoKeyEncoding(private, elgamal.ElGamalPrivateKey)
+  util.TestCryptoKeyEncoding(public, elgamal.ElGamalPublicKey)
   # do public key operations
   make_ephemeral.return_value = (ephemeral, modmath.ModInv(ephemeral, prime_modulus - 1))
   with pytest.raises(base.InputError, match='invalid message'):

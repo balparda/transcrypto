@@ -345,6 +345,8 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
     """
     if len(ciphertext) < 32:  # noqa: PLR2004
       raise base.InputError(f'AES256+GCM should have ≥32 bytes IV/CT/tag: {len(ciphertext)}')
+    iv: bytes
+    tag: bytes
     iv, tag = ciphertext[:16], ciphertext[-16:]
     decryptor: ciphers.CipherContext = ciphers.Cipher(
       algorithms.AES256(self.key256), modes.GCM(iv, tag)
@@ -355,18 +357,3 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
       return decryptor.update(ciphertext[16:-16]) + decryptor.finalize()
     except crypt_exceptions.InvalidTag as err:
       raise base.CryptoError('failed decryption') from err
-
-
-def _TestCryptoKeyEncoding(obj: base.CryptoKey, tp: type[base.CryptoKey]) -> None:  # pyright: ignore[reportUnusedFunction]
-  """Test encoding for a CryptoKey instance. Only for use from test modules."""
-  assert tp.FromJSON(obj.json) == obj  # noqa: S101
-  assert tp.FromJSON(obj.formatted_json) == obj  # noqa: S101
-  assert tp.Load(obj.blob) == obj  # noqa: S101
-  assert tp.Load(obj.encoded) == obj  # noqa: S101
-  assert tp.Load(obj.hex) == obj  # noqa: S101
-  assert tp.Load(obj.raw) == obj  # noqa: S101
-  key = AESKey(key256=b'x' * 32)
-  assert tp.Load(obj.Blob(key=key), key=key) == obj  # noqa: S101
-  assert tp.Load(obj.Encoded(key=key), key=key) == obj  # noqa: S101
-  assert tp.Load(obj.Hex(key=key), key=key) == obj  # noqa: S101
-  assert tp.Load(obj.Raw(key=key), key=key) == obj  # noqa: S101

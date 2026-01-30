@@ -229,7 +229,7 @@ def test_elgamal_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None
   clibase.ResetConsole()
   res = transcrypto_test.CallCLI(['-p', str(priv_path), 'elgamal', 'rawencrypt', str(msg)])
   assert res.exit_code == 0 and len(transcrypto_test.OneToken(res)) > 0
-  ct = transcrypto_test.OneToken(res)
+  ct: str = transcrypto_test.OneToken(res)
   clibase.ResetConsole()
   res = transcrypto_test.CallCLI(['-p', str(priv_path), 'elgamal', 'rawdecrypt', ct])
   assert res.exit_code == 0 and int(transcrypto_test.OneToken(res)) == msg
@@ -237,7 +237,7 @@ def test_elgamal_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None
   clibase.ResetConsole()
   res = transcrypto_test.CallCLI(['-p', str(priv_path), 'elgamal', 'rawsign', str(msg)])
   assert res.exit_code == 0 and len(transcrypto_test.OneToken(res)) > 0
-  sig = transcrypto_test.OneToken(res)
+  sig: str = transcrypto_test.OneToken(res)
   clibase.ResetConsole()
   res = transcrypto_test.CallCLI(['-p', str(priv_path), 'elgamal', 'rawverify', str(msg), sig])
   assert res.exit_code == 0 and transcrypto_test.Out(res) == 'El-Gamal signature: OK'
@@ -287,7 +287,7 @@ def test_elgamal_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) ->
     ]
   )
   assert res.exit_code == 0 and len(transcrypto_test.OneToken(res)) > 0
-  ct_b64 = transcrypto_test.OneToken(res)
+  ct_b64: str = transcrypto_test.OneToken(res)
   # Decrypt (b64 in → bin out) with same AAD 'eHl6'
   clibase.ResetConsole()
   res = transcrypto_test.CallCLI(
@@ -386,7 +386,7 @@ def test_dsa_sign_verify(tmp_path: pathlib.Path) -> None:
   clibase.ResetConsole()
   res = transcrypto_test.CallCLI(['-p', str(priv_path), 'dsa', 'rawsign', str(msg)])
   assert res.exit_code == 0 and len(transcrypto_test.OneToken(res)) > 0
-  sig = transcrypto_test.OneToken(res)
+  sig: str = transcrypto_test.OneToken(res)
   clibase.ResetConsole()
   res = transcrypto_test.CallCLI(['-p', str(priv_path), 'dsa', 'rawverify', str(msg), sig])
   assert res.exit_code == 0 and transcrypto_test.Out(res) == 'DSA signature: OK'
@@ -430,7 +430,7 @@ def test_dsa_sign_verify_safe(tmp_path: pathlib.Path) -> None:
     ]
   )
   assert res.exit_code == 0 and len(transcrypto_test.OneToken(res)) > 0
-  sig_b64 = transcrypto_test.OneToken(res)
+  sig_b64: str = transcrypto_test.OneToken(res)
   # Verify OK (message='xyz' b64) and INVALID (wrong message)
   clibase.ResetConsole()
   res = transcrypto_test.CallCLI(

@@ -139,10 +139,10 @@ def test_include_process_uses_process_format_on_first_init() -> None:
 def test_common_provider_loggers_are_routed_to_root() -> None:
   """Test."""
   verbosity = 1
-  expected = _expected_level(verbosity)
+  expected: int = _expected_level(verbosity)
   clibase.InitLogging(verbosity, include_process=False)
   for name in clibase._LOG_COMMON_PROVIDERS:
-    lg = logging.getLogger(name)
+    lg: logging.Logger = logging.getLogger(name)
     assert lg.handlers == []
     assert lg.propagate is True
     assert lg.level == expected
@@ -363,7 +363,7 @@ def test_generate_help_markdown_skips_invalid_commands(monkeypatch: pytest.Monke
     print('cmd2')  # noqa: T201
 
   # Track invoke calls
-  invoke_count = {'count': 0}
+  invoke_count: dict[str, int] = {'count': 0}
   original_invoke = click_testing.CliRunner.invoke
 
   def _mock_invoke(

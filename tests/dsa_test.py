@@ -8,7 +8,8 @@ from unittest import mock
 
 import pytest
 
-from transcrypto import aes, base, dsa, modmath
+from tests import util
+from transcrypto import base, dsa, modmath
 
 
 @mock.patch('transcrypto.base.RandBits', autospec=True)
@@ -188,9 +189,9 @@ def test_DSA_raw(
     decrypt_exp=decrypt_exp,
   )
   public = dsa.DSAPublicKey.Copy(private)
-  aes._TestCryptoKeyEncoding(shared, dsa.DSASharedPublicKey)
-  aes._TestCryptoKeyEncoding(private, dsa.DSAPrivateKey)
-  aes._TestCryptoKeyEncoding(public, dsa.DSAPublicKey)
+  util.TestCryptoKeyEncoding(shared, dsa.DSASharedPublicKey)
+  util.TestCryptoKeyEncoding(private, dsa.DSAPrivateKey)
+  util.TestCryptoKeyEncoding(public, dsa.DSAPublicKey)
   make_ephemeral.return_value = (ephemeral, modmath.ModInv(ephemeral, prime_seed))
   # do private key operations
   with pytest.raises(base.InputError, match='invalid message'):

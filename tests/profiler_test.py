@@ -81,7 +81,7 @@ def test_dsa_parallel() -> None:
     ['--no-serial', '-n', '2', '-b', '300,800,200', '-c', '70', 'dsa']
   )
   assert res.exit_code == 0
-  lines = res.output.strip().splitlines()
+  lines: list[str] = res.output.strip().splitlines()
   assert len(lines) == 5
   assert lines[0].strip() == 'Starting PARALLEL DSA primes test'
   assert '300 →' in lines[1] and '70%CI@2' in lines[1]

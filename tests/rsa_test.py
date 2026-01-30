@@ -8,7 +8,8 @@ from unittest import mock
 
 import pytest
 
-from transcrypto import aes, base, rsa
+from tests import util
+from transcrypto import base, rsa
 
 
 @mock.patch('transcrypto.base.RandBits', autospec=True)
@@ -143,9 +144,9 @@ def test_RSA_raw(
     q_inverse_p=q_inverse_p,
   )
   public: rsa.RSAPublicKey = rsa.RSAPublicKey.Copy(private)
-  aes._TestCryptoKeyEncoding(private, rsa.RSAPrivateKey)
-  aes._TestCryptoKeyEncoding(public, rsa.RSAPublicKey)
-  aes._TestCryptoKeyEncoding(ob, rsa.RSAObfuscationPair)
+  util.TestCryptoKeyEncoding(private, rsa.RSAPrivateKey)
+  util.TestCryptoKeyEncoding(public, rsa.RSAPublicKey)
+  util.TestCryptoKeyEncoding(ob, rsa.RSAObfuscationPair)
   # do public key operations
   with pytest.raises(base.InputError, match='invalid message'):
     public.RawEncrypt(0)
