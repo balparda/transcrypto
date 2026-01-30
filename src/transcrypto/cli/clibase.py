@@ -18,7 +18,7 @@ from click import testing as click_testing
 from rich import console as rich_console
 from rich import logging as rich_logging
 
-from transcrypto.core import base
+from transcrypto.utils import base
 
 # Logging
 _LOG_FORMAT_NO_PROCESS: str = '%(funcName)s: %(message)s'

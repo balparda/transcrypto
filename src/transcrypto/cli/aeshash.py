@@ -12,7 +12,8 @@ import typer
 
 from transcrypto import transcrypto
 from transcrypto.cli import clibase
-from transcrypto.core import aes, base
+from transcrypto.core import aes, hashes
+from transcrypto.utils import base
 
 _HEX_RE = re.compile(r'^[0-9a-fA-F]+$')
 
@@ -45,7 +46,7 @@ def Hash256(  # documentation is help/epilog/args # noqa: D103
 ) -> None:
   config: transcrypto.TransConfig = ctx.obj
   bt: bytes = transcrypto.BytesFromText(data, config.input_format)
-  config.console.print(transcrypto.BytesToText(base.Hash256(bt), config.output_format))
+  config.console.print(transcrypto.BytesToText(hashes.Hash256(bt), config.output_format))
 
 
 @hash_app.command(
@@ -69,7 +70,7 @@ def Hash512(  # documentation is help/epilog/args # noqa: D103
 ) -> None:
   config: transcrypto.TransConfig = ctx.obj
   bt: bytes = transcrypto.BytesFromText(data, config.input_format)
-  config.console.print(transcrypto.BytesToText(base.Hash512(bt), config.output_format))
+  config.console.print(transcrypto.BytesToText(hashes.Hash512(bt), config.output_format))
 
 
 @hash_app.command(
@@ -105,7 +106,7 @@ def HashFile(  # documentation is help/epilog/args # noqa: D103
 ) -> None:
   config: transcrypto.TransConfig = ctx.obj
   config.console.print(
-    transcrypto.BytesToText(base.FileHash(str(path), digest=digest), config.output_format)
+    transcrypto.BytesToText(hashes.FileHash(str(path), digest=digest), config.output_format)
   )
 
 

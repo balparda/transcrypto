@@ -99,7 +99,9 @@ import click
 import typer
 
 from transcrypto.cli import clibase
-from transcrypto.core import aes, base
+from transcrypto.core import aes
+from transcrypto.core import key as cryptokey
+from transcrypto.utils import base, human
 
 from . import __version__
 
@@ -237,18 +239,18 @@ def BytesToText(b: bytes, fmt: IOFormat, /) -> str:
       return base.BytesToEncoded(b)
 
 
-def SaveObj(obj: base.CryptoKey, path: str, password: str | None, /) -> None:
+def SaveObj(obj: cryptokey.CryptoKey, path: str, password: str | None, /) -> None:
   """Save object.
 
   Args:
-      obj (base.CryptoKey): object
+      obj (cryptokey.CryptoKey): object
       path (str): path
       password (str | None): password
 
   """
   key: aes.AESKey | None = aes.AESKey.FromStaticPassword(password) if password else None
-  blob: bytes = base.Serialize(obj, file_path=path, key=key)
-  logging.info('saved object: %s (%s)', path, base.HumanizedBytes(len(blob)))
+  blob: bytes = cryptokey.Serialize(obj, file_path=path, key=key)
+  logging.info('saved object: %s (%s)', path, human.HumanizedBytes(len(blob)))
 
 
 def LoadObj[T](path: str, password: str | None, expect: type[T], /) -> T:
@@ -267,7 +269,7 @@ def LoadObj[T](path: str, password: str | None, expect: type[T], /) -> T:
 
   """
   key: aes.AESKey | None = aes.AESKey.FromStaticPassword(password) if password else None
-  obj: T = base.DeSerialize(file_path=path, key=key)
+  obj: T = cryptokey.DeSerialize(file_path=path, key=key)
   if not isinstance(obj, expect):
     raise base.InputError(
       f'Object loaded from {path} is of invalid type {type(obj)}, expected {expect}'

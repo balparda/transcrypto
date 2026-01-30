@@ -19,7 +19,8 @@ from typing import Self
 
 import gmpy2
 
-from . import base, constants, modmath
+from transcrypto.core import constants, hashes, key, modmath
+from transcrypto.utils import base, saferandom
 
 _MAX_KEY_GENERATION_FAILURES = 15
 
@@ -68,8 +69,8 @@ def NBitRandomDSAPrimes(
     that p % q == 1 and m == (p - 1) // q
 
   Raises:
-    InputError: invalid inputs
-    Error: prime search failed
+    base.InputError: invalid inputs
+    base.Error: prime search failed
 
   """
   # test inputs
@@ -140,7 +141,7 @@ def _PrimePSearchShard(q: int, p_bits: int) -> tuple[int | None, int | None]:
     return all(m % r != f for r, f in forbidden.items())
 
   # try searching starting here
-  m: int = base.RandInt(min_m, max_m)
+  m: int = saferandom.RandInt(min_m, max_m)
   if m % 2:
     m += 1  # make even
   count: int = 0
@@ -158,7 +159,7 @@ def _PrimePSearchShard(q: int, p_bits: int) -> tuple[int | None, int | None]:
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
-class DSASharedPublicKey(base.CryptoKey):
+class DSASharedPublicKey(key.CryptoKey):
   """DSA shared public key. This key can be shared by a group.
 
   No measures are taken here to prevent timing attacks.
@@ -178,7 +179,7 @@ class DSASharedPublicKey(base.CryptoKey):
     """Check data.
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     if self.prime_seed < 7 or not modmath.IsPrime(self.prime_seed):  # noqa: PLR2004
@@ -227,16 +228,16 @@ class DSASharedPublicKey(base.CryptoKey):
       Hash512("prefix" || len(aad) || aad || message || salt)
 
     Raises:
-      CryptoError: hash output is out of range
+      key.CryptoError: hash output is out of range
 
     """
     aad: bytes = b'' if associated_data is None else associated_data
     la: bytes = base.IntToFixedBytes(len(aad), 8)
     assert len(salt) == 64, 'should never happen: salt should be exactly 64 bytes'  # noqa: PLR2004, S101
-    y: int = base.BytesToInt(base.Hash512(_DSA_SIGNATURE_HASH_PREFIX + la + aad + message + salt))
+    y: int = base.BytesToInt(hashes.Hash512(_DSA_SIGNATURE_HASH_PREFIX + la + aad + message + salt))
     if not 1 < y < self.prime_seed - 1:
       # will only reasonably happen if prime seed is small
-      raise base.CryptoError(f'hash output {y} is out of range/invalid {self.prime_seed}')
+      raise key.CryptoError(f'hash output {y} is out of range/invalid {self.prime_seed}')
     return y
 
   @classmethod
@@ -257,13 +258,13 @@ class DSASharedPublicKey(base.CryptoKey):
     # generate random number, create object (should never fail)
     g: int = 0
     while g < 3:  # noqa: PLR2004
-      h: int = base.RandBits(p_bits - 1)
+      h: int = saferandom.RandBits(p_bits - 1)
       g = int(gmpy2.powmod(h, m, p))
     return cls(prime_modulus=p, prime_seed=q, group_base=g)
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
-class DSAPublicKey(DSASharedPublicKey, base.Verifier):
+class DSAPublicKey(DSASharedPublicKey, key.Verifier):
   """DSA public key. This is an individual public key.
 
   No measures are taken here to prevent timing attacks.
@@ -279,7 +280,7 @@ class DSAPublicKey(DSASharedPublicKey, base.Verifier):
     """Check data.
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     super(DSAPublicKey, self).__post_init__()
@@ -315,7 +316,7 @@ class DSAPublicKey(DSASharedPublicKey, base.Verifier):
       self.group_base,
       self.individual_base,
     }:
-      ephemeral_key = base.RandBits(bit_length - 1)
+      ephemeral_key = saferandom.RandBits(bit_length - 1)
     return (ephemeral_key, modmath.ModInv(ephemeral_key, self.prime_seed))
 
   def RawVerify(self, message: int, signature: tuple[int, int], /) -> bool:
@@ -333,7 +334,7 @@ class DSAPublicKey(DSASharedPublicKey, base.Verifier):
       True if signature is valid, False otherwise
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     # test inputs
@@ -371,7 +372,7 @@ class DSAPublicKey(DSASharedPublicKey, base.Verifier):
       True if signature is valid, False otherwise
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     k: int = self.modulus_size[1]  # use prime_seed size
@@ -409,7 +410,7 @@ class DSAPublicKey(DSASharedPublicKey, base.Verifier):
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
-class DSAPrivateKey(DSAPublicKey, base.Signer):
+class DSAPrivateKey(DSAPublicKey, key.Signer):
   """DSA private key.
 
   No measures are taken here to prevent timing attacks.
@@ -425,7 +426,7 @@ class DSAPrivateKey(DSAPublicKey, base.Signer):
     """Check data.
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
       CryptoError: modulus math is inconsistent with values
 
     """
@@ -436,7 +437,7 @@ class DSAPrivateKey(DSAPublicKey, base.Signer):
     }:
       raise base.InputError(f'invalid decrypt_exp: {self}')
     if gmpy2.powmod(self.group_base, self.decrypt_exp, self.prime_modulus) != self.individual_base:
-      raise base.CryptoError(f'inconsistent g**d % p == i: {self}')
+      raise key.CryptoError(f'inconsistent g**d % p == i: {self}')
 
   def __str__(self) -> str:
     """Safe (no secrets) string representation of the DSAPrivateKey.
@@ -448,7 +449,7 @@ class DSAPrivateKey(DSAPublicKey, base.Signer):
     return (
       'DSAPrivateKey('
       f'{super(DSAPrivateKey, self).__str__()}, '
-      f'decrypt_exp={base.ObfuscateSecret(self.decrypt_exp)})'
+      f'decrypt_exp={hashes.ObfuscateSecret(self.decrypt_exp)})'
     )
 
   def RawSign(self, message: int, /) -> tuple[int, int]:
@@ -465,7 +466,7 @@ class DSAPrivateKey(DSAPublicKey, base.Signer):
       signed message tuple ((int, int), 2 ≤ s1,s2 < prime_seed
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     # test inputs
@@ -508,7 +509,7 @@ class DSAPrivateKey(DSAPublicKey, base.Signer):
     k: int = self.modulus_size[1]  # use prime_seed size
     if k <= 64:  # noqa: PLR2004
       raise base.InputError(f'modulus/seed too small for signing operations: {k} bytes')
-    salt: bytes = base.RandBytes(64)
+    salt: bytes = saferandom.RandBytes(64)
     s_int: tuple[int, int] = self.RawSign(self._DomainSeparatedHash(message, associated_data, salt))
     s_bytes: bytes = base.IntToFixedBytes(s_int[0], k) + base.IntToFixedBytes(s_int[1], k)
     assert len(s_bytes) == 2 * k, 'should never happen: s_bytes should be exactly 2k bytes'  # noqa: S101
@@ -525,8 +526,8 @@ class DSAPrivateKey(DSAPublicKey, base.Signer):
       DSAPrivateKey object ready for use
 
     Raises:
-      InputError: invalid inputs
-      CryptoError: failed generation
+      base.InputError: invalid inputs
+      key.CryptoError: failed generation
 
     """
     # test inputs
@@ -542,7 +543,7 @@ class DSAPrivateKey(DSAPublicKey, base.Signer):
         while (
           not 2 < decrypt_exp < shared_key.prime_seed or decrypt_exp == shared_key.group_base  # noqa: PLR2004
         ):
-          decrypt_exp = base.RandBits(bit_length - 1)
+          decrypt_exp = saferandom.RandBits(bit_length - 1)
         # make the object
         return cls(
           prime_modulus=shared_key.prime_modulus,
@@ -556,5 +557,5 @@ class DSAPrivateKey(DSAPublicKey, base.Signer):
       except base.InputError as err:
         failures += 1
         if failures >= _MAX_KEY_GENERATION_FAILURES:
-          raise base.CryptoError(f'failed key generation {failures} times') from err
+          raise key.CryptoError(f'failed key generation {failures} times') from err
         logging.warning(err)

@@ -22,7 +22,8 @@ from typing import Self
 
 import gmpy2
 
-from . import aes, base, modmath
+from transcrypto.core import aes, hashes, key, modmath
+from transcrypto.utils import base, saferandom
 
 _MAX_KEY_GENERATION_FAILURES = 15
 
@@ -32,7 +33,7 @@ _ELGAMAL_SIGNATURE_HASH_PREFIX = b'transcrypto.ElGamal.Signature.1.0\x00'
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
-class ElGamalSharedPublicKey(base.CryptoKey):
+class ElGamalSharedPublicKey(key.CryptoKey):
   """El-Gamal shared public key. This key can be shared by a group.
 
   BEWARE: This is **NOT** DSA! No measures are taken here to prevent timing attacks.
@@ -50,7 +51,7 @@ class ElGamalSharedPublicKey(base.CryptoKey):
     """Check data.
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     if self.prime_modulus < 7 or not modmath.IsPrime(self.prime_modulus):  # noqa: PLR2004
@@ -92,18 +93,18 @@ class ElGamalSharedPublicKey(base.CryptoKey):
       Hash512("prefix" || len(aad) || aad || message || salt)
 
     Raises:
-      CryptoError: hash output is out of range
+      key.CryptoError: hash output is out of range
 
     """
     aad: bytes = b'' if associated_data is None else associated_data
     la: bytes = base.IntToFixedBytes(len(aad), 8)
     assert len(salt) == 64, 'should never happen: salt should be exactly 64 bytes'  # noqa: PLR2004, S101
     y: int = base.BytesToInt(
-      base.Hash512(_ELGAMAL_SIGNATURE_HASH_PREFIX + la + aad + message + salt)
+      hashes.Hash512(_ELGAMAL_SIGNATURE_HASH_PREFIX + la + aad + message + salt)
     )
     if not 1 < y < self.prime_modulus:
       # will only reasonably happen if modulus is small
-      raise base.CryptoError(f'hash output {y} is out of range/invalid {self.prime_modulus}')
+      raise key.CryptoError(f'hash output {y} is out of range/invalid {self.prime_modulus}')
     return y
 
   @classmethod
@@ -117,7 +118,7 @@ class ElGamalSharedPublicKey(base.CryptoKey):
       ElGamalSharedPublicKey object ready for use
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     # test inputs
@@ -127,12 +128,12 @@ class ElGamalSharedPublicKey(base.CryptoKey):
     p: int = modmath.NBitRandomPrimes(bit_length).pop()
     g: int = 0
     while not 2 < g < p:  # noqa: PLR2004
-      g = base.RandBits(bit_length)
+      g = saferandom.RandBits(bit_length)
     return cls(prime_modulus=p, group_base=g)
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
-class ElGamalPublicKey(ElGamalSharedPublicKey, base.Encryptor, base.Verifier):
+class ElGamalPublicKey(ElGamalSharedPublicKey, key.Encryptor, key.Verifier):
   """El-Gamal public key. This is an individual public key.
 
   BEWARE: This is **NOT** DSA! No measures are taken here to prevent timing attacks.
@@ -148,7 +149,7 @@ class ElGamalPublicKey(ElGamalSharedPublicKey, base.Encryptor, base.Verifier):
     """Check data.
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     super(ElGamalPublicKey, self).__post_init__()
@@ -186,8 +187,8 @@ class ElGamalPublicKey(ElGamalSharedPublicKey, base.Encryptor, base.Verifier):
       self.group_base,
       self.individual_base,
     }:
-      ephemeral_key = base.RandBits(bit_length)
-      if base.GCD(ephemeral_key, p_1) != 1:
+      ephemeral_key = saferandom.RandBits(bit_length)
+      if modmath.GCD(ephemeral_key, p_1) != 1:
         ephemeral_key = 0  # we have to try again
     return (ephemeral_key, modmath.ModInv(ephemeral_key, p_1))
 
@@ -205,7 +206,7 @@ class ElGamalPublicKey(ElGamalSharedPublicKey, base.Encryptor, base.Verifier):
       ciphertext message tuple ((int, int), 2 ≤ c1,c2 < modulus)
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     # test inputs
@@ -252,13 +253,13 @@ class ElGamalPublicKey(ElGamalSharedPublicKey, base.Encryptor, base.Verifier):
     # generate random r and encrypt it
     r: int = 0
     while not 1 < r < self.prime_modulus:
-      r = base.RandBits(self.prime_modulus.bit_length())
+      r = saferandom.RandBits(self.prime_modulus.bit_length())
     k: int = self.modulus_size
     i_ct: tuple[int, int] = self.RawEncrypt(r)
     ct: bytes = base.IntToFixedBytes(i_ct[0], k) + base.IntToFixedBytes(i_ct[1], k)
     assert len(ct) == 2 * k, 'should never happen: c_kem should be exactly 2k bytes'  # noqa: S101
     # encrypt plaintext with AES-256-GCM using SHA512(r)[32:] as key; return ct || Encrypt(...)
-    ss: bytes = base.Hash512(base.IntToFixedBytes(r, k))
+    ss: bytes = hashes.Hash512(base.IntToFixedBytes(r, k))
     aad: bytes = b'' if associated_data is None else associated_data
     aad_prime: bytes = _ELGAMAL_ENCRYPTION_AAD_PREFIX + base.IntToFixedBytes(len(aad), 8) + aad + ct
     return ct + aes.AESKey(key256=ss[32:]).Encrypt(plaintext, associated_data=aad_prime)
@@ -278,7 +279,7 @@ class ElGamalPublicKey(ElGamalSharedPublicKey, base.Encryptor, base.Verifier):
       True if signature is valid, False otherwise
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     # test inputs
@@ -312,7 +313,7 @@ class ElGamalPublicKey(ElGamalSharedPublicKey, base.Encryptor, base.Verifier):
       True if signature is valid, False otherwise
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     k: int = self.modulus_size
@@ -349,7 +350,7 @@ class ElGamalPublicKey(ElGamalSharedPublicKey, base.Encryptor, base.Verifier):
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
-class ElGamalPrivateKey(ElGamalPublicKey, base.Decryptor, base.Signer):
+class ElGamalPrivateKey(ElGamalPublicKey, key.Decryptor, key.Signer):
   """El-Gamal private key.
 
   BEWARE: This is **NOT** DSA! No measures are taken here to prevent timing attacks.
@@ -365,8 +366,8 @@ class ElGamalPrivateKey(ElGamalPublicKey, base.Decryptor, base.Signer):
     """Check data.
 
     Raises:
-      InputError: invalid inputs
-      CryptoError: modulus math is inconsistent with values
+      base.InputError: invalid inputs
+      key.CryptoError: modulus math is inconsistent with values
 
     """
     super(ElGamalPrivateKey, self).__post_init__()
@@ -376,7 +377,7 @@ class ElGamalPrivateKey(ElGamalPublicKey, base.Decryptor, base.Signer):
     }:
       raise base.InputError(f'invalid decrypt_exp: {self}')
     if gmpy2.powmod(self.group_base, self.decrypt_exp, self.prime_modulus) != self.individual_base:
-      raise base.CryptoError(f'inconsistent g**e % p == i: {self}')
+      raise key.CryptoError(f'inconsistent g**e % p == i: {self}')
 
   def __str__(self) -> str:
     """Safe (no secrets) string representation of the ElGamalPrivateKey.
@@ -388,7 +389,7 @@ class ElGamalPrivateKey(ElGamalPublicKey, base.Decryptor, base.Signer):
     return (
       'ElGamalPrivateKey('
       f'{super(ElGamalPrivateKey, self).__str__()}, '
-      f'decrypt_exp={base.ObfuscateSecret(self.decrypt_exp)})'
+      f'decrypt_exp={hashes.ObfuscateSecret(self.decrypt_exp)})'
     )
 
   def RawDecrypt(self, ciphertext: tuple[int, int], /) -> int:
@@ -404,7 +405,7 @@ class ElGamalPrivateKey(ElGamalPublicKey, base.Decryptor, base.Signer):
       decrypted message (int, 1 ≤ m < modulus)
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     # test inputs
@@ -437,7 +438,7 @@ class ElGamalPrivateKey(ElGamalPublicKey, base.Decryptor, base.Signer):
       bytes: Decrypted plaintext bytes
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     k: int = self.modulus_size
@@ -446,7 +447,7 @@ class ElGamalPrivateKey(ElGamalPublicKey, base.Decryptor, base.Signer):
     # split ciphertext in 3 parts: the first 2k bytes is ct, the rest is AES-256-GCM
     ct1, ct2, aes_ct = ciphertext[:k], ciphertext[k : 2 * k], ciphertext[2 * k :]
     r: int = self.RawDecrypt((base.BytesToInt(ct1), base.BytesToInt(ct2)))
-    ss: bytes = base.Hash512(base.IntToFixedBytes(r, k))
+    ss: bytes = hashes.Hash512(base.IntToFixedBytes(r, k))
     aad: bytes = b'' if associated_data is None else associated_data
     aad_prime: bytes = (
       _ELGAMAL_ENCRYPTION_AAD_PREFIX + base.IntToFixedBytes(len(aad), 8) + aad + ct1 + ct2
@@ -467,7 +468,7 @@ class ElGamalPrivateKey(ElGamalPublicKey, base.Decryptor, base.Signer):
       signed message tuple ((int, int), 2 ≤ s1 < modulus, 2 ≤ s2 < modulus-1)
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     # test inputs
@@ -505,13 +506,13 @@ class ElGamalPrivateKey(ElGamalPublicKey, base.Decryptor, base.Signer):
       bytes: Signature; salt || Padded(s, k) - see above
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     k: int = self.modulus_size
     if k <= 64:  # noqa: PLR2004
       raise base.InputError(f'modulus too small for signing operations: {k} bytes')
-    salt: bytes = base.RandBytes(64)
+    salt: bytes = saferandom.RandBytes(64)
     s_int: tuple[int, int] = self.RawSign(self._DomainSeparatedHash(message, associated_data, salt))
     s_bytes: bytes = base.IntToFixedBytes(s_int[0], k) + base.IntToFixedBytes(s_int[1], k)
     assert len(s_bytes) == 2 * k, 'should never happen: s_bytes should be exactly 2k bytes'  # noqa: S101
@@ -528,8 +529,8 @@ class ElGamalPrivateKey(ElGamalPublicKey, base.Decryptor, base.Signer):
       ElGamalPrivateKey object ready for use
 
     Raises:
-      InputError: invalid inputs
-      CryptoError: failed generation
+      base.InputError: invalid inputs
+      key.CryptoError: failed generation
 
     """
     # test inputs
@@ -545,7 +546,7 @@ class ElGamalPrivateKey(ElGamalPublicKey, base.Decryptor, base.Signer):
         while (
           not 2 < decrypt_exp < shared_key.prime_modulus or decrypt_exp == shared_key.group_base  # noqa: PLR2004
         ):
-          decrypt_exp = base.RandBits(bit_length)
+          decrypt_exp = saferandom.RandBits(bit_length)
         # make the object
         return cls(
           prime_modulus=shared_key.prime_modulus,
@@ -558,5 +559,5 @@ class ElGamalPrivateKey(ElGamalPublicKey, base.Decryptor, base.Signer):
       except base.InputError as err:
         failures += 1
         if failures >= _MAX_KEY_GENERATION_FAILURES:
-          raise base.CryptoError(f'failed key generation {failures} times') from err
+          raise key.CryptoError(f'failed key generation {failures} times') from err
         logging.warning(err)

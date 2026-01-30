@@ -10,7 +10,8 @@ import typer
 
 from transcrypto import transcrypto
 from transcrypto.cli import clibase
-from transcrypto.core import base, sss
+from transcrypto.core import bid, sss
+from transcrypto.utils import base
 
 # ================================== "BID" COMMAND =================================================
 
@@ -46,8 +47,8 @@ def BidNew(  # documentation is help/epilog/args # noqa: D103
   config: transcrypto.TransConfig = ctx.obj
   base_path: str = transcrypto.RequireKeyPath(config, 'bid')
   secret_bytes: bytes = transcrypto.BytesFromText(secret, config.input_format)
-  bid_priv: base.PrivateBid512 = base.PrivateBid512.New(secret_bytes)
-  bid_pub: base.PublicBid512 = base.PublicBid512.Copy(bid_priv)
+  bid_priv: bid.PrivateBid512 = bid.PrivateBid512.New(secret_bytes)
+  bid_pub: bid.PublicBid512 = bid.PublicBid512.Copy(bid_priv)
   transcrypto.SaveObj(bid_priv, base_path + '.priv', config.protect)
   transcrypto.SaveObj(bid_pub, base_path + '.pub', config.protect)
   config.console.print(f'Bid private/public commitments saved to {base_path + ".priv/.pub"!r}')
@@ -68,13 +69,13 @@ def BidNew(  # documentation is help/epilog/args # noqa: D103
 def BidVerify(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: transcrypto.TransConfig = ctx.obj
   base_path: str = transcrypto.RequireKeyPath(config, 'bid')
-  bid_priv: base.PrivateBid512 = transcrypto.LoadObj(
-    base_path + '.priv', config.protect, base.PrivateBid512
+  bid_priv: bid.PrivateBid512 = transcrypto.LoadObj(
+    base_path + '.priv', config.protect, bid.PrivateBid512
   )
-  bid_pub: base.PublicBid512 = transcrypto.LoadObj(
-    base_path + '.pub', config.protect, base.PublicBid512
+  bid_pub: bid.PublicBid512 = transcrypto.LoadObj(
+    base_path + '.pub', config.protect, bid.PublicBid512
   )
-  bid_pub_expect: base.PublicBid512 = base.PublicBid512.Copy(bid_priv)
+  bid_pub_expect: bid.PublicBid512 = bid.PublicBid512.Copy(bid_priv)
   config.console.print(
     'Bid commitment: '
     + (

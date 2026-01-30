@@ -12,13 +12,87 @@ from collections import abc
 
 import gmpy2
 
-from . import base, constants
+from transcrypto.core import constants
+from transcrypto.utils import base, saferandom
 
 _MAX_PRIMALITY_SAFETY = 100  # this is an absurd number, just to have a max
 
 
 class ModularDivideError(base.Error):
   """Divide-by-zero-like exception (TransCrypto)."""
+
+
+def GCD(a: int, b: int, /) -> int:
+  """Greatest Common Divisor for `a` and `b`, integers ≥0. Uses the Euclid method.
+
+  O(log(min(a, b)))
+
+  Args:
+    a (int): integer a ≥ 0
+    b (int): integer b ≥ 0 (can't be both zero)
+
+  Returns:
+    gcd(a, b)
+
+  Raises:
+    base.InputError: invalid inputs
+
+  """
+  # test inputs
+  if a < 0 or b < 0 or (not a and not b):
+    raise base.InputError(f'negative input or undefined gcd(0, 0): {a=} , {b=}')
+  # algo needs to start with a >= b
+  if a < b:
+    a, b = b, a
+  # euclid
+  while b:
+    r: int = a % b
+    a, b = b, r
+  return a
+
+
+def ExtendedGCD(a: int, b: int, /) -> tuple[int, int, int]:
+  """Greatest Common Divisor Extended for `a` and `b`, integers ≥0. Uses the Euclid method.
+
+  O(log(min(a, b)))
+
+  Args:
+    a (int): integer a ≥ 0
+    b (int): integer b ≥ 0 (can't be both zero)
+
+  Returns:
+    (gcd, x, y) so that a * x + b * y = gcd
+    x and y may be negative integers or zero but won't be both zero.
+
+  Raises:
+    base.InputError: invalid inputs
+
+  """
+  # test inputs
+  if a < 0 or b < 0 or (not a and not b):
+    raise base.InputError(f'negative input or undefined gcd(0, 0): {a=} , {b=}')
+  # algo needs to start with a >= b (but we remember if we did swap)
+  swapped = False
+  if a < b:
+    a, b = b, a
+    swapped = True
+  # trivial case
+  if not b:
+    return (a, 0 if swapped else 1, 1 if swapped else 0)
+  # euclid
+  x1: int = 0
+  x2: int = 1
+  y1: int = 1
+  y2: int = 0
+  q: int
+  r: int
+  x: int
+  y: int
+  while b:
+    q, r = divmod(a, b)
+    x, y = x2 - q * x1, y2 - q * y1
+    a, b, x1, x2, y1, y2 = b, r, x, x1, y, y1
+  return (a, y2 if swapped else x2, x2 if swapped else y2)
 
 
 def ModInv(x: int, m: int, /) -> int:
@@ -33,7 +107,7 @@ def ModInv(x: int, m: int, /) -> int:
     this only exists if GCD(x, m) == 1, so to guarantee an inverse `m` must be prime
 
   Raises:
-    InputError: invalid modulus or x
+    base.InputError: invalid modulus or x
     ModularDivideError: divide-by-zero, i.e., GCD(x, m) != 1 or x == 0
 
   """
@@ -47,7 +121,7 @@ def ModInv(x: int, m: int, /) -> int:
   if reduced_x == 1:  # trivial degenerate case
     return 1
   # compute actual extended GCD and see if we will have an inverse
-  gcd, y, w = base.ExtendedGCD(reduced_x, m)
+  gcd, y, w = ExtendedGCD(reduced_x, m)
   if gcd != 1:
     raise ModularDivideError(f'invalid inverse {x=} mod {m=} with {gcd=}')
   assert y and w and y >= -m, f'should never happen: {x=} mod {m=} -> {w=} ; {y=}'  # noqa: PT018, S101
@@ -67,7 +141,7 @@ def ModDiv(x: int, y: int, m: int, /) -> int:
     this only exists if GCD(y, m) == 1, so to guarantee an inverse `m` must be prime
 
   Raises:
-    InputError: invalid modulus or x or y
+    base.InputError: invalid modulus or x or y
     ModularDivideError: divide-by-zero, i.e., GCD(y, m) != 1 or y == 0
 
   """
@@ -105,7 +179,7 @@ def CRTPair(a1: int, m1: int, a2: int, m2: int) -> int:
     the least non-negative solution `x` such that a1 = x % m1 and a2 = x % m2 and 0 ≤ x < m1 * m2
 
   Raises:
-    InputError: invalid inputs
+    base.InputError: invalid inputs
     ModularDivideError: moduli are not co-prime, i.e. gcd(m1, m2) != 1
 
   """
@@ -137,7 +211,7 @@ def ModExp(x: int, y: int, m: int, /) -> int:
     (x ** y) mod m
 
   Raises:
-    InputError: invalid inputs
+    base.InputError: invalid inputs
 
   """
   # test inputs
@@ -184,7 +258,7 @@ def ModPolynomial(x: int, polynomial: abc.Reversible[int], m: int, /) -> int:
     f(x) mod m
 
   Raises:
-    InputError: invalid inputs
+    base.InputError: invalid inputs
 
   """
   # test inputs
@@ -228,7 +302,7 @@ def ModLagrangeInterpolate(x: int, points: dict[int, int], m: int, /) -> int:
     y-value solution for f(x) mod m given `points` mapping
 
   Raises:
-    InputError: invalid inputs
+    base.InputError: invalid inputs
 
   """
   # test inputs
@@ -275,7 +349,7 @@ def FermatIsPrime(n: int, /, *, safety: int = 10, witnesses: set[int] | None = N
     False if certainly not prime ; True if (probabilistically) prime
 
   Raises:
-    InputError: invalid inputs
+    base.InputError: invalid inputs
 
   """
   # test inputs and test for trivial cases: 1, 2, 3, divisible by 2
@@ -294,7 +368,7 @@ def FermatIsPrime(n: int, /, *, safety: int = 10, witnesses: set[int] | None = N
     safety = min(safety, max_safety)
     witnesses = set()
     while len(witnesses) < safety:
-      witnesses.add(base.RandInt(2, n - 2))
+      witnesses.add(saferandom.RandInt(2, n - 2))
   # we have our witnesses: do the actual Fermat algo
   for w in sorted(witnesses):
     if not 2 <= w <= (n - 2):  # noqa: PLR2004
@@ -323,7 +397,7 @@ def _MillerRabinWitnesses(n: int, /) -> set[int]:  # noqa: PLR0911
     {witness1, witness2, ...} for either "certainty" of primality or error chance < 10**25
 
   Raises:
-    InputError: invalid inputs
+    base.InputError: invalid inputs
 
   """
   # test inputs
@@ -364,7 +438,7 @@ def _MillerRabinSR(n: int, /) -> tuple[int, int]:
     (s, r) so that (2 ** s) * r == (n - 1)
 
   Raises:
-    InputError: invalid inputs
+    base.InputError: invalid inputs
 
   """
   # test inputs
@@ -395,7 +469,7 @@ def MillerRabinIsPrime(n: int, /, *, witnesses: set[int] | None = None) -> bool:
     False if certainly not prime ; True if (probabilistically) prime
 
   Raises:
-    InputError: invalid inputs
+    base.InputError: invalid inputs
 
   """
   # test inputs and test for trivial cases: 1, 2, 3, divisible by 2
@@ -456,7 +530,7 @@ def PrimeGenerator(start: int, /) -> abc.Generator[int]:
     prime numbers (int)
 
   Raises:
-    InputError: invalid inputs
+    base.InputError: invalid inputs
 
   """
   # test inputs and make sure we start at an odd number
@@ -508,8 +582,8 @@ def NBitRandomPrimes(n_bits: int, /, *, serial: bool = True, n_primes: int = 1) 
     set[int]: `n_primes` random primes with `n_bits` bits
 
   Raises:
-    InputError: invalid inputs
-    Error: prime search failed
+    base.InputError: invalid inputs
+    base.Error: prime search failed
 
   """
   # test inputs
@@ -563,7 +637,7 @@ def _PrimeSearchShard(n_bits: int) -> int | None:
 
   """
   shard_len: int = max(2000, 6 * int(0.693 * n_bits))  # ~6x expected prime gap ~2^k (≈ 0.693*k)
-  pr: int = base.RandBits(n_bits) | 1  # random position; make ODD
+  pr: int = saferandom.RandBits(n_bits) | 1  # random position; make ODD
   count: int = 0
   while count < shard_len and pr.bit_length() == n_bits:
     if IsPrime(pr):

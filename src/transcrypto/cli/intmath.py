@@ -8,7 +8,8 @@ import typer
 
 from transcrypto import transcrypto
 from transcrypto.cli import clibase
-from transcrypto.core import base, modmath
+from transcrypto.core import modmath
+from transcrypto.utils import base, saferandom
 
 # =============================== "PRIME"-like COMMANDS ============================================
 
@@ -117,7 +118,7 @@ def GcdCLI(  # documentation is help/epilog/args # noqa: D103
   b_i: int = transcrypto.ParseInt(b, min_value=0)
   if a_i == 0 and b_i == 0:
     raise base.InputError("`a` and `b` can't both be zero")
-  config.console.print(base.GCD(a_i, b_i))
+  config.console.print(modmath.GCD(a_i, b_i))
 
 
 @transcrypto.app.command(
@@ -148,7 +149,7 @@ def XgcdCLI(  # documentation is help/epilog/args # noqa: D103
   b_i: int = transcrypto.ParseInt(b, min_value=0)
   if a_i == 0 and b_i == 0:
     raise base.InputError("`a` and `b` can't both be zero")
-  config.console.print(str(base.ExtendedGCD(a_i, b_i)))
+  config.console.print(str(modmath.ExtendedGCD(a_i, b_i)))
 
 
 # ================================= "RANDOM" COMMAND ===============================================
@@ -173,7 +174,7 @@ def RandomBits(  # documentation is help/epilog/args # noqa: D103
   bits: int = typer.Argument(..., min=8, help='Number of bits, ≥ 8'),
 ) -> None:
   config: transcrypto.TransConfig = ctx.obj
-  config.console.print(base.RandBits(bits))
+  config.console.print(saferandom.RandBits(bits))
 
 
 @random_app.command(
@@ -191,7 +192,7 @@ def RandomInt(  # documentation is help/epilog/args # noqa: D103
   config: transcrypto.TransConfig = ctx.obj
   min_i: int = transcrypto.ParseInt(min_, min_value=0)
   max_i: int = transcrypto.ParseInt(max_, min_value=min_i + 1)
-  config.console.print(base.RandInt(min_i, max_i))
+  config.console.print(saferandom.RandInt(min_i, max_i))
 
 
 @random_app.command(
@@ -210,7 +211,7 @@ def RandomBytes(  # documentation is help/epilog/args # noqa: D103
   n: int = typer.Argument(..., min=1, help='Number of bytes, ≥ 1'),
 ) -> None:
   config: transcrypto.TransConfig = ctx.obj
-  config.console.print(transcrypto.BytesToText(base.RandBytes(n), config.output_format))
+  config.console.print(transcrypto.BytesToText(saferandom.RandBytes(n), config.output_format))
 
 
 @random_app.command(

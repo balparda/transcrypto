@@ -12,14 +12,15 @@ import logging
 from collections import abc
 from typing import Self
 
-from . import aes, base, modmath
+from transcrypto.core import aes, hashes, key, modmath
+from transcrypto.utils import base, saferandom
 
 # fixed prefixes: do NOT ever change! will break all encryption and signature schemes
 _SSS_ENCRYPTION_AAD_PREFIX = b'transcrypto.SSS.Sharing.1.0\x00'
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
-class ShamirSharedSecretPublic(base.CryptoKey):
+class ShamirSharedSecretPublic(key.CryptoKey):
   """Shamir Shared Secret (SSS) public part.
 
   No measures are taken here to prevent timing attacks.
@@ -38,7 +39,7 @@ class ShamirSharedSecretPublic(base.CryptoKey):
     """Check data.
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     if self.modulus < 2 or not modmath.IsPrime(self.modulus) or self.minimum < 2:  # noqa: PLR2004
@@ -82,8 +83,8 @@ class ShamirSharedSecretPublic(base.CryptoKey):
       no "excess" shares, there can be no way to know if the recovered secret is the correct one
 
     Raises:
-      InputError: invalid inputs
-      CryptoError: secret cannot be recovered (number of shares < `minimum`)
+      base.InputError: invalid inputs
+      key.CryptoError: secret cannot be recovered (number of shares < `minimum`)
 
     """
     # check that we have enough shares by de-duping them first
@@ -107,7 +108,7 @@ class ShamirSharedSecretPublic(base.CryptoKey):
       if force_recover and given_shares > 1:
         logging.error(f'recovering secret even though: {mess}')
       else:
-        raise base.CryptoError(f'unrecoverable secret: {mess}')
+        raise key.CryptoError(f'unrecoverable secret: {mess}')
     # do the math
     return modmath.ModLagrangeInterpolate(0, share_points, self.modulus)
 
@@ -147,7 +148,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
     """Check data.
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     super(ShamirSharedSecretPrivate, self).__post_init__()
@@ -172,7 +173,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
     return (
       'ShamirSharedSecretPrivate('
       f'{super(ShamirSharedSecretPrivate, self).__str__()}, '
-      f'polynomial=[{", ".join(base.ObfuscateSecret(i) for i in self.polynomial)}])'
+      f'polynomial=[{", ".join(hashes.ObfuscateSecret(i) for i in self.polynomial)}])'
     )
 
   def RawShare(self, secret: int, /, *, share_key: int = 0) -> ShamirSharePrivate:
@@ -192,7 +193,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
       ShamirSharePrivate object
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     # test inputs
@@ -202,7 +203,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
       if not share_key:  # default is zero, and that means we generate it here
         share_key = 0
         while not share_key or share_key in self.polynomial or share_key >= self.modulus:
-          share_key = base.RandBits(self.modulus.bit_length() - 1)
+          share_key = saferandom.RandBits(self.modulus.bit_length() - 1)
       else:
         raise base.InputError(f'invalid share_key: {share_key=}')
     # build object
@@ -229,7 +230,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
       ShamirSharePrivate object
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     # test inputs
@@ -246,7 +247,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
         or share_key in used_keys
         or share_key >= self.modulus
       ):
-        share_key = base.RandBits(self.modulus.bit_length() - 1)
+        share_key = saferandom.RandBits(self.modulus.bit_length() - 1)
       try:
         yield self.RawShare(secret, share_key=share_key)
         used_keys.add(share_key)
@@ -273,7 +274,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
       list[ShamirShareData]: the list of shares with encrypted data
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     if total_shares < self.minimum:
@@ -281,7 +282,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
     k: int = self.modulus_size
     if k <= 32:  # noqa: PLR2004
       raise base.InputError(f'modulus too small for key operations: {k} bytes')
-    key256: bytes = base.RandBytes(32)
+    key256: bytes = saferandom.RandBytes(32)
     shares: list[ShamirSharePrivate] = list(
       self.RawShares(base.BytesToInt(key256), max_shares=total_shares)
     )
@@ -290,7 +291,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
       + base.IntToFixedBytes(self.minimum, 8)
       + base.IntToFixedBytes(self.modulus, k)
     )
-    aead_key: bytes = base.Hash512(_SSS_ENCRYPTION_AAD_PREFIX + key256)
+    aead_key: bytes = hashes.Hash512(_SSS_ENCRYPTION_AAD_PREFIX + key256)
     ct: bytes = aes.AESKey(key256=aead_key[32:]).Encrypt(secret, associated_data=aad)
     return [
       ShamirShareData(
@@ -333,7 +334,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
       ShamirSharedSecretPrivate object ready for use
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     # test inputs
@@ -348,7 +349,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
     modulus: int = max(ordered_primes)
     ordered_primes.remove(modulus)
     # make polynomial be a random order
-    base.RandShuffle(ordered_primes)
+    saferandom.RandShuffle(ordered_primes)
     # build object
     return cls(minimum=minimum_shares, modulus=modulus, polynomial=ordered_primes)
 
@@ -373,7 +374,7 @@ class ShamirSharePrivate(ShamirSharedSecretPublic):
     """Check data.
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     super(ShamirSharePrivate, self).__post_init__()
@@ -390,8 +391,8 @@ class ShamirSharePrivate(ShamirSharedSecretPublic):
     return (
       'ShamirSharePrivate('
       f'{super(ShamirSharePrivate, self).__str__()}, '
-      f'share_key={base.ObfuscateSecret(self.share_key)}, '
-      f'share_value={base.ObfuscateSecret(self.share_value)})'
+      f'share_key={hashes.ObfuscateSecret(self.share_key)}, '
+      f'share_value={hashes.ObfuscateSecret(self.share_value)})'
     )
 
   @classmethod
@@ -450,7 +451,7 @@ class ShamirShareData(ShamirSharePrivate):
     return (
       'ShamirShareData('
       f'{super(ShamirShareData, self).__str__()}, '
-      f'encrypted_data={base.ObfuscateSecret(self.encrypted_data)})'
+      f'encrypted_data={hashes.ObfuscateSecret(self.encrypted_data)})'
     )
 
   def RecoverData(self, other_shares: list[ShamirSharePrivate]) -> bytes:
@@ -467,8 +468,8 @@ class ShamirShareData(ShamirSharePrivate):
       bytes: Decrypted plaintext bytes
 
     Raises:
-      InputError: invalid inputs
-      CryptoError: internal crypto failures, authentication failure, key mismatch, etc
+      base.InputError: invalid inputs
+      key.CryptoError: internal crypto failures, authentication failure, key mismatch, etc
 
     """
     k: int = self.modulus_size
@@ -477,12 +478,12 @@ class ShamirShareData(ShamirSharePrivate):
     # recover secret; raise if shares are invalid
     secret: int = self.RawRecoverSecret([self, *other_shares])
     if not 0 <= secret < (1 << 256):
-      raise base.CryptoError('recovered key out of range for 256-bit key')
+      raise key.CryptoError('recovered key out of range for 256-bit key')
     key256: bytes = base.IntToFixedBytes(secret, 32)
     aad: bytes = (
       _SSS_ENCRYPTION_AAD_PREFIX
       + base.IntToFixedBytes(self.minimum, 8)
       + base.IntToFixedBytes(self.modulus, k)
     )
-    aead_key: bytes = base.Hash512(_SSS_ENCRYPTION_AAD_PREFIX + key256)
+    aead_key: bytes = hashes.Hash512(_SSS_ENCRYPTION_AAD_PREFIX + key256)
     return aes.AESKey(key256=aead_key[32:]).Decrypt(self.encrypted_data, associated_data=aad)

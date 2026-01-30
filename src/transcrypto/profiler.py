@@ -25,7 +25,8 @@ import typer
 from rich import console as rich_console
 
 from transcrypto.cli import clibase
-from transcrypto.core import base, dsa, modmath
+from transcrypto.core import dsa, modmath
+from transcrypto.utils import human, timer
 
 from . import __version__
 
@@ -224,20 +225,20 @@ def _PrimeProfiler(
   confidence: float,
   /,
 ) -> None:
-  with base.Timer(emit_log=False) as total_time:
+  with timer.Timer(emit_log=False) as total_time:
     primes: dict[int, list[float]] = {}
     for n_bits in range(*n_bits_range):
       # investigate for size n_bits
       primes[n_bits] = []
       for _ in range(repeats):
-        with base.Timer(emit_log=False) as run_time:
+        with timer.Timer(emit_log=False) as run_time:
           pr: int = prime_callable(n_bits)
         assert pr  # noqa: S101
         assert pr.bit_length() == n_bits  # noqa: S101
         primes[n_bits].append(run_time.elapsed)
       # finished collecting n_bits-sized primes
-      measurements: str = base.HumanizedMeasurements(
-        primes[n_bits], parser=base.HumanizedSeconds, confidence=confidence
+      measurements: str = human.HumanizedMeasurements(
+        primes[n_bits], parser=human.HumanizedSeconds, confidence=confidence
       )
       console.print(f'{n_bits} → {measurements}')
   console.print(f'Finished in {total_time}')

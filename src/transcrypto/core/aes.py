@@ -25,7 +25,8 @@ from cryptography.hazmat.primitives import hashes as hazmat_hashes
 from cryptography.hazmat.primitives.ciphers import algorithms, modes
 from cryptography.hazmat.primitives.kdf import pbkdf2 as hazmat_pbkdf2
 
-from . import base
+from transcrypto.core import hashes, key
+from transcrypto.utils import base, saferandom
 
 # these fixed salt/iterations are for password->key generation only; NEVER use them to
 # build a database of passwords because it would not be safe; NEVER change them or the
@@ -41,7 +42,7 @@ assert _PASSWORD_ITERATIONS == (6075308 + 1) // 3, 'should never happen: constan
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
-class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
+class AESKey(key.CryptoKey, key.Encryptor, key.Decryptor):
   """Advanced Encryption Standard (AES) 256 bits key (32 bytes).
 
   No measures are taken here to prevent timing attacks.
@@ -57,7 +58,7 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
     """Check data.
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     if len(self.key256) != 32:  # noqa: PLR2004
@@ -70,7 +71,7 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
       string representation of AESKey without leaking secrets
 
     """
-    return f'AESKey(key256={base.ObfuscateSecret(self.key256)})'
+    return f'AESKey(key256={hashes.ObfuscateSecret(self.key256)})'
 
   @classmethod
   def FromStaticPassword(cls, str_password: str, /) -> Self:
@@ -98,7 +99,7 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
       AESKey crypto key to use (URL-safe base64-encoded 32-byte key)
 
     Raises:
-      InputError: empty password
+      base.InputError: empty password
 
     """
     str_password = str_password.strip()
@@ -112,7 +113,7 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
     )
     return cls(key256=kdf.derive(str_password.encode('utf-8')))
 
-  class ECBEncoderClass(base.Encryptor, base.Decryptor):
+  class ECBEncoderClass(key.Encryptor, key.Decryptor):
     """The simplest encryption possible (UNSAFE if misused): 128 bit block AES-ECB, 256 bit key.
 
     Note: Due to ECB encoding, this class is only safe-ish for blocks of random-looking data,
@@ -162,7 +163,7 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
         bytes: Ciphertext, a block of 128 bits (16 bytes)
 
       Raises:
-        InputError: invalid inputs
+        base.InputError: invalid inputs
 
       """
       if associated_data is not None:
@@ -189,7 +190,7 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
         bytes: Decrypted plaintext, a block of 128 bits (16 bytes)
 
       Raises:
-        InputError: invalid inputs
+        base.InputError: invalid inputs
 
       """
       if associated_data is not None:
@@ -227,7 +228,7 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
           str: encrypted hexadecimal block (length==64)
 
       Raises:
-          InputError: invalid inputs
+          base.InputError: invalid inputs
 
       """
       if len(plaintext_hex) != 64:  # noqa: PLR2004
@@ -262,7 +263,7 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
           str: plaintext hexadecimal block (length==64)
 
       Raises:
-          InputError: invalid inputs
+          base.InputError: invalid inputs
 
       """
       if len(ciphertext_hex) != 64:  # noqa: PLR2004
@@ -297,7 +298,7 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
       must encode it within the returned bytes (or document how to retrieve it)
 
     """
-    iv: bytes = base.RandBytes(16)
+    iv: bytes = saferandom.RandBytes(16)
     cipher: ciphers.Cipher[modes.GCM] = ciphers.Cipher(
       algorithms.AES256(self.key256), modes.GCM(iv)
     )
@@ -339,8 +340,8 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
       bytes: Decrypted plaintext bytes
 
     Raises:
-      InputError: invalid inputs
-      CryptoError: internal crypto failures, authentication failure, key mismatch, etc
+      base.InputError: invalid inputs
+      key.CryptoError: internal crypto failures, authentication failure, key mismatch, etc
 
     """
     if len(ciphertext) < 32:  # noqa: PLR2004
@@ -356,4 +357,4 @@ class AESKey(base.CryptoKey, base.Encryptor, base.Decryptor):
     try:
       return decryptor.update(ciphertext[16:-16]) + decryptor.finalize()
     except crypt_exceptions.InvalidTag as err:
-      raise base.CryptoError('failed decryption') from err
+      raise key.CryptoError('failed decryption') from err

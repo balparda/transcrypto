@@ -13,7 +13,8 @@ from typing import Self
 
 import gmpy2
 
-from . import aes, base, modmath
+from transcrypto.core import aes, hashes, key, modmath
+from transcrypto.utils import base, saferandom
 
 _SMALL_ENCRYPTION_EXPONENT = 7
 _BIG_ENCRYPTION_EXPONENT = 2**16 + 1  # 65537
@@ -26,7 +27,7 @@ _RSA_SIGNATURE_HASH_PREFIX = b'transcrypto.RSA.Signature.1.0\x00'
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
-class RSAPublicKey(base.CryptoKey, base.Encryptor, base.Verifier):
+class RSAPublicKey(key.CryptoKey, key.Encryptor, key.Verifier):
   """RSA (Rivest-Shamir-Adleman) key, with the public part of the key.
 
   No measures are taken here to prevent timing attacks.
@@ -48,7 +49,7 @@ class RSAPublicKey(base.CryptoKey, base.Encryptor, base.Verifier):
     """Check data.
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     if self.public_modulus < 6 or modmath.IsPrime(self.public_modulus):  # noqa: PLR2004
@@ -92,7 +93,7 @@ class RSAPublicKey(base.CryptoKey, base.Encryptor, base.Verifier):
       ciphertext message (int, 1 ≤ c < modulus) = (m ** encrypt_exp) mod modulus
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     # test inputs
@@ -128,13 +129,13 @@ class RSAPublicKey(base.CryptoKey, base.Encryptor, base.Verifier):
     """
     # generate random r and encrypt it
     r: int = 0
-    while not 1 < r < self.public_modulus or base.GCD(r, self.public_modulus) != 1:
-      r = base.RandBits(self.public_modulus.bit_length())
+    while not 1 < r < self.public_modulus or modmath.GCD(r, self.public_modulus) != 1:
+      r = saferandom.RandBits(self.public_modulus.bit_length())
     k: int = self.modulus_size
     ct: bytes = base.IntToFixedBytes(self.RawEncrypt(r), k)
     assert len(ct) == k, 'should never happen: c_kem should be exactly k bytes'  # noqa: S101
     # encrypt plaintext with AES-256-GCM using SHA512(r)[32:] as key; return ct || Encrypt(...)
-    ss: bytes = base.Hash512(base.IntToFixedBytes(r, k))
+    ss: bytes = hashes.Hash512(base.IntToFixedBytes(r, k))
     aad: bytes = b'' if associated_data is None else associated_data
     aad_prime: bytes = _RSA_ENCRYPTION_AAD_PREFIX + base.IntToFixedBytes(len(aad), 8) + aad + ct
     return ct + aes.AESKey(key256=ss[32:]).Encrypt(plaintext, associated_data=aad_prime)
@@ -172,16 +173,16 @@ class RSAPublicKey(base.CryptoKey, base.Encryptor, base.Verifier):
       Hash512("prefix" || len(aad) || aad || message || salt)
 
     Raises:
-      CryptoError: hash output is out of range
+      key.CryptoError: hash output is out of range
 
     """
     aad: bytes = b'' if associated_data is None else associated_data
     la: bytes = base.IntToFixedBytes(len(aad), 8)
     assert len(salt) == 64, 'should never happen: salt should be exactly 64 bytes'  # noqa: PLR2004, S101
-    y: int = base.BytesToInt(base.Hash512(_RSA_SIGNATURE_HASH_PREFIX + la + aad + message + salt))
-    if not 1 < y < self.public_modulus or base.GCD(y, self.public_modulus) != 1:
+    y: int = base.BytesToInt(hashes.Hash512(_RSA_SIGNATURE_HASH_PREFIX + la + aad + message + salt))
+    if not 1 < y < self.public_modulus or modmath.GCD(y, self.public_modulus) != 1:
       # will only reasonably happen if modulus is small
-      raise base.CryptoError(f'hash output {y} is out of range/invalid {self.public_modulus}')
+      raise key.CryptoError(f'hash output {y} is out of range/invalid {self.public_modulus}')
     return y
 
   def Verify(
@@ -204,7 +205,7 @@ class RSAPublicKey(base.CryptoKey, base.Encryptor, base.Verifier):
       True if signature is valid, False otherwise
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     k: int = self.modulus_size
@@ -257,8 +258,8 @@ class RSAObfuscationPair(RSAPublicKey):
     """Check data.
 
     Raises:
-      InputError: invalid inputs
-      CryptoError: modulus math is inconsistent with values
+      base.InputError: invalid inputs
+      key.CryptoError: modulus math is inconsistent with values
 
     """
     super(RSAObfuscationPair, self).__post_init__()
@@ -269,7 +270,7 @@ class RSAObfuscationPair(RSAPublicKey):
     ):
       raise base.InputError(f'invalid keys: {self}')
     if (self.random_key * self.key_inverse) % self.public_modulus != 1:
-      raise base.CryptoError(f'inconsistent keys: {self}')
+      raise key.CryptoError(f'inconsistent keys: {self}')
 
   def __str__(self) -> str:
     """Safe (no secrets) string representation of the RSAObfuscationPair.
@@ -281,8 +282,8 @@ class RSAObfuscationPair(RSAPublicKey):
     return (
       'RSAObfuscationPair('
       f'{super(RSAObfuscationPair, self).__str__()}, '
-      f'random_key={base.ObfuscateSecret(self.random_key)}, '
-      f'key_inverse={base.ObfuscateSecret(self.key_inverse)})'
+      f'random_key={hashes.ObfuscateSecret(self.random_key)}, '
+      f'key_inverse={hashes.ObfuscateSecret(self.key_inverse)})'
     )
 
   def ObfuscateMessage(self, message: int, /) -> int:
@@ -297,7 +298,7 @@ class RSAObfuscationPair(RSAPublicKey):
       obfuscated message (int, 1 ≤ o < modulus) = (m * (random_key ** encrypt_exp)) mod modulus
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     # test inputs
@@ -322,31 +323,31 @@ class RSAObfuscationPair(RSAPublicKey):
       signature * key_inverse mod modulus
 
     Raises:
-      CryptoError: some signatures were invalid (either plain or obfuscated)
+      key.CryptoError: some signatures were invalid (either plain or obfuscated)
 
     """
     # verify that obfuscated signature is valid
     obfuscated: int = self.ObfuscateMessage(message)
     if not self.RawVerify(obfuscated, signature):
-      raise base.CryptoError(f'obfuscated message was not signed: {message=} ; {signature=}')
+      raise key.CryptoError(f'obfuscated message was not signed: {message=} ; {signature=}')
     # compute signature for original message and check it
     original: int = (signature * self.key_inverse) % self.public_modulus
     if not self.RawVerify(message, original):
-      raise base.CryptoError(f'failed signature recovery: {message=} ; {signature=}')
+      raise key.CryptoError(f'failed signature recovery: {message=} ; {signature=}')
     return original
 
   @classmethod
-  def New(cls, key: RSAPublicKey, /) -> Self:
-    """Generate new obfuscation pair for this `key`, respecting the size of the public modulus.
+  def New(cls, rsa_key: RSAPublicKey, /) -> Self:
+    """Generate new obfuscation pair for this `rsa_key`, respecting the size of the public modulus.
 
     Args:
-      key (RSAPublicKey): public RSA key to use as base for a new RSAObfuscationPair
+      rsa_key (RSAPublicKey): public RSA key to use as base for a new RSAObfuscationPair
 
     Returns:
       RSAObfuscationPair object ready for use
 
     Raises:
-      CryptoError: failed generation
+      key.CryptoError: failed generation
 
     """
     # find a suitable random key based on the bit_length
@@ -356,29 +357,29 @@ class RSAObfuscationPair(RSAPublicKey):
     while (
       not random_key
       or not key_inverse
-      or random_key in {key.encrypt_exp, key_inverse}
-      or key_inverse == key.encrypt_exp
+      or random_key in {rsa_key.encrypt_exp, key_inverse}
+      or key_inverse == rsa_key.encrypt_exp
     ):
-      random_key = base.RandBits(key.public_modulus.bit_length() - 1)
+      random_key = saferandom.RandBits(rsa_key.public_modulus.bit_length() - 1)
       try:
-        key_inverse = modmath.ModInv(random_key, key.public_modulus)
+        key_inverse = modmath.ModInv(random_key, rsa_key.public_modulus)
       except modmath.ModularDivideError as err:
         key_inverse = 0
         failures += 1
         if failures >= _MAX_KEY_GENERATION_FAILURES:
-          raise base.CryptoError(f'failed key generation {failures} times') from err
+          raise key.CryptoError(f'failed key generation {failures} times') from err
         logging.warning(err)
     # build object
     return cls(
-      public_modulus=key.public_modulus,
-      encrypt_exp=key.encrypt_exp,
+      public_modulus=rsa_key.public_modulus,
+      encrypt_exp=rsa_key.encrypt_exp,
       random_key=random_key,
       key_inverse=key_inverse,
     )
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True, repr=False)
-class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):
+class RSAPrivateKey(RSAPublicKey, key.Decryptor, key.Signer):
   """RSA (Rivest-Shamir-Adleman) private key.
 
   No measures are taken here to prevent timing attacks.
@@ -409,8 +410,8 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):
     """Check data.
 
     Raises:
-      InputError: invalid inputs
-      CryptoError: modulus math is inconsistent with values
+      base.InputError: invalid inputs
+      key.CryptoError: modulus math is inconsistent with values
 
     """
     super(RSAPrivateKey, self).__post_init__()
@@ -438,15 +439,15 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):
     if self.remainder_p < 2 or self.remainder_q < 2 or self.q_inverse_p < 2:  # noqa: PLR2004
       raise base.InputError(f'trivial remainder_p/remainder_q/q_inverse_p: {self}')
     if self.modulus_p * self.modulus_q != self.public_modulus:
-      raise base.CryptoError(f'inconsistent modulus_p * modulus_q: {self}')
+      raise key.CryptoError(f'inconsistent modulus_p * modulus_q: {self}')
     if (self.encrypt_exp * self.decrypt_exp) % phi != 1:
-      raise base.CryptoError(f'inconsistent exponents: {self}')
+      raise key.CryptoError(f'inconsistent exponents: {self}')
     if (
       self.remainder_p != self.decrypt_exp % (self.modulus_p - 1)
       or self.remainder_q != self.decrypt_exp % (self.modulus_q - 1)
       or (self.q_inverse_p * self.modulus_q) % self.modulus_p != 1
     ):
-      raise base.CryptoError(f'inconsistent speedup remainder_p/remainder_q/q_inverse_p: {self}')
+      raise key.CryptoError(f'inconsistent speedup remainder_p/remainder_q/q_inverse_p: {self}')
 
   def __str__(self) -> str:
     """Safe (no secrets) string representation of the RSAPrivateKey.
@@ -458,9 +459,9 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):
     return (
       'RSAPrivateKey('
       f'{super(RSAPrivateKey, self).__str__()}, '
-      f'modulus_p={base.ObfuscateSecret(self.modulus_p)}, '
-      f'modulus_q={base.ObfuscateSecret(self.modulus_q)}, '
-      f'decrypt_exp={base.ObfuscateSecret(self.decrypt_exp)})'
+      f'modulus_p={hashes.ObfuscateSecret(self.modulus_p)}, '
+      f'modulus_q={hashes.ObfuscateSecret(self.modulus_q)}, '
+      f'decrypt_exp={hashes.ObfuscateSecret(self.decrypt_exp)})'
     )
 
   def RawDecrypt(self, ciphertext: int, /) -> int:
@@ -477,7 +478,7 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):
       decrypted message (int, 1 ≤ m < modulus) = (m ** decrypt_exp) mod modulus
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     # test inputs
@@ -509,7 +510,7 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):
       bytes: Decrypted plaintext bytes
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     k: int = self.modulus_size
@@ -518,7 +519,7 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):
     # split ciphertext in two parts: the first k bytes is ct, the rest is AES-256-GCM
     rsa_ct, aes_ct = ciphertext[:k], ciphertext[k:]
     r: int = self.RawDecrypt(base.BytesToInt(rsa_ct))
-    ss: bytes = base.Hash512(base.IntToFixedBytes(r, k))
+    ss: bytes = hashes.Hash512(base.IntToFixedBytes(r, k))
     aad: bytes = b'' if associated_data is None else associated_data
     aad_prime: bytes = _RSA_ENCRYPTION_AAD_PREFIX + base.IntToFixedBytes(len(aad), 8) + aad + rsa_ct
     return aes.AESKey(key256=ss[32:]).Decrypt(aes_ct, associated_data=aad_prime)
@@ -538,7 +539,7 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):
       identical to Decrypt()
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     # test inputs
@@ -569,13 +570,13 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):
       bytes: Signature; salt || Padded(s, k) - see above
 
     Raises:
-      InputError: invalid inputs
+      base.InputError: invalid inputs
 
     """
     k: int = self.modulus_size
     if k <= 64:  # noqa: PLR2004
       raise base.InputError(f'modulus too small for signing operations: {k} bytes')
-    salt: bytes = base.RandBytes(64)
+    salt: bytes = saferandom.RandBytes(64)
     s_int: int = self.RawSign(self._DomainSeparatedHash(message, associated_data, salt))
     s_bytes: bytes = base.IntToFixedBytes(s_int, k)
     assert len(s_bytes) == k, 'should never happen: s_bytes should be exactly k bytes'  # noqa: S101
@@ -592,8 +593,8 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):
       RSAPrivateKey object ready for use
 
     Raises:
-      InputError: invalid inputs
-      CryptoError: failed generation
+      base.InputError: invalid inputs
+      key.CryptoError: failed generation
 
     """
     # test inputs
@@ -632,5 +633,5 @@ class RSAPrivateKey(RSAPublicKey, base.Decryptor, base.Signer):
       except (base.InputError, modmath.ModularDivideError) as err:
         failures += 1
         if failures >= _MAX_KEY_GENERATION_FAILURES:
-          raise base.CryptoError(f'failed key generation {failures} times') from err
+          raise key.CryptoError(f'failed key generation {failures} times') from err
         logging.warning(err)
