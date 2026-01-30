@@ -94,7 +94,6 @@ import dataclasses
 import enum
 import logging
 import pathlib
-from typing import Any
 
 import click
 import typer
@@ -241,11 +240,11 @@ def BytesToText(b: bytes, fmt: IOFormat, /) -> str:
       return base.BytesToEncoded(b)
 
 
-def SaveObj(obj: Any, path: str, password: str | None, /) -> None:  # noqa: ANN401
+def SaveObj(obj: base.CryptoKey, path: str, password: str | None, /) -> None:
   """Save object.
 
   Args:
-      obj (Any): object
+      obj (base.CryptoKey): object
       path (str): path
       password (str | None): password
 

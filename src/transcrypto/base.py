@@ -37,8 +37,6 @@ from scipy import stats
 
 # Data conversion utils
 
-# TODO: look at more Any types around the modules to convert to more precise types
-
 # JSON types
 type JSONValue = bool | int | float | str | list[JSONValue] | dict[str, JSONValue] | None
 type JSONDict = dict[str, JSONValue]
@@ -52,6 +50,7 @@ _JSON_DATACLASS_TYPES: set[str] = {
   'float',
   'str',
   'bool',
+  # support for lists for now, but no nested lists or dicts yet
   'list[int]',
   'list[float]',
   'list[str]',
