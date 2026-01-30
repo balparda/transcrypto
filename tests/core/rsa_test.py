@@ -9,11 +9,11 @@ from unittest import mock
 import pytest
 
 from tests import util
-from transcrypto import base, rsa
+from transcrypto.core import base, rsa
 
 
-@mock.patch('transcrypto.base.RandBits', autospec=True)
-@mock.patch('transcrypto.modmath.NBitRandomPrimes', autospec=True)
+@mock.patch('transcrypto.core.base.RandBits', autospec=True)
+@mock.patch('transcrypto.core.modmath.NBitRandomPrimes', autospec=True)
 def test_RSA_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
   """Test."""
   with pytest.raises(base.InputError, match='invalid bit length'):
@@ -182,7 +182,7 @@ def test_RSA_raw(
   assert ob.RevealOriginalSignature(message, obfuscated_signed) == signed
   with pytest.raises(base.CryptoError, match='obfuscated message was not signed'):
     ob.RevealOriginalSignature(message, obfuscated_signed + 1)
-  with mock.patch('transcrypto.rsa.RSAPublicKey.RawVerify', autospec=True) as verify:
+  with mock.patch('transcrypto.core.rsa.RSAPublicKey.RawVerify', autospec=True) as verify:
     verify.side_effect = [True, False]
     with pytest.raises(base.CryptoError, match='failed signature recovery'):
       ob.RevealOriginalSignature(message + 1, obfuscated_signed)
@@ -223,7 +223,7 @@ def test_RSA() -> None:
     assert base.BytesToHex(base.IntToBytes(dsh))[:16] == h_dsh
 
 
-@mock.patch('transcrypto.base.RandBits', autospec=True)
+@mock.patch('transcrypto.core.base.RandBits', autospec=True)
 def test_RSAObfuscationPair_New(mock_bits: mock.MagicMock) -> None:
   """Test."""
   mock_bits.side_effect = [3, 8, 3]

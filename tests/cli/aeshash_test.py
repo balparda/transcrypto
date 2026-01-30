@@ -12,8 +12,8 @@ import pytest
 from click import testing as click_testing
 
 from tests import transcrypto_test
-from transcrypto import aes, base
 from transcrypto.cli import clibase
+from transcrypto.core import aes, base
 
 
 @pytest.fixture(autouse=True)

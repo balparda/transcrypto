@@ -8,8 +8,9 @@ import glob
 
 import typer
 
-from transcrypto import base, sss, transcrypto
+from transcrypto import transcrypto
 from transcrypto.cli import clibase
+from transcrypto.core import base, sss
 
 # ================================== "BID" COMMAND =================================================
 

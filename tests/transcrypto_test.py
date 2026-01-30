@@ -20,8 +20,9 @@ from click import testing as click_testing
 from rich import console as rich_console
 from typer import testing
 
-from transcrypto import aes, base, transcrypto
+from transcrypto import transcrypto
 from transcrypto.cli import clibase
+from transcrypto.core import aes, base
 
 
 @pytest.fixture(autouse=True)

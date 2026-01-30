@@ -10,8 +10,9 @@ import re
 import click
 import typer
 
-from transcrypto import aes, base, transcrypto
+from transcrypto import transcrypto
 from transcrypto.cli import clibase
+from transcrypto.core import aes, base
 
 _HEX_RE = re.compile(r'^[0-9a-fA-F]+$')
 

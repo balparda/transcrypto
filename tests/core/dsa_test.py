@@ -9,12 +9,12 @@ from unittest import mock
 import pytest
 
 from tests import util
-from transcrypto import base, dsa, modmath
+from transcrypto.core import base, dsa, modmath
 
 
-@mock.patch('transcrypto.base.RandBits', autospec=True)
-@mock.patch('transcrypto.base.RandInt', autospec=True)
-@mock.patch('transcrypto.modmath.NBitRandomPrimes', autospec=True)
+@mock.patch('transcrypto.core.base.RandBits', autospec=True)
+@mock.patch('transcrypto.core.base.RandInt', autospec=True)
+@mock.patch('transcrypto.core.modmath.NBitRandomPrimes', autospec=True)
 def test_DSA_keys_creation(
   prime: mock.MagicMock, randint: mock.MagicMock, randbits: mock.MagicMock
 ) -> None:
@@ -49,7 +49,7 @@ def test_DSA_keys_creation(
   )
   with pytest.MonkeyPatch().context() as mp:
     mp.setattr(dsa, '_MAX_KEY_GENERATION_FAILURES', 2)
-    with mock.patch('transcrypto.modmath.gmpy2.powmod', autospec=True) as powmod:
+    with mock.patch('transcrypto.core.modmath.gmpy2.powmod', autospec=True) as powmod:
       powmod.return_value = 1144026
       with pytest.raises(base.CryptoError, match='failed key generation'):
         dsa.DSAPrivateKey.New(group)
@@ -164,7 +164,7 @@ def test_DSA_keys_creation_multiple() -> None:
     ),  # another individual of the same group, first cypher is equal!
   ],
 )
-@mock.patch('transcrypto.dsa.DSAPublicKey._MakeEphemeralKey', autospec=True)
+@mock.patch('transcrypto.core.dsa.DSAPublicKey._MakeEphemeralKey', autospec=True)
 def test_DSA_raw(
   make_ephemeral: mock.MagicMock,
   prime_modulus: int,

@@ -10,7 +10,7 @@ from unittest import mock
 import gmpy2
 import pytest
 
-from transcrypto import base, constants, modmath
+from transcrypto.core import base, constants, modmath
 
 
 @pytest.mark.parametrize(
@@ -485,7 +485,7 @@ def test_PrimeGenerator() -> None:
   assert next(g) == 2**100 + 331
 
 
-@mock.patch('transcrypto.base.RandBits', autospec=True)
+@mock.patch('transcrypto.core.base.RandBits', autospec=True)
 def test_NBitRandomPrimes(mock_bits: mock.MagicMock) -> None:
   """Test."""
   with pytest.raises(base.InputError, match='invalid n:'):

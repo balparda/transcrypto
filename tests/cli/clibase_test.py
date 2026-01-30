@@ -18,8 +18,9 @@ from click import testing as click_testing
 from rich import console as rich_console
 from rich import logging as rich_logging
 
-from transcrypto import base, transcrypto
+from transcrypto import transcrypto
 from transcrypto.cli import clibase
+from transcrypto.core import base
 
 
 @pytest.fixture(autouse=True)

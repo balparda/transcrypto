@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Unit test util methods."""
 
-from transcrypto import aes, base
+from transcrypto.core import aes, base
 
 
 def TestCryptoKeyEncoding(obj: base.CryptoKey, tp: type[base.CryptoKey]) -> None:

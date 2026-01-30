@@ -24,7 +24,7 @@ import typeguard
 import zstandard
 
 from tests import util
-from transcrypto import aes, base
+from transcrypto.core import aes, base
 
 
 def test_time_utils() -> None:
@@ -1765,7 +1765,7 @@ def test_deserialize_no_compression_detected_branch(sample_obj: base.CryptDict) 
     ),
   ],
 )
-@mock.patch('transcrypto.base.RandBytes', autospec=True)
+@mock.patch('transcrypto.core.base.RandBytes', autospec=True)
 def test_Bid_with_mock(
   randbytes: mock.MagicMock, secret: bytes, public_hash: str, bid_str: str
 ) -> None:

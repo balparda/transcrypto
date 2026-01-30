@@ -9,7 +9,7 @@ from unittest import mock
 import pytest
 
 from tests import util
-from transcrypto import aes, base
+from transcrypto.core import aes, base
 
 
 @pytest.mark.slow
@@ -273,7 +273,7 @@ def test_ECBEncoder(s_key: str, pth: str, ct1: str, ct101: str) -> None:
     ),
   ],
 )
-@mock.patch('transcrypto.base.RandBytes', autospec=True)
+@mock.patch('transcrypto.core.base.RandBytes', autospec=True)
 def test_GCMEncoder(
   rand_bytes: mock.MagicMock, s_key: str, pt: bytes, aad: bytes, ct1: str
 ) -> None:

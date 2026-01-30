@@ -6,8 +6,9 @@ from __future__ import annotations
 
 import typer
 
-from transcrypto import dsa, elgamal, rsa, transcrypto
+from transcrypto import transcrypto
 from transcrypto.cli import clibase
+from transcrypto.core import dsa, elgamal, rsa
 
 # ================================== "RSA" COMMAND =================================================
 

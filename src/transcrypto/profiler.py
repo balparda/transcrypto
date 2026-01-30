@@ -25,8 +25,9 @@ import typer
 from rich import console as rich_console
 
 from transcrypto.cli import clibase
+from transcrypto.core import base, dsa, modmath
 
-from . import __version__, base, dsa, modmath
+from . import __version__
 
 
 @dataclasses.dataclass(kw_only=True, slots=True, frozen=True)

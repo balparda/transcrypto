@@ -9,11 +9,11 @@ from unittest import mock
 import pytest
 
 from tests import util
-from transcrypto import base, elgamal, modmath
+from transcrypto.core import base, elgamal, modmath
 
 
-@mock.patch('transcrypto.base.RandBits', autospec=True)
-@mock.patch('transcrypto.modmath.NBitRandomPrimes', autospec=True)
+@mock.patch('transcrypto.core.base.RandBits', autospec=True)
+@mock.patch('transcrypto.core.modmath.NBitRandomPrimes', autospec=True)
 def test_ElGamal_keys_creation(prime: mock.MagicMock, randbits: mock.MagicMock) -> None:
   """Test."""
   with pytest.raises(base.InputError, match='invalid bit length'):
@@ -130,7 +130,7 @@ def test_ElGamal_keys_creation(prime: mock.MagicMock, randbits: mock.MagicMock) 
     ),  # another individual of the same group, first cypher is equal!
   ],
 )
-@mock.patch('transcrypto.elgamal.ElGamalPublicKey._MakeEphemeralKey', autospec=True)
+@mock.patch('transcrypto.core.elgamal.ElGamalPublicKey._MakeEphemeralKey', autospec=True)
 def test_ElGamal_raw(
   make_ephemeral: mock.MagicMock,
   prime_modulus: int,

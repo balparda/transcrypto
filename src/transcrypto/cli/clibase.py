@@ -18,7 +18,7 @@ from click import testing as click_testing
 from rich import console as rich_console
 from rich import logging as rich_logging
 
-from transcrypto import base
+from transcrypto.core import base
 
 # Logging
 _LOG_FORMAT_NO_PROCESS: str = '%(funcName)s: %(message)s'
@@ -77,7 +77,7 @@ def InitLogging(
   This method will also return the actual decided values for verbosity and color use.
   If you have a CLI app that uses this, its pytests should call `ResetConsole()` in a fixture, like:
 
-      from transcrypto import logging
+      from transcrypto.utils import logging
       @pytest.fixture(autouse=True)
       def _reset_base_logging() -> Generator[None, None, None]:  # type: ignore
         logging.ResetConsole()

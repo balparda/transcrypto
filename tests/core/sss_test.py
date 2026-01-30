@@ -9,7 +9,7 @@ from unittest import mock
 import pytest
 
 from tests import util
-from transcrypto import base, sss
+from transcrypto.core import base, sss
 
 
 @pytest.mark.parametrize(
@@ -68,9 +68,9 @@ def test_ShamirSharedSecret_raw(
     public.RawRecoverSecret([*shares[:-2], bogus_share])
 
 
-@mock.patch('transcrypto.base.RandBits', autospec=True)
-@mock.patch('transcrypto.base.RandShuffle', autospec=True)
-@mock.patch('transcrypto.modmath.NBitRandomPrimes', autospec=True)
+@mock.patch('transcrypto.core.base.RandBits', autospec=True)
+@mock.patch('transcrypto.core.base.RandShuffle', autospec=True)
+@mock.patch('transcrypto.core.modmath.NBitRandomPrimes', autospec=True)
 def test_ShamirSharedSecret_creation(
   prime: mock.MagicMock, shuffle: mock.MagicMock, randbits: mock.MagicMock
 ) -> None:
@@ -150,7 +150,7 @@ def test_ShamirSharedSecret() -> None:
     with pytest.raises(base.CryptoError, match='unrecoverable secret'):
       shares[0].RecoverData(s_shares[:3])
   with mock.patch(
-    'transcrypto.sss.ShamirSharedSecretPublic.RawRecoverSecret', autospec=True
+    'transcrypto.core.sss.ShamirSharedSecretPublic.RawRecoverSecret', autospec=True
   ) as rrs:
     rrs.return_value = 1 << 300
     with pytest.raises(base.CryptoError, match='recovered key out of range for 256-bit key'):

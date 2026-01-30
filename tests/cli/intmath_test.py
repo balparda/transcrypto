@@ -11,8 +11,8 @@ import pytest
 from click import testing as click_testing
 
 from tests import transcrypto_test
-from transcrypto import modmath
 from transcrypto.cli import clibase
+from transcrypto.core import modmath
 
 
 @pytest.fixture(autouse=True)
