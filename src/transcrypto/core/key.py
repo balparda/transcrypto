@@ -26,6 +26,8 @@ import zstandard
 
 from transcrypto.utils import base, human, timer
 
+# TODO: more consistent logging in whole project
+
 # Crypto types: add bytes for cryptographic data; has to be encoded for JSON serialization
 type CryptValue = bool | int | float | str | bytes | list[CryptValue] | dict[str, CryptValue] | None
 type CryptDict = dict[str, CryptValue]

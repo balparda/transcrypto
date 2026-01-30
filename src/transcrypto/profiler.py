@@ -27,6 +27,7 @@ from rich import console as rich_console
 from transcrypto.cli import clibase
 from transcrypto.core import dsa, modmath
 from transcrypto.utils import human, timer
+from transcrypto.utils import logging as tc_logging
 
 from . import __version__
 
@@ -134,7 +135,9 @@ def Main(  # documentation is help/epilog/args # noqa: D103
   if version:
     typer.echo(__version__)
     raise typer.Exit(0)
-  console, verbose, color = clibase.InitLogging(
+  # initialize logging and get console
+  console: rich_console.Console
+  console, verbose, color = tc_logging.InitLogging(
     verbose,
     color=color,
     include_process=False,  # decide if you want process names in logs
@@ -221,7 +224,7 @@ def DSA(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # n
 )
 @clibase.CLIErrorGuard
 def Markdown() -> None:  # documentation is help/epilog/args # noqa: D103
-  console: rich_console.Console = clibase.Console()
+  console: rich_console.Console = tc_logging.Console()
   console.print(clibase.GenerateTyperHelpMarkdown(app, prog_name='profiler'))
 
 
