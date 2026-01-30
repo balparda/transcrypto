@@ -903,7 +903,7 @@ print(priv.RawVerifyShare(secret, tampered))  # ▶ False
 
 ### Setup
 
-If you want to develop for this project, first install python 3.13 and [Poetry](https://python-poetry.org/docs/cli/), but to get the versions you will need, we suggest you do it like this (*Linux*):
+If you want to develop for this project, first install python 3.12 and [Poetry](https://python-poetry.org/docs/cli/), but to get the versions you will need, we suggest you do it like this (*Linux*):
 
 ```sh
 sudo apt-get update
@@ -912,10 +912,10 @@ sudo apt-get install git python3 python3-pip pipx python3-dev python3-venv build
 
 sudo add-apt-repository ppa:deadsnakes/ppa  # install arbitrary python version
 sudo apt-get update
-sudo apt-get install python3.13
+sudo apt-get install python3.12
 
 sudo apt-get remove python3-poetry
-python3.13 -m pipx ensurepath
+python3.12 -m pipx ensurepath
 # re-open terminal
 pipx install poetry
 poetry --version  # should be >=2.1
@@ -931,11 +931,11 @@ brew update
 brew upgrade
 brew cleanup -s
 
-brew install git python@3.13  # install arbitrary python version
+brew install git python@3.12  # install arbitrary python version
 
 brew uninstall poetry
-python3.13 -m pip install --user pipx
-python3.13 -m pipx ensurepath
+python3.12 -m pip install --user pipx
+python3.12 -m pipx ensurepath
 # re-open terminal
 pipx install poetry
 poetry --version  # should be >=2.1
@@ -950,7 +950,7 @@ Now install the project:
 git clone https://github.com/balparda/transcrypto.git transcrypto
 cd transcrypto
 
-poetry env use python3.13  # creates the venv
+poetry env use python3.12  # creates the venv
 poetry sync                # sync env to project's poetry.lock file
 poetry env info            # no-op: just to check
 
@@ -988,7 +988,7 @@ If you manually added a dependency to `pyproject.toml` you should ***very carefu
 
 ```sh
 rm -rf .venv .poetry poetry.lock
-poetry env use python3.13
+poetry env use python3.12
 poetry install
 ```
 

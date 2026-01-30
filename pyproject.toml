@@ -45,6 +45,7 @@ keywords = [
 ]
 classifiers = [  # see: https://pypi.org/classifiers/
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
   "Operating System :: OS Independent",
@@ -52,7 +53,7 @@ classifiers = [  # see: https://pypi.org/classifiers/
   "Topic :: Security :: Cryptography"
 ]
 
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 readme = "README.md"
 license-files = [ "LICENSE" ]
 
@@ -116,7 +117,7 @@ include = [
 
 # prefer to add dependencies inside the [project.dependencies] section
 
-python = "^3.13"  # if version changes, remember to change README.md
+python = "^3.12"  # if version changes, remember to change README.md
 typer = { version = "^0.21", extras = ["all"] }
 
 [tool.poetry.group.dev.dependencies]
@@ -140,7 +141,7 @@ poetry-plugin-export = "^1.10"
 ####################################################################################################
 [tool.ruff]
 
-target-version = "py313"
+target-version = "py312"
 line-length = 100
 indent-width = 2
 
@@ -237,7 +238,7 @@ preview = true  # if you want new features being previewed
 ####################################################################################################
 [tool.mypy]
 
-python_version = "3.13"
+python_version = "3.12"
 mypy_path = [ "src" ]
 
 warn_return_any = true
@@ -257,7 +258,7 @@ strict = true
 [tool.pyright]
 
 typeCheckingMode = "strict"
-pythonVersion = "3.13"
+pythonVersion = "3.12"
 venvPath = "."
 venv = ".venv"
 

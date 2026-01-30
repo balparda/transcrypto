@@ -782,6 +782,7 @@ files = [
 [package.dependencies]
 numpy = {version = ">=1.25", optional = true, markers = "extra == \"numpy\""}
 numpy-typing-compat = {version = ">=20250818.1.25,<20251207", optional = true, markers = "extra == \"numpy\""}
+typing-extensions = {version = ">=4.10", markers = "python_full_version < \"3.13.0\""}
 
 [package.extras]
 numpy = ["numpy (>=1.25)", "numpy-typing-compat (>=20250818.1.25,<20251207)"]
@@ -1533,5 +1534,5 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 
 [metadata]
 lock-version = "2.1"
-python-versions = "^3.13"
-content-hash = "50f6afc453a4b2e7ed46ce599dfee1d361e7a857a99bc16bd125368f99397426"
+python-versions = "^3.12"
+content-hash = "c92915ea7c136e6756ecf884769396c0e7cbec97eb2c16636693aa4e9746d121"
