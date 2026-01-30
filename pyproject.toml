@@ -57,8 +57,8 @@ license-files = [ "LICENSE" ]
 
 dependencies = [
 
-  "typer>=0.21",   # if this changes, also change: [tool.poetry.dependencies] and .pre-commit-config.yaml
-  "rich>=14.3",    # if this changes, also change: .pre-commit-config.yaml
+  "typer>=0.21",   # if this changes, also change: [tool.poetry.dependencies]
+  "rich>=14.3",
   "platformdirs>=4.5",
 
   # best place for project dependencies, if possible
@@ -116,13 +116,13 @@ include = [
 # prefer to add dependencies inside the [project.dependencies] section
 
 python = "^3.13"  # if version changes, remember to change README.md
-typer = { version = "^0.21", extras = ["all"] }  # if this changes, also change: .pre-commit-config.yaml
+typer = { version = "^0.21", extras = ["all"] }
 
 [tool.poetry.group.dev.dependencies]
 
-ruff = "~0.14.14"  # if this changes, also change: .pre-commit-config.yaml
-mypy = "~1.19.1"   # if this changes, also change: .pre-commit-config.yaml
-pytest = "^9.0"    # if this changes, also change: .pre-commit-config.yaml
+ruff = "~0.14.14"
+mypy = "~1.19.1"
+pytest = "^9.0"
 pytest-cov = "^7.0"
 pytest-flakefinder = "^1.1"
 pyright = "^1.1"

@@ -35,5 +35,5 @@ docs:
 	poetry run transcrypto markdown > transcrypto.md
 	poetry run profiler markdown > profiler.md
 
-ci: fmt lint type cov integration precommit docs
+ci: cov integration precommit docs
 	@echo "CI checks passed! Generated docs."

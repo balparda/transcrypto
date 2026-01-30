@@ -3,19 +3,31 @@
 
 repos:
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    # Ruff version
-    rev: v0.14.14
+  - repo: local
+
     hooks:
+
       # Run the linter
       - id: ruff-check
+        name: ruff check
+        entry: poetry run ruff check
+        language: system
+        types: [python]
+        pass_filenames: false
+
       # Run the formatter
       - id: ruff-format
+        name: ruff format
+        entry: poetry run ruff format --check
+        language: system
+        types: [python]
+        pass_filenames: false
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    # MyPI version
-    rev: v1.19.1
-    hooks:
-      # Run the type checker
+      # Run the type checker using local mypy with all project stubs
       - id: mypy
-        additional_dependencies: [pytest==9.0, rich==14.3, typer==0.21]
+        name: mypy
+        entry: poetry run mypy
+        language: system
+        types: [python]
+        args: [src]
+        pass_filenames: false
