@@ -89,7 +89,7 @@ To use in your project just do:
 pip3 install transcrypto
 ```
 
-and then `from transcrypto import rsa` (or other parts of the library) for using it.
+and then `from transcrypto.core import rsa` (or other parts of the library) for using it.
 
 Known dependencies:
 
@@ -102,11 +102,11 @@ Known dependencies:
 #### Humanized Sizes (IEC binary)
 
 ```py
-from transcrypto import base
+from transcrypto.utils import human
 
-base.HumanizedBytes(512)                  # '512 B'
-base.HumanizedBytes(2048)                 # '2.000 KiB'
-base.HumanizedBytes(5 * 1024**3)          # '5.000 GiB'
+human.HumanizedBytes(512)                  # '512 B'
+human.HumanizedBytes(2048)                 # '2.000 KiB'
+human.HumanizedBytes(5 * 1024**3)          # '5.000 GiB'
 ```
 
 Converts raw byte counts to binary-prefixed strings (`B`, `KiB`, `MiB`, `GiB`, `TiB`, `PiB`, `EiB`).
@@ -116,22 +116,24 @@ Converts raw byte counts to binary-prefixed strings (`B`, `KiB`, `MiB`, `GiB`, `
 - For values `≥1024`, returns 3 decimals.
 
 - standard: 1 KiB = 1024 B, 1 MiB = 1024 KiB, …
-- errors: negative inputs raise `InputError`
+- errors: negative inputs raise `base.InputError`
 
 #### Humanized Decimal Quantities (SI)
 
 ```py
+from transcrypto.utils import human
+
 # Base (unitless)
-base.HumanizedDecimal(950)                # '950'
-base.HumanizedDecimal(1500)               # '1.500 k'
+human.HumanizedDecimal(950)                # '950'
+human.HumanizedDecimal(1500)               # '1.500 k'
 
 # With a unit (trimmed and attached)
-base.HumanizedDecimal(1500, unit=' Hz ')  # '1.500 kHz'
-base.HumanizedDecimal(0.123456, unit='V') # '123.456 mV'
+human.HumanizedDecimal(1500, unit=' Hz ')  # '1.500 kHz'
+human.HumanizedDecimal(0.123456, unit='V') # '123.456 mV'
 
 # Large magnitudes
-base.HumanizedDecimal(3_200_000)          # '3.200 M'
-base.HumanizedDecimal(7.2e12, unit='B/s') # '7.200 TB/s'
+human.HumanizedDecimal(3_200_000)          # '3.200 M'
+human.HumanizedDecimal(7.2e12, unit='B/s') # '7.200 TB/s'
 ```
 
 Scales by powers of 1000 using SI prefixes to keep the displayed value in roughly `[1, 1000)` when possible.
@@ -141,17 +143,19 @@ Scales by powers of 1000 using SI prefixes to keep the displayed value in roughl
 - Formatting uses 3 decimals for non-integer/unscaled values and for scaled values.
 
 - unit handling: `unit` is stripped; `<1000` values include a space before the unit (`'950 Hz'`)
-- errors: non-finite inputs raise `InputError` (negative values are supported and keep a leading `-`)
+- errors: non-finite inputs raise `base.InputError` (negative values are supported and keep a leading `-`)
 
 #### Humanized Durations
 
 ```py
-base.HumanizedSeconds(0)                  # '0.000 s'
-base.HumanizedSeconds(0.000004)           # '4.000 µs'
-base.HumanizedSeconds(0.25)               # '250.000 ms'
-base.HumanizedSeconds(42)                 # '42.000 s'
-base.HumanizedSeconds(3661)               # '1.017 h'
-base.HumanizedSeconds(172800)             # '2.000 d'
+from transcrypto.utils import human
+
+human.HumanizedSeconds(0)                  # '0.000 s'
+human.HumanizedSeconds(0.000004)           # '4.000 µs'
+human.HumanizedSeconds(0.25)               # '250.000 ms'
+human.HumanizedSeconds(42)                 # '42.000 s'
+human.HumanizedSeconds(3661)               # '1.017 h'
+human.HumanizedSeconds(172800)             # '2.000 d'
 ```
 
 Chooses an appropriate time unit based on magnitude and formats with fixed precision:
@@ -163,21 +167,21 @@ Chooses an appropriate time unit based on magnitude and formats with fixed preci
 - `< 24 h`: hours with three decimals (`h`)
 - `≥ 24 h`: days with three decimals (`d`)
 - special case: `0 → '0.000 s'`
-- errors: negative or non-finite inputs raise `InputError`
+- errors: negative or non-finite inputs raise `base.InputError`
 
 #### Execution Timing
 
 A flexible timing utility that works as a **context manager**, **decorator**, or **manual timer object**.
 
 ```py
-from transcrypto import base
+from transcrypto.utils import timer
 import time
 ```
 
 ##### Context manager
 
 ```py
-with base.Timer('Block timing'):
+with timer.Timer('Block timing'):
     time.sleep(1.2)
 # → logs: "Block timing: 1.200 s" (default via logging.info)
 ```
@@ -187,7 +191,7 @@ Starts timing on entry, stops on exit, and reports elapsed time automatically.
 ##### Decorator
 
 ```py
-@base.Timer('Function timing')
+@timer.Timer('Function timing')
 def slow_function():
     time.sleep(0.8)
 
@@ -200,7 +204,7 @@ Wraps a function so that each call is automatically timed.
 ##### Manual use
 
 ```py
-tm = base.Timer('Inline timing', emit_print=True)
+tm = timer.Timer('Inline timing', emit_print=True)
 tm.Start()
 time.sleep(0.1)
 tm.Stop()   # prints: "Inline timing: 0.100 s"
@@ -226,7 +230,7 @@ Manual control over `Start()` and `Stop()` for precise measurement of custom int
 These helpers turn arbitrary Python objects into compressed and/or encrypted binary blobs, and back again — with detailed timing and size logging.
 
 ```py
-from transcrypto import base
+from transcrypto.core import key
 ```
 
 ##### Serialize
@@ -235,17 +239,17 @@ from transcrypto import base
 data = {'x': 42, 'y': 'hello'}
 
 # Basic serialization
-blob = base.Serialize(data)
+blob = key.Serialize(data)
 
 # With compression and encryption
-blob = base.Serialize(
+blob = key.Serialize(
     data,
     compress=9,               # compression level (-22..22, default=3)
-    key=my_encryptor          # must implement `base.Encryptor` (e.g., `aes.AESKey`)
+    encryption_key=my_encryptor  # must implement `key.Encryptor` (e.g., `aes.AESKey`)
 )
 
 # Save directly to file
-base.Serialize(data, file_path='/tmp/data.blob')
+key.Serialize(data, file_path='/tmp/data.blob')
 ```
 
 Serialization path:
@@ -273,19 +277,19 @@ Compression levels:
 | 11…15    | Much slower | Slight gains                      | Large archives, not for runtime use     |
 | 16…22    | Very slow   | Tiny gains                        | Archival-only, multi-GB datasets        |
 
-Errors: invalid compression level is clamped to range; other input errors raise `InputError`.
+Errors: invalid compression level is clamped to range; other input errors raise `base.InputError`.
 
 ##### DeSerialize
 
 ```py
 # From in-memory blob
-obj = base.DeSerialize(data=blob)
+obj = key.DeSerialize(data=blob)
 
 # From file
-obj = base.DeSerialize(file_path='/tmp/data.blob')
+obj = key.DeSerialize(file_path='/tmp/data.blob')
 
 # With decryption
-obj = base.DeSerialize(data=blob, key=my_decryptor)
+obj = key.DeSerialize(data=blob, decryption_key=my_decryptor)
 ```
 
 Deserialization path:
@@ -301,82 +305,82 @@ data/file → (decrypt) → (decompress if Zstd) → unpickle
 
 - Exactly one of `data` or `file_path` must be provided.
 - `file_path` must exist; `data` must be at least 4 bytes.
-- Wrong key / authentication failure can raise `CryptoError`.
+- Wrong key / authentication failure can raise `key.CryptoError`.
 - Corrupted compressed blobs typically raise `zstandard.ZstdError` during decompression.
 
 #### Cryptographically Secure Randomness
 
-These helpers live in `base` and wrap Python’s `secrets` with additional checks and guarantees for crypto use-cases.
+These helpers live in `saferandom` and wrap Python’s `secrets` with additional checks and guarantees for crypto use-cases.
 
 ```py
-from transcrypto import base
+from transcrypto.core import bid
 ```
 
 ##### Fixed-size random integers
 
 ```py
 # Generate a 256-bit integer (first bit always set)
-r = base.RandBits(256)
+r = saferandom.RandBits(256)
 assert r.bit_length() == 256
 ```
 
 Produces a crypto-secure random integer with exactly `n_bits` bits (`≥ 8`). The most significant bit is guaranteed to be `1`, so entropy is \~`n_bits−1` — negligible for large crypto sizes.
 
-- errors: `n_bits < 8` → `InputError`
+- errors: `n_bits < 8` → `base.InputError`
 
 ##### Uniform random integers in a range
 
 ```py
 # Uniform between [10, 20] inclusive
-n = base.RandInt(10, 20)
+n = saferandom.RandInt(10, 20)
 assert 10 <= n <= 20
 ```
 
 Returns a crypto-secure integer uniformly distributed over the closed interval `[min_int, max_int]`.
 
 - constraints: `min_int ≥ 0` and `< max_int`
-- errors: invalid bounds → `InputError`
+- errors: invalid bounds → `base.InputError`
 
 ##### In-place secure shuffle
 
 ```py
 deck = list(range(10))
-base.RandShuffle(deck)
+saferandom.RandShuffle(deck)
 print(deck)   # securely shuffled order
 ```
 
 Performs an in-place Fisher–Yates shuffle using `secrets.randbelow`. Suitable for sensitive data ordering.
 
 - constraints: sequence length ≥ 2
-- errors: shorter sequences → `InputError`
+- errors: shorter sequences → `base.InputError`
 
 ##### Random byte strings
 
 ```py
 # 32 random bytes
-b = base.RandBytes(32)
+b = saferandom.RandBytes(32)
 assert len(b) == 32
 ```
 
 Generates `n_bytes` of high-quality crypto-secure random data.
 
 - constraints: `n_bytes ≥ 1`
-- errors: smaller values → `InputError`
+- errors: smaller values → `base.InputError`
 
 #### Computing the Greatest Common Divisor
 
 ```py
->>> from transcrypto import base
->>> base.GCD(462, 1071)
+>>> from transcrypto.core import modmath
+>>> modmath.GCD(462, 1071)
 21
->>> base.GCD(0, 17)
+>>> modmath.GCD(0, 17)
 17
 ```
 
 The function is `O(log(min(a, b)))` and handles arbitrarily large integers. To find Bézout coefficients `(x, y)` such that `ax + by = gcd(a, b)` do:
 
 ```py
->>> base.ExtendedGCD(462, 1071)
+>>> modmath.ExtendedGCD(462, 1071)
 (21, 7, -3)
 >>> 462 * 7 + 1071 * (-3)
 21
@@ -391,7 +395,7 @@ Use-cases:
 #### Fast Modular Arithmetic
 
 ```py
-from transcrypto import modmath
+from transcrypto.core import modmath
 
 m = 2**256 - 189    # a large prime modulus
 
@@ -412,7 +416,7 @@ exp = modmath.ModExp(3, 10**20, m)   # ≈ log₂(y) time, handles huge exponent
 ##### Chinese Remainder Theorem (CRT) – Pair
 
 ```py
-from transcrypto import modmath
+from transcrypto.core import modmath
 
 # Solve:
 #   x ≡ 2 (mod 3)
@@ -435,7 +439,7 @@ x ≡ a2 (mod m2)
   - `m1 ≥ 2`, `m2 ≥ 2`, `m1 != m2`
   - `gcd(m1, m2) == 1` (co-prime)
 - **Errors**:
-  - invalid modulus values → `InputError`
+  - invalid modulus values → `base.InputError`
   - non co-prime moduli → `ModularDivideError`
 
 This function is a 2-modulus variant; for multiple moduli, apply it iteratively or use a general CRT solver.
@@ -481,13 +485,13 @@ for k, m_p, perfect in modmath.MersennePrimesGenerator(0):
 Simple, fixed-output-size wrappers over Python’s `hashlib` for common digest operations, plus file hashing.
 
 ```py
-from transcrypto import base
+from transcrypto.core import hashes
 ```
 
 ##### SHA-256 hashing
 
 ```py
-h = base.Hash256(b'hello world')
+h = hashes.Hash256(b'hello world')
 assert len(h) == 32                       # bytes
 print(h.hex())                            # 64 hex chars
 ```
@@ -497,7 +501,7 @@ Computes the SHA-256 digest of a byte string, returning exactly 32 bytes (256 bi
 ##### SHA-512 hashing
 
 ```py
-h = base.Hash512(b'hello world')
+h = hashes.Hash512(b'hello world')
 assert len(h) == 64                       # bytes
 print(h.hex())                            # 128 hex chars
 ```
@@ -508,11 +512,11 @@ Computes the SHA-512 digest of a byte string, returning exactly 64 bytes (512 bi
 
 ```py
 # Default SHA-256
-fh = base.FileHash('/path/to/file')
+fh = hashes.FileHash('/path/to/file')
 print(fh.hex())
 
 # SHA-512
-fh2 = base.FileHash('/path/to/file', digest='sha512')
+fh2 = hashes.FileHash('/path/to/file', digest='sha512')
 ```
 
 Hashes a file from disk in streaming mode. By default uses SHA-256; `digest='sha512'` switches to SHA-512.
@@ -520,17 +524,19 @@ Hashes a file from disk in streaming mode. By default uses SHA-256; `digest='sha
 - constraints:
   - `digest` must be `'sha256'` or `'sha512'`
   - `full_path` must exist
-- errors: invalid digest or missing file → `InputError`
+- errors: invalid digest or missing file → `base.InputError`
 
 #### Symmetric Encryption Interface
 
-`base.Encryptor` and `base.Decryptor` are runtime-checkable protocols that define the **byte-in / byte-out** contract for symmetric ciphers.
+`key.Encryptor` and `key.Decryptor` are runtime-checkable protocols that define the **byte-in / byte-out** contract for symmetric ciphers.
 
 - **Metadata handling** — if the algorithm uses a `nonce` or `tag`, the implementation must handle it internally (e.g., append it to ciphertext).
-- **AEAD modes** — if supported, `associated_data` must be authenticated; otherwise, a non-`None` value should raise `InputError`.
+- **AEAD modes** — if supported, `associated_data` must be authenticated; otherwise, a non-`None` value should raise `base.InputError`.
 
 ```py
-class MyAES(base.Encryptor, base.Decryptor):
+from transcrypto.core import key
+
+class MyAES(key.Encryptor, key.Decryptor):
     def Encrypt(self, plaintext: bytes, *, associated_data=None) -> bytes:
         ...
     def Decrypt(self, ciphertext: bytes, *, associated_data=None) -> bytes:
@@ -544,14 +550,14 @@ Cryptographic objects all derive from the `CryptoKey` class and will all have so
 - Will be safe to log and print, i.e., implement safe `__str__()` and `__repr__()` methods (in actuality `repr` will be exactly the same as `str`). The `__str__()` should always fully print the public parts of the object and obfuscate the private ones. This obfuscation allows for some debugging, if needed, but if the secrets are "too short" then it can be defeated by brute force. For usual crypto defaults the obfuscation is fine. The obfuscation is the fist 4 bytes of the SHA-512 for the value followed by an ellipsis (e.g. `c9626f16…`).
 - It will have a `_DebugDump()` method that **does print secrets** and can be used for **debugging only**.
 - Can be easily serialized to `bytes` by the `blob` property and to base-64 encoded `str` by the `encoded` property.
-- Can be serialized encrypted to `bytes` by the `Blob(key=[base.Encryptor])` method and to encrypted base-64 encoded `str` by the `Encoded(key=[base.Encryptor])` method.
-- Can be instantiated back as an object from `str` or `bytes` using the `Load(data, key=[base.Decryptor] | None)` method. The `Load()` will decide how to build the object and will work universally with all the serialization options discussed above.
+- Can be serialized encrypted to `bytes` by the `Blob(encryption_key=[key.Encryptor])` method and to encrypted base-64 encoded `str` by the `Encoded(encryption_key=[key.Encryptor])` method.
+- Can be instantiated back as an object from `str` or `bytes` using the `Load(data, decryption_key=[key.Decryptor] | None)` method. The `Load()` will decide how to build the object and will work universally with all the serialization options discussed above.
 
 Example:
 
 <!-- cspell:disable -->
 ```py
-from transcrypto import base, rsa, aes
+from transcrypto.core import aes, rsa
 
 priv = rsa.RSAPrivateKey.New(512)  # small key, but good for this example
 print(str(priv))                   # safe, no secrets
@@ -566,12 +572,12 @@ print(priv.blob)
 print(priv.encoded)
 # ▶ KLUv_WBwAIELAIAElWUBAAAAAAAAjA90cmFuc2NyeXB0by5yc2GUjA1SU0FQcml2YXRlS2V5lJOUKYGUXZQoikHf1EvsmZedAZve7TrLmobLAwuRIr_77TLG6G_0fsLGThERVJu075be8PLjUQYnLXcacZFQ5Fb1Iy1WtiE985euAEoBAAEAiiFR9ngiXMzkf41o5CRBY3h0D4DJVisDDhLmAWsiaHggzQCKIS_cmQ6MKXCtROtC7c_Mrsi9A-9NM8DksaHaRwvy6uTZAIpB4TVbsLxc41TEc19wIzpxbi9y5dW5gdfTkRQSSiz0ijmb8Xk3pyBfKAv8JbHp8Yv48gNZUfX67qq0J7yhJqeUoACKIbFb2kTNRzSqm3JRtjc2BPS-FnLFdadlFcV4-6IW7eqLAIogFZfzDN39gZLR9uTz4KHSTaqxWrJgP8-YYssjss6FlFKKIIItgCDv7ompNpY8gBs5bibN8XTsr-JOYSntDVT5Fe5vZWIu
 
-key = aes.AESKey(key256=b'x' * 32)
-print(key)
+aes_key = aes.AESKey(key256=b'x' * 32)
+print(aes_key)
 # ▶ AESKey(key256=86a86df7…)
 
-encrypted = priv.Blob(key=key)
-print(priv == rsa.RSAPrivateKey.Load(encrypted, key=key))
+encrypted = priv.Blob(encryption_key=aes_key)
+print(priv == rsa.RSAPrivateKey.Load(encrypted, decryption_key=aes_key))
 # ▶ True
 ```
 <!-- cspell:enable -->
@@ -584,14 +590,14 @@ Also includes a high-iteration PBKDF2-based key derivation from static passwords
 ##### Key creation
 
 ```py
-from transcrypto import aes
+from transcrypto.core import aes
 
 # From raw bytes (must be exactly 32 bytes)
-key = aes.AESKey(key256=b'\x00' * 32)
+aes_key = aes.AESKey(key256=b'\x00' * 32)
 
 # From a static password (slow, high-iteration PBKDF2-SHA256)
-key = aes.AESKey.FromStaticPassword('correct horse battery staple')
-print(key.encoded)  # URL-safe Base64
+aes_key = aes.AESKey.FromStaticPassword('correct horse battery staple')
+print(aes_key.encoded)  # URL-safe Base64
 ```
 
 - **Length**: `key256` must be exactly 32 bytes
@@ -606,10 +612,10 @@ data = b'secret message'
 aad  = b'metadata'
 
 # Encrypt (returns IV + ciphertext + tag)
-ct = key.Encrypt(data, associated_data=aad)
+ct = aes_key.Encrypt(data, associated_data=aad)
 
 # Decrypt
-pt = key.Decrypt(ct, associated_data=aad)
+pt = aes_key.Decrypt(ct, associated_data=aad)
 assert pt == data
 ```
 
@@ -618,13 +624,13 @@ assert pt == data
   - Authenticated tag (128-bit) ensures integrity
   - Optional `associated_data` is authenticated but not encrypted
 - **Errors**:
-  - Tag mismatch or wrong key → `CryptoError`
+  - Tag mismatch or wrong key → `key.CryptoError`
 
 ##### AES-256 + ECB (unsafe, fixed block only)
 
 ```py
 # ECB mode is for 16-byte block encoding ONLY
-ecb = key.ECBEncoder()
+ecb = aes_key.ECBEncoder()
 
 block = b'16-byte string!!'
 ct_block = ecb.Encrypt(block)
@@ -649,7 +655,7 @@ Key points:
 
 - **GCM mode** is secure for general use; ECB mode is for special low-level operations
 - **Static password derivation** is intentionally slow to resist brute force
-- All sizes and parameters are validated with `InputError` on misuse
+- All sizes and parameters are validated with `base.InputError` on misuse
 
 #### RSA (Rivest-Shamir-Adleman) Public Cryptography
 
@@ -660,7 +666,7 @@ This implementation is raw RSA, no OAEP or PSS! It works on the actual integers.
 By default and deliberate choice the *encryption exponent* will be either 7 or 65537, depending on the size of `phi=(p-1)*(q-1)`. If `phi` allows it the larger one will be chosen to avoid Coppersmith attacks.
 
 ```py
-from transcrypto import rsa
+from transcrypto.core import rsa
 
 # Generate a key pair
 priv = rsa.RSAPrivateKey.New(2048)        # 2048-bit modulus
@@ -705,7 +711,7 @@ This is **raw El-Gamal** over a prime field — no padding, no hashing — and i
 For real-world deployments, use a high-level library with authenticated encryption and proper encoding.
 
 ```py
-from transcrypto import elgamal
+from transcrypto.core import elgamal
 
 # Shared parameters (prime modulus, group base) for a group
 shared = elgamal.ElGamalSharedPublicKey.NewShared(256)
@@ -741,13 +747,13 @@ Key points:
 
 - **Security parameters**:
   - Recommended `prime_modulus` bit length ≥ 2048 for real security
-  - Random values from `base.RandBits`
+  - Random values from `saferandom.RandBits`
 - **Ephemeral keys**:
   - Fresh per encryption/signature
   - Must satisfy `gcd(k, p-1) == 1`
 - **Errors**:
-  - Bad ranges → `InputError`
-  - Invalid math relationships → `CryptoError`
+  - Bad ranges → `base.InputError`
+  - Invalid math relationships → `key.CryptoError`
 - **Group sharing**:
   - Multiple parties can share `(p, g)` but have different `(individual_base, decrypt_exp)`
 
@@ -758,7 +764,7 @@ Key points:
 This is **raw DSA** over a prime field — **no hashing or padding**. You sign/verify **integers** modulo `q` (`prime_seed`). For real use, hash the message first (e.g., SHA-256) and then map to an integer `< q`.
 
 ```py
-from transcrypto import dsa
+from transcrypto.core import dsa
 
 # Shared parameters (p, q, g) - Safe Sign/Verify requires q > 512 bits
 shared = dsa.DSASharedPublicKey.NewShared(2048, 520)
@@ -785,8 +791,8 @@ assert pub.RawVerify(msg, sig)
   - `1 ≤ message < q`
   - signatures: `(s1, s2)` with `2 ≤ s1, s2 < q`
 - errors:
-  - invalid ranges → `InputError`
-  - inconsistent parameters → `CryptoError`
+  - invalid ranges → `base.InputError`
+  - inconsistent parameters → `key.CryptoError`
 
 ##### Security notes
 
@@ -802,23 +808,23 @@ assert (p - 1) % q == 0
 ```
 
 Used internally by `DSASharedPublicKey.NewShared()`.
-Search breadth and retry caps are bounded; repeated failures raise `CryptoError`.
+Search breadth and retry caps are bounded; repeated failures raise `key.CryptoError`.
 
 #### Public Bidding
 
 This is a way of bidding on some commitment (the `secret`) that can be cryptographically proved later to not have been changed. To do that the secret is combined with 2 nonces (random values, `n1` & `n2`) and a hash of it is taken (`H=SHA-512(n1||n2||secret)`). The hash `H` and one nonce `n1` are public and divulged. The other nonce `n2` and the `secret` are kept private and will be used to show `secret` was not changed since the beginning of the process. The nonces guarantee the `secret` cannot be brute-forced or changed after-the-fact. The whole process is as strong as SHA-512 collisions.
 
 ```py
-from transcrypto import base
+from transcrypto.core import bid
 
 # Generate the private and public bids
-bid_priv = base.PrivateBid512.New(secret)    # this one you keep private
-bid_pub = base.PublicBid512.Copy(bid_priv)   # this one you publish
+bid_priv = bid.PrivateBid512.New(secret)    # this one you keep private
+bid_pub = bid.PublicBid512.Copy(bid_priv)   # this one you publish
 
 # Checking that a bid is genuine requires the public bid and knowing the nonce and the secret:
 print(bid_pub.VerifyBid(private_key, secret_bid))  # these come from a divulged private bid
 # of course, you want to also make sure the provided private data matches your version of it, e.g.:
-bid_pub_expected = base.PublicBid512.Copy(bid_priv)
+bid_pub_expected = bid.PublicBid512.Copy(bid_priv)
 print(bid_pub == bid_pub_expected)
 ```
 
@@ -829,7 +835,7 @@ print(bid_pub == bid_pub_expected)
 This is the information-theoretic SSS but with no authentication or binding between share and secret. Malicious share injection is possible! Add MAC or digital signature in hostile settings. Use at least 128-bit modulus for non-toy deployments; `MakeDataShares()` requires > 256 bits.
 
 ```py
-from transcrypto import sss
+from transcrypto.core import sss
 
 # Generate parameters: at least 3 of 5 shares needed,
 # coefficients & modulus are 264-bit primes (> 256 bits required for MakeDataShares)
@@ -875,7 +881,7 @@ recovered = pub.RawRecoverSecret(subset)
 assert recovered == secret
 ```
 
-If you supply fewer than minimum shares you get a `CryptoError`, unless you explicitly override:
+If you supply fewer than minimum shares you get a `key.CryptoError`, unless you explicitly override:
 
 ```py
 try:
