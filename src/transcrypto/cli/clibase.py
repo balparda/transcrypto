@@ -19,7 +19,7 @@ from transcrypto.utils import base
 from transcrypto.utils import logging as tc_logging
 
 
-@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+@dataclasses.dataclass(kw_only=True, slots=True)
 class CLIConfig:
   """CLI global context, storing the configuration.
 
