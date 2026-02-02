@@ -115,7 +115,7 @@ class IOFormat(enum.Enum):
   bin = 'bin'
 
 
-@dataclasses.dataclass(kw_only=True, slots=True)
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class TransConfig(clibase.CLIConfig):
   """CLI global context, storing the configuration.
 

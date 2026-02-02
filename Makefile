@@ -22,7 +22,7 @@ integration:
 	poetry run pytest -q tests_integration
 
 cov:
-	poetry run pytest --cov=src --cov-report=term-missing -q tests
+	poetry run pytest --typeguard-packages=transcrypto --cov=src --cov-report=term-missing -q tests
 
 flakes:
 	poetry run pytest --flake-finder --flake-runs=100 -q tests

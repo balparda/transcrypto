@@ -32,7 +32,7 @@ from transcrypto.utils import logging as tc_logging
 from . import __version__
 
 
-@dataclasses.dataclass(kw_only=True, slots=True)
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
 class ProfilerConfig(clibase.CLIConfig):
   """CLI global context, storing the configuration.
 
