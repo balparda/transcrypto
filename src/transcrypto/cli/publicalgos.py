@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import click
 import typer
 
 from transcrypto import transcrypto
@@ -43,7 +44,7 @@ transcrypto.app.add_typer(rsa_app, name='rsa')
 @clibase.CLIErrorGuard
 def RSANew(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   bits: int = typer.Option(
     3332,
     '-b',
@@ -75,7 +76,7 @@ def RSANew(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def RSARawEncrypt(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   message: str = typer.Argument(..., help='Integer message to encrypt, 1≤`message`<*modulus*'),
 ) -> None:
   config: transcrypto.TransConfig = ctx.obj
@@ -102,7 +103,7 @@ def RSARawEncrypt(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def RSARawDecrypt(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   ciphertext: str = typer.Argument(
     ..., help='Integer ciphertext to decrypt, 1≤`ciphertext`<*modulus*'
   ),
@@ -126,7 +127,7 @@ def RSARawDecrypt(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def RSARawSign(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   message: str = typer.Argument(..., help='Integer message to sign, 1≤`message`<*modulus*'),
 ) -> None:
   config: transcrypto.TransConfig = ctx.obj
@@ -153,7 +154,7 @@ def RSARawSign(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def RSARawVerify(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   message: str = typer.Argument(
     ..., help='Integer message that was signed earlier, 1≤`message`<*modulus*'
   ),
@@ -186,7 +187,7 @@ def RSARawVerify(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def RSAEncrypt(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   plaintext: str = typer.Argument(..., help='Message to encrypt'),
   aad: str = typer.Option(
     '',
@@ -217,7 +218,7 @@ def RSAEncrypt(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def RSADecrypt(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   ciphertext: str = typer.Argument(..., help='Ciphertext to decrypt'),
   aad: str = typer.Option(
     '',
@@ -247,7 +248,7 @@ def RSADecrypt(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def RSASign(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   message: str = typer.Argument(..., help='Message to sign'),
   aad: str = typer.Option(
     '',
@@ -281,7 +282,7 @@ def RSASign(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def RSAVerify(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   message: str = typer.Argument(..., help='Message that was signed earlier'),
   signature: str = typer.Argument(..., help='Putative signature for `message`'),
   aad: str = typer.Option(
@@ -339,7 +340,7 @@ transcrypto.app.add_typer(eg_app, name='elgamal')
 @clibase.CLIErrorGuard
 def ElGamalShared(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   bits: int = typer.Option(
     3332,
     '-b',
@@ -365,7 +366,7 @@ def ElGamalShared(  # documentation is help/epilog/args # noqa: D103
   ),
 )
 @clibase.CLIErrorGuard
-def ElGamalNew(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def ElGamalNew(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: transcrypto.TransConfig = ctx.obj
   base_path: str = transcrypto.RequireKeyPath(config, 'elgamal')
   shared_eg: elgamal.ElGamalSharedPublicKey = transcrypto.LoadObj(
@@ -393,7 +394,7 @@ def ElGamalNew(*, ctx: typer.Context) -> None:  # documentation is help/epilog/a
 @clibase.CLIErrorGuard
 def ElGamalRawEncrypt(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   message: str = typer.Argument(..., help='Integer message to encrypt, 1≤`message`<*modulus*'),
 ) -> None:
   config: transcrypto.TransConfig = ctx.obj
@@ -424,7 +425,7 @@ def ElGamalRawEncrypt(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def ElGamalRawDecrypt(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   ciphertext: str = typer.Argument(
     ...,
     help=(
@@ -457,7 +458,7 @@ def ElGamalRawDecrypt(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def ElGamalRawSign(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   message: str = typer.Argument(..., help='Integer message to sign, 1≤`message`<*modulus*'),
 ) -> None:
   config: transcrypto.TransConfig = ctx.obj
@@ -491,7 +492,7 @@ def ElGamalRawSign(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def ElGamalRawVerify(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   message: str = typer.Argument(
     ..., help='Integer message that was signed earlier, 1≤`message`<*modulus*'
   ),
@@ -528,7 +529,7 @@ def ElGamalRawVerify(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def ElGamalEncrypt(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   plaintext: str = typer.Argument(..., help='Message to encrypt'),
   aad: str = typer.Option(
     '',
@@ -561,7 +562,7 @@ def ElGamalEncrypt(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def ElGamalDecrypt(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   ciphertext: str = typer.Argument(..., help='Ciphertext to decrypt'),
   aad: str = typer.Option(
     '',
@@ -593,7 +594,7 @@ def ElGamalDecrypt(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def ElGamalSign(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   message: str = typer.Argument(..., help='Message to sign'),
   aad: str = typer.Option(
     '',
@@ -629,7 +630,7 @@ def ElGamalSign(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def ElGamalVerify(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   message: str = typer.Argument(..., help='Message that was signed earlier'),
   signature: str = typer.Argument(..., help='Putative signature for `message`'),
   aad: str = typer.Option(
@@ -690,7 +691,7 @@ transcrypto.app.add_typer(dsa_app, name='dsa')
 @clibase.CLIErrorGuard
 def DSAShared(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   p_bits: int = typer.Option(
     4096,
     '-b',
@@ -726,7 +727,7 @@ def DSAShared(  # documentation is help/epilog/args # noqa: D103
   ),
 )
 @clibase.CLIErrorGuard
-def DSANew(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def DSANew(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: transcrypto.TransConfig = ctx.obj
   base_path: str = transcrypto.RequireKeyPath(config, 'dsa')
   dsa_shared: dsa.DSASharedPublicKey = transcrypto.LoadObj(
@@ -754,7 +755,7 @@ def DSANew(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args 
 @clibase.CLIErrorGuard
 def DSARawSign(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   message: str = typer.Argument(..., help='Integer message to sign, 1≤`message`<`q`'),
 ) -> None:
   config: transcrypto.TransConfig = ctx.obj
@@ -785,7 +786,7 @@ def DSARawSign(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def DSARawVerify(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   message: str = typer.Argument(
     ..., help='Integer message that was signed earlier, 1≤`message`<`q`'
   ),
@@ -822,7 +823,7 @@ def DSARawVerify(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def DSASign(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   message: str = typer.Argument(..., help='Message to sign'),
   aad: str = typer.Option(
     '',
@@ -856,7 +857,7 @@ def DSASign(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def DSAVerify(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: click.Context,
   message: str = typer.Argument(..., help='Message that was signed earlier'),
   signature: str = typer.Argument(..., help='Putative signature for `message`'),
   aad: str = typer.Option(

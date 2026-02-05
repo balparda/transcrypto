@@ -98,11 +98,11 @@ def test_CLIErrorGuard_with_ctx_prints_exception_when_verbose_ge_INFO() -> None:
   buf = io.StringIO()
   c = rich_console.Console(file=buf, force_terminal=False, color_system=None, record=True)
   cmd = click.Command('x', callback=lambda: None)
-  ctx = typer.Context(cmd, info_name='x')
+  ctx = click.Context(cmd, info_name='x')
   ctx.obj = clibase.CLIConfig(console=c, verbose=logging.INFO, color=None)
 
   @clibase.CLIErrorGuard
-  def _boom(*, ctx: typer.Context) -> None:  # noqa: ARG001
+  def _boom(*, ctx: click.Context) -> None:  # noqa: ARG001
     raise base.InputError('boom')
 
   _boom(ctx=ctx)
@@ -115,11 +115,11 @@ def test_CLIErrorGuard_with_ctx_prints_message_when_verbose_lt_INFO() -> None:
   buf = io.StringIO()
   c = rich_console.Console(file=buf, force_terminal=False, color_system=None, record=True)
   cmd = click.Command('x', callback=lambda: None)
-  ctx = typer.Context(cmd, info_name='x')
+  ctx = click.Context(cmd, info_name='x')
   ctx.obj = clibase.CLIConfig(console=c, verbose=0, color=None)
 
   @clibase.CLIErrorGuard
-  def _boom(*, ctx: typer.Context) -> None:  # noqa: ARG001
+  def _boom(*, ctx: click.Context) -> None:  # noqa: ARG001
     raise base.InputError('boom')
 
   _boom(ctx=ctx)
@@ -135,7 +135,7 @@ def test_transcrypto_markdown_command_executes(monkeypatch: pytest.MonkeyPatch) 
   monkeypatch.setattr(clibase, 'GenerateTyperHelpMarkdown', lambda *_a, **_k: 'DOC')  # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
   # Create a mock context object
   cmd = click.Command('markdown', callback=lambda: None)
-  ctx = typer.Context(cmd, info_name='markdown')
+  ctx = click.Context(cmd, info_name='markdown')
   ctx.obj = transcrypto.TransConfig(
     console=c,
     verbose=0,
@@ -165,7 +165,7 @@ class _DynamicGroup(click.Group):
 def test_ClickWalk_multi_command_path_is_supported() -> None:
   """Test."""
   cmd = _DynamicGroup('root', commands={})
-  ctx = typer.Context(cmd, info_name='root')
+  ctx = click.Context(cmd, info_name='root')
   walked = list(clibase._ClickWalk(cmd, ctx, []))
   # Root plus the valid child command. The invalid subcommand should be skipped.
   assert any(path == [] for path, _, _ in walked)

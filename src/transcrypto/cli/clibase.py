@@ -51,10 +51,10 @@ def CLIErrorGuard[**P](fn: abc.Callable[P, None], /) -> abc.Callable[P, None]:
     except (base.Error, ValueError) as err:
       # get context
       ctx: object | None = dict(kwargs).get('ctx')
-      if not isinstance(ctx, typer.Context):
-        ctx = next((a for a in args if isinstance(a, typer.Context)), None)
+      if not isinstance(ctx, click.Context):
+        ctx = next((a for a in args if isinstance(a, click.Context)), None)
       # print error nicely
-      if isinstance(ctx, typer.Context):
+      if isinstance(ctx, click.Context):
         # we have context
         obj: CLIConfig = cast('CLIConfig', ctx.obj)
         if obj.verbose >= 2:  # verbose >= 2 means INFO level or more verbose  # noqa: PLR2004
@@ -72,20 +72,20 @@ def CLIErrorGuard[**P](fn: abc.Callable[P, None], /) -> abc.Callable[P, None]:
 
 def _ClickWalk(
   command: click.Command,
-  ctx: typer.Context,
+  ctx: click.Context,
   path: list[str],
   /,
-) -> abc.Iterator[tuple[list[str], click.Command, typer.Context]]:
+) -> abc.Iterator[tuple[list[str], click.Command, click.Context]]:
   """Recursively walk Click commands/groups.
 
   Yields:
-    tuple[list[str], click.Command, typer.Context]: path, command, ctx
+    tuple[list[str], click.Command, click.Context]: path, command, ctx
 
   """
   yield (path, command, ctx)  # yield self
   # now walk subcommands, if any
   sub_cmd: click.Command | None
-  sub_ctx: typer.Context
+  sub_ctx: click.Context
   # prefer the explicit `.commands` mapping when present; otherwise fall back to
   # click's `list_commands()`/`get_command()` for dynamic groups
   if not isinstance(command, click.Group):
@@ -93,7 +93,7 @@ def _ClickWalk(
   # explicit commands mapping
   if command.commands:
     for name, sub_cmd in sorted(command.commands.items()):
-      sub_ctx = typer.Context(sub_cmd, info_name=name, parent=ctx)
+      sub_ctx = click.Context(sub_cmd, info_name=name, parent=ctx)
       yield from _ClickWalk(sub_cmd, sub_ctx, [*path, name])
     return
   # dynamic commands
@@ -101,7 +101,7 @@ def _ClickWalk(
     sub_cmd = command.get_command(ctx, name)
     if sub_cmd is None:
       continue  # skip invalid subcommands
-    sub_ctx = typer.Context(sub_cmd, info_name=name, parent=ctx)
+    sub_ctx = click.Context(sub_cmd, info_name=name, parent=ctx)
     yield from _ClickWalk(sub_cmd, sub_ctx, [*path, name])
 
 
@@ -140,7 +140,7 @@ def GenerateTyperHelpMarkdown(
   """
   # prepare Click root command and context
   click_root: click.Command = typer.main.get_command(typer_app)
-  root_ctx: typer.Context = typer.Context(click_root, info_name=prog_name)
+  root_ctx: click.Context = click.Context(click_root, info_name=prog_name)
   runner = click_testing.CliRunner()
   parts: list[str] = []
   for path, _, _ in _ClickWalk(click_root, root_ctx, []):

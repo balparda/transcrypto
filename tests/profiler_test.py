@@ -12,7 +12,6 @@ import sys
 from collections import abc
 
 import pytest
-import typeguard
 from click import testing as click_testing
 from typer import testing
 
@@ -30,10 +29,7 @@ def _CallCLI(args: list[str]) -> click_testing.Result:
       click_testing.Result: CLI result.
 
   """
-  with typeguard.suppress_type_checks():
-    # we suppress type checks here because CliRunner.invoke expects a click.Command,
-    # but we are passing a typer.Typer (which is a subclass of click.Command)
-    return testing.CliRunner().invoke(profiler.app, args)
+  return testing.CliRunner().invoke(profiler.app, args)
 
 
 @pytest.fixture(autouse=True)
@@ -51,8 +47,7 @@ def reset_cli_logging_singletons() -> abc.Generator[None]:
 def test_profiler_version_and_run(monkeypatch: pytest.MonkeyPatch) -> None:
   """Check profiler --version and Run() paths work as expected."""
   # Version path in profiler.Main
-  with typeguard.suppress_type_checks():
-    res: click_testing.Result = testing.CliRunner().invoke(profiler.app, ['--version'])
+  res: click_testing.Result = testing.CliRunner().invoke(profiler.app, ['--version'])
   assert res.exit_code == 0
   assert profiler.__version__ in res.output  # type: ignore[attr-defined]
   # Run() path

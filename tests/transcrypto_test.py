@@ -14,7 +14,6 @@ import re
 import sys
 
 import pytest
-import typeguard
 from click import testing as click_testing
 from rich import console as rich_console
 from typer import testing
@@ -41,10 +40,7 @@ def CallCLI(args: list[str]) -> click_testing.Result:
       click_testing.Result: CLI result.
 
   """
-  with typeguard.suppress_type_checks():
-    # we suppress type checks here because CliRunner.invoke expects a click.Command,
-    # but we are passing a typer.Typer (which is a subclass of click.Command)
-    return testing.CliRunner().invoke(transcrypto.app, args, env={'COLUMNS': '2000'})
+  return testing.CliRunner().invoke(transcrypto.app, args, env={'COLUMNS': '2000'})
 
 
 def Out(res: click_testing.Result) -> str:

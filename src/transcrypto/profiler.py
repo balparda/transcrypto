@@ -21,6 +21,7 @@ from __future__ import annotations
 import dataclasses
 from collections import abc
 
+import click
 import typer
 from rich import console as rich_console
 
@@ -78,7 +79,7 @@ def Run() -> None:
 @clibase.CLIErrorGuard
 def Main(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,  # global context
+  ctx: click.Context,  # global context
   version: bool = typer.Option(False, '--version', help='Show version and exit.'),
   verbose: int = typer.Option(
     0,
@@ -173,7 +174,7 @@ def Main(  # documentation is help/epilog/args # noqa: D103
   ),
 )
 @clibase.CLIErrorGuard
-def Primes(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def Primes(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: ProfilerConfig = ctx.obj  # get application global config
   config.console.print(
     f'Starting [yellow]{"SERIAL" if config.serial else "PARALLEL"} regular primes[/] test'
@@ -203,7 +204,7 @@ def Primes(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args 
   ),
 )
 @clibase.CLIErrorGuard
-def DSA(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def DSA(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: ProfilerConfig = ctx.obj  # get application global config
   config.console.print(
     f'Starting [yellow]{"SERIAL" if config.serial else "PARALLEL"} DSA primes[/] test'
