@@ -72,9 +72,8 @@ def InitLogging(
 
       from transcrypto.utils import logging
       @pytest.fixture(autouse=True)
-      def _reset_base_logging() -> Generator[None, None, None]:  # type: ignore
+      def _reset_base_logging() -> None:
         logging.ResetConsole()
-        yield  # stop
 
   Args:
     verbosity (int): Logging verbosity level: 0==ERROR, 1==WARNING, 2==INFO, 3==DEBUG

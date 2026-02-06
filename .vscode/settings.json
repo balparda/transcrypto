@@ -17,6 +17,32 @@
   "pylint.enabled": false,
   "flake8.enabled": false,
 
+  // --- Mypy Type Checker (modern extension) to match pre-commit ---
+  // DEPRECATED: python.linting.mypy* settings no longer used
+  // Using ms-python.mypy-type-checker extension instead
+  "mypy-type-checker.enabled": true,
+  "mypy-type-checker.importStrategy": "fromEnvironment",
+  "mypy-type-checker.path": ["${workspaceFolder}/.venv/bin/mypy"],
+  "mypy-type-checker.args": [
+    "--config-file",
+    "${workspaceFolder}/pyproject.toml",
+    "--show-error-codes",
+    "--no-error-summary",
+    "--no-incremental"
+  ],
+  "mypy-type-checker.reportingScope": "workspace",
+  // Show ALL mypy errors immediately, including unused-ignore
+  "mypy-type-checker.severity": {
+    "error": "Error",
+    "warning": "Warning",
+    "note": "Information"
+  },
+  // Ensure mypy runs automatically
+  "mypy-type-checker.preferDaemon": false,
+  // Run mypy on file save and when typing
+  "mypy-type-checker.ignorePatterns": [],
+  "mypy-type-checker.cwd": "${workspaceFolder}",
+
   // --- autoDocstring ---
   // Use Google-style docstrings --- add "autoDocstring – Python Docstring Generator" extension.
   "autoDocstring.docstringFormat": "google",
@@ -66,7 +92,9 @@
     "AESECB",
     "aeshash",
     "Algoritmos",
+    "appauthor",
     "appdirs",
+    "appname",
     "argcomplete",
     "argparse",
     "armv",
@@ -192,6 +220,7 @@
     "pluggy",
     "poetrycli",
     "powmod",
+    "prefs",
     "Primality",
     "primegen",
     "printables",
@@ -287,4 +316,5 @@
     "Zstandard",
     "Zstd"
   ]
+
 }
