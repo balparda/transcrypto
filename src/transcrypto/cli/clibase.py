@@ -15,7 +15,8 @@ import typer
 from click import testing as click_testing
 from rich import console as rich_console
 
-from transcrypto.utils import base, config
+from transcrypto.utils import base
+from transcrypto.utils import config as app_config
 from transcrypto.utils import logging as tc_logging
 
 
@@ -23,18 +24,23 @@ from transcrypto.utils import logging as tc_logging
 class CLIConfig:
   """CLI global context, storing the configuration.
 
+  ATTENTION: Keep this structure stable, as changes in the fields will affect all CLIs that use it,
+  including downstream projects. If you need to add fields, do so in a backward-compatible way
+  (e.g. with default values), and consider the impact on all CLIs that use this. If you need to
+  make breaking changes, consider bumping the major version and documenting the changes clearly.
+
   Attributes:
     console (rich_console.Console): Rich console instance for output
     verbose (int): Verbosity level (0-3)
     color (bool | None): Color preference (None=auto, True=force, False=disable)
-    appconfig (config.AppConfig): The global app config instance
+    appconfig (app_config.AppConfig): The global app config instance
 
   """
 
   console: rich_console.Console
   verbose: int
   color: bool | None
-  appconfig: config.AppConfig
+  appconfig: app_config.AppConfig
 
 
 def CLIErrorGuard[**P](fn: abc.Callable[P, None], /) -> abc.Callable[P, None]:

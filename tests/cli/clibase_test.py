@@ -21,7 +21,15 @@ from rich import console as rich_console
 from transcrypto import transcrypto
 from transcrypto.cli import clibase
 from transcrypto.utils import base
+from transcrypto.utils import config as app_config
 from transcrypto.utils import logging as tc_logging
+
+
+@pytest.fixture(autouse=True)
+def reset_cli() -> None:
+  """Reset CLI singleton before each test."""
+  tc_logging.ResetConsole()
+  app_config.ResetConfig()
 
 
 def test_GenerateTyperHelpMarkdown_simple_app() -> None:
@@ -99,7 +107,8 @@ def test_CLIErrorGuard_with_ctx_prints_exception_when_verbose_ge_INFO() -> None:
   c = rich_console.Console(file=buf, force_terminal=False, color_system=None, record=True)
   cmd = click.Command('x', callback=lambda: None)
   ctx = click.Context(cmd, info_name='x')
-  ctx.obj = clibase.CLIConfig(console=c, verbose=logging.INFO, color=None)
+  appconfig: app_config.AppConfig = app_config.InitConfig('test_app', 'test.bin')
+  ctx.obj = clibase.CLIConfig(console=c, verbose=logging.INFO, color=None, appconfig=appconfig)
 
   @clibase.CLIErrorGuard
   def _boom(*, ctx: click.Context) -> None:  # noqa: ARG001
@@ -116,7 +125,8 @@ def test_CLIErrorGuard_with_ctx_prints_message_when_verbose_lt_INFO() -> None:
   c = rich_console.Console(file=buf, force_terminal=False, color_system=None, record=True)
   cmd = click.Command('x', callback=lambda: None)
   ctx = click.Context(cmd, info_name='x')
-  ctx.obj = clibase.CLIConfig(console=c, verbose=0, color=None)
+  appconfig: app_config.AppConfig = app_config.InitConfig('test_app2', 'test2.bin')
+  ctx.obj = clibase.CLIConfig(console=c, verbose=0, color=None, appconfig=appconfig)
 
   @clibase.CLIErrorGuard
   def _boom(*, ctx: click.Context) -> None:  # noqa: ARG001
@@ -136,10 +146,12 @@ def test_transcrypto_markdown_command_executes(monkeypatch: pytest.MonkeyPatch) 
   # Create a mock context object
   cmd = click.Command('markdown', callback=lambda: None)
   ctx = click.Context(cmd, info_name='markdown')
+  appconfig: app_config.AppConfig = app_config.InitConfig('test_app3', 'test3.bin')
   ctx.obj = transcrypto.TransConfig(
     console=c,
     verbose=0,
     color=None,
+    appconfig=appconfig,
     input_format=transcrypto.IOFormat.bin,
     output_format=transcrypto.IOFormat.hex,
     protect=None,

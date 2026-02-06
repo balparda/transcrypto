@@ -21,6 +21,7 @@ from typer import testing
 from transcrypto import transcrypto
 from transcrypto.core import aes, bid
 from transcrypto.utils import base
+from transcrypto.utils import config as app_config
 from transcrypto.utils import logging as tc_logging
 
 
@@ -28,6 +29,7 @@ from transcrypto.utils import logging as tc_logging
 def reset_cli() -> None:
   """Reset CLI singleton before each test."""
   tc_logging.ResetConsole()
+  app_config.ResetConfig()
 
 
 def CallCLI(args: list[str]) -> click_testing.Result:
@@ -202,10 +204,12 @@ def test_markdown_includes_deep_path() -> None:
 def test_require_keypath_rejects_directory(tmp_path: pathlib.Path) -> None:
   """Cover RequireKeyPath directory error path."""
   c = rich_console.Console(file=io.StringIO(), force_terminal=False, color_system=None, record=True)
+  appconfig: app_config.AppConfig = app_config.InitConfig('test_app4', 'test4.bin')
   cfg = transcrypto.TransConfig(
     console=c,
     verbose=0,
     color=None,
+    appconfig=appconfig,
     input_format=transcrypto.IOFormat.hex,
     output_format=transcrypto.IOFormat.hex,
     key_path=tmp_path,

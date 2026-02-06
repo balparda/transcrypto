@@ -121,6 +121,7 @@ def test_aes_key_print_b64_matches_library(tmp_path: pathlib.Path) -> None:
   priv_path: pathlib.Path = tmp_path / 'password.priv'
   # Reset CLI singletons before calling CLI again in the same test
   tc_logging.ResetConsole()
+  app_config.ResetConfig()
   res = transcrypto_test.CallCLI(
     ['-p', str(priv_path), 'aes', 'key', 'correct horse battery staple']
   )
@@ -161,6 +162,7 @@ def test_aes_ecb_encrypthex_decrypthex_roundtrip() -> None:
   # Decrypt back
   # Reset CLI singletons before calling CLI again in the same test
   tc_logging.ResetConsole()
+  app_config.ResetConfig()
   res2: click_testing.Result = transcrypto_test.CallCLI(
     [
       '--input-format',
@@ -192,6 +194,7 @@ def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None:
   # Decrypt: ciphertext hex in, ask for raw output so we can compare to original string
   # Reset CLI singletons before calling CLI again in the same test
   tc_logging.ResetConsole()
+  app_config.ResetConfig()
   res2: click_testing.Result = transcrypto_test.CallCLI(
     [
       '--input-format',
@@ -294,6 +297,7 @@ def test_aes_gcm_decrypt_wrong_aad_raises() -> None:
   # Decrypt with WRONG AAD='B' → should raise CryptoError
   # Reset CLI singletons before calling CLI again in the same test
   tc_logging.ResetConsole()
+  app_config.ResetConfig()
   res = transcrypto_test.CallCLI(
     [
       '--input-format',
@@ -327,6 +331,7 @@ def test_aes_ecb_encrypt_decrypt_with_key_path(tmp_path: pathlib.Path) -> None:
   # Decrypt with --key-path
   # Reset CLI singletons before calling CLI again in the same test
   tc_logging.ResetConsole()
+  app_config.ResetConfig()
   res2: click_testing.Result = transcrypto_test.CallCLI(
     ['-p', str(key_path), 'aes', 'ecb', 'decrypt', transcrypto_test.OneToken(res)]
   )
@@ -344,6 +349,7 @@ def test_aes_ecb_wrong_length_input() -> None:
   assert 'must be exactly 32 hex chars' in res.output
   # Invalid hexadecimal string (not hex) - encrypt - 32 chars with 'Z' which is not hex
   tc_logging.ResetConsole()
+  app_config.ResetConfig()
   res = transcrypto_test.CallCLI(
     ['--input-format', 'b64', 'aes', 'ecb', 'encrypt', '-k', key_b64, 'Z' * 32]
   )
@@ -351,6 +357,7 @@ def test_aes_ecb_wrong_length_input() -> None:
   assert 'invalid hexadecimal string' in res.output
   # Invalid hexadecimal in decrypt - 32 chars with 'Z' which is not hex
   tc_logging.ResetConsole()
+  app_config.ResetConfig()
   res = transcrypto_test.CallCLI(
     ['--input-format', 'b64', 'aes', 'ecb', 'decrypt', '-k', key_b64, 'Z' * 32]
   )
@@ -358,6 +365,7 @@ def test_aes_ecb_wrong_length_input() -> None:
   assert 'invalid hexadecimal string' in res.output
   # Wrong-length ciphertext
   tc_logging.ResetConsole()
+  app_config.ResetConfig()
   res2: click_testing.Result = transcrypto_test.CallCLI(
     ['--input-format', 'b64', 'aes', 'ecb', 'decrypt', '-k', key_b64, 'abc']
   )

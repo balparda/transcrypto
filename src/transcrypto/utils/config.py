@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import logging
 import pathlib
 import threading
 from collections import abc
@@ -133,7 +134,7 @@ class AppConfig:
       version (str | None, optional): The version of the application. Defaults to None.
 
     Raises:
-      base.Error: if app_name or main_config is empty
+      base.Error: if `app_name` or `main_config` is empty or if the config path is not a directory
 
     """
     self.app_name: str = app_name.strip()
@@ -147,7 +148,13 @@ class AppConfig:
     )
     self.path: pathlib.Path = self.dir / self.main_config
     # create config dir if it doesn't exist
-    self.dir.mkdir(parents=True, exist_ok=True)
+    if self.dir.exists():
+      if not self.dir.is_dir():
+        raise base.Error(f'config dir path {str(self.dir)!r} exists but is not a directory')
+      logging.info(f'config dir already exists at {str(self.dir)!r}')
+    else:
+      self.dir.mkdir(parents=True, exist_ok=True)
+      logging.warning(f'config dir did not exist, created new config dir at {str(self.dir)!r}')
 
   def Serialize[T](
     self,

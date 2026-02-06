@@ -9,13 +9,13 @@ Run with:
 from __future__ import annotations
 
 import sys
-from collections import abc
 
 import pytest
 from click import testing as click_testing
 from typer import testing
 
 from transcrypto import profiler
+from transcrypto.utils import config as app_config
 from transcrypto.utils import logging as tc_logging
 
 
@@ -33,15 +33,10 @@ def _CallCLI(args: list[str]) -> click_testing.Result:
 
 
 @pytest.fixture(autouse=True)
-def reset_cli_logging_singletons() -> abc.Generator[None]:
-  """Reset global console/logging state between tests.
-
-  The CLI callback initializes a global Rich console singleton via InitLogging().
-  Tests invoke the CLI multiple times across test cases, so we must reset that
-  singleton to keep tests isolated.
-  """
+def reset_cli() -> None:
+  """Reset CLI singleton before each test."""
   tc_logging.ResetConsole()
-  yield  # noqa: PT022
+  app_config.ResetConfig()
 
 
 def test_profiler_version_and_run(monkeypatch: pytest.MonkeyPatch) -> None:
