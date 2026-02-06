@@ -18,6 +18,7 @@ from click import testing as click_testing
 from tests import transcrypto_test
 from transcrypto.core import aes, key
 from transcrypto.utils import base
+from transcrypto.utils import config as app_config
 from transcrypto.utils import logging as tc_logging
 
 
@@ -25,6 +26,7 @@ from transcrypto.utils import logging as tc_logging
 def reset_cli() -> None:
   """Reset CLI singleton before each test."""
   tc_logging.ResetConsole()
+  app_config.ResetConfig()
 
 
 @pytest.mark.parametrize(

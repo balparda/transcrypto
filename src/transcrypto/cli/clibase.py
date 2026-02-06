@@ -15,7 +15,7 @@ import typer
 from click import testing as click_testing
 from rich import console as rich_console
 
-from transcrypto.utils import base
+from transcrypto.utils import base, config
 from transcrypto.utils import logging as tc_logging
 
 
@@ -27,12 +27,14 @@ class CLIConfig:
     console (rich_console.Console): Rich console instance for output
     verbose (int): Verbosity level (0-3)
     color (bool | None): Color preference (None=auto, True=force, False=disable)
+    appconfig (config.AppConfig): The global app config instance
 
   """
 
   console: rich_console.Console
   verbose: int
   color: bool | None
+  appconfig: config.AppConfig
 
 
 def CLIErrorGuard[**P](fn: abc.Callable[P, None], /) -> abc.Callable[P, None]:

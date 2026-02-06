@@ -102,6 +102,7 @@ from rich import console as rich_console
 from transcrypto.cli import clibase
 from transcrypto.core import aes, key
 from transcrypto.utils import base, human
+from transcrypto.utils import config as app_config
 from transcrypto.utils import logging as tc_logging
 
 from . import __version__
@@ -447,6 +448,7 @@ def Main(  # documentation is help/epilog/args # noqa: D103
     console=console,
     verbose=verbose,
     color=color,
+    appconfig=app_config.InitConfig('transcrypto', 'transcrypto.bin'),
     input_format=input_format,
     output_format=output_format,
     key_path=key_path,

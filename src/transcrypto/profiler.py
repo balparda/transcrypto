@@ -27,6 +27,7 @@ from rich import console as rich_console
 
 from transcrypto.cli import clibase
 from transcrypto.core import dsa, modmath
+from transcrypto.utils import config as app_config
 from transcrypto.utils import human, timer
 from transcrypto.utils import logging as tc_logging
 
@@ -154,6 +155,7 @@ def Main(  # documentation is help/epilog/args # noqa: D103
     console=console,
     verbose=verbose,
     color=color,
+    appconfig=app_config.InitConfig('transcrypto', 'profiler.bin'),
     serial=serial,
     repeats=repeats,
     confidence=confidence,
