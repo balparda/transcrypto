@@ -198,7 +198,7 @@ def test_markdown_includes_deep_path() -> None:
   """Ensure markdown docs include a representative deep path."""
   res: click_testing.Result = CallCLI(['markdown'])
   assert res.exit_code == 0
-  assert 'aes ecb encrypt' in res.output
+  assert "Loaded SSS share: 'sss-key.share.5'" in res.output
 
 
 def test_require_keypath_rejects_directory(tmp_path: pathlib.Path) -> None:

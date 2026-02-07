@@ -41,3 +41,63 @@ Usage: profiler [OPTIONS] COMMAND [ARGS]...
  # --- Markdown ---                                                                                                                                        
  poetry run profiler markdown > profiler.md
 ```
+
+## `profiler dsa` Command
+
+```text
+Usage: profiler dsa [OPTIONS]                                                                                                                             
+                                                                                                                                                           
+ Measure DSA prime generation.                                                                                                                             
+                                                                                                                                                           
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                                                           
+ Example:                                                                                                                                                  
+                                                                                                                                                           
+ $ poetry run profiler --no-serial -n 2 -b 1000,1500,100 -c 80 dsa                                                                                         
+ Starting PARALLEL DSA primes test                                                                                                                         
+ 1000 → 236.344 ms ± 273.236 ms [*0.00 s … 509.580 ms]80%CI@2                                                                                              
+ 1100 → 319.308 ms ± 639.775 ms [*0.00 s … 959.083 ms]80%CI@2                                                                                              
+ 1200 → 523.885 ms ± 879.981 ms [*0.00 s … 1.40 s]80%CI@2                                                                                                  
+ 1300 → 506.285 ms ± 687.153 ms [*0.00 s … 1.19 s]80%CI@2                                                                                                  
+ 1400 → 552.840 ms ± 47.012 ms [505.828 ms … 599.852 ms]80%CI@2                                                                                            
+ Finished in 4.12 s
+```
+
+## `profiler markdown` Command
+
+```text
+Usage: profiler markdown [OPTIONS]                                                                                                                        
+                                                                                                                                                           
+ Emit Markdown docs for the CLI (see README.md section "Creating a New Version").                                                                          
+                                                                                                                                                           
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                                                           
+ Example:                                                                                                                                                  
+                                                                                                                                                           
+ $ poetry run profiler markdown > profiler.md                                                                                                              
+ <<saves CLI doc>>
+```
+
+## `profiler primes` Command
+
+```text
+Usage: profiler primes [OPTIONS]                                                                                                                          
+                                                                                                                                                           
+ Measure regular prime generation.                                                                                                                         
+                                                                                                                                                           
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                                                           
+ Example:                                                                                                                                                  
+                                                                                                                                                           
+ $ poetry run profiler -n 30 -b 9000,11000,1000 primes                                                                                                     
+ Starting SERIAL regular primes test                                                                                                                       
+ 9000 → 38.88 s ± 14.74 s [24.14 s … 53.63 s]98%CI@30                                                                                                      
+ 10000 → 41.26 s ± 22.82 s [18.44 s … 1.07 min]98%CI@30                                                                                                    
+ Finished in 40.07 min
+```

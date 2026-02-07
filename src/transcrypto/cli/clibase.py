@@ -155,7 +155,9 @@ def GenerateTyperHelpMarkdown(
     # build command path
     command_path: str = ' '.join([prog_name, *path]).strip()
     heading_prefix: str = '#' * max(1, heading_level + len(path))
-    tc_logging.ResetConsole()  # ensure clean state for the command
+    # ensure clean state for the command
+    tc_logging.ResetConsole()
+    app_config.ResetConfig()
     # invoke --help for this command path
     result: click_testing.Result = runner.invoke(
       click_root,
