@@ -9,6 +9,7 @@ Run with:
 from __future__ import annotations
 
 import pathlib
+import tempfile
 from unittest import mock
 
 import pytest
@@ -306,3 +307,110 @@ def test_app_config_path_exists_but_is_file(tmp_path: pathlib.Path) -> None:
     pytest.raises(base.Error, match=r'config dir path .* exists but is not a directory'),
   ):
     app_config.AppConfig('test_app', 'app_config.toml')
+
+
+def test_make_it_temporary_creates_temp_dir() -> None:
+  """Test that make_it_temporary=True creates a temporary directory."""
+  config: app_config.AppConfig = app_config.InitConfig(
+    'test_app', 'app_config.toml', make_it_temporary=True
+  )
+  # Verify temp attribute is set
+  assert config.temp is True
+  # Verify directory exists
+  assert config.dir.exists()
+  assert config.dir.is_dir()
+  # Verify it's in the system temp directory
+  assert str(config.dir).startswith(str(pathlib.Path(tempfile.gettempdir())))
+  # Verify directory name contains app name
+  assert 'test_app' in config.dir.name
+
+
+def test_make_it_temporary_with_all_params() -> None:
+  """Test make_it_temporary with app_author and version."""
+  config: app_config.AppConfig = app_config.InitConfig(
+    'my_app',
+    'settings.toml',
+    app_author='AuthorName',
+    version='1.2.3',
+    make_it_temporary=True,
+  )
+  assert config.temp is True
+  assert config.dir.exists()
+  # Verify directory name contains app_author and version
+  assert 'AuthorName' in config.dir.name
+  assert '1.2.3' in config.dir.name
+  assert 'my_app' in config.dir.name
+
+
+def test_fixed_dir_uses_provided_path(tmp_path: pathlib.Path) -> None:
+  """Test that fixed_dir parameter uses the provided directory."""
+  fixed_path: pathlib.Path = tmp_path / 'my_custom_config'
+  config: app_config.AppConfig = app_config.InitConfig(
+    'test_app', 'app_config.toml', fixed_dir=fixed_path
+  )
+  # Verify the directory matches
+  assert config.dir == fixed_path
+  # Verify temp attribute is False
+  assert config.temp is False
+  # Verify directory was created
+  assert fixed_path.exists()
+  assert fixed_path.is_dir()
+
+
+def test_fixed_dir_with_existing_directory(tmp_path: pathlib.Path) -> None:
+  """Test that fixed_dir works with an existing directory."""
+  existing_dir: pathlib.Path = tmp_path / 'existing_dir'
+  existing_dir.mkdir()
+  # Add a file to verify it's not overwritten
+  test_file: pathlib.Path = existing_dir / 'test.txt'
+  test_file.write_text('existing content', encoding='utf-8')
+  config: app_config.AppConfig = app_config.InitConfig(
+    'test_app', 'app_config.toml', fixed_dir=existing_dir
+  )
+  assert config.dir == existing_dir
+  assert config.temp is False
+  # Verify existing file is still there
+  assert test_file.exists()
+  assert test_file.read_text(encoding='utf-8') == 'existing content'
+
+
+def test_make_it_temporary_and_fixed_dir_raises_error() -> None:
+  """Test that setting both make_it_temporary and fixed_dir raises an error."""
+  with pytest.raises(base.Error, match='`make_it_temporary` and `fixed_dir` cannot both be set'):
+    app_config.InitConfig(
+      'test_app',
+      'app_config.toml',
+      make_it_temporary=True,
+      fixed_dir=pathlib.Path('/tmp/test'),  # noqa: S108
+    )
+
+
+def test_fixed_dir_serialization(tmp_path: pathlib.Path) -> None:
+  """Test Serialize/DeSerialize with fixed_dir."""
+  fixed_path: pathlib.Path = tmp_path / 'custom_config'
+  config: app_config.AppConfig = app_config.InitConfig(
+    'test_app', 'config.json', fixed_dir=fixed_path
+  )
+  test_data: dict[str, int] = {'value': 42, 'count': 100}
+  # Serialize data
+  config.Serialize(test_data, silent=True)
+  # Verify file was created in the fixed directory
+  assert (fixed_path / 'config.json').exists()
+  # Deserialize and verify
+  loaded_data: dict[str, int] = config.DeSerialize(silent=True)
+  assert loaded_data == test_data
+
+
+def test_make_it_temporary_serialization() -> None:
+  """Test Serialize/DeSerialize with make_it_temporary."""
+  config: app_config.AppConfig = app_config.InitConfig(
+    'test_app', 'data.bin', make_it_temporary=True
+  )
+  test_data: list[str] = ['alpha', 'beta', 'gamma']
+  # Serialize data
+  config.Serialize(test_data, silent=True)
+  # Verify file was created
+  assert config.path.exists()
+  # Deserialize and verify
+  loaded_data: list[str] = config.DeSerialize(silent=True)
+  assert loaded_data == test_data

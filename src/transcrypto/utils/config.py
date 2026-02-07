@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 import pathlib
+import shutil
 import tempfile
 import threading
 from collections import abc
@@ -36,9 +37,13 @@ def Config() -> AppConfig:
 
 
 def ResetConfig() -> None:
-  """Reset the global config instance."""
+  """Reset the global config instance. If the current config is temporary, also deletes temp dir."""
   global __config_singleton  # noqa: PLW0603
   with __config_lock:
+    if __config_singleton is not None and __config_singleton.temp:
+      # if this is a temporary config, delete the temp directory to clean up
+      logging.info(f'removing temporary config dir at {str(__config_singleton.dir)!r}')
+      shutil.rmtree(__config_singleton.dir, ignore_errors=True)  # removes dir and all contents
     __config_singleton = None
 
 
@@ -111,7 +116,8 @@ def _GetTemporaryConfigDir(
 
   Useful for testing or for apps that want a temporary config. Will use tempfile.mkdtemp()
   to create a temporary directory and return its path as a pathlib.Path object.
-  The directory will be automatically cleaned up when the program exits.
+  NOTE: The directory will NOT be automatically cleaned up - you must manually delete it
+  when done, or rely on OS cleanup of temp directories.
 
   Args:
     appname (str): The name of the application.
@@ -119,7 +125,7 @@ def _GetTemporaryConfigDir(
     version (str | None, optional): The version of the application. Defaults to None.
 
   Returns:
-    pathlib.Path: A temporary config dir path that doesn't hit the filesystem.
+    pathlib.Path: A temporary config directory path that has been created on the filesystem.
 
   """
   return pathlib.Path(
