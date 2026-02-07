@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 import pathlib
+import tempfile
 import threading
 from collections import abc
 
@@ -48,6 +49,8 @@ def InitConfig(
   *,
   app_author: str | None = None,
   version: str | None = None,
+  make_it_temporary: bool = False,
+  fixed_dir: pathlib.Path | None = None,
 ) -> AppConfig:
   """Initialize config singleton.
 
@@ -66,12 +69,18 @@ def InitConfig(
     app_author (str | None, optional): The name of the author or organization. Defaults to None.
         Affects the config path on Windows OS.
     version (str | None, optional): The version of the application. Defaults to None.
+    make_it_temporary (bool, optional): If True, will create a temporary directory for the
+          config instead of using the standard platformdirs path. Useful for testing or for
+          apps that want a temporary config. Defaults to False.
+    fixed_dir (pathlib.Path | None, optional): For testing only, if given will use this instead
+          of platformdirs or tempfile to determine the config directory. Do not use together
+          with `make_it_temporary`. Defaults to None.
 
   Returns:
     _AppConfig: The global config instance.
 
   Raises:
-    base.Error: if you call this more than once
+    base.Error: if you call this more than once (or call with incorrect args)
 
   """
   global __config_singleton  # noqa: PLW0603
@@ -81,11 +90,44 @@ def InitConfig(
         'calling InitConfig() more than once is forbidden; '
         'use Config() to get a config after first creation'
       )
-    __config_singleton = AppConfig(app_name, main_config, app_author=app_author, version=version)
+    __config_singleton = AppConfig(
+      app_name,
+      main_config,
+      app_author=app_author,
+      version=version,
+      make_it_temporary=make_it_temporary,
+      fixed_dir=fixed_dir,
+    )
     return __config_singleton
 
 
 GetConfigDir = platformdirs.user_config_path
+
+
+def _GetTemporaryConfigDir(
+  appname: str, appauthor: str | None = None, version: str | None = None
+) -> pathlib.Path:
+  """Get a temporary config dir path.
+
+  Useful for testing or for apps that want a temporary config. Will use tempfile.mkdtemp()
+  to create a temporary directory and return its path as a pathlib.Path object.
+  The directory will be automatically cleaned up when the program exits.
+
+  Args:
+    appname (str): The name of the application.
+    appauthor (str | None, optional): The name of the author or organization. Defaults to None.
+    version (str | None, optional): The version of the application. Defaults to None.
+
+  Returns:
+    pathlib.Path: A temporary config dir path that doesn't hit the filesystem.
+
+  """
+  return pathlib.Path(
+    tempfile.mkdtemp(
+      prefix=f'{(appauthor + "_") if appauthor else ""}{appname}_',
+      suffix=f'_{version}' if version else '',
+    )
+  )
 
 
 class AppConfig:
@@ -100,6 +142,7 @@ class AppConfig:
     version (str | None): The version of the application.
     dir (pathlib.Path): The path to the configuration directory.
     path (pathlib.Path): The main config file full path.
+    temp (bool): True if this config is temporary (i.e. created with make_it_temporary=True).
 
   The config directory `dir` is determined by `platformdirs.user_config_path()`,
   which typically resolves to:
@@ -121,6 +164,8 @@ class AppConfig:
     *,
     app_author: str | None = None,
     version: str | None = None,
+    make_it_temporary: bool = False,
+    fixed_dir: pathlib.Path | None = None,
   ) -> None:
     """Construct.
 
@@ -130,23 +175,43 @@ class AppConfig:
           config files later in the app dir if you want, but this is the one that will be used
           by default for loading/saving.
       app_author (str | None, optional): The name of the author or organization. Defaults to None.
-         Affects the config path on Windows OS.
+          Affects the config path on Windows OS.
       version (str | None, optional): The version of the application. Defaults to None.
+      make_it_temporary (bool, optional): If True, will create a temporary directory for the
+          config instead of using the standard platformdirs path. Useful for testing or for
+          apps that want a temporary config. Defaults to False.
+      fixed_dir (pathlib.Path | None, optional): For testing only, if given will use this instead
+          of platformdirs or tempfile to determine the config directory. Do not use together
+          with `make_it_temporary`. Defaults to None.
 
     Raises:
       base.Error: if `app_name` or `main_config` is empty or if the config path is not a directory
+          or if you set both `make_it_temporary` and `fixed_dir`
 
     """
     self.app_name: str = app_name.strip()
     self.main_config: str = main_config.strip()
     if not self.app_name or not self.main_config:
       raise base.Error('`app_name` and `main_config` must be non-empty strings')
-    self.app_author: str | None = app_author
-    self.version: str | None = version
-    self.dir: pathlib.Path = GetConfigDir(
-      appname=self.app_name, appauthor=self.app_author, version=self.version
+    self.app_author: str | None = (
+      app_author.strip() if app_author is not None and app_author.strip() else None
+    )
+    self.version: str | None = version.strip() if version is not None and version.strip() else None
+    if make_it_temporary and fixed_dir is not None:
+      raise base.Error('`make_it_temporary` and `fixed_dir` cannot both be set')  # for safety
+    self.dir: pathlib.Path = (
+      fixed_dir
+      if fixed_dir is not None
+      else (
+        _GetTemporaryConfigDir(
+          appname=self.app_name, appauthor=self.app_author, version=self.version
+        )
+        if make_it_temporary
+        else GetConfigDir(appname=self.app_name, appauthor=self.app_author, version=self.version)
+      )
     )
     self.path: pathlib.Path = self.dir / self.main_config
+    self.temp: bool = make_it_temporary
     # create config dir if it doesn't exist
     if self.dir.exists():
       if not self.dir.is_dir():
