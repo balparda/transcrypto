@@ -67,7 +67,7 @@ dependencies = [
   # development-only dependencies go in the [tool.poetry.group.dev.dependencies] section below
 
   "cryptography>=46.0",
-  "gmpy2>=2.2",
+  "gmpy2>=2.3",
   "zstandard>=0.25",
 
 ]
