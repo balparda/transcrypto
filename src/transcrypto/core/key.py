@@ -573,7 +573,7 @@ def Serialize[T](
   python_obj: T,
   /,
   *,
-  file_path: str | None = None,
+  file_path: str | pathlib.Path | None = None,
   compress: int | None = 3,
   encryption_key: Encryptor | None = None,
   silent: bool = False,
@@ -601,7 +601,7 @@ def Serialize[T](
 
   Args:
     python_obj (Any): serializable Python object
-    file_path (str, optional): full path to optionally save the data to
+    file_path (str | pathlib.Path | None, optional): full path to optionally save the data to
     compress (int | None, optional): Compress level before encrypting/saving; -22 ≤ compress ≤ 22;
         None is no compression; default is 3, which is fast, see table above for other values
     encryption_key (Encryptor, optional): if given will encryption_key.Encrypt() data before save
@@ -636,11 +636,12 @@ def Serialize[T](
       if not silent:
         messages.append(f'    {tm_crypto}, {human.HumanizedBytes(len(obj))}')
     # optionally save to disk
+    file_path = pathlib.Path(file_path) if file_path else None
     if file_path is not None:
       with timer.Timer('SAVE', emit_log=False) as tm_save:
-        pathlib.Path(file_path).write_bytes(obj)
+        file_path.write_bytes(obj)
       if not silent:
-        messages.append(f'    {tm_save}, to {file_path!r}')
+        messages.append(f'    {tm_save}, to {str(file_path)!r}')
   # log and return
   if not silent:
     logging.info(f'{tm_all}; parts:\n{"\n".join(messages)}')
@@ -650,7 +651,7 @@ def Serialize[T](
 def DeSerialize[T](  # noqa: C901
   *,
   data: bytes | None = None,
-  file_path: str | None = None,
+  file_path: str | pathlib.Path | None = None,
   decryption_key: Decryptor | None = None,
   silent: bool = False,
   unpickler: abc.Callable[[bytes], T] = UnpickleGeneric,
@@ -668,8 +669,9 @@ def DeSerialize[T](  # noqa: C901
   Args:
     data (bytes | None, optional): if given, use this as binary data string (input);
         if you use this option, `file_path` will be ignored
-    file_path (str | None, optional): if given, use this as file path to load binary data
-        string (input); if you use this option, `data` will be ignored. Defaults to None.
+    file_path (str | pathlib.Path | None, optional): if given, use this as file path to
+        load binary data string (input); if you use this option, `data` will be ignored.
+        Defaults to None.
     decryption_key (Decryptor | None, optional): if given will decryption_key.Decrypt() data before
         decompressing/loading. Defaults to None.
     silent (bool, optional): if True will not log; default is False (will log). Defaults to False.
@@ -689,8 +691,9 @@ def DeSerialize[T](  # noqa: C901
   # test inputs
   if (data is None and file_path is None) or (data is not None and file_path is not None):
     raise base.InputError('you must provide only one of either `data` or `file_path`')
-  if file_path and not pathlib.Path(file_path).exists():
-    raise base.InputError(f'invalid file_path: {file_path!r}')
+  file_path = pathlib.Path(file_path) if file_path else None
+  if file_path is not None and not file_path.exists():
+    raise base.InputError(f'invalid file_path: {str(file_path)!r}')
   if data and len(data) < 4:  # noqa: PLR2004
     raise base.InputError('invalid data: too small')
   # start the pipeline
@@ -698,12 +701,12 @@ def DeSerialize[T](  # noqa: C901
   messages: list[str] = [f'DATA: {human.HumanizedBytes(len(obj))}'] if data and not silent else []
   with timer.Timer('De-Serialization complete', emit_log=False) as tm_all:
     # optionally load from disk
-    if file_path:
+    if file_path is not None:
       assert not obj, 'should never happen: if we have a file obj should be empty'  # noqa: S101
       with timer.Timer('LOAD', emit_log=False) as tm_load:
-        obj = pathlib.Path(file_path).read_bytes()
+        obj = file_path.read_bytes()
       if not silent:
-        messages.append(f'    {tm_load}, {human.HumanizedBytes(len(obj))}, from {file_path!r}')
+        messages.append(f'    {tm_load}, {human.HumanizedBytes(len(obj))}, from {str(file_path)!r}')
     # decrypt, if needed
     if decryption_key is not None:
       with timer.Timer('DECRYPT', emit_log=False) as tm_crypto:

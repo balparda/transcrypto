@@ -44,7 +44,7 @@ def test_cli_commands_that_require_key_path_print_error(
   argv: list[str], expected_prefix: str
 ) -> None:
   """Test CLI commands that require -p/--key-path print expected error messages."""
-  res: click_testing.Result = transcrypto_test.CallCLI(argv)
+  res: click_testing.Result = transcrypto_test._CallCLI(argv)
   assert res.exit_code == 0
   assert expected_prefix in res.output
 
@@ -58,7 +58,7 @@ def test_bid_commit_verify(tmp_path: pathlib.Path) -> None:
     'bid-message-123'  # raw UTF-8; we'll use `--input-format bin` so it's treated as bytes
   )
   # Create new bid (writes .priv/.pub beside key_base)
-  res: click_testing.Result = transcrypto_test.CallCLI(
+  res: click_testing.Result = transcrypto_test._CallCLI(
     ['--input-format', 'bin', '-p', str(key_base), 'bid', 'new', bid_message]
   )
   assert res.exit_code == 0 and 'Bid private/public commitments saved to' in res.output
@@ -68,7 +68,7 @@ def test_bid_commit_verify(tmp_path: pathlib.Path) -> None:
   # Reset CLI singletons before calling CLI again in the same test
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['--output-format', 'bin', '-p', str(key_base), 'bid', 'verify'])
+  res = transcrypto_test._CallCLI(['--output-format', 'bin', '-p', str(key_base), 'bid', 'verify'])
   assert (
     res.exit_code == 0
     and transcrypto_test.Out(res) == 'Bid commitment: OK\nBid secret:\nbid-message-123'
@@ -81,7 +81,7 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
   priv_path = pathlib.Path(str(base_path) + '.priv')
   pub_path = pathlib.Path(str(base_path) + '.pub')
   # Generate params
-  res: click_testing.Result = transcrypto_test.CallCLI(
+  res: click_testing.Result = transcrypto_test._CallCLI(
     ['-p', str(base_path), 'sss', 'new', '3', '--bits', '128']
   )
   assert res.exit_code == 0 and 'SSS private/public keys saved to' in res.output
@@ -89,7 +89,7 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
   # Test count < minimum validation (rawshares)
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['-p', str(base_path), 'sss', 'rawshares', '999', '2'])
+  res = transcrypto_test._CallCLI(['-p', str(base_path), 'sss', 'rawshares', '999', '2'])
   assert res.exit_code == 0
   assert 'count (2) must be >= minimum (3)' in res.output
   # Issue 3 shares for a known secret
@@ -97,7 +97,7 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
   # Reset CLI singletons before calling CLI again in the same test
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['-p', str(base_path), 'sss', 'rawshares', str(sss_message), '3'])
+  res = transcrypto_test._CallCLI(['-p', str(base_path), 'sss', 'rawshares', str(sss_message), '3'])
   assert res.exit_code == 0
   assert 'SSS 3 individual (private) shares saved to' in res.output and '1…3' in res.output
   for i in range(3):
@@ -106,7 +106,7 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
   # Recover with public key
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['-p', str(base_path), 'sss', 'rawrecover'])
+  res = transcrypto_test._CallCLI(['-p', str(base_path), 'sss', 'rawrecover'])
   assert res.exit_code == 0
   lines: list[str] = transcrypto_test.Out(res).splitlines()
   assert len(lines) == 5
@@ -115,7 +115,7 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
   # Verify a share against the same secret with private key
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['-p', str(base_path), 'sss', 'rawverify', str(sss_message)])
+  res = transcrypto_test._CallCLI(['-p', str(base_path), 'sss', 'rawverify', str(sss_message)])
   assert res.exit_code == 0
   lines = transcrypto_test.Out(res).splitlines()
   assert len(lines) == 3
@@ -123,7 +123,7 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
     assert 'verification: OK' in line
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['-p', str(base_path), 'sss', 'rawverify', str(sss_message + 1)])
+  res = transcrypto_test._CallCLI(['-p', str(base_path), 'sss', 'rawverify', str(sss_message + 1)])
   assert res.exit_code == 0
   lines = transcrypto_test.Out(res).splitlines()
   assert len(lines) == 3
@@ -132,7 +132,7 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
   # verify sss recover without any data shares → should error
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['-p', str(base_path), 'sss', 'recover'])
+  res = transcrypto_test._CallCLI(['-p', str(base_path), 'sss', 'recover'])
   assert res.exit_code == 0 and 'no data share found among the available shares' in res.output
 
 
@@ -142,7 +142,7 @@ def test_sss_shares_recover_safe(tmp_path: pathlib.Path) -> None:
   priv_path = pathlib.Path(str(base_path) + '.priv')
   pub_path = pathlib.Path(str(base_path) + '.pub')
   # Make params. AEAD path requires modulus_size > 32 → bits > 256 (use 384 for speed).
-  res: click_testing.Result = transcrypto_test.CallCLI(
+  res: click_testing.Result = transcrypto_test._CallCLI(
     ['-p', str(base_path), 'sss', 'new', '3', '--bits', '384']
   )
   assert res.exit_code == 0 and priv_path.exists() and pub_path.exists()
@@ -150,7 +150,7 @@ def test_sss_shares_recover_safe(tmp_path: pathlib.Path) -> None:
   # Test count < minimum validation (shares)
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(
+  res = transcrypto_test._CallCLI(
     ['--input-format', 'bin', '-p', str(base_path), 'sss', 'shares', 'abcde', '2']
   )
   assert res.exit_code == 0
@@ -159,7 +159,7 @@ def test_sss_shares_recover_safe(tmp_path: pathlib.Path) -> None:
   # Reset CLI singletons before calling CLI again in the same test
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(
+  res = transcrypto_test._CallCLI(
     ['--input-format', 'bin', '-p', str(base_path), 'sss', 'shares', 'abcde', '3']
   )
   assert res.exit_code == 0 and 'SSS 3 individual (private) shares saved' in res.output
@@ -168,7 +168,9 @@ def test_sss_shares_recover_safe(tmp_path: pathlib.Path) -> None:
   # Recover (out as bin) → prints loaded shares then the secret
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['--output-format', 'bin', '-p', str(base_path), 'sss', 'recover'])
+  res = transcrypto_test._CallCLI(
+    ['--output-format', 'bin', '-p', str(base_path), 'sss', 'recover']
+  )
   assert res.exit_code == 0
   lines: list[str] = transcrypto_test.Out(res).splitlines()
   assert any('Loaded SSS share' in ln for ln in lines)

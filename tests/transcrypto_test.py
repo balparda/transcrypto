@@ -32,7 +32,7 @@ def reset_cli() -> None:
   app_config.ResetConfig()
 
 
-def CallCLI(args: list[str]) -> click_testing.Result:
+def _CallCLI(args: list[str]) -> click_testing.Result:
   """Call the CLI with args.
 
   Args:
@@ -105,14 +105,14 @@ def test_LoadObj_wrong_type_raises(tmp_path: pathlib.Path) -> None:
 
 def test_cli_markdown_has_header() -> None:
   """Test CLI markdown command output has expected header."""
-  res: click_testing.Result = CallCLI(['markdown'])
+  res: click_testing.Result = _CallCLI(['markdown'])
   assert res.exit_code == 0
   assert '# `transcrypto`' in res.output
 
 
 def test_cli_version_exits_zero() -> None:
   """Test CLI --version shows version and exits zero."""
-  res: click_testing.Result = CallCLI(['--version'])
+  res: click_testing.Result = _CallCLI(['--version'])
   assert res.exit_code == 0
   assert transcrypto.__version__ in res.output  # type: ignore[attr-defined]
 
@@ -160,7 +160,7 @@ def test_transcrypto_run_exits_zero(monkeypatch: pytest.MonkeyPatch) -> None:
 )
 def test_group_help_outputs(argv: list[str]) -> None:
   """Group-only invocations should show help."""
-  res: click_testing.Result = CallCLI(argv)
+  res: click_testing.Result = _CallCLI(argv)
   assert res.exit_code in {0, 2}
   assert 'Usage:' in res.output
 
@@ -168,7 +168,7 @@ def test_group_help_outputs(argv: list[str]) -> None:
 @pytest.mark.parametrize('subapp', ['rsa', 'elgamal', 'dsa', 'bid', 'sss', 'random', 'mod'])
 def test_cli_subapps_show_help_when_no_subcommand(subapp: str) -> None:
   """Subapp-only invocations should show help."""
-  res: click_testing.Result = CallCLI([subapp])
+  res: click_testing.Result = _CallCLI([subapp])
   assert res.exit_code in {0, 2}
   assert 'Usage:' in res.output
 
@@ -196,7 +196,7 @@ def test_bytes_from_to_text_modes(mode: transcrypto.IOFormat, text: str, expect_
 
 def test_markdown_includes_deep_path() -> None:
   """Ensure markdown docs include a representative deep path."""
-  res: click_testing.Result = CallCLI(['markdown'])
+  res: click_testing.Result = _CallCLI(['markdown'])
   assert res.exit_code == 0
   assert "Loaded SSS share: 'sss-key.share.5'" in res.output
 

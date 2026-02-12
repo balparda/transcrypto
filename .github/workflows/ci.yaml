@@ -41,7 +41,7 @@ jobs:
         run: poetry run ruff format --check .
 
       - name: Typecheck
-        run: poetry run mypy src
+        run: poetry run mypy src tests tests_integration
 
       - name: Tests w/ typeguard & Coverage
         run: poetry run pytest --typeguard-packages=transcrypto --cov=src --cov-report=term-missing -q tests

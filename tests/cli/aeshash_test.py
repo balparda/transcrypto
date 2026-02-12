@@ -59,7 +59,7 @@ def reset_cli() -> None:
 )
 def test_cli_deterministic_pairs(argv: list[str], expected: str) -> None:
   """Test CLI commands with deterministic outputs."""
-  res: click_testing.Result = transcrypto_test.CallCLI(argv)
+  res: click_testing.Result = transcrypto_test._CallCLI(argv)
   assert res.exit_code == 0, f'non-zero exit for argv={argv!r}'
   if '\n' in expected:
     assert transcrypto_test.Out(res) == expected
@@ -72,7 +72,7 @@ def test_cli_hash_file(tmp_path: pathlib.Path) -> None:
   # Create a small file and hash it (deterministic)
   p: pathlib.Path = tmp_path / 'hello.txt'
   p.write_text('hello', encoding='utf-8')
-  res: click_testing.Result = transcrypto_test.CallCLI(['hash', 'file', str(p)])
+  res: click_testing.Result = transcrypto_test._CallCLI(['hash', 'file', str(p)])
   assert res.exit_code == 0
   assert (  # SHA-256('hello')
     transcrypto_test.OneToken(res)
@@ -93,14 +93,14 @@ def test_cli_hash_file(tmp_path: pathlib.Path) -> None:
 )
 def test_cli_aes_missing_key_prints_error(argv: list[str], needle: str) -> None:
   """Test CLI AES commands missing key print expected error messages."""
-  res: click_testing.Result = transcrypto_test.CallCLI(argv)
+  res: click_testing.Result = transcrypto_test._CallCLI(argv)
   assert res.exit_code == 0
   assert needle in res.output
 
 
 def test_cli_aes_ecb_help_when_no_subcommand() -> None:
   """Test AES-ECB subapp shows help when no subcommand given."""
-  res: click_testing.Result = transcrypto_test.CallCLI(['aes', 'ecb'])
+  res: click_testing.Result = transcrypto_test._CallCLI(['aes', 'ecb'])
   assert res.exit_code in {0, 2}
   assert 'AES-256-ECB' in res.output
 
@@ -110,7 +110,7 @@ def test_cli_aes_ecb_help_when_no_subcommand() -> None:
 def test_aes_key_print_b64_matches_library(tmp_path: pathlib.Path) -> None:
   """Test AES key CLI command output matches library."""
   # CLI derives & prints b64; library derives for ground truth
-  res: click_testing.Result = transcrypto_test.CallCLI(
+  res: click_testing.Result = transcrypto_test._CallCLI(
     ['--output-format', 'b64', 'aes', 'key', 'correct horse battery staple']
   )
   assert res.exit_code == 0
@@ -122,7 +122,7 @@ def test_aes_key_print_b64_matches_library(tmp_path: pathlib.Path) -> None:
   # Reset CLI singletons before calling CLI again in the same test
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(
+  res = transcrypto_test._CallCLI(
     ['-p', str(priv_path), 'aes', 'key', 'correct horse battery staple']
   )
   assert res.exit_code == 0
@@ -153,7 +153,7 @@ def test_aes_ecb_encrypthex_decrypthex_roundtrip() -> None:
   key_b64: str = base.BytesToEncoded(key_bytes)
   block_hex = '00112233445566778899aabbccddeeff'
   # Encrypt (hex → hex)
-  res: click_testing.Result = transcrypto_test.CallCLI(
+  res: click_testing.Result = transcrypto_test._CallCLI(
     ['--input-format', 'b64', 'aes', 'ecb', 'encrypt', '-k', key_b64, block_hex]
   )
   assert res.exit_code == 0
@@ -163,7 +163,7 @@ def test_aes_ecb_encrypthex_decrypthex_roundtrip() -> None:
   # Reset CLI singletons before calling CLI again in the same test
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res2: click_testing.Result = transcrypto_test.CallCLI(
+  res2: click_testing.Result = transcrypto_test._CallCLI(
     [
       '--input-format',
       'b64',
@@ -184,7 +184,7 @@ def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None:
   plaintext = 'secret message'
   aad = 'assoc'
   # Encrypt: inputs as binary text, outputs default hex
-  res: click_testing.Result = transcrypto_test.CallCLI(
+  res: click_testing.Result = transcrypto_test._CallCLI(
     ['--input-format', 'bin', '-p', str(aes_key_file), 'aes', 'encrypt', plaintext, '-a', aad]
   )
   assert res.exit_code == 0
@@ -195,7 +195,7 @@ def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None:
   # Reset CLI singletons before calling CLI again in the same test
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res2: click_testing.Result = transcrypto_test.CallCLI(
+  res2: click_testing.Result = transcrypto_test._CallCLI(
     [
       '--input-format',
       'hex',
@@ -250,7 +250,7 @@ def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None:
 )
 def test_cli_aes_invalid_key_size_prints_error(argv: list[str], needle: str) -> None:
   """Test CLI AES commands with invalid key sizes print expected error messages."""
-  res: click_testing.Result = transcrypto_test.CallCLI(argv)
+  res: click_testing.Result = transcrypto_test._CallCLI(argv)
   assert res.exit_code == 0
   assert needle in res.output
 
@@ -266,7 +266,7 @@ def test_cli_aes_invalid_key_size_prints_error(argv: list[str], needle: str) -> 
 )
 def test_requires_key(argv: list[str]) -> None:
   """Hit the 'provide --key or --key-path' error in AES."""
-  res: click_testing.Result = transcrypto_test.CallCLI(argv)
+  res: click_testing.Result = transcrypto_test._CallCLI(argv)
   assert res.exit_code == 0
   assert '-p/--key-path' in res.output
 
@@ -278,7 +278,7 @@ def test_aes_gcm_decrypt_wrong_aad_raises() -> None:
   key_bytes = bytes(range(32))
   key_b64: str = base.BytesToEncoded(key_bytes)
   # Encrypt with AAD='A'
-  res: click_testing.Result = transcrypto_test.CallCLI(
+  res: click_testing.Result = transcrypto_test._CallCLI(
     [
       '--input-format',
       'b64',
@@ -298,7 +298,7 @@ def test_aes_gcm_decrypt_wrong_aad_raises() -> None:
   # Reset CLI singletons before calling CLI again in the same test
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(
+  res = transcrypto_test._CallCLI(
     [
       '--input-format',
       'b64',
@@ -324,7 +324,7 @@ def test_aes_ecb_encrypt_decrypt_with_key_path(tmp_path: pathlib.Path) -> None:
   key.Serialize(aes_key, file_path=str(key_path))
   block_hex = '00112233445566778899aabbccddeeff'
   # Encrypt with --key-path
-  res: click_testing.Result = transcrypto_test.CallCLI(
+  res: click_testing.Result = transcrypto_test._CallCLI(
     ['-p', str(key_path), 'aes', 'ecb', 'encrypt', block_hex]
   )
   assert res.exit_code == 0 and re.fullmatch(r'[0-9a-f]{32}', transcrypto_test.OneToken(res))
@@ -332,7 +332,7 @@ def test_aes_ecb_encrypt_decrypt_with_key_path(tmp_path: pathlib.Path) -> None:
   # Reset CLI singletons before calling CLI again in the same test
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res2: click_testing.Result = transcrypto_test.CallCLI(
+  res2: click_testing.Result = transcrypto_test._CallCLI(
     ['-p', str(key_path), 'aes', 'ecb', 'decrypt', transcrypto_test.OneToken(res)]
   )
   assert res2.exit_code == 0 and transcrypto_test.OneToken(res2) == block_hex
@@ -342,7 +342,7 @@ def test_aes_ecb_wrong_length_input() -> None:
   """Cover AES-ECB input validation for wrong-length plaintext/ciphertext."""
   key_b64 = base.BytesToEncoded(bytes(range(32)))
   # Wrong-length plaintext
-  res: click_testing.Result = transcrypto_test.CallCLI(
+  res: click_testing.Result = transcrypto_test._CallCLI(
     ['--input-format', 'b64', 'aes', 'ecb', 'encrypt', '-k', key_b64, 'abc']
   )
   assert res.exit_code == 0
@@ -350,7 +350,7 @@ def test_aes_ecb_wrong_length_input() -> None:
   # Invalid hexadecimal string (not hex) - encrypt - 32 chars with 'Z' which is not hex
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(
+  res = transcrypto_test._CallCLI(
     ['--input-format', 'b64', 'aes', 'ecb', 'encrypt', '-k', key_b64, 'Z' * 32]
   )
   assert res.exit_code == 0
@@ -358,7 +358,7 @@ def test_aes_ecb_wrong_length_input() -> None:
   # Invalid hexadecimal in decrypt - 32 chars with 'Z' which is not hex
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(
+  res = transcrypto_test._CallCLI(
     ['--input-format', 'b64', 'aes', 'ecb', 'decrypt', '-k', key_b64, 'Z' * 32]
   )
   assert res.exit_code == 0
@@ -366,7 +366,7 @@ def test_aes_ecb_wrong_length_input() -> None:
   # Wrong-length ciphertext
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res2: click_testing.Result = transcrypto_test.CallCLI(
+  res2: click_testing.Result = transcrypto_test._CallCLI(
     ['--input-format', 'b64', 'aes', 'ecb', 'decrypt', '-k', key_b64, 'abc']
   )
   assert res2.exit_code == 0

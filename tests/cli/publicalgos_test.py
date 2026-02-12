@@ -61,7 +61,7 @@ def test_cli_commands_that_require_key_path_print_error(
   argv: list[str], expected_prefix: str
 ) -> None:
   """Test CLI commands that require -p/--key-path print expected error messages."""
-  res: click_testing.Result = transcrypto_test.CallCLI(argv)
+  res: click_testing.Result = transcrypto_test._CallCLI(argv)
   assert res.exit_code == 0
   assert expected_prefix in res.output
 
@@ -72,7 +72,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None:
   priv_path: pathlib.Path = tmp_path / 'rsa.priv'
   pub_path: pathlib.Path = tmp_path / 'rsa.pub'
   # Key gen (small for speed)
-  res: click_testing.Result = transcrypto_test.CallCLI(
+  res: click_testing.Result = transcrypto_test._CallCLI(
     ['-p', str(base_path), 'rsa', 'new', '--bits', '512']
   )
   assert res.exit_code == 0 and 'RSA private/public keys saved to' in res.output
@@ -83,29 +83,29 @@ def test_rsa_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None:
   # Reset CLI singletons before additional CLI invocations within same test
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['-p', str(priv_path), 'rsa', 'rawencrypt', str(msg)])
+  res = transcrypto_test._CallCLI(['-p', str(priv_path), 'rsa', 'rawencrypt', str(msg)])
   assert res.exit_code == 0
   c = int(transcrypto_test.OneToken(res))
   assert c > 0
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['-p', str(priv_path), 'rsa', 'rawdecrypt', str(c)])
+  res = transcrypto_test._CallCLI(['-p', str(priv_path), 'rsa', 'rawdecrypt', str(c)])
   assert res.exit_code == 0
   assert int(transcrypto_test.OneToken(res)) == msg
   # Sign/verify
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['-p', str(priv_path), 'rsa', 'rawsign', str(msg)])
+  res = transcrypto_test._CallCLI(['-p', str(priv_path), 'rsa', 'rawsign', str(msg)])
   assert res.exit_code == 0
   s = int(transcrypto_test.OneToken(res))
   assert s > 0
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['-p', str(priv_path), 'rsa', 'rawverify', str(msg), str(s)])
+  res = transcrypto_test._CallCLI(['-p', str(priv_path), 'rsa', 'rawverify', str(msg), str(s)])
   assert res.exit_code == 0 and transcrypto_test.Out(res) == 'RSA signature: OK'
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['-p', str(priv_path), 'rsa', 'rawverify', str(msg + 1), str(s)])
+  res = transcrypto_test._CallCLI(['-p', str(priv_path), 'rsa', 'rawverify', str(msg + 1), str(s)])
   assert res.exit_code == 0 and transcrypto_test.Out(res) == 'RSA signature: INVALID'
 
 
@@ -116,7 +116,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
   priv_path = pathlib.Path(str(base_path) + '.priv')
   pub_path = pathlib.Path(str(base_path) + '.pub')
   # Safe signing requires k > 64 → use ≥1024-bit modulus
-  res: click_testing.Result = transcrypto_test.CallCLI(
+  res: click_testing.Result = transcrypto_test._CallCLI(
     ['-p', str(base_path), 'rsa', 'new', '--bits', '1024']
   )
   assert res.exit_code == 0 and 'RSA private/public keys saved to' in res.output
@@ -125,7 +125,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
   # Reset CLI singletons before additional CLI invocations within same test
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(
+  res = transcrypto_test._CallCLI(
     [
       '--input-format',
       'bin',
@@ -145,7 +145,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
   # Decrypt (b64 in → bin out) with same AAD (as base64: 'eHl6')
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(
+  res = transcrypto_test._CallCLI(
     [
       '--input-format',
       'b64',
@@ -165,7 +165,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
   # Sign (bin in → b64 out) with AAD='aad'
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(
+  res = transcrypto_test._CallCLI(
     [
       '--input-format',
       'bin',
@@ -185,7 +185,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
   # Verify OK (message='xyz' as b64 'eHl6', AAD='aad' as b64 'YWFk')
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(
+  res = transcrypto_test._CallCLI(
     [
       '--input-format',
       'b64',
@@ -204,7 +204,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
   # Verify INVALID with wrong message
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(
+  res = transcrypto_test._CallCLI(
     [
       '--input-format',
       'b64',
@@ -229,7 +229,7 @@ def test_elgamal_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None
   priv_path: pathlib.Path = tmp_path / 'eg.priv'
   pub_path: pathlib.Path = tmp_path / 'eg.pub'
   # Shared params & private key
-  res: click_testing.Result = transcrypto_test.CallCLI(
+  res: click_testing.Result = transcrypto_test._CallCLI(
     ['-p', str(base_path), 'elgamal', 'shared', '--bits', '64']
   )
   assert res.exit_code == 0 and 'El-Gamal shared key saved to' in res.output
@@ -237,7 +237,7 @@ def test_elgamal_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None
   # Reset CLI singletons before calling CLI again in the same test
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['-p', str(base_path), 'elgamal', 'new'])
+  res = transcrypto_test._CallCLI(['-p', str(base_path), 'elgamal', 'new'])
   assert res.exit_code == 0 and 'El-Gamal private/public keys saved to' in res.output
   assert priv_path.exists()
   assert pub_path.exists()
@@ -245,26 +245,26 @@ def test_elgamal_encrypt_decrypt_and_sign_verify(tmp_path: pathlib.Path) -> None
   msg = 42
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['-p', str(priv_path), 'elgamal', 'rawencrypt', str(msg)])
+  res = transcrypto_test._CallCLI(['-p', str(priv_path), 'elgamal', 'rawencrypt', str(msg)])
   assert res.exit_code == 0 and len(transcrypto_test.OneToken(res)) > 0
   ct: str = transcrypto_test.OneToken(res)
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['-p', str(priv_path), 'elgamal', 'rawdecrypt', ct])
+  res = transcrypto_test._CallCLI(['-p', str(priv_path), 'elgamal', 'rawdecrypt', ct])
   assert res.exit_code == 0 and int(transcrypto_test.OneToken(res)) == msg
   # Sign/verify
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['-p', str(priv_path), 'elgamal', 'rawsign', str(msg)])
+  res = transcrypto_test._CallCLI(['-p', str(priv_path), 'elgamal', 'rawsign', str(msg)])
   assert res.exit_code == 0 and len(transcrypto_test.OneToken(res)) > 0
   sig: str = transcrypto_test.OneToken(res)
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['-p', str(priv_path), 'elgamal', 'rawverify', str(msg), sig])
+  res = transcrypto_test._CallCLI(['-p', str(priv_path), 'elgamal', 'rawverify', str(msg), sig])
   assert res.exit_code == 0 and transcrypto_test.Out(res) == 'El-Gamal signature: OK'
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['-p', str(priv_path), 'elgamal', 'rawverify', str(msg + 1), sig])
+  res = transcrypto_test._CallCLI(['-p', str(priv_path), 'elgamal', 'rawverify', str(msg + 1), sig])
   assert res.exit_code == 0 and transcrypto_test.Out(res) == 'El-Gamal signature: INVALID'
 
 
@@ -276,7 +276,7 @@ def test_elgamal_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) ->
   priv_path = pathlib.Path(str(base_path) + '.priv')
   pub_path = pathlib.Path(str(base_path) + '.pub')
   # Safe signing requires k > 64 → use ≥1024-bit prime
-  res: click_testing.Result = transcrypto_test.CallCLI(
+  res: click_testing.Result = transcrypto_test._CallCLI(
     ['-p', str(base_path), 'elgamal', 'shared', '--bits', '1024']
   )
   assert (
@@ -285,7 +285,7 @@ def test_elgamal_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) ->
   # Reset CLI singletons before calling CLI again in the same test
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['-p', str(base_path), 'elgamal', 'new'])
+  res = transcrypto_test._CallCLI(['-p', str(base_path), 'elgamal', 'new'])
   assert (
     res.exit_code == 0
     and priv_path.exists()
@@ -295,7 +295,7 @@ def test_elgamal_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) ->
   # Encrypt (bin in → b64 out) with AAD='xyz'
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(
+  res = transcrypto_test._CallCLI(
     [
       '--input-format',
       'bin',
@@ -315,7 +315,7 @@ def test_elgamal_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) ->
   # Decrypt (b64 in → bin out) with same AAD 'eHl6'
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(
+  res = transcrypto_test._CallCLI(
     [
       '--input-format',
       'b64',
@@ -335,7 +335,7 @@ def test_elgamal_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) ->
   # Sign (bin in → b64 out) with AAD='aad'
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(
+  res = transcrypto_test._CallCLI(
     [
       '--input-format',
       'bin',
@@ -355,7 +355,7 @@ def test_elgamal_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) ->
   # Verify OK and INVALID cases
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(
+  res = transcrypto_test._CallCLI(
     [
       '--input-format',
       'b64',
@@ -373,7 +373,7 @@ def test_elgamal_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) ->
   assert res.exit_code == 0 and transcrypto_test.Out(res) == 'El-Gamal signature: OK'
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(
+  res = transcrypto_test._CallCLI(
     [
       '--input-format',
       'b64',
@@ -399,7 +399,7 @@ def test_dsa_sign_verify(tmp_path: pathlib.Path) -> None:
   priv_path: pathlib.Path = tmp_path / 'dsa.priv'
   pub_path: pathlib.Path = tmp_path / 'dsa.pub'
   # Small, but respect constraints: p_bits >= q_bits + 11, q_bits >= 11
-  res: click_testing.Result = transcrypto_test.CallCLI(
+  res: click_testing.Result = transcrypto_test._CallCLI(
     ['-p', str(base_path), 'dsa', 'shared', '--p-bits', '64', '--q-bits', '32']
   )
   assert res.exit_code == 0 and 'DSA shared key saved to' in res.output
@@ -407,23 +407,23 @@ def test_dsa_sign_verify(tmp_path: pathlib.Path) -> None:
   # Reset CLI singletons before calling CLI again in the same test
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['-p', str(base_path), 'dsa', 'new'])
+  res = transcrypto_test._CallCLI(['-p', str(base_path), 'dsa', 'new'])
   assert res.exit_code == 0 and 'DSA private/public keys saved to' in res.output
   assert priv_path.exists()
   assert pub_path.exists()
   msg = 123456
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['-p', str(priv_path), 'dsa', 'rawsign', str(msg)])
+  res = transcrypto_test._CallCLI(['-p', str(priv_path), 'dsa', 'rawsign', str(msg)])
   assert res.exit_code == 0 and len(transcrypto_test.OneToken(res)) > 0
   sig: str = transcrypto_test.OneToken(res)
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['-p', str(priv_path), 'dsa', 'rawverify', str(msg), sig])
+  res = transcrypto_test._CallCLI(['-p', str(priv_path), 'dsa', 'rawverify', str(msg), sig])
   assert res.exit_code == 0 and transcrypto_test.Out(res) == 'DSA signature: OK'
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['-p', str(priv_path), 'dsa', 'rawverify', str(msg + 1), sig])
+  res = transcrypto_test._CallCLI(['-p', str(priv_path), 'dsa', 'rawverify', str(msg + 1), sig])
   assert res.exit_code == 0 and transcrypto_test.Out(res) == 'DSA signature: INVALID'
 
 
@@ -435,20 +435,20 @@ def test_dsa_sign_verify_safe(tmp_path: pathlib.Path) -> None:
   priv_path = pathlib.Path(str(base_path) + '.priv')
   pub_path = pathlib.Path(str(base_path) + '.pub')
   # Safe DSA requires q > 512 bits (k > 64 bytes). Use q=544, p≥q+11 → p=1024.
-  res: click_testing.Result = transcrypto_test.CallCLI(
+  res: click_testing.Result = transcrypto_test._CallCLI(
     ['-p', str(base_path), 'dsa', 'shared', '--p-bits', '1024', '--q-bits', '544']
   )
   assert res.exit_code == 0 and shared_path.exists() and 'DSA shared key saved to' in res.output
   # Generate private/public keys
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(['-p', str(base_path), 'dsa', 'new'])
+  res = transcrypto_test._CallCLI(['-p', str(base_path), 'dsa', 'new'])
   assert res.exit_code == 0 and priv_path.exists() and pub_path.exists()
   assert 'DSA private/public keys saved to' in res.output
   # Sign (bin in → b64 out) with AAD='aad'
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(
+  res = transcrypto_test._CallCLI(
     [
       '--input-format',
       'bin',
@@ -468,7 +468,7 @@ def test_dsa_sign_verify_safe(tmp_path: pathlib.Path) -> None:
   # Verify OK (message='xyz' b64) and INVALID (wrong message)
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(
+  res = transcrypto_test._CallCLI(
     [
       '--input-format',
       'b64',
@@ -486,7 +486,7 @@ def test_dsa_sign_verify_safe(tmp_path: pathlib.Path) -> None:
   assert res.exit_code == 0 and transcrypto_test.Out(res) == 'DSA signature: OK'
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = transcrypto_test.CallCLI(
+  res = transcrypto_test._CallCLI(
     [
       '--input-format',
       'b64',

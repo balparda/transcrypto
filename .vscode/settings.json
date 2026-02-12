@@ -20,15 +20,13 @@
   // --- Mypy Type Checker (modern extension) to match pre-commit ---
   // DEPRECATED: python.linting.mypy* settings no longer used
   // Using ms-python.mypy-type-checker extension instead
+  // Configuration aligned with CLI: `poetry run mypy src tests tests_integration`
   "mypy-type-checker.enabled": true,
   "mypy-type-checker.importStrategy": "fromEnvironment",
   "mypy-type-checker.path": ["${workspaceFolder}/.venv/bin/mypy"],
   "mypy-type-checker.args": [
-    "--config-file",
-    "${workspaceFolder}/pyproject.toml",
-    "--show-error-codes",
-    "--no-error-summary",
-    "--no-incremental"
+    // No extra args - use pyproject.toml config exactly like CLI does
+    // This ensures VSCode sees the same errors as `make precommit`
   ],
   "mypy-type-checker.reportingScope": "workspace",
   // Show ALL mypy errors immediately, including unused-ignore
@@ -37,8 +35,8 @@
     "warning": "Warning",
     "note": "Information"
   },
-  // Ensure mypy runs automatically
-  "mypy-type-checker.preferDaemon": false,
+  // Use daemon mode for better performance (matches incremental CLI behavior)
+  "mypy-type-checker.preferDaemon": true,
   // Run mypy on file save and when typing
   "mypy-type-checker.ignorePatterns": [],
   "mypy-type-checker.cwd": "${workspaceFolder}",
@@ -103,6 +101,7 @@
     "autobuild",
     "autodoc",
     "autouse",
+    "Balparda",
     "Bézout",
     "bidsecret",
     "bithexblock",
@@ -114,6 +113,7 @@
     "cffi",
     "cfgv",
     "charliermarsh",
+    "ciphertext",
     "clibase",
     "codz",
     "coeff",
@@ -176,6 +176,7 @@
     "ipywidgets",
     "isort",
     "isprime",
+    "Lanczos",
     "Lentz",
     "levelname",
     "librt",
@@ -304,6 +305,7 @@
     "UNSTARTED",
     "urandom",
     "uvicorn",
+    "venv",
     "veryslow",
     "virtualenv",
     "virtualenvs",

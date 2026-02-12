@@ -2,17 +2,24 @@
 // SPDX-License-Identifier: Apache-2.0
 
 {
+
   "recommendations": [
-    "ms-python.python",
-    "ms-python.vscode-python-envs",
-    "ms-python.debugpy",
-    "ms-python.vscode-pylance",
-    "ms-python.mypy-type-checker",
+
     "charliermarsh.ruff",
-    "njpwerner.autodocstring",
-    "streetsidesoftware.code-spell-checker",
     "davidanson.vscode-markdownlint",
-    "yzhang.markdown-all-in-one",
-    "shd101wyy.markdown-preview-enhanced"
+    "gruntfuggly.todo-tree",
+    "ms-python.debugpy",
+    "ms-python.flake8",
+    "ms-python.mypy-type-checker",
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "ms-python.vscode-python-envs",
+    "ms-vscode.makefile-tools",
+    "njpwerner.autodocstring",
+    "shd101wyy.markdown-preview-enhanced",
+    "streetsidesoftware.code-spell-checker",
+    "yzhang.markdown-all-in-one"
+
   ]
+
 }

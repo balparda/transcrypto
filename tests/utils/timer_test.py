@@ -21,8 +21,8 @@ from transcrypto.utils import base, timer
 def ResetLoggingHandlers() -> abc.Generator[None]:
   """Reset logging handlers before and after each test to prevent pollution."""
   root: logging.Logger = logging.getLogger()
-  saved_handlers = list(root.handlers)
-  saved_level = root.level
+  saved_handlers: list[logging.Handler] = list(root.handlers)
+  saved_level: int = root.level
   try:
     for h in list(root.handlers):
       root.removeHandler(h)

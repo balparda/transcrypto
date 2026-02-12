@@ -41,11 +41,11 @@ def Hash512(data: bytes, /) -> bytes:
   return hashlib.sha512(data).digest()
 
 
-def FileHash(full_path: str, /, *, digest: str = 'sha256') -> bytes:
+def FileHash(full_path: str | pathlib.Path, /, *, digest: str = 'sha256') -> bytes:
   """SHA-256 hex hash of file on disk. Always a length of 32 bytes (if default digest=='sha256').
 
   Args:
-    full_path (str): Path to existing file on disk
+    full_path (str | pathlib.Path): Path to existing file on disk
     digest (str, optional): Hash method to use, accepts 'sha256' (default) or 'sha512'
 
   Returns:
@@ -61,12 +61,12 @@ def FileHash(full_path: str, /, *, digest: str = 'sha256') -> bytes:
   digest = digest.lower().strip().replace('-', '')  # normalize so we can accept e.g. "SHA-256"
   if digest not in {'sha256', 'sha512'}:
     raise base.InputError(f'unrecognized digest: {digest!r}')
-  full_path = full_path.strip()
-  if not full_path or not pathlib.Path(full_path).exists():
-    raise base.InputError(f'file {full_path!r} not found for hashing')
+  full_path = pathlib.Path(full_path)
+  if not full_path.exists():
+    raise base.InputError(f'file {str(full_path)!r} not found for hashing')
   # compute hash
-  logging.info(f'Hashing file {full_path!r}')
-  with pathlib.Path(full_path).open('rb') as file_obj:
+  logging.info(f'Hashing file {str(full_path)!r}')
+  with full_path.open('rb') as file_obj:
     return hashlib.file_digest(file_obj, digest).digest()
 
 

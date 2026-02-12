@@ -31,8 +31,8 @@ def reset_logging_and_singleton() -> abc.Generator[None]:
   - Best-effort restore warnings capture plumbing
   """
   root: logging.Logger = logging.getLogger()
-  saved_root_handlers = list(root.handlers)
-  saved_root_level = root.level
+  saved_root_handlers: list[logging.Handler] = list(root.handlers)
+  saved_root_level: int = root.level
   saved_providers: dict[str, dict[str, Any]] = {}
   for name in tc_logging._LOG_COMMON_PROVIDERS:
     lg: logging.Logger = logging.getLogger(name)
@@ -127,7 +127,7 @@ def test_root_has_exactly_one_richhandler_bound_to_returned_console() -> None:
 
 def test_include_process_uses_process_format_on_first_init() -> None:
   """Test."""
-  console = tc_logging.InitLogging(2, include_process=True)[0]
+  console: rich_console.Console = tc_logging.InitLogging(2, include_process=True)[0]
   assert isinstance(console, rich_console.Console)
   h: rich_logging.RichHandler = next(
     h for h in logging.getLogger().handlers if isinstance(h, rich_logging.RichHandler)

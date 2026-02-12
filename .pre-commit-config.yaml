@@ -29,5 +29,5 @@ repos:
         entry: poetry run mypy
         language: system
         types: [python]
-        args: [src]
+        args: [src, tests, tests_integration]
         pass_filenames: false
