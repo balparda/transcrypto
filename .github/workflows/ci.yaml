@@ -53,6 +53,10 @@ jobs:
       matrix:
         python-version: ['3.12', '3.13', '3.14']
 
+    env:
+      PIP_NO_CACHE_DIR: '1'
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+
     steps:
 
       - uses: actions/checkout@v6
@@ -61,13 +65,22 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'
+          # no pip cache in this job: keeps disk usage down
 
       - name: Install Poetry
-        run: pip install poetry
+        run: pip install --no-cache-dir poetry
 
       - name: Install deps
-        run: poetry install
+        run: poetry install --no-cache
+
+      - name: Free up disk space
+        run: |
+          df -h
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/share/dotnet
+          sudo docker system prune -a -f
+          df -h
 
       - name: Build wheel
         run: poetry build -f wheel

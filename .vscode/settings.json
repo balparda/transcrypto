@@ -165,6 +165,7 @@
     "gunicorn",
     "hashlib",
     "HMAC",
+    "hostedtoolcache",
     "htmlcov",
     "hyperscan",
     "iniconfig",

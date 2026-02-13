@@ -473,8 +473,8 @@ def EnsureAndInstallWheel(
   venv_bin_dir: pathlib.Path
   venv_python, venv_bin_dir = VenvPaths(venv_dir)
   # install the wheel into the venv
-  base.Run([str(venv_python), '-m', 'pip', 'install', '--upgrade', 'pip'])
-  base.Run([str(venv_python), '-m', 'pip', 'install', str(wheel)])
+  base.Run([str(venv_python), '-m', 'pip', 'install', '--no-cache-dir', '--upgrade', 'pip'])
+  base.Run([str(venv_python), '-m', 'pip', 'install', '--no-cache-dir', str(wheel)])
   return (venv_python, venv_bin_dir)
 
 
