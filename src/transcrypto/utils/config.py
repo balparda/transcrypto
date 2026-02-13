@@ -345,11 +345,11 @@ def FindConsoleScript(bin_dir: pathlib.Path, name: str) -> pathlib.Path:
 
   """
   # go through possible script names based on platform conventions; return the first one that exists
-  for p in {
+  for p in (
     bin_dir / name,  # *nix is typically just the name
     bin_dir / f'{name}.exe',  # Windows may have .exe/.cmd
     bin_dir / f'{name}.cmd',
-  }:
+  ):
     if p.exists():
       return p
   raise base.NotFoundError(f'Could not find console script {name!r} in {bin_dir}')

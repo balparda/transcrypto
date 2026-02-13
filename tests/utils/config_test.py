@@ -9,7 +9,9 @@ Run with:
 from __future__ import annotations
 
 import pathlib
+import subprocess  # noqa: S404
 import tempfile
+import zipfile
 from unittest import mock
 
 import pytest
@@ -414,3 +416,297 @@ def test_make_it_temporary_serialization() -> None:
   # Deserialize and verify
   loaded_data: list[str] = config.DeSerialize(silent=True)
   assert loaded_data == test_data
+
+
+def test_reset_config_deletes_temp_dir() -> None:
+  """Test ResetConfig removes the temporary directory when config.temp is True."""
+  config: app_config.AppConfig = app_config.InitConfig(
+    'test_app', 'data.bin', make_it_temporary=True
+  )
+  temp_dir: pathlib.Path = config.dir
+  assert temp_dir.exists()
+  app_config.ResetConfig()
+  assert not temp_dir.exists()
+
+
+def test_VenvPaths_unix(tmp_path: pathlib.Path) -> None:
+  """Test VenvPaths returns correct unix paths."""
+  with mock.patch('sys.platform', 'darwin'):
+    python_path, bin_dir = app_config.VenvPaths(tmp_path)
+    assert bin_dir == tmp_path / 'bin'
+    assert python_path == tmp_path / 'bin' / 'python'
+
+
+def test_VenvPaths_windows(tmp_path: pathlib.Path) -> None:
+  """Test VenvPaths returns correct windows paths."""
+  with mock.patch('sys.platform', 'win32'):
+    python_path, bin_dir = app_config.VenvPaths(tmp_path)
+    assert bin_dir == tmp_path / 'Scripts'
+    assert python_path == tmp_path / 'Scripts' / 'python.exe'
+
+
+def test_FindConsoleScript_found(tmp_path: pathlib.Path) -> None:
+  """Test FindConsoleScript finds the bare name script."""
+  script: pathlib.Path = tmp_path / 'my-script'
+  script.write_text('#!/bin/sh\n', encoding='utf-8')
+  result: pathlib.Path = app_config.FindConsoleScript(tmp_path, 'my-script')
+  assert result == script
+
+
+def test_FindConsoleScript_found_exe(tmp_path: pathlib.Path) -> None:
+  """Test FindConsoleScript finds the .exe variant."""
+  script: pathlib.Path = tmp_path / 'my-script.exe'
+  script.write_text('dummy', encoding='utf-8')
+  result: pathlib.Path = app_config.FindConsoleScript(tmp_path, 'my-script')
+  assert result == script
+
+
+def test_FindConsoleScript_found_cmd(tmp_path: pathlib.Path) -> None:
+  """Test FindConsoleScript finds the .cmd variant."""
+  script: pathlib.Path = tmp_path / 'my-script.cmd'
+  script.write_text('dummy', encoding='utf-8')
+  result: pathlib.Path = app_config.FindConsoleScript(tmp_path, 'my-script')
+  assert result == script
+
+
+def test_FindConsoleScript_not_found(tmp_path: pathlib.Path) -> None:
+  """Test FindConsoleScript raises NotFoundError when no variant exists."""
+  with pytest.raises(base.NotFoundError, match=r"Could not find console script 'nope'"):
+    app_config.FindConsoleScript(tmp_path, 'nope')
+
+
+def _make_wheel(tmp_path: pathlib.Path, entry_points_content: str | None) -> pathlib.Path:
+  """Create a minimal .whl (zip) optionally containing entry_points.txt.
+
+  Returns:
+    Path to the created .whl file.
+
+  """
+  whl: pathlib.Path = tmp_path / 'pkg-1.0-py3-none-any.whl'
+  with zipfile.ZipFile(whl, 'w') as zf:
+    if entry_points_content is not None:
+      zf.writestr('pkg-1.0.dist-info/entry_points.txt', entry_points_content)
+  return whl
+
+
+def test_WheelHasConsoleScripts_true(tmp_path: pathlib.Path) -> None:
+  """Test WheelHasConsoleScripts returns True when scripts match."""
+  content: str = '[console_scripts]\nmycli = pkg.cli:main\nother = pkg.other:run\n'
+  whl: pathlib.Path = _make_wheel(tmp_path, content)
+  assert app_config.WheelHasConsoleScripts(whl, {'mycli'}) is True
+  assert app_config.WheelHasConsoleScripts(whl, {'mycli', 'other'}) is True
+
+
+def test_WheelHasConsoleScripts_missing_script(tmp_path: pathlib.Path) -> None:
+  """Test WheelHasConsoleScripts returns False when a script is missing."""
+  content: str = '[console_scripts]\nmycli = pkg.cli:main\n'
+  whl: pathlib.Path = _make_wheel(tmp_path, content)
+  assert app_config.WheelHasConsoleScripts(whl, {'nope'}) is False
+
+
+def test_WheelHasConsoleScripts_no_entry_points(tmp_path: pathlib.Path) -> None:
+  """Test WheelHasConsoleScripts returns False when entry_points.txt is absent."""
+  whl: pathlib.Path = _make_wheel(tmp_path, None)
+  assert app_config.WheelHasConsoleScripts(whl, {'mycli'}) is False
+
+
+def test_WheelHasConsoleScripts_bad_zip(tmp_path: pathlib.Path) -> None:
+  """Test WheelHasConsoleScripts returns False for a corrupt/non-zip file."""
+  bad: pathlib.Path = tmp_path / 'bad.whl'
+  bad.write_bytes(b'not a zip')
+  assert app_config.WheelHasConsoleScripts(bad, {'x'}) is False
+
+
+def test_WheelHasConsoleScripts_no_console_scripts_section(tmp_path: pathlib.Path) -> None:
+  """Test returns False when entry_points.txt has no [console_scripts] section."""
+  content: str = '[gui_scripts]\nmycli = pkg.cli:main\n'
+  whl: pathlib.Path = _make_wheel(tmp_path, content)
+  assert app_config.WheelHasConsoleScripts(whl, {'mycli'}) is False
+
+
+def test_WheelHasConsoleScripts_comments_and_blanks(tmp_path: pathlib.Path) -> None:
+  """Test parser skips comments and blank lines correctly."""
+  content: str = '# comment\n\n[console_scripts]\n; another comment\n\nmycli = pkg.cli:main\n'
+  whl: pathlib.Path = _make_wheel(tmp_path, content)
+  assert app_config.WheelHasConsoleScripts(whl, {'mycli'}) is True
+
+
+def test_WheelHasConsoleScripts_section_switch(tmp_path: pathlib.Path) -> None:
+  """Test parser stops collecting names when section switches."""
+  content: str = (
+    '[console_scripts]\nmycli = pkg.cli:main\n[other_section]\nnot-cli = pkg.other:run\n'
+  )
+  whl: pathlib.Path = _make_wheel(tmp_path, content)
+  assert app_config.WheelHasConsoleScripts(whl, {'mycli'}) is True
+  assert app_config.WheelHasConsoleScripts(whl, {'not-cli'}) is False
+
+
+def test_WheelHasConsoleScripts_os_error(tmp_path: pathlib.Path) -> None:
+  """Test returns False when an OSError occurs (e.g. file not found)."""
+  missing: pathlib.Path = tmp_path / 'missing.whl'
+  assert app_config.WheelHasConsoleScripts(missing, {'x'}) is False
+
+
+def test_EnsureWheel_existing_good_wheel(tmp_path: pathlib.Path) -> None:
+  """Test EnsureWheel returns an existing matching wheel."""
+  dist_dir: pathlib.Path = tmp_path / 'dist'
+  dist_dir.mkdir()
+  content: str = '[console_scripts]\nmycli = pkg.cli:main\n'
+  whl: pathlib.Path = dist_dir / 'pkg-1.0.0-py3-none-any.whl'
+  with zipfile.ZipFile(whl, 'w') as zf:
+    zf.writestr('pkg-1.0.0.dist-info/entry_points.txt', content)
+  result: pathlib.Path = app_config.EnsureWheel(tmp_path, '1.0.0', {'mycli'})
+  assert result == whl
+
+
+def test_EnsureWheel_stale_wheel_rebuilds(tmp_path: pathlib.Path) -> None:
+  """Test EnsureWheel rebuilds when the existing wheel is stale (missing console scripts)."""
+  dist_dir: pathlib.Path = tmp_path / 'dist'
+  dist_dir.mkdir()
+  # Create a wheel that does NOT have the needed console scripts
+  stale_whl: pathlib.Path = dist_dir / 'pkg-1.0.0-py3-none-any.whl'
+  with zipfile.ZipFile(stale_whl, 'w') as zf:
+    zf.writestr('pkg-1.0.0.dist-info/entry_points.txt', '[console_scripts]\nother = x:y\n')
+  # After "poetry build" we need a wheel with the right scripts; mock everything
+  good_content: str = '[console_scripts]\nmycli = pkg.cli:main\n'
+
+  def _fake_run(cmd: list[str], /, **_kw: object) -> subprocess.CompletedProcess[str]:
+    # Simulate poetry build creating a new wheel
+    new_whl: pathlib.Path = dist_dir / 'pkg-1.0.0-py3-none-any.whl'
+    with zipfile.ZipFile(new_whl, 'w') as zf:
+      zf.writestr('pkg-1.0.0.dist-info/entry_points.txt', good_content)
+    return subprocess.CompletedProcess(cmd, 0, '', '')
+
+  with (
+    mock.patch('shutil.which', return_value='/usr/local/bin/poetry'),
+    mock.patch('transcrypto.utils.base.Run', side_effect=_fake_run),
+  ):
+    result: pathlib.Path = app_config.EnsureWheel(tmp_path, '1.0.0', {'mycli'})
+  assert result.name == 'pkg-1.0.0-py3-none-any.whl'
+
+
+def test_EnsureWheel_no_poetry_raises(tmp_path: pathlib.Path) -> None:
+  """Test EnsureWheel raises when poetry is not on PATH."""
+  dist_dir: pathlib.Path = tmp_path / 'dist'
+  dist_dir.mkdir()
+  with (
+    mock.patch('shutil.which', return_value=None),
+    pytest.raises(base.Error, match='`poetry` not found on PATH'),
+  ):
+    app_config.EnsureWheel(tmp_path, '1.0.0', {'mycli'})
+
+
+def test_EnsureWheel_build_produces_nothing(tmp_path: pathlib.Path) -> None:
+  """Test EnsureWheel raises when build succeeds but no matching wheel found."""
+  dist_dir: pathlib.Path = tmp_path / 'dist'
+  dist_dir.mkdir()
+  with (
+    mock.patch('shutil.which', return_value='/usr/local/bin/poetry'),
+    mock.patch(
+      'transcrypto.utils.base.Run',
+      return_value=subprocess.CompletedProcess([], 0, '', ''),
+    ),
+    pytest.raises(base.Error, match=r'Wheel build succeeded but no `.whl` found'),
+  ):
+    app_config.EnsureWheel(tmp_path, '1.0.0', {'mycli'})
+
+
+def test_EnsureAndInstallWheel_bad_dirs(tmp_path: pathlib.Path) -> None:
+  """Test EnsureAndInstallWheel raises for non-existent directories."""
+  with pytest.raises(
+    base.InputError, match='`repository_root_dir` and `temporary_dir` must be existing directories'
+  ):
+    app_config.EnsureAndInstallWheel(tmp_path / 'nope', tmp_path, '1.0.0', {'cli'})
+
+
+def test_EnsureAndInstallWheel_empty_scripts(tmp_path: pathlib.Path) -> None:
+  """Test EnsureAndInstallWheel raises for empty scripts or version."""
+  with pytest.raises(base.InputError, match='`expected_version` and `scripts` must be non-empty'):
+    app_config.EnsureAndInstallWheel(tmp_path, tmp_path, '1.0.0', set())
+  with pytest.raises(base.InputError, match='`expected_version` and `scripts` must be non-empty'):
+    app_config.EnsureAndInstallWheel(tmp_path, tmp_path, '', {'cli'})
+
+
+def test_EnsureAndInstallWheel_happy_path(tmp_path: pathlib.Path) -> None:
+  """Test EnsureAndInstallWheel end-to-end with mocks."""
+  repo: pathlib.Path = tmp_path / 'repo'
+  repo.mkdir()
+  temp: pathlib.Path = tmp_path / 'temp'
+  temp.mkdir()
+  venv_dir: pathlib.Path = temp / 'venv'
+  fake_bin: pathlib.Path = venv_dir / 'bin'
+  fake_python: pathlib.Path = fake_bin / 'python'
+  fake_wheel: pathlib.Path = repo / 'dist' / 'pkg-1.0.0-py3-none-any.whl'
+  with (
+    mock.patch('transcrypto.utils.config.EnsureWheel', return_value=fake_wheel) as mock_ew,
+    mock.patch('venv.EnvBuilder.create') as mock_venv,
+    mock.patch('transcrypto.utils.base.Run') as mock_run,
+  ):
+    py, bd = app_config.EnsureAndInstallWheel(repo, temp, '1.0.0', {'cli'})
+  mock_ew.assert_called_once_with(repo, '1.0.0', {'cli'})
+  mock_venv.assert_called_once_with(venv_dir)
+  assert mock_run.call_count == 2
+  assert py == fake_python
+  assert bd == fake_bin
+
+
+def test_EnsureConsoleScriptsPrintExpectedVersion_ok(tmp_path: pathlib.Path) -> None:
+  """Test happy path: all console scripts print the expected version."""
+  # Create fake scripts
+  script_a: pathlib.Path = tmp_path / 'alpha'
+  script_a.write_text('dummy', encoding='utf-8')
+  script_b: pathlib.Path = tmp_path / 'beta'
+  script_b.write_text('dummy', encoding='utf-8')
+  fake_python: pathlib.Path = tmp_path / 'python'
+  with mock.patch(
+    'transcrypto.utils.base.Run',
+    return_value=subprocess.CompletedProcess([], 0, '2.0.0\n', ''),
+  ):
+    result: dict[str, pathlib.Path] = app_config.EnsureConsoleScriptsPrintExpectedVersion(
+      fake_python, tmp_path, '2.0.0', {'alpha', 'beta'}
+    )
+  assert result['alpha'] == script_a
+  assert result['beta'] == script_b
+  assert result['python'] == fake_python
+
+
+def test_EnsureConsoleScriptsPrintExpectedVersion_mismatch(tmp_path: pathlib.Path) -> None:
+  """Test raises when version output does not match."""
+  script: pathlib.Path = tmp_path / 'cli'
+  script.write_text('dummy', encoding='utf-8')
+  fake_python: pathlib.Path = tmp_path / 'python'
+  with (
+    mock.patch(
+      'transcrypto.utils.base.Run',
+      return_value=subprocess.CompletedProcess([], 0, '1.0.0\n', ''),
+    ),
+    pytest.raises(base.Error, match=r"did not print version '2.0.0'.*got '1.0.0'"),
+  ):
+    app_config.EnsureConsoleScriptsPrintExpectedVersion(fake_python, tmp_path, '2.0.0', {'cli'})
+
+
+def test_CallGetConfigDirFromVEnv_ok(tmp_path: pathlib.Path) -> None:
+  """Test happy path: get config dir from venv."""
+  fake_python: pathlib.Path = tmp_path / 'python'
+  fake_python.write_text('dummy', encoding='utf-8')
+  expected: str = '/home/user/.config/myapp'
+  with mock.patch(
+    'transcrypto.utils.base.Run',
+    return_value=subprocess.CompletedProcess([], 0, f'{expected}\n', ''),
+  ):
+    result: pathlib.Path = app_config.CallGetConfigDirFromVEnv(fake_python, 'myapp')
+  assert result == pathlib.Path(expected)
+
+
+def test_CallGetConfigDirFromVEnv_missing_python(tmp_path: pathlib.Path) -> None:
+  """Test raises when venv python does not exist."""
+  with pytest.raises(base.InputError, match=r'venv python not found'):
+    app_config.CallGetConfigDirFromVEnv(tmp_path / 'nope', 'myapp')
+
+
+def test_CallGetConfigDirFromVEnv_empty_app_name(tmp_path: pathlib.Path) -> None:
+  """Test raises when app_name is empty."""
+  fake_python: pathlib.Path = tmp_path / 'python'
+  fake_python.write_text('dummy', encoding='utf-8')
+  with pytest.raises(base.InputError, match='`app_name` must be a non-empty string'):
+    app_config.CallGetConfigDirFromVEnv(fake_python, '')
