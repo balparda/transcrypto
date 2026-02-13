@@ -7,8 +7,11 @@ from __future__ import annotations
 import logging
 import pathlib
 import shutil
+import sys
 import tempfile
 import threading
+import venv
+import zipfile
 from collections import abc
 
 import platformdirs
@@ -306,3 +309,232 @@ class AppConfig:
       silent=silent,
       unpickler=unpickler,
     )
+
+
+def VenvPaths(venv_dir: pathlib.Path) -> tuple[pathlib.Path, pathlib.Path]:
+  """Return virtual environment paths for python and /bin.
+
+  Useful for testing installed CLIs in a clean environment.
+
+  Args:
+      venv_dir (pathlib.Path): path to venv
+
+  Returns:
+      tuple[Path, Path]: (venv_python, venv_bin_dir)
+
+  """
+  is_win: bool = sys.platform.startswith('win')
+  bin_dir: pathlib.Path = venv_dir / 'Scripts' if is_win else venv_dir / 'bin'
+  return (bin_dir / 'python.exe' if is_win else bin_dir / 'python', bin_dir)
+
+
+def FindConsoleScript(bin_dir: pathlib.Path, name: str) -> pathlib.Path:
+  """Find the installed console script in the venv (platform-specific).
+
+  Useful for testing installed CLIs in a clean environment.
+
+  Args:
+      bin_dir (pathlib.Path): directory containing the console scripts
+      name (str): name of the console script to find
+
+  Returns:
+      pathlib.Path: path to the console script
+
+  Raises:
+      base.NotFoundError: if the console script is not found
+
+  """
+  # go through possible script names based on platform conventions; return the first one that exists
+  for p in {
+    bin_dir / name,  # *nix is typically just the name
+    bin_dir / f'{name}.exe',  # Windows may have .exe/.cmd
+    bin_dir / f'{name}.cmd',
+  }:
+    if p.exists():
+      return p
+  raise base.NotFoundError(f'Could not find console script {name!r} in {bin_dir}')
+
+
+def WheelHasConsoleScripts(wheel: pathlib.Path, scripts: set[str]) -> bool:
+  """Return True if the wheel defines the given console scripts.
+
+  Args:
+      wheel (pathlib.Path): wheel path
+      scripts (set[str]): set of console script names to check for; case sensitive
+
+  Returns:
+      bool: True if all specified console scripts are found in the wheel
+
+  """
+  # open the wheel as a zip file and look for entry_points.txt; read
+  try:
+    with zipfile.ZipFile(wheel) as zf:
+      entry_points: list[str] = [n for n in zf.namelist() if n.endswith('entry_points.txt')]
+      if not entry_points:
+        return False
+      data: str = zf.read(entry_points[0]).decode('utf-8', errors='replace')
+  except (OSError, zipfile.BadZipFile):
+    return False
+  # Minimal parse: ensure the [console_scripts] section contains the required names.
+  in_console_scripts: bool = False
+  found: set[str] = set()
+  for raw_line in data.splitlines():
+    line: str = raw_line.strip()
+    if not line or line.startswith(('#', ';')):
+      continue
+    if line.startswith('[') and line.endswith(']'):
+      in_console_scripts = line == '[console_scripts]'
+      continue
+    if in_console_scripts and '=' in line:
+      name: str = line.split('=', 1)[0].strip()
+      found.add(name)
+  return scripts.issubset(found)
+
+
+def EnsureWheel(repo: pathlib.Path, expected_version: str, scripts: set[str], /) -> pathlib.Path:
+  """Build a wheel if needed; return path to the newest wheel in dist/.
+
+  Args:
+      repo (Path): path to the repository root
+      expected_version (str): expected version string to match in the wheel filename
+      scripts (set[str]): set of console script names to check for; case sensitive
+
+  Raises:
+      base.Error: if no wheel is found after building or not finding couldn't build a wheel
+
+  Returns:
+      Path: path to the newest wheel in dist/
+
+  """
+  dist_dir: pathlib.Path = repo / 'dist'
+  dist_dir.mkdir(exist_ok=True)
+
+  def _NewestWheel() -> pathlib.Path | None:
+    # discover existing wheels
+    wheels: list[pathlib.Path] = sorted(dist_dir.glob('*.whl'), key=lambda p: p.stat().st_mtime)
+    # prefer an existing wheel that matches the current source version; otherwise build a new one.
+    matching: list[pathlib.Path] = [w for w in wheels if f'-{expected_version}-' in w.name]
+    if matching:
+      newest: pathlib.Path = matching[-1]
+      # if a stale wheel exists (e.g., built before console scripts were configured), rebuild.
+      if WheelHasConsoleScripts(newest, scripts):
+        return newest
+    return None
+
+  # try to find an existing wheel
+  wheel: pathlib.Path | None = _NewestWheel()
+  if wheel is not None:
+    return wheel  # found
+  # not found: build a new wheel
+  poetry: str | None = shutil.which('poetry')
+  if poetry is None:
+    raise base.Error('`poetry` not found on PATH; cannot build wheel')
+  base.Run([poetry, 'build', '-f', 'wheel'], cwd=repo)
+  # now we must have a wheel!
+  wheel = _NewestWheel()
+  if wheel is not None:
+    return wheel  # found
+  raise base.Error(f'Wheel build succeeded but no `.whl` found in {str(dist_dir)!r}')
+
+
+def EnsureAndInstallWheel(
+  repository_root_dir: pathlib.Path,
+  temporary_dir: pathlib.Path,
+  expected_version: str,
+  scripts: set[str],
+  /,
+) -> tuple[pathlib.Path, pathlib.Path]:
+  """Ensure wheel exists (build if needed), create a `venv`, install the wheel.
+
+  Args:
+      repository_root_dir (pathlib.Path): path to the repository root
+      temporary_dir (pathlib.Path): path to a temporary directory to use for the venv
+      expected_version (str): expected version string to match in the wheel filename
+      scripts (set[str]): set of console script names to check for; case sensitive
+
+  Returns:
+      tuple[pathlib.Path, pathlib.Path]: (venv_python, venv_bin_dir)
+
+  Raises:
+      base.InputError: if the wheel cannot be found or built, if the venv cannot be created,
+          or if the wheel cannot be installed into the venv
+
+  """
+  # check to make sure directories exist, then ensure wheel exists (build if needed)
+  if not repository_root_dir.is_dir() or not temporary_dir.is_dir():
+    raise base.InputError('`repository_root_dir` and `temporary_dir` must be existing directories')
+  if not scripts or not expected_version:
+    raise base.InputError('`expected_version` and `scripts` must be non-empty')
+  wheel: pathlib.Path = EnsureWheel(repository_root_dir, expected_version, scripts)
+  # create an isolated venv (not using Poetry's .venv on purpose)
+  venv_dir: pathlib.Path = temporary_dir / 'venv'
+  venv.EnvBuilder(with_pip=True, clear=True).create(venv_dir)
+  venv_python: pathlib.Path
+  venv_bin_dir: pathlib.Path
+  venv_python, venv_bin_dir = VenvPaths(venv_dir)
+  # install the wheel into the venv
+  base.Run([str(venv_python), '-m', 'pip', 'install', '--upgrade', 'pip'])
+  base.Run([str(venv_python), '-m', 'pip', 'install', str(wheel)])
+  return (venv_python, venv_bin_dir)
+
+
+def EnsureConsoleScriptsPrintExpectedVersion(
+  venv_python: pathlib.Path, venv_bin_dir: pathlib.Path, expected_version: str, scripts: set[str], /
+) -> dict[str, pathlib.Path]:
+  """Ensure the console scripts print the expected version; return their paths.
+
+  Useful for testing installed CLIs in a clean environment.
+
+  Args:
+      venv_python (pathlib.Path): path to the venv python executable
+      venv_bin_dir (pathlib.Path): directory containing the console scripts
+      expected_version (str): expected version string to match in the console script output
+      scripts (set[str]): set of console script names to check for; case sensitive
+
+  Returns:
+      dict[str, pathlib.Path]: mapping of console script name to its path,
+          including a 'python' key for the venv python executable
+
+  Raises:
+      base.Error: a console script does not print the expected version or if script is not found
+
+  """
+  cli_paths: dict[str, pathlib.Path] = {}
+  for script in scripts:
+    cli: pathlib.Path = FindConsoleScript(venv_bin_dir, script)
+    result = base.Run([str(cli), '--version'])
+    if (actual := result.stdout.strip()) != expected_version:
+      raise base.Error(
+        f'Console script {script!r} did not print version {expected_version!r}; got {actual!r}'
+      )
+    cli_paths[script] = cli
+  cli_paths['python'] = venv_python
+  return cli_paths
+
+
+def CallGetConfigDirFromVEnv(venv_python: pathlib.Path, app_name: str) -> pathlib.Path:
+  """Call a Python command in the venv to get the config dir path for the given app name.
+
+  Args:
+      venv_python (pathlib.Path): path to the venv python executable
+      app_name (str): The name of the application.
+
+  Returns:
+      pathlib.Path: the config dir path returned by the command
+
+  Raises:
+      base.InputError: if the venv python executable does not exist or if `app_name` is empty
+
+  """
+  if not venv_python.exists():
+    raise base.InputError(f'venv python not found at {str(venv_python)!r}')
+  if not app_name:
+    raise base.InputError('`app_name` must be a non-empty string')
+  r2 = base.Run(
+    [
+      str(venv_python),
+      '-c',
+      f'from transcrypto.utils import config; print(config.GetConfigDir("{app_name}"))',
+    ]
+  )
+  return pathlib.Path(r2.stdout.strip())

@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import base64
 import codecs
+import pathlib
+import subprocess  # noqa: S404
 from collections import abc
 
 # Data conversion utils
@@ -33,6 +35,10 @@ class Error(Exception):
 
 class InputError(Error):
   """Input exception (TransCrypto)."""
+
+
+class NotFoundError(Error, FileNotFoundError):
+  """File not found (TransCrypto)."""
 
 
 class ImplementationError(Error, NotImplementedError):
@@ -70,3 +76,45 @@ def RawToBytes(s: str, /) -> bytes:
     s = s[1:-1]
   # decode backslash escapes to code points, then map 0..255 -> bytes
   return codecs.decode(s, 'unicode_escape').encode('latin1')
+
+
+def Run(
+  cmd: list[str],
+  /,
+  *,
+  cwd: pathlib.Path | None = None,
+  env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+  """Run a command; return the completed process; assert success with useful diagnostics.
+
+  Useful for testing CLI commands where we want to assert success and capture
+  stdout/stderr for diagnostics on failure.
+
+  Args:
+      cmd (list[str]): command
+      cwd (Path | None, optional): Path. Defaults to None.
+      env (dict[str, str] | None, optional): Environment. Defaults to None.
+
+  Raises:
+      AssertionError: invalid return code
+
+  Returns:
+      subprocess.CompletedProcess[str]: result
+
+  """
+  result: subprocess.CompletedProcess[str] = subprocess.run(  # noqa: S603
+    cmd,
+    cwd=str(cwd) if cwd is not None else None,
+    env=env,
+    text=True,
+    capture_output=True,
+    check=False,
+  )
+  if result.returncode != 0:
+    details: str = (
+      f'Command failed (exit={result.returncode}): {cmd}\n\n'
+      f'--- stdout ---\n{result.stdout}\n'
+      f'--- stderr ---\n{result.stderr}\n'
+    )
+    raise AssertionError(details)
+  return result
