@@ -121,6 +121,7 @@ typer = { version = "^0.23", extras = ["all"] }
 
 [tool.poetry.group.dev.dependencies]
 
+# basic, all projects should have
 ruff = "~0.15.1"
 mypy = "~1.19.1"
 pytest = "^9.0"
@@ -130,7 +131,8 @@ pyright = "^1.1"
 pre-commit = "^4.5"
 pyinstrument = "^5.1"
 typeguard = "^4.4"
-tomli = "^2.4"
+
+# project-specific dev-only
 gmpy2-stubs = "^2.2"
 
 [tool.poetry.requires-plugins]
