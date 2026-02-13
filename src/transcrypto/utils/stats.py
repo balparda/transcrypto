@@ -22,13 +22,15 @@ _LANCZOS_COEFF: tuple[float, ...] = (
   9.9843695780195716e-6,
   1.5056327351493116e-7,
 )
-_TINY: float = 1e-30
-_NSG: abc.Callable[[float], float] = (
-  lambda z: _TINY if abs(z) < _TINY else z  # numerical stability guard
+TINY: float = 1e-30
+NSG: abc.Callable[[float], float] = (
+  lambda z: TINY if abs(z) < TINY else z  # numerical stability guard
 )
+IS_EQUAL: abc.Callable[[float, float], bool] = lambda a, b: abs(a - b) < TINY
 _BETA_INCOMPLETE_MAX_ITER: int = 200
 _BETA_INCOMPLETE_TOL: float = 1e-14
 _STUDENT_SMALL: float = 1e-12
+IS_STUDENT_EQUAL: abc.Callable[[float, float], bool] = lambda a, b: abs(a - b) < _STUDENT_SMALL
 
 
 def GammaLanczos(z: float, /) -> float:
@@ -87,7 +89,7 @@ def BetaIncompleteCF(a: float, b: float, x: float, /) -> float:
   qap: float = a + 1.0
   qam: float = a - 1.0
   c: float = 1.0
-  d: float = 1.0 / _NSG(1.0 - qab * x / qap)
+  d: float = 1.0 / NSG(1.0 - qab * x / qap)
   h: float = d
   aa: float
   delta: float
@@ -96,11 +98,11 @@ def BetaIncompleteCF(a: float, b: float, x: float, /) -> float:
     m2 = 2 * m
     # even step
     aa = m * (b - m) * x / ((qam + m2) * (a + m2))
-    c, d = _NSG(1.0 + aa / c), 1.0 / _NSG(1.0 + aa * d)
+    c, d = NSG(1.0 + aa / c), 1.0 / NSG(1.0 + aa * d)
     h *= d * c
     # odd step
     aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2))
-    c, d = _NSG(1.0 + aa / c), 1.0 / _NSG(1.0 + aa * d)
+    c, d = NSG(1.0 + aa / c), 1.0 / NSG(1.0 + aa * d)
     delta = d * c
     h *= delta
     if abs(delta - 1.0) < _BETA_INCOMPLETE_TOL:
@@ -133,12 +135,12 @@ def BetaIncomplete(a: float, b: float, x: float, /) -> float:
       x > (a + 1) / (a + b + 2).
 
   """
+  if IS_EQUAL(x, 0.0):
+    return 0.0
+  if IS_EQUAL(x, 1.0):
+    return 1.0
   if x < 0.0 or x > 1.0:
     raise base.InputError(f'x must be in [0, 1], got {x}')
-  if x == 0.0:
-    return 0.0
-  if x == 1.0:
-    return 1.0
   log_beta: float = math.lgamma(a) + math.lgamma(b) - math.lgamma(a + b)
   front: float = math.exp(math.log(x) * a + math.log(1.0 - x) * b - log_beta) / a
   if x < (a + 1.0) / (a + b + 2.0):
@@ -197,7 +199,7 @@ def StudentTPPF(q: float, df: float, /) -> float:
   if not 0.0 < q < 1.0:
     raise base.InputError(f'q must be in (0, 1), got {q}')
   # Special case: q=0.5 is exactly 0 by symmetry
-  if q == 0.5:  # noqa: PLR2004
+  if IS_EQUAL(q, 0.5):
     return 0.0
   # Initial guess using inverse normal approximation (Abramowitz & Stegun 26.2.23)
   if q < 0.5:  # noqa: PLR2004
@@ -206,9 +208,7 @@ def StudentTPPF(q: float, df: float, /) -> float:
   else:
     sign = 1.0
     p = 1.0 - q
-  # Protect against log(0) when p is very close to 0
-  p = max(p, 1e-300)
-  t_approx: float = math.sqrt(-2.0 * math.log(p))
+  t_approx: float = math.sqrt(-2.0 * math.log(NSG(p)))  # protect against log(0) for tiny p
   c0 = 2.515517
   c1 = 0.802853
   c2 = 0.010328
@@ -230,9 +230,9 @@ def StudentTPPF(q: float, df: float, /) -> float:
       - math.lgamma(df / 2)
       - ((df + 1) / 2) * math.log(1 + x0**2 / df)
     )
-    pdf_val: float = _NSG(math.exp(log_pdf))
+    pdf_val: float = NSG(math.exp(log_pdf))
     x1: float = x0 - (cdf_val - q) / pdf_val
-    if abs(x1 - x0) < _STUDENT_SMALL:
+    if IS_STUDENT_EQUAL(x1, x0):
       return x1
     x0 = x1
   return x0  # pragma: no cover - Newton-Raphson always converges for t-distribution

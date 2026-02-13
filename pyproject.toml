@@ -12,7 +12,7 @@ build-backend = "poetry.core.masonry.api"
 [project]
 
 name = "transcrypto"
-version = "2.2.0"  # also update src/transcrypto/__init__.py
+version = "2.3.0"  # also update src/transcrypto/__init__.py
 
 description = "Basic crypto primitives, not intended for actual use, but as a companion to --Criptografia, Métodos e Algoritmos--"
 license = "Apache-2.0"
@@ -173,7 +173,7 @@ ignore-overlong-task-comments = true
 
 select = [
   "ALL",   # ALL rules --- if too strict comment this out and pick the ones you need below
-#   "E",     # pycodestyle “errors” (basic correctness-ish style checks)
+#   "E",     # pycodestyle "errors" (basic correctness-ish style checks)
 # 	"F",     # pyflakes (unused imports/vars, undefined names, etc.)
 # 	"I",     # isort rules (import sorting)
 # 	"UP",    # pyupgrade (suggest modern Python syntax)

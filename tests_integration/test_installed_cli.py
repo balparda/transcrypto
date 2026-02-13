@@ -56,5 +56,5 @@ def _profiler_call(cli_paths: dict[str, pathlib.Path], /) -> None:
   # simple profiler command
   r = base.Run([str(cli_paths['profiler']), '--no-color', '-n', '1', '-b', '16,17,1', 'primes'])
   assert 'Finished in' in r.stdout
-  assert '\x1b[' not in r.stdout
+  assert '\x1b[' not in r.stdout  # no ANSI escape sequences
   assert '\x1b[' not in r.stderr
