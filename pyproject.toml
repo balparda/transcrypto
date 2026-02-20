@@ -117,7 +117,7 @@ include = [
 # prefer to add dependencies inside the [project.dependencies] section
 
 python = "^3.12"  # if version changes, remember to change README.md
-typer = { version = "^0.23", extras = ["all"] }
+typer = { version = "^0.24", extras = ["all"] }
 
 [tool.poetry.group.dev.dependencies]
 
