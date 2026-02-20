@@ -12,7 +12,7 @@ build-backend = "poetry.core.masonry.api"
 [project]
 
 name = "transcrypto"
-version = "2.3.1"  # also update src/transcrypto/__init__.py
+version = "2.3.2"  # also update src/transcrypto/__init__.py
 
 description = "Basic crypto primitives, not intended for actual use, but as a companion to --Criptografia, Métodos e Algoritmos--"
 license = "Apache-2.0"
@@ -59,9 +59,9 @@ license-files = [ "LICENSE" ]
 
 dependencies = [
 
-  "typer>=0.23",   # if this changes, also change: [tool.poetry.dependencies]
-  "rich>=14.3,!=14.3.2",  # 14.3.2 hangs GitHub CI pipeline
-  "platformdirs>=4.7",
+  "typer>=0.24",   # if this changes, also change: [tool.poetry.dependencies]
+  "rich>=14.3.3",  # 14.3.2 hangs GitHub CI pipeline
+  "platformdirs>=4.9",
 
   # best place for project dependencies, if possible
   # development-only dependencies go in the [tool.poetry.group.dev.dependencies] section below
