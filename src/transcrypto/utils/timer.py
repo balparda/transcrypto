@@ -18,11 +18,51 @@ from transcrypto.utils import base, human
 
 MIN_TM = int(datetime.datetime(2000, 1, 1, 0, 0, 0, tzinfo=datetime.UTC).timestamp())
 TIME_FORMAT = '%Y/%b/%d-%H:%M:%S-UTC'
-TimeStr: abc.Callable[[int | float | None], str] = lambda tm: (
+TimeStr: abc.Callable[[float | None], str] = lambda tm: (
   time.strftime(TIME_FORMAT, time.gmtime(tm)) if tm else '-'
 )
 Now: abc.Callable[[], int] = lambda: int(time.time())
 StrNow: abc.Callable[[], str] = lambda: TimeStr(Now())
+
+
+def DatetimeFromISO(s: str) -> datetime.datetime:
+  """Parse ISO datetime and ensure it is timezone-aware (default UTC).
+
+  Args:
+    s (str): ISO 8601 datetime string.
+
+  Returns:
+    Timezone-aware datetime (UTC if input was naive).
+
+  """
+  dt: datetime.datetime = datetime.datetime.fromisoformat(s)
+  return dt if dt.tzinfo is not None else dt.replace(tzinfo=datetime.UTC)
+
+
+def ISOFromDatetime(dt: datetime.datetime) -> str:
+  """Convert a datetime to an ISO 8601 string.
+
+  Args:
+    dt (datetime.datetime): The datetime to convert.
+
+  Returns:
+    str: The ISO 8601 string representation of the datetime.
+
+  """
+  return dt.isoformat()
+
+
+def UTCDatetimeFromUnix(tm: float) -> datetime.datetime:
+  """Convert a Unix timestamp to a timezone-aware datetime (UTC).
+
+  Args:
+    tm (float): Unix timestamp (seconds since epoch).
+
+  Returns:
+    Timezone-aware datetime in UTC.
+
+  """
+  return datetime.datetime.fromtimestamp(tm, tz=datetime.UTC)
 
 
 class Timer:

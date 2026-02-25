@@ -2,7 +2,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Security Policy
 
-This repository is a template for Python CLI applications. Security issues always matter. If you believe you’ve found a vulnerability, please report it privately.
+This repository should have safe implementations of many basic algorithms. Security issues always matter. If you believe you’ve found a vulnerability that is not explicitly documented, please report it privately.
 
 - [Security Policy](#security-policy)
   - [Supported Versions](#supported-versions)
