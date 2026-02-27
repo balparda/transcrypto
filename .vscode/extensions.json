@@ -7,6 +7,7 @@
 
     "charliermarsh.ruff",
     "davidanson.vscode-markdownlint",
+    "github.copilot-chat",
     "gruntfuggly.todo-tree",
     "ms-python.debugpy",
     "ms-python.flake8",
