@@ -80,11 +80,11 @@ def ObfuscateSecret(data: str | bytes | int, /) -> str:
   Args:
     data (str | bytes | int): Data to obfuscate
 
-  Raises:
-      base.InputError: _description_
-
   Returns:
       str: obfuscated string, e.g. "aabbccdd…"
+
+  Raises:
+      base.InputError: if the input data type is invalid
 
   """
   if isinstance(data, str):

@@ -399,11 +399,11 @@ def EnsureWheel(repo: pathlib.Path, expected_version: str, scripts: set[str], /)
       expected_version (str): expected version string to match in the wheel filename
       scripts (set[str]): set of console script names to check for; case sensitive
 
-  Raises:
-      base.Error: if no wheel is found after building or not finding couldn't build a wheel
-
   Returns:
       Path: path to the newest wheel in dist/
+
+  Raises:
+      base.Error: if no wheel is found after building or not finding couldn't build a wheel
 
   """
   dist_dir: pathlib.Path = repo / 'dist'

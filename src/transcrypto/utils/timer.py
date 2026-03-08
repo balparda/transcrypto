@@ -119,11 +119,11 @@ class Timer:
   def elapsed(self) -> float:
     """Elapsed time. Will be zero until a measurement is available with start/end.
 
-    Raises:
-        base.Error: negative elapsed time
-
     Returns:
         float: elapsed time, in seconds
+
+    Raises:
+        base.Error: negative elapsed time
 
     """
     if self.start is None or self.end is None:

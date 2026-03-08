@@ -1,91 +1,91 @@
 # SPDX-FileCopyrightText: Copyright 2026 Daniel Balparda <balparda@github.com>
 # SPDX-License-Identifier: Apache-2.0
-"""Balparda's TransCrypto command line interface (CLI).
+"""Balparda's TransCrypto safe command line interface (CLI).
 
-See <transcrypto.md> for documentation on how to use. Quick examples:
+See <safecrypto.md> for documentation on how to use. Quick examples:
 
  --- Randomness ---
-poetry run transcrypto random bits 16
-poetry run transcrypto random int 1000 2000
-poetry run transcrypto random bytes 32
-poetry run transcrypto random prime 64
+poetry run safecrypto random bits 16
+poetry run safecrypto random int 1000 2000
+poetry run safecrypto random bytes 32
+poetry run safecrypto random prime 64
 
  --- Primes ---
-poetry run transcrypto isprime 428568761
-poetry run transcrypto primegen 100 -c 3
-poetry run transcrypto mersenne -k 2 -C 17
+poetry run safecrypto isprime 428568761
+poetry run safecrypto primegen 100 -c 3
+poetry run safecrypto mersenne -k 2 -C 17
 
  --- Integer / Modular Math ---
-poetry run transcrypto gcd 462 1071
-poetry run transcrypto xgcd 127 13
-poetry run transcrypto mod inv 17 97
-poetry run transcrypto mod div 6 127 13
-poetry run transcrypto mod exp 438 234 127
-poetry run transcrypto mod poly 12 17 10 20 30
-poetry run transcrypto mod lagrange 5 13 2:4 6:3 7:1
-poetry run transcrypto mod crt 6 7 127 13
+poetry run safecrypto gcd 462 1071
+poetry run safecrypto xgcd 127 13
+poetry run safecrypto mod inv 17 97
+poetry run safecrypto mod div 6 127 13
+poetry run safecrypto mod exp 438 234 127
+poetry run safecrypto mod poly 12 17 10 20 30
+poetry run safecrypto mod lagrange 5 13 2:4 6:3 7:1
+poetry run safecrypto mod crt 6 7 127 13
 
  --- Hashing ---
-poetry run transcrypto hash sha256 xyz
-poetry run transcrypto --input-format b64 hash sha512 -- eHl6
-poetry run transcrypto hash file /etc/passwd --digest sha512
+poetry run safecrypto hash sha256 xyz
+poetry run safecrypto --input-format b64 hash sha512 -- eHl6
+poetry run safecrypto hash file /etc/passwd --digest sha512
 
  --- AES ---
-poetry run transcrypto --output-format b64 aes key "correct horse battery staple"
-poetry run transcrypto -i b64 -o b64 aes encrypt -k "<b64key>" -- "secret"
-poetry run transcrypto -i b64 -o b64 aes decrypt -k "<b64key>" -- "<ciphertext>"
-poetry run transcrypto aes ecb encrypt -k "<b64key>" "<128bithexblock>"
-poetry run transcrypto aes ecb decrypt -k "<b64key>" "<128bithexblock>"
+poetry run safecrypto --output-format b64 aes key "correct horse battery staple"
+poetry run safecrypto -i b64 -o b64 aes encrypt -k "<b64key>" -- "secret"
+poetry run safecrypto -i b64 -o b64 aes decrypt -k "<b64key>" -- "<ciphertext>"
+poetry run safecrypto aes ecb encrypt -k "<b64key>" "<128bithexblock>"
+poetry run safecrypto aes ecb decrypt -k "<b64key>" "<128bithexblock>"
 
  --- RSA ---
-poetry run transcrypto -p rsa-key rsa new --bits 2048
-poetry run transcrypto -p rsa-key.pub rsa rawencrypt <plaintext>
-poetry run transcrypto -p rsa-key.priv rsa rawdecrypt <ciphertext>
-poetry run transcrypto -p rsa-key.priv rsa rawsign <message>
-poetry run transcrypto -p rsa-key.pub rsa rawverify <message> <signature>
-poetry run transcrypto -i bin -o b64 -p rsa-key.pub rsa encrypt -a <aad> <plaintext>
-poetry run transcrypto -i b64 -o bin -p rsa-key.priv rsa decrypt -a <aad> -- <ciphertext>
-poetry run transcrypto -i bin -o b64 -p rsa-key.priv rsa sign <message>
-poetry run transcrypto -i b64 -p rsa-key.pub rsa verify -- <message> <signature>
+poetry run safecrypto -p rsa-key rsa new --bits 2048
+poetry run safecrypto -p rsa-key.pub rsa rawencrypt <plaintext>
+poetry run safecrypto -p rsa-key.priv rsa rawdecrypt <ciphertext>
+poetry run safecrypto -p rsa-key.priv rsa rawsign <message>
+poetry run safecrypto -p rsa-key.pub rsa rawverify <message> <signature>
+poetry run safecrypto -i bin -o b64 -p rsa-key.pub rsa encrypt -a <aad> <plaintext>
+poetry run safecrypto -i b64 -o bin -p rsa-key.priv rsa decrypt -a <aad> -- <ciphertext>
+poetry run safecrypto -i bin -o b64 -p rsa-key.priv rsa sign <message>
+poetry run safecrypto -i b64 -p rsa-key.pub rsa verify -- <message> <signature>
 
  --- ElGamal ---
-poetry run transcrypto -p eg-key elgamal shared --bits 2048
-poetry run transcrypto -p eg-key elgamal new
-poetry run transcrypto -p eg-key.pub elgamal rawencrypt <plaintext>
-poetry run transcrypto -p eg-key.priv elgamal rawdecrypt <c1:c2>
-poetry run transcrypto -p eg-key.priv elgamal rawsign <message>
-poetry run transcrypto -p eg-key.pub elgamal rawverify <message> <s1:s2>
-poetry run transcrypto -i bin -o b64 -p eg-key.pub elgamal encrypt <plaintext>
-poetry run transcrypto -i b64 -o bin -p eg-key.priv elgamal decrypt -- <ciphertext>
-poetry run transcrypto -i bin -o b64 -p eg-key.priv elgamal sign <message>
-poetry run transcrypto -i b64 -p eg-key.pub elgamal verify -- <message> <signature>
+poetry run safecrypto -p eg-key elgamal shared --bits 2048
+poetry run safecrypto -p eg-key elgamal new
+poetry run safecrypto -p eg-key.pub elgamal rawencrypt <plaintext>
+poetry run safecrypto -p eg-key.priv elgamal rawdecrypt <c1:c2>
+poetry run safecrypto -p eg-key.priv elgamal rawsign <message>
+poetry run safecrypto -p eg-key.pub elgamal rawverify <message> <s1:s2>
+poetry run safecrypto -i bin -o b64 -p eg-key.pub elgamal encrypt <plaintext>
+poetry run safecrypto -i b64 -o bin -p eg-key.priv elgamal decrypt -- <ciphertext>
+poetry run safecrypto -i bin -o b64 -p eg-key.priv elgamal sign <message>
+poetry run safecrypto -i b64 -p eg-key.pub elgamal verify -- <message> <signature>
 
  --- DSA ---
-poetry run transcrypto -p dsa-key dsa shared --p-bits 2048 --q-bits 256
-poetry run transcrypto -p dsa-key dsa new
-poetry run transcrypto -p dsa-key.priv dsa rawsign <message>
-poetry run transcrypto -p dsa-key.pub dsa rawverify <message> <s1:s2>
-poetry run transcrypto -i bin -o b64 -p dsa-key.priv dsa sign <message>
-poetry run transcrypto -i b64 -p dsa-key.pub dsa verify -- <message> <signature>
+poetry run safecrypto -p dsa-key dsa shared --p-bits 2048 --q-bits 256
+poetry run safecrypto -p dsa-key dsa new
+poetry run safecrypto -p dsa-key.priv dsa rawsign <message>
+poetry run safecrypto -p dsa-key.pub dsa rawverify <message> <s1:s2>
+poetry run safecrypto -i bin -o b64 -p dsa-key.priv dsa sign <message>
+poetry run safecrypto -i b64 -p dsa-key.pub dsa verify -- <message> <signature>
 
  --- Public Bid ---
-poetry run transcrypto -i bin bid new "tomorrow it will rain"
-poetry run transcrypto -o bin bid verify
+poetry run safecrypto -i bin bid new "tomorrow it will rain"
+poetry run safecrypto -o bin bid verify
 
  --- Shamir Secret Sharing (SSS) ---
-poetry run transcrypto -p sss-key sss new 3 --bits 1024
-poetry run transcrypto -p sss-key sss rawshares <secret> <n>
-poetry run transcrypto -p sss-key sss rawrecover
-poetry run transcrypto -p sss-key sss rawverify <secret>
-poetry run transcrypto -i bin -p sss-key sss shares <secret> <n>
-poetry run transcrypto -o bin -p sss-key sss recover
+poetry run safecrypto -p sss-key sss new 3 --bits 1024
+poetry run safecrypto -p sss-key sss rawshares <secret> <n>
+poetry run safecrypto -p sss-key sss rawrecover
+poetry run safecrypto -p sss-key sss rawverify <secret>
+poetry run safecrypto -i bin -p sss-key sss shares <secret> <n>
+poetry run safecrypto -o bin -p sss-key sss recover
 
  --- Markdown ---
-poetry run transcrypto markdown > transcrypto.md
+poetry run safecrypto markdown > safecrypto.md
 
 Test this CLI with:
 
-poetry run pytest -vvv tests/transcrypto_test.py
+poetry run pytest -vvv tests/safecrypto_test.py
 """
 
 from __future__ import annotations
@@ -287,7 +287,7 @@ def LoadObj[T](path: str, password: str | None, expect: type[T], /) -> T:
   return obj
 
 
-# ============================= "TRANSCRYPTO"/ROOT COMMAND =========================================
+# ============================= "safecrypto"/ROOT COMMAND =========================================
 
 
 # CLI app setup, this is an important object and can be imported elsewhere and called
@@ -295,78 +295,78 @@ app = typer.Typer(
   add_completion=True,
   no_args_is_help=True,
   help=(  # keep in sync with Main().help
-    'transcrypto: CLI for number theory, hash, AES, RSA, El-Gamal, DSA, bidding, SSS, and more.'
+    'safecrypto: CLI for number theory, hash, AES, RSA, El-Gamal, DSA, bidding, SSS, and more.'
   ),
   epilog=(
     'Example:\n\n\n\n'
     '# --- Randomness ---\n\n'
-    'poetry run transcrypto random bits 16\n\n'
-    'poetry run transcrypto random int 1000 2000\n\n'
-    'poetry run transcrypto random bytes 32\n\n'
-    'poetry run transcrypto random prime 64\n\n\n\n'
+    'poetry run safecrypto random bits 16\n\n'
+    'poetry run safecrypto random int 1000 2000\n\n'
+    'poetry run safecrypto random bytes 32\n\n'
+    'poetry run safecrypto random prime 64\n\n\n\n'
     '# --- Primes ---\n\n'
-    'poetry run transcrypto isprime 428568761\n\n'
-    'poetry run transcrypto primegen 100 -c 3\n\n'
-    'poetry run transcrypto mersenne -k 2 -C 17\n\n\n\n'
+    'poetry run safecrypto isprime 428568761\n\n'
+    'poetry run safecrypto primegen 100 -c 3\n\n'
+    'poetry run safecrypto mersenne -k 2 -C 17\n\n\n\n'
     '# --- Integer / Modular Math ---\n\n'
-    'poetry run transcrypto gcd 462 1071\n\n'
-    'poetry run transcrypto xgcd 127 13\n\n'
-    'poetry run transcrypto mod inv 17 97\n\n'
-    'poetry run transcrypto mod div 6 127 13\n\n'
-    'poetry run transcrypto mod exp 438 234 127\n\n'
-    'poetry run transcrypto mod poly 12 17 10 20 30\n\n'
-    'poetry run transcrypto mod lagrange 5 13 2:4 6:3 7:1\n\n'
-    'poetry run transcrypto mod crt 6 7 127 13\n\n\n\n'
+    'poetry run safecrypto gcd 462 1071\n\n'
+    'poetry run safecrypto xgcd 127 13\n\n'
+    'poetry run safecrypto mod inv 17 97\n\n'
+    'poetry run safecrypto mod div 6 127 13\n\n'
+    'poetry run safecrypto mod exp 438 234 127\n\n'
+    'poetry run safecrypto mod poly 12 17 10 20 30\n\n'
+    'poetry run safecrypto mod lagrange 5 13 2:4 6:3 7:1\n\n'
+    'poetry run safecrypto mod crt 6 7 127 13\n\n\n\n'
     '# --- Hashing ---\n\n'
-    'poetry run transcrypto hash sha256 xyz\n\n'
-    'poetry run transcrypto --input-format b64 hash sha512 -- eHl6\n\n'
-    'poetry run transcrypto hash file /etc/passwd --digest sha512\n\n\n\n'
+    'poetry run safecrypto hash sha256 xyz\n\n'
+    'poetry run safecrypto --input-format b64 hash sha512 -- eHl6\n\n'
+    'poetry run safecrypto hash file /etc/passwd --digest sha512\n\n\n\n'
     '# --- AES ---\n\n'
-    'poetry run transcrypto --output-format b64 aes key "correct horse battery staple"\n\n'
-    'poetry run transcrypto -i b64 -o b64 aes encrypt -k "<b64key>" -- "secret"\n\n'
-    'poetry run transcrypto -i b64 -o b64 aes decrypt -k "<b64key>" -- "<ciphertext>"\n\n'
-    'poetry run transcrypto aes ecb encrypt -k "<b64key>" "<128bithexblock>"\n\n'
-    'poetry run transcrypto aes ecb decrypt -k "<b64key>" "<128bithexblock>"\n\n\n\n'
+    'poetry run safecrypto --output-format b64 aes key "correct horse battery staple"\n\n'
+    'poetry run safecrypto -i b64 -o b64 aes encrypt -k "<b64key>" -- "secret"\n\n'
+    'poetry run safecrypto -i b64 -o b64 aes decrypt -k "<b64key>" -- "<ciphertext>"\n\n'
+    'poetry run safecrypto aes ecb encrypt -k "<b64key>" "<128bithexblock>"\n\n'
+    'poetry run safecrypto aes ecb decrypt -k "<b64key>" "<128bithexblock>"\n\n\n\n'
     '# --- RSA ---\n\n'
-    'poetry run transcrypto -p rsa-key rsa new --bits 2048\n\n'
-    'poetry run transcrypto -p rsa-key.pub rsa rawencrypt <plaintext>\n\n'
-    'poetry run transcrypto -p rsa-key.priv rsa rawdecrypt <ciphertext>\n\n'
-    'poetry run transcrypto -p rsa-key.priv rsa rawsign <message>\n\n'
-    'poetry run transcrypto -p rsa-key.pub rsa rawverify <message> <signature>\n\n'
-    'poetry run transcrypto -i bin -o b64 -p rsa-key.pub rsa encrypt -a <aad> <plaintext>\n\n'
-    'poetry run transcrypto -i b64 -o bin -p rsa-key.priv rsa decrypt -a <aad> -- <ciphertext>\n\n'
-    'poetry run transcrypto -i bin -o b64 -p rsa-key.priv rsa sign <message>\n\n'
-    'poetry run transcrypto -i b64 -p rsa-key.pub rsa verify -- <message> <signature>\n\n\n\n'
+    'poetry run safecrypto -p rsa-key rsa new --bits 2048\n\n'
+    'poetry run safecrypto -p rsa-key.pub rsa rawencrypt <plaintext>\n\n'
+    'poetry run safecrypto -p rsa-key.priv rsa rawdecrypt <ciphertext>\n\n'
+    'poetry run safecrypto -p rsa-key.priv rsa rawsign <message>\n\n'
+    'poetry run safecrypto -p rsa-key.pub rsa rawverify <message> <signature>\n\n'
+    'poetry run safecrypto -i bin -o b64 -p rsa-key.pub rsa encrypt -a <aad> <plaintext>\n\n'
+    'poetry run safecrypto -i b64 -o bin -p rsa-key.priv rsa decrypt -a <aad> -- <ciphertext>\n\n'
+    'poetry run safecrypto -i bin -o b64 -p rsa-key.priv rsa sign <message>\n\n'
+    'poetry run safecrypto -i b64 -p rsa-key.pub rsa verify -- <message> <signature>\n\n\n\n'
     '# --- ElGamal ---\n\n'
-    'poetry run transcrypto -p eg-key elgamal shared --bits 2048\n\n'
-    'poetry run transcrypto -p eg-key elgamal new\n\n'
-    'poetry run transcrypto -p eg-key.pub elgamal rawencrypt <plaintext>\n\n'
-    'poetry run transcrypto -p eg-key.priv elgamal rawdecrypt <c1:c2>\n\n'
-    'poetry run transcrypto -p eg-key.priv elgamal rawsign <message>\n\n'
-    'poetry run transcrypto -p eg-key.pub elgamal rawverify <message> <s1:s2>\n\n'
-    'poetry run transcrypto -i bin -o b64 -p eg-key.pub elgamal encrypt <plaintext>\n\n'
-    'poetry run transcrypto -i b64 -o bin -p eg-key.priv elgamal decrypt -- <ciphertext>\n\n'
-    'poetry run transcrypto -i bin -o b64 -p eg-key.priv elgamal sign <message>\n\n'
-    'poetry run transcrypto -i b64 -p eg-key.pub elgamal verify -- <message> <signature>\n\n\n\n'
+    'poetry run safecrypto -p eg-key elgamal shared --bits 2048\n\n'
+    'poetry run safecrypto -p eg-key elgamal new\n\n'
+    'poetry run safecrypto -p eg-key.pub elgamal rawencrypt <plaintext>\n\n'
+    'poetry run safecrypto -p eg-key.priv elgamal rawdecrypt <c1:c2>\n\n'
+    'poetry run safecrypto -p eg-key.priv elgamal rawsign <message>\n\n'
+    'poetry run safecrypto -p eg-key.pub elgamal rawverify <message> <s1:s2>\n\n'
+    'poetry run safecrypto -i bin -o b64 -p eg-key.pub elgamal encrypt <plaintext>\n\n'
+    'poetry run safecrypto -i b64 -o bin -p eg-key.priv elgamal decrypt -- <ciphertext>\n\n'
+    'poetry run safecrypto -i bin -o b64 -p eg-key.priv elgamal sign <message>\n\n'
+    'poetry run safecrypto -i b64 -p eg-key.pub elgamal verify -- <message> <signature>\n\n\n\n'
     '# --- DSA ---\n\n'
-    'poetry run transcrypto -p dsa-key dsa shared --p-bits 2048 --q-bits 256\n\n'
-    'poetry run transcrypto -p dsa-key dsa new\n\n'
-    'poetry run transcrypto -p dsa-key.priv dsa rawsign <message>\n\n'
-    'poetry run transcrypto -p dsa-key.pub dsa rawverify <message> <s1:s2>\n\n'
-    'poetry run transcrypto -i bin -o b64 -p dsa-key.priv dsa sign <message>\n\n'
-    'poetry run transcrypto -i b64 -p dsa-key.pub dsa verify -- <message> <signature>\n\n\n\n'
+    'poetry run safecrypto -p dsa-key dsa shared --p-bits 2048 --q-bits 256\n\n'
+    'poetry run safecrypto -p dsa-key dsa new\n\n'
+    'poetry run safecrypto -p dsa-key.priv dsa rawsign <message>\n\n'
+    'poetry run safecrypto -p dsa-key.pub dsa rawverify <message> <s1:s2>\n\n'
+    'poetry run safecrypto -i bin -o b64 -p dsa-key.priv dsa sign <message>\n\n'
+    'poetry run safecrypto -i b64 -p dsa-key.pub dsa verify -- <message> <signature>\n\n\n\n'
     '# --- Public Bid ---\n\n'
-    'poetry run transcrypto -i bin bid new "tomorrow it will rain"\n\n'
-    'poetry run transcrypto -o bin bid verify\n\n\n\n'
+    'poetry run safecrypto -i bin bid new "tomorrow it will rain"\n\n'
+    'poetry run safecrypto -o bin bid verify\n\n\n\n'
     '# --- Shamir Secret Sharing (SSS) ---\n\n'
-    'poetry run transcrypto -p sss-key sss new 3 --bits 1024\n\n'
-    'poetry run transcrypto -p sss-key sss rawshares <secret> <n>\n\n'
-    'poetry run transcrypto -p sss-key sss rawrecover\n\n'
-    'poetry run transcrypto -p sss-key sss rawverify <secret>\n\n'
-    'poetry run transcrypto -i bin -p sss-key sss shares <secret> <n>\n\n'
-    'poetry run transcrypto -o bin -p sss-key sss recover\n\n\n\n'
+    'poetry run safecrypto -p sss-key sss new 3 --bits 1024\n\n'
+    'poetry run safecrypto -p sss-key sss rawshares <secret> <n>\n\n'
+    'poetry run safecrypto -p sss-key sss rawrecover\n\n'
+    'poetry run safecrypto -p sss-key sss rawverify <secret>\n\n'
+    'poetry run safecrypto -i bin -p sss-key sss shares <secret> <n>\n\n'
+    'poetry run safecrypto -o bin -p sss-key sss recover\n\n\n\n'
     '# --- Markdown ---\n\n'
-    'poetry run transcrypto markdown > transcrypto.md\n\n'
+    'poetry run safecrypto markdown > safecrypto.md\n\n'
   ),
 )
 
@@ -378,7 +378,7 @@ def Run() -> None:
 
 @app.callback(
   invoke_without_command=True,  # have only one; this is the "constructor"
-  help='transcrypto: CLI for number theory, hash, AES, RSA, El-Gamal, DSA, bidding, SSS, and more.',
+  help='safecrypto: CLI for number theory, hash, AES, RSA, El-Gamal, DSA, bidding, SSS, and more.',
 )  # keep message in sync with app.help
 @clibase.CLIErrorGuard
 def Main(  # documentation is help/epilog/args # noqa: D103
@@ -448,7 +448,7 @@ def Main(  # documentation is help/epilog/args # noqa: D103
     console=console,
     verbose=verbose,
     color=color,
-    appconfig=app_config.InitConfig('transcrypto', 'transcrypto.bin'),
+    appconfig=app_config.InitConfig('transcrypto', 'safecrypto.bin'),
     input_format=input_format,
     output_format=output_format,
     key_path=key_path,
@@ -459,15 +459,13 @@ def Main(  # documentation is help/epilog/args # noqa: D103
 @app.command(
   'markdown',
   help='Emit Markdown docs for the CLI (see README.md section "Creating a New Version").',
-  epilog=(
-    'Example:\n\n\n\n$ poetry run transcrypto markdown > transcrypto.md\n\n<<saves CLI doc>>'
-  ),
+  epilog=('Example:\n\n\n\n$ poetry run safecrypto markdown > safecrypto.md\n\n<<saves CLI doc>>'),
 )
 @clibase.CLIErrorGuard
 def Markdown(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
-  config.console.print(clibase.GenerateTyperHelpMarkdown(app, prog_name='transcrypto'))
+  config.console.print(clibase.GenerateTyperHelpMarkdown(app, prog_name='safecrypto'))
 
 
 # Import CLI modules to register their commands with the app
-from transcrypto.cli import aeshash, bidsecret, intmath, publicalgos  # pyright: ignore[reportUnusedImport] # noqa: I001, E402, F401
+from transcrypto.cli import safeaeshash, safebidsecret, safeintmath, safepublicalgos  # pyright: ignore[reportUnusedImport] # noqa: I001, E402, F401

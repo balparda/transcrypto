@@ -95,11 +95,11 @@ def Run(
       cwd (Path | None, optional): Path. Defaults to None.
       env (dict[str, str] | None, optional): Environment. Defaults to None.
 
-  Raises:
-      AssertionError: invalid return code
-
   Returns:
       subprocess.CompletedProcess[str]: result
+
+  Raises:
+      AssertionError: invalid return code
 
   """
   result: subprocess.CompletedProcess[str] = subprocess.run(  # noqa: S603
