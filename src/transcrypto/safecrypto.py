@@ -2,88 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Balparda's TransCrypto safe command line interface (CLI).
 
-See <safecrypto.md> for documentation on how to use. Quick examples:
-
- --- Randomness ---
-poetry run safecrypto random bits 16
-poetry run safecrypto random int 1000 2000
-poetry run safecrypto random bytes 32
-poetry run safecrypto random prime 64
-
- --- Primes ---
-poetry run safecrypto isprime 428568761
-poetry run safecrypto primegen 100 -c 3
-poetry run safecrypto mersenne -k 2 -C 17
-
- --- Integer / Modular Math ---
-poetry run safecrypto gcd 462 1071
-poetry run safecrypto xgcd 127 13
-poetry run safecrypto mod inv 17 97
-poetry run safecrypto mod div 6 127 13
-poetry run safecrypto mod exp 438 234 127
-poetry run safecrypto mod poly 12 17 10 20 30
-poetry run safecrypto mod lagrange 5 13 2:4 6:3 7:1
-poetry run safecrypto mod crt 6 7 127 13
-
- --- Hashing ---
-poetry run safecrypto hash sha256 xyz
-poetry run safecrypto --input-format b64 hash sha512 -- eHl6
-poetry run safecrypto hash file /etc/passwd --digest sha512
-
- --- AES ---
-poetry run safecrypto --output-format b64 aes key "correct horse battery staple"
-poetry run safecrypto -i b64 -o b64 aes encrypt -k "<b64key>" -- "secret"
-poetry run safecrypto -i b64 -o b64 aes decrypt -k "<b64key>" -- "<ciphertext>"
-poetry run safecrypto aes ecb encrypt -k "<b64key>" "<128bithexblock>"
-poetry run safecrypto aes ecb decrypt -k "<b64key>" "<128bithexblock>"
-
- --- RSA ---
-poetry run safecrypto -p rsa-key rsa new --bits 2048
-poetry run safecrypto -p rsa-key.pub rsa rawencrypt <plaintext>
-poetry run safecrypto -p rsa-key.priv rsa rawdecrypt <ciphertext>
-poetry run safecrypto -p rsa-key.priv rsa rawsign <message>
-poetry run safecrypto -p rsa-key.pub rsa rawverify <message> <signature>
-poetry run safecrypto -i bin -o b64 -p rsa-key.pub rsa encrypt -a <aad> <plaintext>
-poetry run safecrypto -i b64 -o bin -p rsa-key.priv rsa decrypt -a <aad> -- <ciphertext>
-poetry run safecrypto -i bin -o b64 -p rsa-key.priv rsa sign <message>
-poetry run safecrypto -i b64 -p rsa-key.pub rsa verify -- <message> <signature>
-
- --- ElGamal ---
-poetry run safecrypto -p eg-key elgamal shared --bits 2048
-poetry run safecrypto -p eg-key elgamal new
-poetry run safecrypto -p eg-key.pub elgamal rawencrypt <plaintext>
-poetry run safecrypto -p eg-key.priv elgamal rawdecrypt <c1:c2>
-poetry run safecrypto -p eg-key.priv elgamal rawsign <message>
-poetry run safecrypto -p eg-key.pub elgamal rawverify <message> <s1:s2>
-poetry run safecrypto -i bin -o b64 -p eg-key.pub elgamal encrypt <plaintext>
-poetry run safecrypto -i b64 -o bin -p eg-key.priv elgamal decrypt -- <ciphertext>
-poetry run safecrypto -i bin -o b64 -p eg-key.priv elgamal sign <message>
-poetry run safecrypto -i b64 -p eg-key.pub elgamal verify -- <message> <signature>
-
- --- DSA ---
-poetry run safecrypto -p dsa-key dsa shared --p-bits 2048 --q-bits 256
-poetry run safecrypto -p dsa-key dsa new
-poetry run safecrypto -p dsa-key.priv dsa rawsign <message>
-poetry run safecrypto -p dsa-key.pub dsa rawverify <message> <s1:s2>
-poetry run safecrypto -i bin -o b64 -p dsa-key.priv dsa sign <message>
-poetry run safecrypto -i b64 -p dsa-key.pub dsa verify -- <message> <signature>
-
- --- Public Bid ---
-poetry run safecrypto -i bin bid new "tomorrow it will rain"
-poetry run safecrypto -o bin bid verify
-
- --- Shamir Secret Sharing (SSS) ---
-poetry run safecrypto -p sss-key sss new 3 --bits 1024
-poetry run safecrypto -p sss-key sss rawshares <secret> <n>
-poetry run safecrypto -p sss-key sss rawrecover
-poetry run safecrypto -p sss-key sss rawverify <secret>
-poetry run safecrypto -i bin -p sss-key sss shares <secret> <n>
-poetry run safecrypto -o bin -p sss-key sss recover
-
- --- Markdown ---
-poetry run safecrypto markdown > safecrypto.md
-
-Test this CLI with:
+See <safecrypto.md> for documentation on how to use. Test this CLI with:
 
 poetry run pytest -vvv tests/safecrypto_test.py
 """
@@ -304,19 +223,6 @@ app = typer.Typer(
     'poetry run safecrypto random int 1000 2000\n\n'
     'poetry run safecrypto random bytes 32\n\n'
     'poetry run safecrypto random prime 64\n\n\n\n'
-    '# --- Primes ---\n\n'
-    'poetry run safecrypto isprime 428568761\n\n'
-    'poetry run safecrypto primegen 100 -c 3\n\n'
-    'poetry run safecrypto mersenne -k 2 -C 17\n\n\n\n'
-    '# --- Integer / Modular Math ---\n\n'
-    'poetry run safecrypto gcd 462 1071\n\n'
-    'poetry run safecrypto xgcd 127 13\n\n'
-    'poetry run safecrypto mod inv 17 97\n\n'
-    'poetry run safecrypto mod div 6 127 13\n\n'
-    'poetry run safecrypto mod exp 438 234 127\n\n'
-    'poetry run safecrypto mod poly 12 17 10 20 30\n\n'
-    'poetry run safecrypto mod lagrange 5 13 2:4 6:3 7:1\n\n'
-    'poetry run safecrypto mod crt 6 7 127 13\n\n\n\n'
     '# --- Hashing ---\n\n'
     'poetry run safecrypto hash sha256 xyz\n\n'
     'poetry run safecrypto --input-format b64 hash sha512 -- eHl6\n\n'
@@ -324,35 +230,16 @@ app = typer.Typer(
     '# --- AES ---\n\n'
     'poetry run safecrypto --output-format b64 aes key "correct horse battery staple"\n\n'
     'poetry run safecrypto -i b64 -o b64 aes encrypt -k "<b64key>" -- "secret"\n\n'
-    'poetry run safecrypto -i b64 -o b64 aes decrypt -k "<b64key>" -- "<ciphertext>"\n\n'
-    'poetry run safecrypto aes ecb encrypt -k "<b64key>" "<128bithexblock>"\n\n'
-    'poetry run safecrypto aes ecb decrypt -k "<b64key>" "<128bithexblock>"\n\n\n\n'
+    'poetry run safecrypto -i b64 -o b64 aes decrypt -k "<b64key>" -- "<ciphertext>"\n\n\n\n'
     '# --- RSA ---\n\n'
     'poetry run safecrypto -p rsa-key rsa new --bits 2048\n\n'
-    'poetry run safecrypto -p rsa-key.pub rsa rawencrypt <plaintext>\n\n'
-    'poetry run safecrypto -p rsa-key.priv rsa rawdecrypt <ciphertext>\n\n'
-    'poetry run safecrypto -p rsa-key.priv rsa rawsign <message>\n\n'
-    'poetry run safecrypto -p rsa-key.pub rsa rawverify <message> <signature>\n\n'
     'poetry run safecrypto -i bin -o b64 -p rsa-key.pub rsa encrypt -a <aad> <plaintext>\n\n'
     'poetry run safecrypto -i b64 -o bin -p rsa-key.priv rsa decrypt -a <aad> -- <ciphertext>\n\n'
     'poetry run safecrypto -i bin -o b64 -p rsa-key.priv rsa sign <message>\n\n'
     'poetry run safecrypto -i b64 -p rsa-key.pub rsa verify -- <message> <signature>\n\n\n\n'
-    '# --- ElGamal ---\n\n'
-    'poetry run safecrypto -p eg-key elgamal shared --bits 2048\n\n'
-    'poetry run safecrypto -p eg-key elgamal new\n\n'
-    'poetry run safecrypto -p eg-key.pub elgamal rawencrypt <plaintext>\n\n'
-    'poetry run safecrypto -p eg-key.priv elgamal rawdecrypt <c1:c2>\n\n'
-    'poetry run safecrypto -p eg-key.priv elgamal rawsign <message>\n\n'
-    'poetry run safecrypto -p eg-key.pub elgamal rawverify <message> <s1:s2>\n\n'
-    'poetry run safecrypto -i bin -o b64 -p eg-key.pub elgamal encrypt <plaintext>\n\n'
-    'poetry run safecrypto -i b64 -o bin -p eg-key.priv elgamal decrypt -- <ciphertext>\n\n'
-    'poetry run safecrypto -i bin -o b64 -p eg-key.priv elgamal sign <message>\n\n'
-    'poetry run safecrypto -i b64 -p eg-key.pub elgamal verify -- <message> <signature>\n\n\n\n'
     '# --- DSA ---\n\n'
     'poetry run safecrypto -p dsa-key dsa shared --p-bits 2048 --q-bits 256\n\n'
     'poetry run safecrypto -p dsa-key dsa new\n\n'
-    'poetry run safecrypto -p dsa-key.priv dsa rawsign <message>\n\n'
-    'poetry run safecrypto -p dsa-key.pub dsa rawverify <message> <s1:s2>\n\n'
     'poetry run safecrypto -i bin -o b64 -p dsa-key.priv dsa sign <message>\n\n'
     'poetry run safecrypto -i b64 -p dsa-key.pub dsa verify -- <message> <signature>\n\n\n\n'
     '# --- Public Bid ---\n\n'
@@ -360,9 +247,6 @@ app = typer.Typer(
     'poetry run safecrypto -o bin bid verify\n\n\n\n'
     '# --- Shamir Secret Sharing (SSS) ---\n\n'
     'poetry run safecrypto -p sss-key sss new 3 --bits 1024\n\n'
-    'poetry run safecrypto -p sss-key sss rawshares <secret> <n>\n\n'
-    'poetry run safecrypto -p sss-key sss rawrecover\n\n'
-    'poetry run safecrypto -p sss-key sss rawverify <secret>\n\n'
     'poetry run safecrypto -i bin -p sss-key sss shares <secret> <n>\n\n'
     'poetry run safecrypto -o bin -p sss-key sss recover\n\n\n\n'
     '# --- Markdown ---\n\n'

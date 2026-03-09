@@ -86,9 +86,6 @@ def test_cli_hash_file(tmp_path: pathlib.Path) -> None:
     # AES-GCM requires a key.
     (['aes', 'encrypt', 'abc'], 'provide -k/--key or -p/--key-path'),
     (['aes', 'decrypt', '00'], 'provide -k/--key or -p/--key-path'),
-    # AES-ECB requires a key.
-    (['aes', 'ecb', 'encrypt', '00112233445566778899aabbccddeeff'], 'provide -k/--key'),
-    (['aes', 'ecb', 'decrypt', '00112233445566778899aabbccddeeff'], 'provide -k/--key'),
   ],
 )
 def test_cli_aes_missing_key_prints_error(argv: list[str], needle: str) -> None:
@@ -96,13 +93,6 @@ def test_cli_aes_missing_key_prints_error(argv: list[str], needle: str) -> None:
   res: click_testing.Result = safecrypto_test._CallCLI(argv)
   assert res.exit_code == 0
   assert needle in res.output
-
-
-def test_cli_aes_ecb_help_when_no_subcommand() -> None:
-  """Test AES-ECB subapp shows help when no subcommand given."""
-  res: click_testing.Result = safecrypto_test._CallCLI(['aes', 'ecb'])
-  assert res.exit_code in {0, 2}
-  assert 'AES-256-ECB' in res.output
 
 
 @pytest.mark.slow
@@ -147,38 +137,6 @@ def aes_key_file(tmp_path: pathlib.Path) -> pathlib.Path:
   return blob_path
 
 
-def test_aes_ecb_encrypthex_decrypthex_roundtrip() -> None:
-  """Test AES-ECB encrypthex/decrypthex round trip via CLI."""
-  key_bytes = bytes(range(32))  # 00 01 02 ... 1f
-  key_b64: str = base.BytesToEncoded(key_bytes)
-  block_hex = '00112233445566778899aabbccddeeff'
-  # Encrypt (hex → hex)
-  res: click_testing.Result = safecrypto_test._CallCLI(
-    ['--input-format', 'b64', 'aes', 'ecb', 'encrypt', '-k', key_b64, block_hex]
-  )
-  assert res.exit_code == 0
-  assert re.fullmatch(r'[0-9a-f]{32}', block_hex)  # sanity of input
-  assert re.fullmatch(r'[0-9a-f]{32}', safecrypto_test.OneToken(res))  # 16-byte block
-  # Decrypt back
-  # Reset CLI singletons before calling CLI again in the same test
-  tc_logging.ResetConsole()
-  app_config.ResetConfig()
-  res2: click_testing.Result = safecrypto_test._CallCLI(
-    [
-      '--input-format',
-      'b64',
-      'aes',
-      'ecb',
-      'decrypt',
-      '-k',
-      key_b64,
-      safecrypto_test.OneToken(res),
-    ]
-  )
-  assert res2.exit_code == 0
-  assert safecrypto_test.OneToken(res2) == block_hex
-
-
 def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None:
   """Test AES-GCM encrypt/decrypt round trip via CLI."""
   plaintext = 'secret message'
@@ -220,32 +178,6 @@ def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None:
     # AES key size validation branches.
     (['--input-format', 'bin', 'aes', 'encrypt', '-k', 'x', 'abc'], 'invalid AES key size'),
     (['--input-format', 'bin', 'aes', 'decrypt', '-k', 'x', 'abc'], 'invalid AES key size'),
-    (
-      [
-        '--input-format',
-        'bin',
-        'aes',
-        'ecb',
-        'encrypt',
-        '-k',
-        'x',
-        '00112233445566778899aabbccddeeff',
-      ],
-      'invalid AES key size',
-    ),
-    (
-      [
-        '--input-format',
-        'bin',
-        'aes',
-        'ecb',
-        'decrypt',
-        '-k',
-        'x',
-        '00112233445566778899aabbccddeeff',
-      ],
-      'invalid AES key size',
-    ),
   ],
 )
 def test_cli_aes_invalid_key_size_prints_error(argv: list[str], needle: str) -> None:
@@ -260,7 +192,6 @@ def test_cli_aes_invalid_key_size_prints_error(argv: list[str], needle: str) -> 
   [
     ['--input-format', 'bin', 'aes', 'encrypt', 'msg'],
     ['--input-format', 'bin', 'aes', 'decrypt', 'msg'],
-    ['aes', 'ecb', 'encrypt', '00112233445566778899aabbccddeeff'],
     ['rsa', 'new'],
   ],
 )
@@ -313,61 +244,3 @@ def test_aes_gcm_decrypt_wrong_aad_raises() -> None:
     ]
   )
   assert res.exit_code == 0 and 'failed decryption' in res.output
-
-
-@pytest.mark.slow
-def test_aes_ecb_encrypt_decrypt_with_key_path(tmp_path: pathlib.Path) -> None:
-  """Cover AES-ECB key selection via --key-path (elif branch)."""
-  # Write a serialized AES key file
-  aes_key = aes.AESKey(key256=os.urandom(32))
-  key_path: pathlib.Path = tmp_path / 'k.bin'
-  key.Serialize(aes_key, file_path=str(key_path))
-  block_hex = '00112233445566778899aabbccddeeff'
-  # Encrypt with --key-path
-  res: click_testing.Result = safecrypto_test._CallCLI(
-    ['-p', str(key_path), 'aes', 'ecb', 'encrypt', block_hex]
-  )
-  assert res.exit_code == 0 and re.fullmatch(r'[0-9a-f]{32}', safecrypto_test.OneToken(res))
-  # Decrypt with --key-path
-  # Reset CLI singletons before calling CLI again in the same test
-  tc_logging.ResetConsole()
-  app_config.ResetConfig()
-  res2: click_testing.Result = safecrypto_test._CallCLI(
-    ['-p', str(key_path), 'aes', 'ecb', 'decrypt', safecrypto_test.OneToken(res)]
-  )
-  assert res2.exit_code == 0 and safecrypto_test.OneToken(res2) == block_hex
-
-
-def test_aes_ecb_wrong_length_input() -> None:
-  """Cover AES-ECB input validation for wrong-length plaintext/ciphertext."""
-  key_b64 = base.BytesToEncoded(bytes(range(32)))
-  # Wrong-length plaintext
-  res: click_testing.Result = safecrypto_test._CallCLI(
-    ['--input-format', 'b64', 'aes', 'ecb', 'encrypt', '-k', key_b64, 'abc']
-  )
-  assert res.exit_code == 0
-  assert 'must be exactly 32 hex chars' in res.output
-  # Invalid hexadecimal string (not hex) - encrypt - 32 chars with 'Z' which is not hex
-  tc_logging.ResetConsole()
-  app_config.ResetConfig()
-  res = safecrypto_test._CallCLI(
-    ['--input-format', 'b64', 'aes', 'ecb', 'encrypt', '-k', key_b64, 'Z' * 32]
-  )
-  assert res.exit_code == 0
-  assert 'invalid hexadecimal string' in res.output
-  # Invalid hexadecimal in decrypt - 32 chars with 'Z' which is not hex
-  tc_logging.ResetConsole()
-  app_config.ResetConfig()
-  res = safecrypto_test._CallCLI(
-    ['--input-format', 'b64', 'aes', 'ecb', 'decrypt', '-k', key_b64, 'Z' * 32]
-  )
-  assert res.exit_code == 0
-  assert 'invalid hexadecimal string' in res.output
-  # Wrong-length ciphertext
-  tc_logging.ResetConsole()
-  app_config.ResetConfig()
-  res2: click_testing.Result = safecrypto_test._CallCLI(
-    ['--input-format', 'b64', 'aes', 'ecb', 'decrypt', '-k', key_b64, 'abc']
-  )
-  assert res2.exit_code == 0
-  assert 'must be exactly 32 hex chars' in res2.output
