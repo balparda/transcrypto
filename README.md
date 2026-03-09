@@ -77,6 +77,7 @@ All that being said, extreme care was taken that this is a good library with a s
 ## CLI Apps
 
 - [TransCrypto/`transcrypto`](transcrypto.md): Does all the operations but allows you to shoot yourself in the foot;
+- [SafeTrans/`safetrans`](safetrans.md): Safer CLI version, if you want to actually use it for security, no raw operations, better defined interface;
 - [Profiler/`profiler`](profiler.md): Measure transcrypto performance.
 
 ## Programming API

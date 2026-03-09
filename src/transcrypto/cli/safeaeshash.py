@@ -10,7 +10,7 @@ import re
 import click
 import typer
 
-from transcrypto import safecrypto
+from transcrypto import safetrans
 from transcrypto.cli import clibase
 from transcrypto.core import aes, hashes
 from transcrypto.utils import base
@@ -24,7 +24,7 @@ hash_app = typer.Typer(
   no_args_is_help=True,
   help='Cryptographic Hashing (SHA-256 / SHA-512 / file).',
 )
-safecrypto.app.add_typer(hash_app, name='hash')
+safetrans.app.add_typer(hash_app, name='hash')
 
 
 @hash_app.command(
@@ -32,9 +32,9 @@ safecrypto.app.add_typer(hash_app, name='hash')
   help='SHA-256 of input `data`.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run safecrypto -i bin hash sha256 xyz\n\n'
+    '$ poetry run safetrans -i bin hash sha256 xyz\n\n'
     '3608bca1e44ea6c4d268eb6db02260269892c0b42b86bbf1e77a6fa16c3c9282\n\n'
-    '$ poetry run safecrypto -i b64 hash sha256 -- eHl6  # "xyz" in base-64\n\n'
+    '$ poetry run safetrans -i b64 hash sha256 -- eHl6  # "xyz" in base-64\n\n'
     '3608bca1e44ea6c4d268eb6db02260269892c0b42b86bbf1e77a6fa16c3c9282'
   ),
 )
@@ -44,9 +44,9 @@ def Hash256(  # documentation is help/epilog/args # noqa: D103
   ctx: click.Context,
   data: str = typer.Argument(..., help='Input data (raw text; or `--input-format <hex|b64|bin>`)'),
 ) -> None:
-  config: safecrypto.TransConfig = ctx.obj
-  bt: bytes = safecrypto.BytesFromText(data, config.input_format)
-  config.console.print(safecrypto.BytesToText(hashes.Hash256(bt), config.output_format))
+  config: safetrans.TransConfig = ctx.obj
+  bt: bytes = safetrans.BytesFromText(data, config.input_format)
+  config.console.print(safetrans.BytesToText(hashes.Hash256(bt), config.output_format))
 
 
 @hash_app.command(
@@ -54,10 +54,10 @@ def Hash256(  # documentation is help/epilog/args # noqa: D103
   help='SHA-512 of input `data`.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run safecrypto -i bin hash sha512 xyz\n\n'
+    '$ poetry run safetrans -i bin hash sha512 xyz\n\n'
     '4a3ed8147e37876adc8f76328e5abcc1b470e6acfc18efea0135f983604953a5'
     '8e183c1a6086e91ba3e821d926f5fdeb37761c7ca0328a963f5e92870675b728\n\n'
-    '$ poetry run safecrypto -i b64 hash sha512 -- eHl6  # "xyz" in base-64\n\n'
+    '$ poetry run safetrans -i b64 hash sha512 -- eHl6  # "xyz" in base-64\n\n'
     '4a3ed8147e37876adc8f76328e5abcc1b470e6acfc18efea0135f983604953a5'
     '8e183c1a6086e91ba3e821d926f5fdeb37761c7ca0328a963f5e92870675b728'
   ),
@@ -68,9 +68,9 @@ def Hash512(  # documentation is help/epilog/args # noqa: D103
   ctx: click.Context,
   data: str = typer.Argument(..., help='Input data (raw text; or `--input-format <hex|b64|bin>`)'),
 ) -> None:
-  config: safecrypto.TransConfig = ctx.obj
-  bt: bytes = safecrypto.BytesFromText(data, config.input_format)
-  config.console.print(safecrypto.BytesToText(hashes.Hash512(bt), config.output_format))
+  config: safetrans.TransConfig = ctx.obj
+  bt: bytes = safetrans.BytesFromText(data, config.input_format)
+  config.console.print(safetrans.BytesToText(hashes.Hash512(bt), config.output_format))
 
 
 @hash_app.command(
@@ -78,7 +78,7 @@ def Hash512(  # documentation is help/epilog/args # noqa: D103
   help='SHA-256/512 hash of file contents, defaulting to SHA-256.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run safecrypto hash file /etc/passwd --digest sha512\n\n'
+    '$ poetry run safetrans hash file /etc/passwd --digest sha512\n\n'
     '8966f5953e79f55dfe34d3dc5b160ac4a4a3f9cbd1c36695a54e28d77c7874df'
     'f8595502f8a420608911b87d336d9e83c890f0e7ec11a76cb10b03e757f78aea'
   ),
@@ -104,9 +104,9 @@ def HashFile(  # documentation is help/epilog/args # noqa: D103
     help='Digest type, SHA-256 ("sha256") or SHA-512 ("sha512")',
   ),
 ) -> None:
-  config: safecrypto.TransConfig = ctx.obj
+  config: safetrans.TransConfig = ctx.obj
   config.console.print(
-    safecrypto.BytesToText(hashes.FileHash(str(path), digest=digest), config.output_format)
+    safetrans.BytesToText(hashes.FileHash(str(path), digest=digest), config.output_format)
   )
 
 
@@ -120,7 +120,7 @@ aes_app = typer.Typer(
     'No measures are taken here to prevent timing attacks.'
   ),
 )
-safecrypto.app.add_typer(aes_app, name='aes')
+safetrans.app.add_typer(aes_app, name='aes')
 
 
 @aes_app.command(
@@ -132,9 +132,9 @@ safecrypto.app.add_typer(aes_app, name='aes')
   ),
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run safecrypto -o b64 aes key "correct horse battery staple"\n\n'
+    '$ poetry run safetrans -o b64 aes key "correct horse battery staple"\n\n'
     'DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es=\n\n'  # cspell:disable-line
-    '$ poetry run safecrypto -p keyfile.out --protect hunter aes key '
+    '$ poetry run safetrans -p keyfile.out --protect hunter aes key '
     '"correct horse battery staple"\n\n'
     "AES key saved to 'keyfile.out'"
   ),
@@ -145,13 +145,13 @@ def AESKeyFromPass(  # documentation is help/epilog/args # noqa: D103
   ctx: click.Context,
   password: str = typer.Argument(..., help='Password (leading/trailing spaces ignored)'),
 ) -> None:
-  config: safecrypto.TransConfig = ctx.obj
+  config: safetrans.TransConfig = ctx.obj
   aes_key: aes.AESKey = aes.AESKey.FromStaticPassword(password)
   if config.key_path is not None:
-    safecrypto.SaveObj(aes_key, str(config.key_path), config.protect)
+    safetrans.SaveObj(aes_key, str(config.key_path), config.protect)
     config.console.print(f'AES key saved to {str(config.key_path)!r}')
   else:
-    config.console.print(safecrypto.BytesToText(aes_key.key256, config.output_format))
+    config.console.print(safetrans.BytesToText(aes_key.key256, config.output_format))
 
 
 @aes_app.command(
@@ -165,10 +165,10 @@ def AESKeyFromPass(  # documentation is help/epilog/args # noqa: D103
   ),
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run safecrypto -i b64 -o b64 aes encrypt -k '
+    '$ poetry run safetrans -i b64 -o b64 aes encrypt -k '
     'DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= -- AAAAAAB4eXo=\n\n'  # cspell:disable-line
     'F2_ZLrUw5Y8oDnbTP5t5xCUWX8WtVILLD0teyUi_37_4KHeV-YowVA==\n\n'  # cspell:disable-line
-    '$ poetry run safecrypto -i b64 -o b64 aes encrypt -k '
+    '$ poetry run safetrans -i b64 -o b64 aes encrypt -k '
     'DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= -a eHl6 -- AAAAAAB4eXo=\n\n'  # cspell:disable-line
     'xOlAHPUPpeyZHId-f3VQ_QKKMxjIW0_FBo9WOfIBrzjn0VkVV6xTRA=='  # cspell:disable-line
   ),
@@ -188,21 +188,21 @@ def AESEncrypt(  # documentation is help/epilog/args # noqa: D103
     help='Associated data (optional; has to be separately sent to receiver/stored)',
   ),
 ) -> None:
-  config: safecrypto.TransConfig = ctx.obj
+  config: safetrans.TransConfig = ctx.obj
   aes_key: aes.AESKey
   if key:
-    key_bytes: bytes = safecrypto.BytesFromText(key, config.input_format)
+    key_bytes: bytes = safetrans.BytesFromText(key, config.input_format)
     if len(key_bytes) != 32:  # noqa: PLR2004
       raise base.InputError(f'invalid AES key size: {len(key_bytes)} bytes (expected 32)')
     aes_key = aes.AESKey(key256=key_bytes)
   elif config.key_path is not None:
-    aes_key = safecrypto.LoadObj(str(config.key_path), config.protect, aes.AESKey)
+    aes_key = safetrans.LoadObj(str(config.key_path), config.protect, aes.AESKey)
   else:
     raise base.InputError('provide -k/--key or -p/--key-path')
-  aad_bytes: bytes | None = safecrypto.BytesFromText(aad, config.input_format) if aad else None
-  pt: bytes = safecrypto.BytesFromText(plaintext, config.input_format)
+  aad_bytes: bytes | None = safetrans.BytesFromText(aad, config.input_format) if aad else None
+  pt: bytes = safetrans.BytesFromText(plaintext, config.input_format)
   ct: bytes = aes_key.Encrypt(pt, associated_data=aad_bytes)
-  config.console.print(safecrypto.BytesToText(ct, config.output_format))
+  config.console.print(safetrans.BytesToText(ct, config.output_format))
 
 
 @aes_app.command(
@@ -215,11 +215,11 @@ def AESEncrypt(  # documentation is help/epilog/args # noqa: D103
   ),
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run safecrypto -i b64 -o b64 aes decrypt -k '
+    '$ poetry run safetrans -i b64 -o b64 aes decrypt -k '
     'DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= -- '  # cspell:disable-line
     'F2_ZLrUw5Y8oDnbTP5t5xCUWX8WtVILLD0teyUi_37_4KHeV-YowVA==\n\n'  # cspell:disable-line
     'AAAAAAB4eXo=\n\n'  # cspell:disable-line
-    '$ poetry run safecrypto -i b64 -o b64 aes decrypt -k '
+    '$ poetry run safetrans -i b64 -o b64 aes decrypt -k '
     'DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es= -a eHl6 -- '  # cspell:disable-line
     'xOlAHPUPpeyZHId-f3VQ_QKKMxjIW0_FBo9WOfIBrzjn0VkVV6xTRA==\n\n'  # cspell:disable-line
     'AAAAAAB4eXo='  # cspell:disable-line
@@ -240,19 +240,19 @@ def AESDecrypt(  # documentation is help/epilog/args # noqa: D103
     help='Associated data (optional; has to be exactly the same as used during encryption)',
   ),
 ) -> None:
-  config: safecrypto.TransConfig = ctx.obj
+  config: safetrans.TransConfig = ctx.obj
   aes_key: aes.AESKey
   if key:
-    key_bytes: bytes = safecrypto.BytesFromText(key, config.input_format)
+    key_bytes: bytes = safetrans.BytesFromText(key, config.input_format)
     if len(key_bytes) != 32:  # noqa: PLR2004
       raise base.InputError(f'invalid AES key size: {len(key_bytes)} bytes (expected 32)')
     aes_key = aes.AESKey(key256=key_bytes)
   elif config.key_path is not None:
-    aes_key = safecrypto.LoadObj(str(config.key_path), config.protect, aes.AESKey)
+    aes_key = safetrans.LoadObj(str(config.key_path), config.protect, aes.AESKey)
   else:
     raise base.InputError('provide -k/--key or -p/--key-path')
   # associated data, if any
-  aad_bytes: bytes | None = safecrypto.BytesFromText(aad, config.input_format) if aad else None
-  ct: bytes = safecrypto.BytesFromText(ciphertext, config.input_format)
+  aad_bytes: bytes | None = safetrans.BytesFromText(aad, config.input_format) if aad else None
+  ct: bytes = safetrans.BytesFromText(ciphertext, config.input_format)
   pt: bytes = aes_key.Decrypt(ct, associated_data=aad_bytes)
-  config.console.print(safecrypto.BytesToText(pt, config.output_format))
+  config.console.print(safetrans.BytesToText(pt, config.output_format))

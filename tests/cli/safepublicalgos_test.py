@@ -13,7 +13,7 @@ import pathlib
 import pytest
 from click import testing as click_testing
 
-from tests import safecrypto_test
+from tests import safetrans_test
 from transcrypto.utils import config as app_config
 from transcrypto.utils import logging as tc_logging
 
@@ -44,7 +44,7 @@ def test_cli_commands_that_require_key_path_print_error(
   argv: list[str], expected_prefix: str
 ) -> None:
   """Test CLI commands that require -p/--key-path print expected error messages."""
-  res: click_testing.Result = safecrypto_test._CallCLI(argv)
+  res: click_testing.Result = safetrans_test._CallCLI(argv)
   assert res.exit_code == 0
   assert expected_prefix in res.output
 
@@ -56,7 +56,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
   priv_path = pathlib.Path(str(base_path) + '.priv')
   pub_path = pathlib.Path(str(base_path) + '.pub')
   # Safe signing requires k > 64 → use ≥1024-bit modulus
-  res: click_testing.Result = safecrypto_test._CallCLI(
+  res: click_testing.Result = safetrans_test._CallCLI(
     ['-p', str(base_path), 'rsa', 'new', '--bits', '1024']
   )
   assert res.exit_code == 0 and 'RSA private/public keys saved to' in res.output
@@ -65,7 +65,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
   # Reset CLI singletons before additional CLI invocations within same test
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = safecrypto_test._CallCLI(
+  res = safetrans_test._CallCLI(
     [
       '--input-format',
       'bin',
@@ -80,12 +80,12 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
       'xyz',
     ]
   )
-  assert res.exit_code == 0 and len(safecrypto_test.OneToken(res)) > 0
-  ct_b64 = safecrypto_test.OneToken(res)
+  assert res.exit_code == 0 and len(safetrans_test.OneToken(res)) > 0
+  ct_b64 = safetrans_test.OneToken(res)
   # Decrypt (b64 in → bin out) with same AAD (as base64: 'eHl6')
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = safecrypto_test._CallCLI(
+  res = safetrans_test._CallCLI(
     [
       '--input-format',
       'b64',
@@ -101,11 +101,11 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
       ct_b64,
     ]
   )
-  assert res.exit_code == 0 and safecrypto_test.Out(res) == 'abcde'
+  assert res.exit_code == 0 and safetrans_test.Out(res) == 'abcde'
   # Sign (bin in → b64 out) with AAD='aad'
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = safecrypto_test._CallCLI(
+  res = safetrans_test._CallCLI(
     [
       '--input-format',
       'bin',
@@ -120,12 +120,12 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
       'aad',
     ]
   )
-  assert res.exit_code == 0 and len(safecrypto_test.OneToken(res)) > 0
-  sig_b64 = safecrypto_test.OneToken(res)
+  assert res.exit_code == 0 and len(safetrans_test.OneToken(res)) > 0
+  sig_b64 = safetrans_test.OneToken(res)
   # Verify OK (message='xyz' as b64 'eHl6', AAD='aad' as b64 'YWFk')
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = safecrypto_test._CallCLI(
+  res = safetrans_test._CallCLI(
     [
       '--input-format',
       'b64',
@@ -140,11 +140,11 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
       sig_b64,
     ]
   )
-  assert res.exit_code == 0 and safecrypto_test.Out(res) == 'RSA signature: OK'
+  assert res.exit_code == 0 and safetrans_test.Out(res) == 'RSA signature: OK'
   # Verify INVALID with wrong message
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = safecrypto_test._CallCLI(
+  res = safetrans_test._CallCLI(
     [
       '--input-format',
       'b64',
@@ -159,7 +159,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
       sig_b64,
     ]
   )
-  assert res.exit_code == 0 and safecrypto_test.Out(res) == 'RSA signature: INVALID'
+  assert res.exit_code == 0 and safetrans_test.Out(res) == 'RSA signature: INVALID'
 
 
 @pytest.mark.slow
@@ -170,20 +170,20 @@ def test_dsa_sign_verify_safe(tmp_path: pathlib.Path) -> None:
   priv_path = pathlib.Path(str(base_path) + '.priv')
   pub_path = pathlib.Path(str(base_path) + '.pub')
   # Safe DSA requires q > 512 bits (k > 64 bytes). Use q=544, p≥q+11 → p=1024.
-  res: click_testing.Result = safecrypto_test._CallCLI(
+  res: click_testing.Result = safetrans_test._CallCLI(
     ['-p', str(base_path), 'dsa', 'shared', '--p-bits', '1024', '--q-bits', '544']
   )
   assert res.exit_code == 0 and shared_path.exists() and 'DSA shared key saved to' in res.output
   # Generate private/public keys
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = safecrypto_test._CallCLI(['-p', str(base_path), 'dsa', 'new'])
+  res = safetrans_test._CallCLI(['-p', str(base_path), 'dsa', 'new'])
   assert res.exit_code == 0 and priv_path.exists() and pub_path.exists()
   assert 'DSA private/public keys saved to' in res.output
   # Sign (bin in → b64 out) with AAD='aad'
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = safecrypto_test._CallCLI(
+  res = safetrans_test._CallCLI(
     [
       '--input-format',
       'bin',
@@ -198,12 +198,12 @@ def test_dsa_sign_verify_safe(tmp_path: pathlib.Path) -> None:
       'aad',
     ]
   )
-  assert res.exit_code == 0 and len(safecrypto_test.OneToken(res)) > 0
-  sig_b64: str = safecrypto_test.OneToken(res)
+  assert res.exit_code == 0 and len(safetrans_test.OneToken(res)) > 0
+  sig_b64: str = safetrans_test.OneToken(res)
   # Verify OK (message='xyz' b64) and INVALID (wrong message)
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = safecrypto_test._CallCLI(
+  res = safetrans_test._CallCLI(
     [
       '--input-format',
       'b64',
@@ -218,10 +218,10 @@ def test_dsa_sign_verify_safe(tmp_path: pathlib.Path) -> None:
       sig_b64,
     ]
   )
-  assert res.exit_code == 0 and safecrypto_test.Out(res) == 'DSA signature: OK'
+  assert res.exit_code == 0 and safetrans_test.Out(res) == 'DSA signature: OK'
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = safecrypto_test._CallCLI(
+  res = safetrans_test._CallCLI(
     [
       '--input-format',
       'b64',
@@ -236,4 +236,4 @@ def test_dsa_sign_verify_safe(tmp_path: pathlib.Path) -> None:
       sig_b64,
     ]
   )
-  assert res.exit_code == 0 and safecrypto_test.Out(res) == 'DSA signature: INVALID'
+  assert res.exit_code == 0 and safetrans_test.Out(res) == 'DSA signature: INVALID'

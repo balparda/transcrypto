@@ -275,7 +275,6 @@
     "rsakey",
     "safeaeshash",
     "safebidsecret",
-    "safecrypto",
     "safeintmath",
     "safepublicalgos",
     "saferandom",

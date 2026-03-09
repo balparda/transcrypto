@@ -31,8 +31,9 @@ precommit:
 	poetry run pre-commit run --all-files
 
 docs:
-	@echo "Generating transcrypto.md & profiler.md"
+	@echo "Generating transcrypto.md & safetrans.md & profiler.md"
 	poetry run transcrypto markdown > transcrypto.md
+	poetry run safetrans markdown > safetrans.md
 	poetry run profiler markdown > profiler.md
 
 req:

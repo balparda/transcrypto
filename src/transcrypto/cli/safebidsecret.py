@@ -9,7 +9,7 @@ import glob
 import click
 import typer
 
-from transcrypto import safecrypto
+from transcrypto import safetrans
 from transcrypto.cli import clibase
 from transcrypto.core import bid, sss
 from transcrypto.utils import base
@@ -27,7 +27,7 @@ bid_app = typer.Typer(
     'No measures are taken here to prevent timing attacks.'
   ),
 )
-safecrypto.app.add_typer(bid_app, name='bid')
+safetrans.app.add_typer(bid_app, name='bid')
 
 
 @bid_app.command(
@@ -35,7 +35,7 @@ safecrypto.app.add_typer(bid_app, name='bid')
   help=('Generate the bid files for `secret`.'),
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run safecrypto -i bin -p my-bid bid new "tomorrow it will rain"\n\n'
+    '$ poetry run safetrans -i bin -p my-bid bid new "tomorrow it will rain"\n\n'
     "Bid private/public commitments saved to 'my-bid.priv/.pub'"
   ),
 )
@@ -45,13 +45,13 @@ def BidNew(  # documentation is help/epilog/args # noqa: D103
   ctx: click.Context,
   secret: str = typer.Argument(..., help='Input data to bid to, the protected "secret"'),
 ) -> None:
-  config: safecrypto.TransConfig = ctx.obj
-  base_path: str = safecrypto.RequireKeyPath(config, 'bid')
-  secret_bytes: bytes = safecrypto.BytesFromText(secret, config.input_format)
+  config: safetrans.TransConfig = ctx.obj
+  base_path: str = safetrans.RequireKeyPath(config, 'bid')
+  secret_bytes: bytes = safetrans.BytesFromText(secret, config.input_format)
   bid_priv: bid.PrivateBid512 = bid.PrivateBid512.New(secret_bytes)
   bid_pub: bid.PublicBid512 = bid.PublicBid512.Copy(bid_priv)
-  safecrypto.SaveObj(bid_priv, base_path + '.priv', config.protect)
-  safecrypto.SaveObj(bid_pub, base_path + '.pub', config.protect)
+  safetrans.SaveObj(bid_priv, base_path + '.priv', config.protect)
+  safetrans.SaveObj(bid_pub, base_path + '.pub', config.protect)
   config.console.print(f'Bid private/public commitments saved to {base_path + ".priv/.pub"!r}')
 
 
@@ -60,7 +60,7 @@ def BidNew(  # documentation is help/epilog/args # noqa: D103
   help=('Verify the bid files for correctness and reveal the `secret`.'),
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run safecrypto -o bin -p my-bid bid verify\n\n'
+    '$ poetry run safetrans -o bin -p my-bid bid verify\n\n'
     'Bid commitment: OK\n\n'
     'Bid secret:\n\n'
     'tomorrow it will rain'
@@ -68,12 +68,12 @@ def BidNew(  # documentation is help/epilog/args # noqa: D103
 )
 @clibase.CLIErrorGuard
 def BidVerify(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
-  config: safecrypto.TransConfig = ctx.obj
-  base_path: str = safecrypto.RequireKeyPath(config, 'bid')
-  bid_priv: bid.PrivateBid512 = safecrypto.LoadObj(
+  config: safetrans.TransConfig = ctx.obj
+  base_path: str = safetrans.RequireKeyPath(config, 'bid')
+  bid_priv: bid.PrivateBid512 = safetrans.LoadObj(
     base_path + '.priv', config.protect, bid.PrivateBid512
   )
-  bid_pub: bid.PublicBid512 = safecrypto.LoadObj(
+  bid_pub: bid.PublicBid512 = safetrans.LoadObj(
     base_path + '.pub', config.protect, bid.PublicBid512
   )
   bid_pub_expect: bid.PublicBid512 = bid.PublicBid512.Copy(bid_priv)
@@ -88,7 +88,7 @@ def BidVerify(*, ctx: click.Context) -> None:  # documentation is help/epilog/ar
     )
   )
   config.console.print('Bid secret:')
-  config.console.print(safecrypto.BytesToText(bid_priv.secret_bid, config.output_format))
+  config.console.print(safetrans.BytesToText(bid_priv.secret_bid, config.output_format))
 
 
 # ================================== "SSS" COMMAND =================================================
@@ -103,7 +103,7 @@ sss_app = typer.Typer(
     'No measures are taken here to prevent timing attacks.'
   ),
 )
-safecrypto.app.add_typer(sss_app, name='sss')
+safetrans.app.add_typer(sss_app, name='sss')
 
 
 @sss_app.command(
@@ -115,7 +115,7 @@ safecrypto.app.add_typer(sss_app, name='sss')
   ),
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run safecrypto -p sss-key sss new 3 --bits 64  '
+    '$ poetry run safetrans -p sss-key sss new 3 --bits 64  '
     '# NEVER use such a small key: example only!\n\n'
     "SSS private/public keys saved to 'sss-key.priv/.pub'"
   ),
@@ -139,12 +139,12 @@ def SSSNew(  # documentation is help/epilog/args # noqa: D103
     ),
   ),
 ) -> None:
-  config: safecrypto.TransConfig = ctx.obj
-  base_path: str = safecrypto.RequireKeyPath(config, 'sss')
+  config: safetrans.TransConfig = ctx.obj
+  base_path: str = safetrans.RequireKeyPath(config, 'sss')
   sss_priv: sss.ShamirSharedSecretPrivate = sss.ShamirSharedSecretPrivate.New(minimum, bits)
   sss_pub: sss.ShamirSharedSecretPublic = sss.ShamirSharedSecretPublic.Copy(sss_priv)
-  safecrypto.SaveObj(sss_priv, base_path + '.priv', config.protect)
-  safecrypto.SaveObj(sss_pub, base_path + '.pub', config.protect)
+  safetrans.SaveObj(sss_priv, base_path + '.priv', config.protect)
+  safetrans.SaveObj(sss_pub, base_path + '.pub', config.protect)
   config.console.print(f'SSS private/public keys saved to {base_path + ".priv/.pub"!r}')
 
 
@@ -153,7 +153,7 @@ def SSSNew(  # documentation is help/epilog/args # noqa: D103
   help='Shares: Issue `count` private shares for a `secret`.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run safecrypto -i bin -p sss-key sss shares "abcde" 5\n\n'
+    '$ poetry run safetrans -i bin -p sss-key sss shares "abcde" 5\n\n'
     "SSS 5 individual (private) shares saved to 'sss-key.share.1…5'\n\n"
     '$ rm sss-key.share.2 sss-key.share.4  # this is to simulate only having shares 1,3,5'
   ),
@@ -171,18 +171,18 @@ def SSSShares(  # documentation is help/epilog/args # noqa: D103
     ),
   ),
 ) -> None:
-  config: safecrypto.TransConfig = ctx.obj
-  base_path: str = safecrypto.RequireKeyPath(config, 'sss')
-  sss_priv: sss.ShamirSharedSecretPrivate = safecrypto.LoadObj(
+  config: safetrans.TransConfig = ctx.obj
+  base_path: str = safetrans.RequireKeyPath(config, 'sss')
+  sss_priv: sss.ShamirSharedSecretPrivate = safetrans.LoadObj(
     base_path + '.priv', config.protect, sss.ShamirSharedSecretPrivate
   )
   if count < sss_priv.minimum:
     raise base.InputError(
       f'count ({count}) must be >= minimum ({sss_priv.minimum}) to allow secret recovery'
     )
-  pt: bytes = safecrypto.BytesFromText(secret, config.input_format)
+  pt: bytes = safetrans.BytesFromText(secret, config.input_format)
   for i, data_share in enumerate(sss_priv.MakeDataShares(pt, count)):
-    safecrypto.SaveObj(data_share, f'{base_path}.share.{i + 1}', config.protect)
+    safetrans.SaveObj(data_share, f'{base_path}.share.{i + 1}', config.protect)
   config.console.print(
     f'SSS {count} individual (private) shares saved to {base_path + ".share.1…" + str(count)!r}'
   )
@@ -193,7 +193,7 @@ def SSSShares(  # documentation is help/epilog/args # noqa: D103
   help='Recover secret from shares; will use any available shares that were found.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run safecrypto -o bin -p sss-key sss recover\n\n'
+    '$ poetry run safetrans -o bin -p sss-key sss recover\n\n'
     "Loaded SSS share: 'sss-key.share.3'\n\n"
     "Loaded SSS share: 'sss-key.share.5'\n\n"
     "Loaded SSS share: 'sss-key.share.1'  # using only 3 shares: number 2/4 are missing\n\n"
@@ -203,14 +203,12 @@ def SSSShares(  # documentation is help/epilog/args # noqa: D103
 )
 @clibase.CLIErrorGuard
 def SSSRecover(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
-  config: safecrypto.TransConfig = ctx.obj
-  base_path: str = safecrypto.RequireKeyPath(config, 'sss')
+  config: safetrans.TransConfig = ctx.obj
+  base_path: str = safetrans.RequireKeyPath(config, 'sss')
   subset: list[sss.ShamirSharePrivate] = []
   data_share: sss.ShamirShareData | None = None
   for fname in glob.glob(base_path + '.share.*'):  # noqa: PTH207
-    share: sss.ShamirSharePrivate = safecrypto.LoadObj(
-      fname, config.protect, sss.ShamirSharePrivate
-    )
+    share: sss.ShamirSharePrivate = safetrans.LoadObj(fname, config.protect, sss.ShamirSharePrivate)
     subset.append(share)
     if isinstance(share, sss.ShamirShareData):
       data_share = share
@@ -219,4 +217,4 @@ def SSSRecover(*, ctx: click.Context) -> None:  # documentation is help/epilog/a
     raise base.InputError('no data share found among the available shares')
   pt: bytes = data_share.RecoverData(subset)
   config.console.print('Secret:')
-  config.console.print(safecrypto.BytesToText(pt, config.output_format))
+  config.console.print(safetrans.BytesToText(pt, config.output_format))

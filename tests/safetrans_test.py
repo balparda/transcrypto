@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: Copyright 2026 Daniel Balparda <balparda@github.com>
 # SPDX-License-Identifier: Apache-2.0
-"""safecrypto.py unittest.
+"""safetrans.py unittest.
 
 Run with:
-  poetry run pytest -vvv tests/safecrypto_test.py
+  poetry run pytest -vvv tests/safetrans_test.py
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from click import testing as click_testing
 from rich import console as rich_console
 from typer import testing
 
-from transcrypto import safecrypto
+from transcrypto import safetrans
 from transcrypto.core import aes, bid
 from transcrypto.utils import base
 from transcrypto.utils import config as app_config
@@ -42,7 +42,7 @@ def _CallCLI(args: list[str]) -> click_testing.Result:
       click_testing.Result: CLI result.
 
   """
-  return testing.CliRunner().invoke(safecrypto.app, args, env={'COLUMNS': '2000'})
+  return testing.CliRunner().invoke(safetrans.app, args, env={'COLUMNS': '2000'})
 
 
 def Out(res: click_testing.Result) -> str:
@@ -97,48 +97,48 @@ def test_LoadObj_wrong_type_raises(tmp_path: pathlib.Path) -> None:
   path: pathlib.Path = tmp_path / 'obj.saved'
   # Save an AESKey object…
   aes_key = aes.AESKey(key256=b'\x00' * 32)
-  safecrypto.SaveObj(aes_key, str(path), None)
+  safetrans.SaveObj(aes_key, str(path), None)
   # …then try to load it expecting a completely different type.
   with pytest.raises(base.InputError, match=r'invalid type.*AESKey.*expected.*PublicBid'):
-    safecrypto.LoadObj(str(path), None, bid.PublicBid512)  # expecting PublicBid, got AESKey
+    safetrans.LoadObj(str(path), None, bid.PublicBid512)  # expecting PublicBid, got AESKey
 
 
 def test_cli_markdown_has_header() -> None:
   """Test CLI markdown command output has expected header."""
   res: click_testing.Result = _CallCLI(['markdown'])
   assert res.exit_code == 0
-  assert '# `safecrypto`' in res.output
+  assert '# `safetrans`' in res.output
 
 
 def test_cli_version_exits_zero() -> None:
   """Test CLI --version shows version and exits zero."""
   res: click_testing.Result = _CallCLI(['--version'])
   assert res.exit_code == 0
-  assert safecrypto.__version__ in res.output  # type: ignore[attr-defined]
+  assert safetrans.__version__ in res.output  # type: ignore[attr-defined]
 
 
 def test_cli_internal_parse_helpers_error_branches() -> None:
   """Cover small helper branches that are hard to hit via CLI parsing."""
   # ParseInt: empty string and invalid literal.
   with pytest.raises(base.InputError, match=r'invalid int'):
-    safecrypto.ParseInt('   ')
+    safetrans.ParseInt('   ')
   with pytest.raises(base.InputError, match=r'invalid int'):
-    safecrypto.ParseInt('not_an_int')
+    safetrans.ParseInt('not_an_int')
 
   # ParseIntPairCLI: invalid pair formatting.
   with pytest.raises(base.InputError, match=r'invalid int\(s\)'):
-    safecrypto.ParseIntPairCLI('1')
+    safetrans.ParseIntPairCLI('1')
   with pytest.raises(base.InputError, match=r'invalid int'):
-    safecrypto.ParseIntPairCLI('1:')
+    safetrans.ParseIntPairCLI('1:')
   with pytest.raises(base.InputError, match=r'invalid int'):
-    safecrypto.ParseIntPairCLI(':2')
+    safetrans.ParseIntPairCLI(':2')
 
 
-def test_safecrypto_run_exits_zero(monkeypatch: pytest.MonkeyPatch) -> None:
-  """Test safecrypto.Run() with no args exits cleanly."""
-  monkeypatch.setattr(sys, 'argv', ['safecrypto'])
+def test_safetrans_run_exits_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test safetrans.Run() with no args exits cleanly."""
+  monkeypatch.setattr(sys, 'argv', ['safetrans'])
   with pytest.raises(SystemExit) as exc:
-    safecrypto.Run()
+    safetrans.Run()
   # No-args help behavior depends on Click/Typer; exit code is not important.
   assert exc.value.code in {0, 2}
 
@@ -176,19 +176,19 @@ def test_cli_subapps_show_help_when_no_subcommand(subapp: str) -> None:
 @pytest.mark.parametrize(
   ('mode', 'text', 'expect_hex'),
   [
-    (safecrypto.IOFormat.bin, 'hello', '68656c6c6f'),
-    (safecrypto.IOFormat.hex, '68656c6c6f', '68656c6c6f'),
-    (safecrypto.IOFormat.b64, 'aGVsbG8=', '68656c6c6f'),
+    (safetrans.IOFormat.bin, 'hello', '68656c6c6f'),
+    (safetrans.IOFormat.hex, '68656c6c6f', '68656c6c6f'),
+    (safetrans.IOFormat.b64, 'aGVsbG8=', '68656c6c6f'),
   ],
 )
-def test_bytes_from_to_text_modes(mode: safecrypto.IOFormat, text: str, expect_hex: str) -> None:
+def test_bytes_from_to_text_modes(mode: safetrans.IOFormat, text: str, expect_hex: str) -> None:
   """Exercise BytesFromText/BytesToText in all 3 branches."""
-  b: bytes = safecrypto.BytesFromText(text, mode)
+  b: bytes = safetrans.BytesFromText(text, mode)
   # Convert to hex using the CLI helper to normalize
-  hex_out: str = safecrypto.BytesToText(b, safecrypto.IOFormat.hex)
+  hex_out: str = safetrans.BytesToText(b, safetrans.IOFormat.hex)
   assert hex_out == expect_hex
   # Round-trip each mode back to itself (bin/b64 produce readable strings)
-  s_again: str = safecrypto.BytesToText(safecrypto.BytesFromText(text, mode), mode)
+  s_again: str = safetrans.BytesToText(safetrans.BytesFromText(text, mode), mode)
   # RAW returns original (utf-8), HEX and B64 return normalized encodings;
   # we just assert it doesn't crash and is non-empty.
   assert isinstance(s_again, str) and len(s_again) > 0
@@ -205,15 +205,15 @@ def test_require_keypath_rejects_directory(tmp_path: pathlib.Path) -> None:
   """Cover RequireKeyPath directory error path."""
   c = rich_console.Console(file=io.StringIO(), force_terminal=False, color_system=None, record=True)
   appconfig: app_config.AppConfig = app_config.InitConfig('test_app4', 'test4.bin')
-  cfg = safecrypto.TransConfig(
+  cfg = safetrans.TransConfig(
     console=c,
     verbose=0,
     color=None,
     appconfig=appconfig,
-    input_format=safecrypto.IOFormat.hex,
-    output_format=safecrypto.IOFormat.hex,
+    input_format=safetrans.IOFormat.hex,
+    output_format=safetrans.IOFormat.hex,
     key_path=tmp_path,
     protect='',
   )
   with pytest.raises(base.InputError):
-    safecrypto.RequireKeyPath(cfg, 'rsa')
+    safetrans.RequireKeyPath(cfg, 'rsa')

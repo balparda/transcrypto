@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """Balparda's TransCrypto safe command line interface (CLI).
 
-See <safecrypto.md> for documentation on how to use. Test this CLI with:
+See <safetrans.md> for documentation on how to use. Test this CLI with:
 
-poetry run pytest -vvv tests/safecrypto_test.py
+poetry run pytest -vvv tests/safetrans_test.py
 """
 
 from __future__ import annotations
@@ -206,7 +206,7 @@ def LoadObj[T](path: str, password: str | None, expect: type[T], /) -> T:
   return obj
 
 
-# ============================= "safecrypto"/ROOT COMMAND =========================================
+# ============================= "safetrans"/ROOT COMMAND =========================================
 
 
 # CLI app setup, this is an important object and can be imported elsewhere and called
@@ -214,43 +214,43 @@ app = typer.Typer(
   add_completion=True,
   no_args_is_help=True,
   help=(  # keep in sync with Main().help
-    'safecrypto: CLI for number theory, hash, AES, RSA, El-Gamal, DSA, bidding, SSS, and more.'
+    'safetrans: CLI for number theory, hash, AES, RSA, El-Gamal, DSA, bidding, SSS, and more.'
   ),
   epilog=(
     'Example:\n\n\n\n'
     '# --- Randomness ---\n\n'
-    'poetry run safecrypto random bits 16\n\n'
-    'poetry run safecrypto random int 1000 2000\n\n'
-    'poetry run safecrypto random bytes 32\n\n'
-    'poetry run safecrypto random prime 64\n\n\n\n'
+    'poetry run safetrans random bits 16\n\n'
+    'poetry run safetrans random int 1000 2000\n\n'
+    'poetry run safetrans random bytes 32\n\n'
+    'poetry run safetrans random prime 64\n\n\n\n'
     '# --- Hashing ---\n\n'
-    'poetry run safecrypto hash sha256 xyz\n\n'
-    'poetry run safecrypto --input-format b64 hash sha512 -- eHl6\n\n'
-    'poetry run safecrypto hash file /etc/passwd --digest sha512\n\n\n\n'
+    'poetry run safetrans hash sha256 xyz\n\n'
+    'poetry run safetrans --input-format b64 hash sha512 -- eHl6\n\n'
+    'poetry run safetrans hash file /etc/passwd --digest sha512\n\n\n\n'
     '# --- AES ---\n\n'
-    'poetry run safecrypto --output-format b64 aes key "correct horse battery staple"\n\n'
-    'poetry run safecrypto -i b64 -o b64 aes encrypt -k "<b64key>" -- "secret"\n\n'
-    'poetry run safecrypto -i b64 -o b64 aes decrypt -k "<b64key>" -- "<ciphertext>"\n\n\n\n'
+    'poetry run safetrans --output-format b64 aes key "correct horse battery staple"\n\n'
+    'poetry run safetrans -i b64 -o b64 aes encrypt -k "<b64key>" -- "secret"\n\n'
+    'poetry run safetrans -i b64 -o b64 aes decrypt -k "<b64key>" -- "<ciphertext>"\n\n\n\n'
     '# --- RSA ---\n\n'
-    'poetry run safecrypto -p rsa-key rsa new --bits 2048\n\n'
-    'poetry run safecrypto -i bin -o b64 -p rsa-key.pub rsa encrypt -a <aad> <plaintext>\n\n'
-    'poetry run safecrypto -i b64 -o bin -p rsa-key.priv rsa decrypt -a <aad> -- <ciphertext>\n\n'
-    'poetry run safecrypto -i bin -o b64 -p rsa-key.priv rsa sign <message>\n\n'
-    'poetry run safecrypto -i b64 -p rsa-key.pub rsa verify -- <message> <signature>\n\n\n\n'
+    'poetry run safetrans -p rsa-key rsa new --bits 2048\n\n'
+    'poetry run safetrans -i bin -o b64 -p rsa-key.pub rsa encrypt -a <aad> <plaintext>\n\n'
+    'poetry run safetrans -i b64 -o bin -p rsa-key.priv rsa decrypt -a <aad> -- <ciphertext>\n\n'
+    'poetry run safetrans -i bin -o b64 -p rsa-key.priv rsa sign <message>\n\n'
+    'poetry run safetrans -i b64 -p rsa-key.pub rsa verify -- <message> <signature>\n\n\n\n'
     '# --- DSA ---\n\n'
-    'poetry run safecrypto -p dsa-key dsa shared --p-bits 2048 --q-bits 256\n\n'
-    'poetry run safecrypto -p dsa-key dsa new\n\n'
-    'poetry run safecrypto -i bin -o b64 -p dsa-key.priv dsa sign <message>\n\n'
-    'poetry run safecrypto -i b64 -p dsa-key.pub dsa verify -- <message> <signature>\n\n\n\n'
+    'poetry run safetrans -p dsa-key dsa shared --p-bits 2048 --q-bits 256\n\n'
+    'poetry run safetrans -p dsa-key dsa new\n\n'
+    'poetry run safetrans -i bin -o b64 -p dsa-key.priv dsa sign <message>\n\n'
+    'poetry run safetrans -i b64 -p dsa-key.pub dsa verify -- <message> <signature>\n\n\n\n'
     '# --- Public Bid ---\n\n'
-    'poetry run safecrypto -i bin bid new "tomorrow it will rain"\n\n'
-    'poetry run safecrypto -o bin bid verify\n\n\n\n'
+    'poetry run safetrans -i bin bid new "tomorrow it will rain"\n\n'
+    'poetry run safetrans -o bin bid verify\n\n\n\n'
     '# --- Shamir Secret Sharing (SSS) ---\n\n'
-    'poetry run safecrypto -p sss-key sss new 3 --bits 1024\n\n'
-    'poetry run safecrypto -i bin -p sss-key sss shares <secret> <n>\n\n'
-    'poetry run safecrypto -o bin -p sss-key sss recover\n\n\n\n'
+    'poetry run safetrans -p sss-key sss new 3 --bits 1024\n\n'
+    'poetry run safetrans -i bin -p sss-key sss shares <secret> <n>\n\n'
+    'poetry run safetrans -o bin -p sss-key sss recover\n\n\n\n'
     '# --- Markdown ---\n\n'
-    'poetry run safecrypto markdown > safecrypto.md\n\n'
+    'poetry run safetrans markdown > safetrans.md\n\n'
   ),
 )
 
@@ -262,7 +262,7 @@ def Run() -> None:
 
 @app.callback(
   invoke_without_command=True,  # have only one; this is the "constructor"
-  help='safecrypto: CLI for number theory, hash, AES, RSA, El-Gamal, DSA, bidding, SSS, and more.',
+  help='safetrans: CLI for number theory, hash, AES, RSA, El-Gamal, DSA, bidding, SSS, and more.',
 )  # keep message in sync with app.help
 @clibase.CLIErrorGuard
 def Main(  # documentation is help/epilog/args # noqa: D103
@@ -332,7 +332,7 @@ def Main(  # documentation is help/epilog/args # noqa: D103
     console=console,
     verbose=verbose,
     color=color,
-    appconfig=app_config.InitConfig('transcrypto', 'safecrypto.bin'),
+    appconfig=app_config.InitConfig('transcrypto', 'safetrans.bin'),
     input_format=input_format,
     output_format=output_format,
     key_path=key_path,
@@ -343,12 +343,12 @@ def Main(  # documentation is help/epilog/args # noqa: D103
 @app.command(
   'markdown',
   help='Emit Markdown docs for the CLI (see README.md section "Creating a New Version").',
-  epilog=('Example:\n\n\n\n$ poetry run safecrypto markdown > safecrypto.md\n\n<<saves CLI doc>>'),
+  epilog=('Example:\n\n\n\n$ poetry run safetrans markdown > safetrans.md\n\n<<saves CLI doc>>'),
 )
 @clibase.CLIErrorGuard
 def Markdown(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
-  config.console.print(clibase.GenerateTyperHelpMarkdown(app, prog_name='safecrypto'))
+  config.console.print(clibase.GenerateTyperHelpMarkdown(app, prog_name='safetrans'))
 
 
 # Import CLI modules to register their commands with the app

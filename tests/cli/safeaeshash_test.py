@@ -15,7 +15,7 @@ import re
 import pytest
 from click import testing as click_testing
 
-from tests import safecrypto_test
+from tests import safetrans_test
 from transcrypto.core import aes, key
 from transcrypto.utils import base
 from transcrypto.utils import config as app_config
@@ -59,12 +59,12 @@ def reset_cli() -> None:
 )
 def test_cli_deterministic_pairs(argv: list[str], expected: str) -> None:
   """Test CLI commands with deterministic outputs."""
-  res: click_testing.Result = safecrypto_test._CallCLI(argv)
+  res: click_testing.Result = safetrans_test._CallCLI(argv)
   assert res.exit_code == 0, f'non-zero exit for argv={argv!r}'
   if '\n' in expected:
-    assert safecrypto_test.Out(res) == expected
+    assert safetrans_test.Out(res) == expected
   else:
-    assert safecrypto_test.OneToken(res) == expected
+    assert safetrans_test.OneToken(res) == expected
 
 
 def test_cli_hash_file(tmp_path: pathlib.Path) -> None:
@@ -72,10 +72,10 @@ def test_cli_hash_file(tmp_path: pathlib.Path) -> None:
   # Create a small file and hash it (deterministic)
   p: pathlib.Path = tmp_path / 'hello.txt'
   p.write_text('hello', encoding='utf-8')
-  res: click_testing.Result = safecrypto_test._CallCLI(['hash', 'file', str(p)])
+  res: click_testing.Result = safetrans_test._CallCLI(['hash', 'file', str(p)])
   assert res.exit_code == 0
   assert (  # SHA-256('hello')
-    safecrypto_test.OneToken(res)
+    safetrans_test.OneToken(res)
     == '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824'
   )
 
@@ -90,7 +90,7 @@ def test_cli_hash_file(tmp_path: pathlib.Path) -> None:
 )
 def test_cli_aes_missing_key_prints_error(argv: list[str], needle: str) -> None:
   """Test CLI AES commands missing key print expected error messages."""
-  res: click_testing.Result = safecrypto_test._CallCLI(argv)
+  res: click_testing.Result = safetrans_test._CallCLI(argv)
   assert res.exit_code == 0
   assert needle in res.output
 
@@ -100,19 +100,19 @@ def test_cli_aes_missing_key_prints_error(argv: list[str], needle: str) -> None:
 def test_aes_key_print_b64_matches_library(tmp_path: pathlib.Path) -> None:
   """Test AES key CLI command output matches library."""
   # CLI derives & prints b64; library derives for ground truth
-  res: click_testing.Result = safecrypto_test._CallCLI(
+  res: click_testing.Result = safetrans_test._CallCLI(
     ['--output-format', 'b64', 'aes', 'key', 'correct horse battery staple']
   )
   assert res.exit_code == 0
   assert (
-    safecrypto_test.OneToken(res)
+    safetrans_test.OneToken(res)
     == 'DbWJ_ZrknLEEIoq_NpoCQwHYfjskGokpueN2O_eY0es='  # cspell:disable-line
   )  # cspell:disable-line
   priv_path: pathlib.Path = tmp_path / 'password.priv'
   # Reset CLI singletons before calling CLI again in the same test
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = safecrypto_test._CallCLI(
+  res = safetrans_test._CallCLI(
     ['-p', str(priv_path), 'aes', 'key', 'correct horse battery staple']
   )
   assert res.exit_code == 0
@@ -142,18 +142,18 @@ def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None:
   plaintext = 'secret message'
   aad = 'assoc'
   # Encrypt: inputs as binary text, outputs default hex
-  res: click_testing.Result = safecrypto_test._CallCLI(
+  res: click_testing.Result = safetrans_test._CallCLI(
     ['--input-format', 'bin', '-p', str(aes_key_file), 'aes', 'encrypt', plaintext, '-a', aad]
   )
   assert res.exit_code == 0
-  ct_hex = safecrypto_test.OneToken(res)
+  ct_hex = safetrans_test.OneToken(res)
   assert re.fullmatch(r'[0-9a-f]+', ct_hex) is not None
   assert len(ct_hex) >= 32  # IV(16)+TAG(16)+ct → hex length ≥ 64; allow any ≥ minimal sanity
   # Decrypt: ciphertext hex in, ask for raw output so we can compare to original string
   # Reset CLI singletons before calling CLI again in the same test
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res2: click_testing.Result = safecrypto_test._CallCLI(
+  res2: click_testing.Result = safetrans_test._CallCLI(
     [
       '--input-format',
       'hex',
@@ -169,7 +169,7 @@ def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None:
     ]
   )
   assert res2.exit_code == 0
-  assert safecrypto_test.Out(res2) == plaintext
+  assert safetrans_test.Out(res2) == plaintext
 
 
 @pytest.mark.parametrize(
@@ -182,7 +182,7 @@ def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None:
 )
 def test_cli_aes_invalid_key_size_prints_error(argv: list[str], needle: str) -> None:
   """Test CLI AES commands with invalid key sizes print expected error messages."""
-  res: click_testing.Result = safecrypto_test._CallCLI(argv)
+  res: click_testing.Result = safetrans_test._CallCLI(argv)
   assert res.exit_code == 0
   assert needle in res.output
 
@@ -197,7 +197,7 @@ def test_cli_aes_invalid_key_size_prints_error(argv: list[str], needle: str) -> 
 )
 def test_requires_key(argv: list[str]) -> None:
   """Hit the 'provide --key or --key-path' error in AES."""
-  res: click_testing.Result = safecrypto_test._CallCLI(argv)
+  res: click_testing.Result = safetrans_test._CallCLI(argv)
   assert res.exit_code == 0
   assert '-p/--key-path' in res.output
 
@@ -209,7 +209,7 @@ def test_aes_gcm_decrypt_wrong_aad_raises() -> None:
   key_bytes = bytes(range(32))
   key_b64: str = base.BytesToEncoded(key_bytes)
   # Encrypt with AAD='A'
-  res: click_testing.Result = safecrypto_test._CallCLI(
+  res: click_testing.Result = safetrans_test._CallCLI(
     [
       '--input-format',
       'b64',
@@ -224,12 +224,12 @@ def test_aes_gcm_decrypt_wrong_aad_raises() -> None:
       'eHl6',
     ]
   )
-  assert res.exit_code == 0 and re.fullmatch(r'[0-9a-f]+', safecrypto_test.OneToken(res))
+  assert res.exit_code == 0 and re.fullmatch(r'[0-9a-f]+', safetrans_test.OneToken(res))
   # Decrypt with WRONG AAD='B' → should raise CryptoError
   # Reset CLI singletons before calling CLI again in the same test
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res = safecrypto_test._CallCLI(
+  res = safetrans_test._CallCLI(
     [
       '--input-format',
       'b64',
@@ -240,7 +240,7 @@ def test_aes_gcm_decrypt_wrong_aad_raises() -> None:
       '-a',
       'eHm6',
       '--',
-      base.BytesToEncoded(base.HexToBytes(safecrypto_test.OneToken(res))),
+      base.BytesToEncoded(base.HexToBytes(safetrans_test.OneToken(res))),
     ]
   )
   assert res.exit_code == 0 and 'failed decryption' in res.output

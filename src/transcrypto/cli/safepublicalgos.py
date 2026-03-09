@@ -7,7 +7,7 @@ from __future__ import annotations
 import click
 import typer
 
-from transcrypto import safecrypto
+from transcrypto import safetrans
 from transcrypto.cli import clibase
 from transcrypto.core import dsa, rsa
 
@@ -26,7 +26,7 @@ rsa_app = typer.Typer(
     'No measures are taken here to prevent timing attacks.'
   ),
 )
-safecrypto.app.add_typer(rsa_app, name='rsa')
+safetrans.app.add_typer(rsa_app, name='rsa')
 
 
 @rsa_app.command(
@@ -36,7 +36,7 @@ safecrypto.app.add_typer(rsa_app, name='rsa')
   ),
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run safecrypto -p rsa-key rsa new --bits 64  '
+    '$ poetry run safetrans -p rsa-key rsa new --bits 64  '
     '# NEVER use such a small key: example only!\n\n'
     "RSA private/public keys saved to 'rsa-key.priv/.pub'"
   ),
@@ -53,12 +53,12 @@ def RSANew(  # documentation is help/epilog/args # noqa: D103
     help='Modulus size in bits, ≥16; the default (3332) is a safe size',
   ),
 ) -> None:
-  config: safecrypto.TransConfig = ctx.obj
-  base_path: str = safecrypto.RequireKeyPath(config, 'rsa')
+  config: safetrans.TransConfig = ctx.obj
+  base_path: str = safetrans.RequireKeyPath(config, 'rsa')
   rsa_priv: rsa.RSAPrivateKey = rsa.RSAPrivateKey.New(bits)
   rsa_pub: rsa.RSAPublicKey = rsa.RSAPublicKey.Copy(rsa_priv)
-  safecrypto.SaveObj(rsa_priv, base_path + '.priv', config.protect)
-  safecrypto.SaveObj(rsa_pub, base_path + '.pub', config.protect)
+  safetrans.SaveObj(rsa_priv, base_path + '.priv', config.protect)
+  safetrans.SaveObj(rsa_pub, base_path + '.pub', config.protect)
   config.console.print(f'RSA private/public keys saved to {base_path + ".priv/.pub"!r}')
 
 
@@ -67,7 +67,7 @@ def RSANew(  # documentation is help/epilog/args # noqa: D103
   help='Encrypt `message` with public key.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run safecrypto -i bin -o b64 -p rsa-key.pub rsa encrypt "abcde" -a "xyz"\n\n'
+    '$ poetry run safetrans -i bin -o b64 -p rsa-key.pub rsa encrypt "abcde" -a "xyz"\n\n'
     'AO6knI6xwq6TGR…Qy22jiFhXi1eQ=='
   ),
 )
@@ -83,13 +83,13 @@ def RSAEncrypt(  # documentation is help/epilog/args # noqa: D103
     help='Associated data (optional; has to be separately sent to receiver/stored)',
   ),
 ) -> None:
-  config: safecrypto.TransConfig = ctx.obj
-  key_path: str = safecrypto.RequireKeyPath(config, 'rsa')
-  rsa_pub: rsa.RSAPublicKey = safecrypto.LoadObj(key_path, config.protect, rsa.RSAPublicKey)
-  aad_bytes: bytes | None = safecrypto.BytesFromText(aad, config.input_format) if aad else None
-  pt: bytes = safecrypto.BytesFromText(plaintext, config.input_format)
+  config: safetrans.TransConfig = ctx.obj
+  key_path: str = safetrans.RequireKeyPath(config, 'rsa')
+  rsa_pub: rsa.RSAPublicKey = safetrans.LoadObj(key_path, config.protect, rsa.RSAPublicKey)
+  aad_bytes: bytes | None = safetrans.BytesFromText(aad, config.input_format) if aad else None
+  pt: bytes = safetrans.BytesFromText(plaintext, config.input_format)
   ct: bytes = rsa_pub.Encrypt(pt, associated_data=aad_bytes)
-  config.console.print(safecrypto.BytesToText(ct, config.output_format))
+  config.console.print(safetrans.BytesToText(ct, config.output_format))
 
 
 @rsa_app.command(
@@ -97,7 +97,7 @@ def RSAEncrypt(  # documentation is help/epilog/args # noqa: D103
   help='Decrypt `ciphertext` with private key.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run safecrypto -i b64 -o bin -p rsa-key.priv rsa decrypt -a eHl6 -- '
+    '$ poetry run safetrans -i b64 -o bin -p rsa-key.priv rsa decrypt -a eHl6 -- '
     'AO6knI6xwq6TGR…Qy22jiFhXi1eQ==\n\n'
     'abcde'
   ),
@@ -114,13 +114,13 @@ def RSADecrypt(  # documentation is help/epilog/args # noqa: D103
     help='Associated data (optional; has to be exactly the same as used during encryption)',
   ),
 ) -> None:
-  config: safecrypto.TransConfig = ctx.obj
-  key_path: str = safecrypto.RequireKeyPath(config, 'rsa')
-  rsa_priv: rsa.RSAPrivateKey = safecrypto.LoadObj(key_path, config.protect, rsa.RSAPrivateKey)
-  aad_bytes: bytes | None = safecrypto.BytesFromText(aad, config.input_format) if aad else None
-  ct: bytes = safecrypto.BytesFromText(ciphertext, config.input_format)
+  config: safetrans.TransConfig = ctx.obj
+  key_path: str = safetrans.RequireKeyPath(config, 'rsa')
+  rsa_priv: rsa.RSAPrivateKey = safetrans.LoadObj(key_path, config.protect, rsa.RSAPrivateKey)
+  aad_bytes: bytes | None = safetrans.BytesFromText(aad, config.input_format) if aad else None
+  ct: bytes = safetrans.BytesFromText(ciphertext, config.input_format)
   pt: bytes = rsa_priv.Decrypt(ct, associated_data=aad_bytes)
-  config.console.print(safecrypto.BytesToText(pt, config.output_format))
+  config.console.print(safetrans.BytesToText(pt, config.output_format))
 
 
 @rsa_app.command(
@@ -128,7 +128,7 @@ def RSADecrypt(  # documentation is help/epilog/args # noqa: D103
   help='Sign `message` with private key.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run safecrypto -i bin -o b64 -p rsa-key.priv rsa sign "xyz"\n\n'
+    '$ poetry run safetrans -i bin -o b64 -p rsa-key.priv rsa sign "xyz"\n\n'
     '91TS7gC6LORiL…6RD23Aejsfxlw=='  # cspell:disable-line
   ),
 )
@@ -144,13 +144,13 @@ def RSASign(  # documentation is help/epilog/args # noqa: D103
     help='Associated data (optional; has to be separately sent to receiver/stored)',
   ),
 ) -> None:
-  config: safecrypto.TransConfig = ctx.obj
-  key_path: str = safecrypto.RequireKeyPath(config, 'rsa')
-  rsa_priv: rsa.RSAPrivateKey = safecrypto.LoadObj(key_path, config.protect, rsa.RSAPrivateKey)
-  aad_bytes: bytes | None = safecrypto.BytesFromText(aad, config.input_format) if aad else None
-  pt: bytes = safecrypto.BytesFromText(message, config.input_format)
+  config: safetrans.TransConfig = ctx.obj
+  key_path: str = safetrans.RequireKeyPath(config, 'rsa')
+  rsa_priv: rsa.RSAPrivateKey = safetrans.LoadObj(key_path, config.protect, rsa.RSAPrivateKey)
+  aad_bytes: bytes | None = safetrans.BytesFromText(aad, config.input_format) if aad else None
+  pt: bytes = safetrans.BytesFromText(message, config.input_format)
   sig: bytes = rsa_priv.Sign(pt, associated_data=aad_bytes)
-  config.console.print(safecrypto.BytesToText(sig, config.output_format))
+  config.console.print(safetrans.BytesToText(sig, config.output_format))
 
 
 @rsa_app.command(
@@ -158,10 +158,10 @@ def RSASign(  # documentation is help/epilog/args # noqa: D103
   help='Verify `signature` for `message` with public key.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run safecrypto -i b64 -p rsa-key.pub rsa verify -- eHl6 '
+    '$ poetry run safetrans -i b64 -p rsa-key.pub rsa verify -- eHl6 '
     '91TS7gC6LORiL…6RD23Aejsfxlw==\n\n'  # cspell:disable-line
     'RSA signature: OK\n\n'
-    '$ poetry run safecrypto -i b64 -p rsa-key.pub rsa verify -- eLl6 '
+    '$ poetry run safetrans -i b64 -p rsa-key.pub rsa verify -- eLl6 '
     '91TS7gC6LORiL…6RD23Aejsfxlw==\n\n'  # cspell:disable-line
     'RSA signature: INVALID'
   ),
@@ -179,12 +179,12 @@ def RSAVerify(  # documentation is help/epilog/args # noqa: D103
     help='Associated data (optional; has to be exactly the same as used during signing)',
   ),
 ) -> None:
-  config: safecrypto.TransConfig = ctx.obj
-  key_path: str = safecrypto.RequireKeyPath(config, 'rsa')
-  rsa_pub: rsa.RSAPublicKey = safecrypto.LoadObj(key_path, config.protect, rsa.RSAPublicKey)
-  aad_bytes: bytes | None = safecrypto.BytesFromText(aad, config.input_format) if aad else None
-  pt: bytes = safecrypto.BytesFromText(message, config.input_format)
-  sig: bytes = safecrypto.BytesFromText(signature, config.input_format)
+  config: safetrans.TransConfig = ctx.obj
+  key_path: str = safetrans.RequireKeyPath(config, 'rsa')
+  rsa_pub: rsa.RSAPublicKey = safetrans.LoadObj(key_path, config.protect, rsa.RSAPublicKey)
+  aad_bytes: bytes | None = safetrans.BytesFromText(aad, config.input_format) if aad else None
+  pt: bytes = safetrans.BytesFromText(message, config.input_format)
+  sig: bytes = safetrans.BytesFromText(signature, config.input_format)
   config.console.print(
     'RSA signature: '
     + ('[green]OK[/]' if rsa_pub.Verify(pt, sig, associated_data=aad_bytes) else '[red]INVALID[/]')
@@ -206,7 +206,7 @@ dsa_app = typer.Typer(
     'No measures are taken here to prevent timing attacks.'
   ),
 )
-safecrypto.app.add_typer(dsa_app, name='dsa')
+safetrans.app.add_typer(dsa_app, name='dsa')
 
 
 @dsa_app.command(
@@ -220,7 +220,7 @@ safecrypto.app.add_typer(dsa_app, name='dsa')
   ),
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run safecrypto -p dsa-key dsa shared --p-bits 128 --q-bits 32  '
+    '$ poetry run safetrans -p dsa-key dsa shared --p-bits 128 --q-bits 32  '
     '# NEVER use such a small key: example only!\n\n'
     "DSA shared key saved to 'dsa-key.shared'"
   ),
@@ -247,10 +247,10 @@ def DSAShared(  # documentation is help/epilog/args # noqa: D103
     ),
   ),
 ) -> None:
-  config: safecrypto.TransConfig = ctx.obj
-  base_path: str = safecrypto.RequireKeyPath(config, 'dsa')
+  config: safetrans.TransConfig = ctx.obj
+  base_path: str = safetrans.RequireKeyPath(config, 'dsa')
   dsa_shared: dsa.DSASharedPublicKey = dsa.DSASharedPublicKey.NewShared(p_bits, q_bits)
-  safecrypto.SaveObj(dsa_shared, base_path + '.shared', config.protect)
+  safetrans.SaveObj(dsa_shared, base_path + '.shared', config.protect)
   config.console.print(f'DSA shared key saved to {base_path + ".shared"!r}')
 
 
@@ -259,21 +259,21 @@ def DSAShared(  # documentation is help/epilog/args # noqa: D103
   help='Generate an individual DSA private/public key pair from a shared key.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run safecrypto -p dsa-key dsa new\n\n'
+    '$ poetry run safetrans -p dsa-key dsa new\n\n'
     "DSA private/public keys saved to 'dsa-key.priv/.pub'"
   ),
 )
 @clibase.CLIErrorGuard
 def DSANew(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
-  config: safecrypto.TransConfig = ctx.obj
-  base_path: str = safecrypto.RequireKeyPath(config, 'dsa')
-  dsa_shared: dsa.DSASharedPublicKey = safecrypto.LoadObj(
+  config: safetrans.TransConfig = ctx.obj
+  base_path: str = safetrans.RequireKeyPath(config, 'dsa')
+  dsa_shared: dsa.DSASharedPublicKey = safetrans.LoadObj(
     base_path + '.shared', config.protect, dsa.DSASharedPublicKey
   )
   dsa_priv: dsa.DSAPrivateKey = dsa.DSAPrivateKey.New(dsa_shared)
   dsa_pub: dsa.DSAPublicKey = dsa.DSAPublicKey.Copy(dsa_priv)
-  safecrypto.SaveObj(dsa_priv, base_path + '.priv', config.protect)
-  safecrypto.SaveObj(dsa_pub, base_path + '.pub', config.protect)
+  safetrans.SaveObj(dsa_priv, base_path + '.priv', config.protect)
+  safetrans.SaveObj(dsa_pub, base_path + '.pub', config.protect)
   config.console.print(f'DSA private/public keys saved to {base_path + ".priv/.pub"!r}')
 
 
@@ -282,7 +282,7 @@ def DSANew(*, ctx: click.Context) -> None:  # documentation is help/epilog/args 
   help='Sign message with private key.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run safecrypto -i bin -o b64 -p dsa-key.priv dsa sign "xyz"\n\n'
+    '$ poetry run safetrans -i bin -o b64 -p dsa-key.priv dsa sign "xyz"\n\n'
     'yq8InJVpViXh9…BD4par2XuA='
   ),
 )
@@ -298,13 +298,13 @@ def DSASign(  # documentation is help/epilog/args # noqa: D103
     help='Associated data (optional; has to be separately sent to receiver/stored)',
   ),
 ) -> None:
-  config: safecrypto.TransConfig = ctx.obj
-  key_path: str = safecrypto.RequireKeyPath(config, 'dsa')
-  dsa_priv: dsa.DSAPrivateKey = safecrypto.LoadObj(key_path, config.protect, dsa.DSAPrivateKey)
-  aad_bytes: bytes | None = safecrypto.BytesFromText(aad, config.input_format) if aad else None
-  pt: bytes = safecrypto.BytesFromText(message, config.input_format)
+  config: safetrans.TransConfig = ctx.obj
+  key_path: str = safetrans.RequireKeyPath(config, 'dsa')
+  dsa_priv: dsa.DSAPrivateKey = safetrans.LoadObj(key_path, config.protect, dsa.DSAPrivateKey)
+  aad_bytes: bytes | None = safetrans.BytesFromText(aad, config.input_format) if aad else None
+  pt: bytes = safetrans.BytesFromText(message, config.input_format)
   sig: bytes = dsa_priv.Sign(pt, associated_data=aad_bytes)
-  config.console.print(safecrypto.BytesToText(sig, config.output_format))
+  config.console.print(safetrans.BytesToText(sig, config.output_format))
 
 
 @dsa_app.command(
@@ -312,10 +312,10 @@ def DSASign(  # documentation is help/epilog/args # noqa: D103
   help='Verify `signature` for `message` with public key.',
   epilog=(
     'Example:\n\n\n\n'
-    '$ poetry run safecrypto -i b64 -p dsa-key.pub dsa verify -- '
+    '$ poetry run safetrans -i b64 -p dsa-key.pub dsa verify -- '
     'eHl6 yq8InJVpViXh9…BD4par2XuA=\n\n'
     'DSA signature: OK\n\n'
-    '$ poetry run safecrypto -i b64 -p dsa-key.pub dsa verify -- '
+    '$ poetry run safetrans -i b64 -p dsa-key.pub dsa verify -- '
     'eLl6 yq8InJVpViXh9…BD4par2XuA=\n\n'
     'DSA signature: INVALID'
   ),
@@ -333,12 +333,12 @@ def DSAVerify(  # documentation is help/epilog/args # noqa: D103
     help='Associated data (optional; has to be exactly the same as used during signing)',
   ),
 ) -> None:
-  config: safecrypto.TransConfig = ctx.obj
-  key_path: str = safecrypto.RequireKeyPath(config, 'dsa')
-  dsa_pub: dsa.DSAPublicKey = safecrypto.LoadObj(key_path, config.protect, dsa.DSAPublicKey)
-  aad_bytes: bytes | None = safecrypto.BytesFromText(aad, config.input_format) if aad else None
-  pt: bytes = safecrypto.BytesFromText(message, config.input_format)
-  sig: bytes = safecrypto.BytesFromText(signature, config.input_format)
+  config: safetrans.TransConfig = ctx.obj
+  key_path: str = safetrans.RequireKeyPath(config, 'dsa')
+  dsa_pub: dsa.DSAPublicKey = safetrans.LoadObj(key_path, config.protect, dsa.DSAPublicKey)
+  aad_bytes: bytes | None = safetrans.BytesFromText(aad, config.input_format) if aad else None
+  pt: bytes = safetrans.BytesFromText(message, config.input_format)
+  sig: bytes = safetrans.BytesFromText(signature, config.input_format)
   config.console.print(
     'DSA signature: '
     + ('[green]OK[/]' if dsa_pub.Verify(pt, sig, associated_data=aad_bytes) else '[red]INVALID[/]')

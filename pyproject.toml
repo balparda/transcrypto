@@ -79,7 +79,7 @@ dependencies = [
 # if you change/add a line here also edit [tool.poetry.scripts] below and re-run `poetry sync`
 
 transcrypto = "transcrypto.transcrypto:Run"
-safecrypto = "transcrypto.safecrypto:Run"
+safetrans = "transcrypto.safetrans:Run"
 profiler = "transcrypto.profiler:Run"
 
 ####################################################################################################
@@ -89,7 +89,7 @@ profiler = "transcrypto.profiler:Run"
 # keep this in sync with [project.scripts] above
 
 transcrypto = "transcrypto.transcrypto:Run"
-safecrypto = "transcrypto.safecrypto:Run"
+safetrans = "transcrypto.safetrans:Run"
 profiler = "transcrypto.profiler:Run"
 
 ####################################################################################################

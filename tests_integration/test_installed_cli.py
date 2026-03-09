@@ -9,7 +9,7 @@ Why this exists (vs normal unit tests):
 
 What we verify:
 - `transcrypto --version` prints the expected version.
-- `safecrypto --version` prints the expected version.
+- `safetrans --version` prints the expected version.
 - `profiler --version` prints the expected version.
 - Both CLIs run a small `--no-color` command successfully and produce non-ANSI output.
 
@@ -28,7 +28,7 @@ import transcrypto
 from transcrypto.utils import base, config
 
 _APP_NAME: str = 'transcrypto'
-_APP_NAMES: set[str] = {'transcrypto', 'safecrypto', 'profiler'}
+_APP_NAMES: set[str] = {'transcrypto', 'safetrans', 'profiler'}
 
 
 @pytest.mark.integration

@@ -30,7 +30,7 @@ This project follows a pragmatic versioning approach:
 ## 2.4.0 - 2026-03-??
 
 - Added
-  - safecrypto
+  - safetrans
 
 - Changed
   - Placeholder for future changes.
