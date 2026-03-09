@@ -5,6 +5,80 @@
 See <safetrans.md> for documentation on how to use. Test this CLI with:
 
 poetry run pytest -vvv tests/safetrans_test.py
+
+Operations implemented in this CLI:
+
+random bits|int|bytes|prime
+hash sha256|sha512|file
+aes new|frompass|encrypt|decrypt
+rsa new|encrypt|decrypt|sign|verify
+dsa shared|new|sign|verify
+bid new|verify
+sss new|shares|recover
+markdown
+
+Crypto CLIs juggle a messy mix of bytes, strings, and files. We want to make
+sources and sinks explicit and consistent, and to give users a small set of composable rules that
+work the same across all subcommands.
+
+The pattern below (inspired by OpenSSL, age, gpg, minisign, libsodium tools) will be used.
+
+⸻
+
+Design principles:
+
+1.  Uniform “data specifiers” for inputs
+Any argument that represents bytes should accept the same mini-grammar:
+  •  @path → read bytes from a file (@- means stdin)
+  •  hex:deadbeef → decode hex
+  •  b64:... → decode base64 (URL-safe b64u: optional)
+  •  str:hello → UTF-8 encode the literal
+  •  raw:... → byte literals via \\xNN escapes (rare but handy)
+Integers and enums are not data specs; they're normal flags (--bits 256, --curve ed25519).
+
+2.  Explicit output format & sink. Split format from destination.
+
+3.  Streaming defaults
+  •  If an operation produces a single blob, default to stdout.
+  •  If stdout is a TTY and format is binary, refuse unless --force or a non-TTY sink is chosen.
+
+4.  Schema for structured results
+When outputs are multi-field (e.g., keygen with pub+priv), offer JSON output with stable field names
+and base64/hex encodings.
+
+5.  Predictable subcommands & option names
+Keep verbs clear and consistent:
+  •  random, hash, sign, verify, keygen, derive, wrap, unwrap.
+Reuse the same flag names everywhere (examples --key, --aad, --nonce, --msg).
+
+6.  File type inference is a bonus, not a rule
+You may infer formats from extensions (.pem, .der, .jwk, .b64, .hex), but never rely on it: users
+can always override using data specifiers or --in-format/--key-format.
+
+7.  Safety foot-guns removed
+  •  Private key outputs default to files with 0600 perms; refuse TTY unless --force.
+  •  Zeroize sensitive buffers where feasible.
+
+8.  Machine-friendly behavior
+  •  Exit codes: 0 ok, 1 usage/validation error, 2 crypto failure (verification failed),
+  3 I/O error.
+  •  --json responses are single-line by default; add --pretty for humans.
+
+Output policy:
+
+  •  Single blob:
+  •  default sink: stdout
+  •  default format: hex for short (<1KiB) unknown blobs? (or pick a project-wide default)
+  •  user can force: -o flag
+  •  sink override via flag
+  •  Multi-artifact:
+    •  --out-prefix prefix → prefix.pub, prefix.key, etc.
+    •  OR --out-json to emit a single structured result (fields encoded as hex/b64)
+
+
+TODO: mini-grammar for inputs
+
+
 """
 
 from __future__ import annotations
