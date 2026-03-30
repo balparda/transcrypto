@@ -33,7 +33,7 @@ Any argument that represents bytes should accept the same mini-grammar:
   •  hex:deadbeef → decode hex
   •  b64:... → decode base64 (URL-safe b64u: optional)
   •  str:hello → UTF-8 encode the literal
-  •  raw:... → byte literals via \\xNN escapes (rare but handy)
+  •  raw:... → byte literals via //xNN escapes (backslashes, rare but handy)
 Integers and enums are not data specs; they're normal flags (--bits 256, --curve ed25519).
 
 2.  Explicit output format & sink. Split format from destination.
