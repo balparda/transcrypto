@@ -124,10 +124,10 @@ typer = { version = "^0.24", extras = ["all"] }
 [tool.poetry.group.dev.dependencies]
 
 # basic, all projects should have
-ruff = "~0.15.5"
+ruff = "~0.15.8"
 mypy = "~1.19.1"
 pytest = "^9.0"
-pytest-cov = "^7.0"
+pytest-cov = "^7.1"
 pytest-flakefinder = "^1.1"
 pyright = "^1.1"
 pre-commit = "^4.5"
