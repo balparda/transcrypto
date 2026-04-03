@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 - [Changelog](#changelog)
   - [V.V.V - YYYY-MM-DD - Placeholder](#vvv---yyyy-mm-dd---placeholder)
-  - [2.4.0 - 2026-03-??](#240---2026-03-)
+  - [2.5.0 - 2026-04-03](#250---2026-04-03)
   - [2.0.0 - 2026-01-30](#200---2026-01-30)
   - [1.7.0 - 2026-01-26](#170---2026-01-26)
 
@@ -27,16 +27,10 @@ This project follows a pragmatic versioning approach:
 - Fixed
   - Placeholder for future changes.
 
-## 2.4.0 - 2026-03-??
+## 2.5.0 - 2026-04-03
 
 - Added
   - safetrans
-
-- Changed
-  - Placeholder for future changes.
-
-- Fixed
-  - Placeholder for future changes.
 
 ## 2.0.0 - 2026-01-30
 
