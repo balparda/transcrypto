@@ -125,7 +125,7 @@ typer = { version = "^0.24", extras = ["all"] }
 
 # basic, all projects should have
 ruff = "~0.15.8"
-mypy = "~1.19.1"
+mypy = "~1.20.0"
 pytest = "^9.0"
 pytest-cov = "^7.1"
 pytest-flakefinder = "^1.1"
