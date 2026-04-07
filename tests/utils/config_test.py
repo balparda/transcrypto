@@ -627,6 +627,36 @@ def test_EnsureAndInstallWheel_empty_scripts(tmp_path: pathlib.Path) -> None:
     app_config.EnsureAndInstallWheel(tmp_path, tmp_path, '', {'cli'})
 
 
+def test_EnsureAndInstallWheel_cleans_dist(tmp_path: pathlib.Path) -> None:
+  """Test EnsureAndInstallWheel wipes existing *.whl files from dist/ before building."""
+  repo: pathlib.Path = tmp_path / 'repo'
+  repo.mkdir()
+  temp: pathlib.Path = tmp_path / 'temp'
+  temp.mkdir()
+  # put a stale wheel in dist/ that should be deleted before EnsureWheel is called
+  dist_dir: pathlib.Path = repo / 'dist'
+  dist_dir.mkdir()
+  stale: pathlib.Path = dist_dir / 'pkg-0.9.0-py3-none-any.whl'
+  stale.write_bytes(b'stale')
+  fake_wheel: pathlib.Path = dist_dir / 'pkg-1.0.0-py3-none-any.whl'
+  # EnsureWheel is mocked; we capture what wheels exist at call time
+  wheels_at_call: list[list[pathlib.Path]] = []
+
+  def _capture_ensure_wheel(_r: pathlib.Path, _v: str, _s: set[str], /) -> pathlib.Path:
+    wheels_at_call.append(list(dist_dir.glob('*.whl')))
+    return fake_wheel
+
+  with (
+    mock.patch('transcrypto.utils.config.EnsureWheel', side_effect=_capture_ensure_wheel),
+    mock.patch('venv.EnvBuilder.create'),
+    mock.patch('transcrypto.utils.base.Run'),
+  ):
+    app_config.EnsureAndInstallWheel(repo, temp, '1.0.0', {'cli'})
+  # dist/ must have been empty (stale wheel deleted) when EnsureWheel was invoked
+  assert len(wheels_at_call) == 1
+  assert wheels_at_call[0] == [], 'stale wheel should have been deleted before EnsureWheel call'
+
+
 def test_EnsureAndInstallWheel_happy_path(tmp_path: pathlib.Path) -> None:
   """Test EnsureAndInstallWheel end-to-end with mocks."""
   repo: pathlib.Path = tmp_path / 'repo'

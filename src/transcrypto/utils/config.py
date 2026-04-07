@@ -446,6 +446,10 @@ def EnsureAndInstallWheel(
 ) -> tuple[pathlib.Path, pathlib.Path]:
   """Ensure wheel exists (build if needed), create a `venv`, install the wheel.
 
+  Always cleans any existing `*.whl` files from `dist/` first to guarantee a fresh build — this
+  prevents stale wheels (from a previous build of a now-modified source tree) from being reused
+  during integration tests.
+
   Args:
       repository_root_dir (pathlib.Path): path to the repository root
       temporary_dir (pathlib.Path): path to a temporary directory to use for the venv
@@ -465,6 +469,12 @@ def EnsureAndInstallWheel(
     raise base.InputError('`repository_root_dir` and `temporary_dir` must be existing directories')
   if not scripts or not expected_version:
     raise base.InputError('`expected_version` and `scripts` must be non-empty')
+  # always wipe stale wheels so we never pick up a dist/ artifact from a previous (possibly
+  # modified) source tree; this guarantees integration tests always use a freshly-built wheel
+  dist_dir: pathlib.Path = repository_root_dir / 'dist'
+  if dist_dir.is_dir():
+    for stale_wheel in dist_dir.glob('*.whl'):
+      stale_wheel.unlink()
   wheel: pathlib.Path = EnsureWheel(repository_root_dir, expected_version, scripts)
   # create an isolated venv (not using Poetry's .venv on purpose)
   venv_dir: pathlib.Path = temporary_dir / 'venv'
