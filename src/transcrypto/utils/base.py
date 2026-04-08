@@ -13,7 +13,9 @@ from collections import abc
 # Data conversion utils
 
 # JSON types
-type JSONValue = bool | int | float | str | list[JSONValue] | dict[str, JSONValue] | None
+type JSONValue = (
+  bool | int | float | str | JSONDict | abc.Sequence[JSONValue] | abc.Sequence[JSONDict] | None
+)
 type JSONDict = dict[str, JSONValue]
 
 BytesToHex: abc.Callable[[bytes], str] = lambda b: b.hex()
