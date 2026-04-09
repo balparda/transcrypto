@@ -200,12 +200,12 @@ slow_function()
 # → logs: "Function timing: 0.800 s"
 ```
 
-Wraps a function so that each call is automatically timed.
+Wraps a function so that each call is automatically timed independently (each invocation creates a fresh `Timer` instance).
 
 ##### Manual use
 
 ```py
-tm = timer.Timer('Inline timing', emit_print=True)
+tm = timer.Timer('Inline timing', emit_print=print)
 tm.Start()
 time.sleep(0.1)
 tm.Stop()   # prints: "Inline timing: 0.100 s"
@@ -218,13 +218,14 @@ Manual control over `Start()` and `Stop()` for precise measurement of custom int
 - **Label**: optional; if empty, output omits the label prefix
 - **Output**:
   - `emit_log=True` → `logging.info()` (default)
-  - `emit_print=True` → prints via `rich.console.Console().print()`
-  - Both can be enabled
+  - `emit_print=<callable>` → calls the provided callable with the formatted message (e.g. `emit_print=print`)
+  - Both can be enabled simultaneously
 - **Format**: elapsed time is shown using `HumanizedSeconds()`
+- **`elapsed` property**: always safe to read — returns `0.0` before start, the live running time while active, and the frozen duration once stopped
 - **Safety**:
-  - Cannot start an already started timer
-  - Cannot stop an unstarted or already stopped timer
-    (raises `Error`)
+  - Cannot start an already-started timer (`Start()` raises `Error`)
+  - Cannot stop a timer that was never started (`Stop()` raises `Error`)
+  - Re-stopping is allowed: calling `Stop()` again records the new end time and logs a diagnostic message instead of raising
 
 #### Serialization Pipeline
 

@@ -68,31 +68,41 @@ def UTCDatetimeFromUnix(tm: float) -> datetime.datetime:
 class Timer:
   """An execution timing class that can be used as both a context manager and a decorator.
 
+  The timer is intentionally permissive:
+
+  - ``Start()`` may only be called once; calling it again raises ``base.Error``.
+  - ``Stop()`` may be called multiple times; re-stopping records the new end time and
+    logs a diagnostic message instead of raising an error.
+  - ``elapsed`` is always safe to read: it returns ``0.0`` before the timer is started,
+    the live running time while the timer is running, and the final frozen duration once
+    stopped.
+
   Examples:
     # As a context manager
     with Timer('Block timing') as tmr:
-      try:
-        time.sleep(1.2)
-      except:
-        print('Exception in {tmr}')
+      time.sleep(1.2)
+    # → logs: "Block timing: 1.200 s"
 
     # As a decorator
     @Timer('Function timing')
     def any_function():
       time.sleep(0.8)
 
+    any_function()
+    # → logs: "Function timing: 0.800 s"  (each call gets its own Timer instance)
+
     # As a regular object
-    tm = Timer('Inline timing')
+    tm = Timer('Inline timing', emit_print=print)
     time.sleep(0.1)  # time not measured
     tm.Start()
     time.sleep(0.1)  # time measured
-    tm.Stop()
-    print(tm)
+    tm.Stop()        # prints: "Inline timing: 0.100 s"
 
   Attributes:
-    label (str, optional): Timer label, to be printed in logs but *NOT* used for Timer.__str__()
-    emit_log (bool, optional): If True (default) will logging.info() the timer, else will not
-    emit_print (bool, optional): If True will print() the timer, else (default) will not
+    label (str): Timer label used in log/print output but *NOT* in ``Timer.__str__()``.
+    emit_log (bool): If ``True`` (default) emits ``logging.info()`` when the timer stops.
+    emit_print (Callable[[str], None] | None): Optional callable invoked with the
+        formatted message when the timer stops; ``None`` means no print output (default).
 
   """
 
@@ -158,10 +168,14 @@ class Timer:
     self.start = time.perf_counter()
 
   def Stop(self) -> None:
-    """Stop the timer and emit logging.info with timer message.
+    """Stop the timer and emit the timing message.
+
+    Re-stopping is allowed: if ``Stop()`` is called a second time the new end
+    timestamp is recorded and a diagnostic ``logging.info`` message is emitted,
+    but no exception is raised.
 
     Raises:
-        base.Error: trying to re-start timer or stop unstarted timer
+      base.Error: if the timer was never started.
 
     """
     if self.start is None:
