@@ -127,7 +127,7 @@ class TransConfig(clibase.CLIConfig):
   protect: str | None
 
 
-def RequireKeyPath(config: TransConfig, command: str, /) -> str:
+def RequireKeyPath(config: TransConfig, command: str) -> str:
   """Ensure key path is provided and valid.
 
   Args:
@@ -148,7 +148,7 @@ def RequireKeyPath(config: TransConfig, command: str, /) -> str:
   return str(config.key_path)
 
 
-def ParseInt(s: str, /, *, min_value: int | None = None) -> int:
+def ParseInt(s: str, *, min_value: int | None = None) -> int:
   """Parse int, try to determine if binary, octal, decimal, or hexadecimal.
 
   Args:
@@ -183,7 +183,7 @@ def ParseInt(s: str, /, *, min_value: int | None = None) -> int:
     raise base.InputError(f'invalid int: {s!r}') from err
 
 
-def ParseIntPairCLI(s: str, /) -> tuple[int, int]:
+def ParseIntPairCLI(s: str) -> tuple[int, int]:
   """Parse a CLI int pair of the form `a:b`.
 
   Args:
@@ -202,7 +202,7 @@ def ParseIntPairCLI(s: str, /) -> tuple[int, int]:
   return (ParseInt(parts[0]), ParseInt(parts[1]))
 
 
-def BytesFromText(text: str, fmt: IOFormat, /) -> bytes:
+def BytesFromText(text: str, fmt: IOFormat) -> bytes:
   """Parse bytes according to `fmt` (IOFormat.hex|b64|bin).
 
   Args:
@@ -222,7 +222,7 @@ def BytesFromText(text: str, fmt: IOFormat, /) -> bytes:
       return base.EncodedToBytes(text)
 
 
-def BytesToText(b: bytes, fmt: IOFormat, /) -> str:
+def BytesToText(b: bytes, fmt: IOFormat) -> str:
   """Format bytes according to `fmt` (IOFormat.hex|b64|bin).
 
   Args:
@@ -242,7 +242,7 @@ def BytesToText(b: bytes, fmt: IOFormat, /) -> str:
       return base.BytesToEncoded(b)
 
 
-def SaveObj(obj: key.CryptoKey, path: str, password: str | None, /) -> None:
+def SaveObj(obj: key.CryptoKey, path: str, password: str | None) -> None:
   """Save object.
 
   Args:
@@ -256,7 +256,7 @@ def SaveObj(obj: key.CryptoKey, path: str, password: str | None, /) -> None:
   logging.info('saved object: %s (%s)', path, human.HumanizedBytes(len(blob)))
 
 
-def LoadObj[T](path: str, password: str | None, expect: type[T], /) -> T:
+def LoadObj[T](path: str, password: str | None, expect: type[T]) -> T:
   """Load object.
 
   Args:

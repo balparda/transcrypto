@@ -78,9 +78,7 @@ class ElGamalSharedPublicKey(key.CryptoKey):
     """Modulus size in bytes. The number of bytes used in Encrypt/Decrypt/Sign/Verify."""
     return (self.prime_modulus.bit_length() + 7) // 8
 
-  def _DomainSeparatedHash(
-    self, message: bytes, associated_data: bytes | None, salt: bytes, /
-  ) -> int:
+  def _DomainSeparatedHash(self, message: bytes, associated_data: bytes | None, salt: bytes) -> int:
     """Compute the domain-separated hash for signing and verifying.
 
     Args:
@@ -108,7 +106,7 @@ class ElGamalSharedPublicKey(key.CryptoKey):
     return y
 
   @classmethod
-  def NewShared(cls, bit_length: int, /) -> Self:
+  def NewShared(cls, bit_length: int) -> Self:
     """Make a new shared public key of `bit_length` bits.
 
     Args:
@@ -192,7 +190,7 @@ class ElGamalPublicKey(ElGamalSharedPublicKey, key.Encryptor, key.Verifier):
         ephemeral_key = 0  # we have to try again
     return (ephemeral_key, modmath.ModInv(ephemeral_key, p_1))
 
-  def RawEncrypt(self, message: int, /) -> tuple[int, int]:
+  def RawEncrypt(self, message: int) -> tuple[int, int]:
     """Encrypt `message` with this public key.
 
     BEWARE: This is raw El-Gamal, no ECIES-style KEM/DEM padding or validation! This is **NOT** DSA!
@@ -222,7 +220,7 @@ class ElGamalPublicKey(ElGamalSharedPublicKey, key.Encryptor, key.Verifier):
       b = (message * s) % self.prime_modulus
     return (a, b)
 
-  def Encrypt(self, plaintext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+  def Encrypt(self, plaintext: bytes, *, associated_data: bytes | None = None) -> bytes:
     """Encrypt `plaintext` and return `ciphertext`.
 
     • Let k = ceil(log2(n))/8 be the modulus size in bytes.
@@ -264,7 +262,7 @@ class ElGamalPublicKey(ElGamalSharedPublicKey, key.Encryptor, key.Verifier):
     aad_prime: bytes = _ELGAMAL_ENCRYPTION_AAD_PREFIX + base.IntToFixedBytes(len(aad), 8) + aad + ct
     return ct + aes.AESKey(key256=ss[32:]).Encrypt(plaintext, associated_data=aad_prime)
 
-  def RawVerify(self, message: int, signature: tuple[int, int], /) -> bool:
+  def RawVerify(self, message: int, signature: tuple[int, int]) -> bool:
     """Verify a signature. True if OK; False if failed verification.
 
     BEWARE: This is raw El-Gamal, no ECIES-style KEM/DEM padding or validation! This is **NOT** DSA!
@@ -294,7 +292,7 @@ class ElGamalPublicKey(ElGamalSharedPublicKey, key.Encryptor, key.Verifier):
     return a == (b * c) % self.prime_modulus
 
   def Verify(
-    self, message: bytes, signature: bytes, /, *, associated_data: bytes | None = None
+    self, message: bytes, signature: bytes, *, associated_data: bytes | None = None
   ) -> bool:
     """Verify a `signature` for `message`. True if OK; False if failed verification.
 
@@ -332,7 +330,7 @@ class ElGamalPublicKey(ElGamalSharedPublicKey, key.Encryptor, key.Verifier):
       return False
 
   @classmethod
-  def Copy(cls, other: ElGamalPublicKey, /) -> Self:
+  def Copy(cls, other: ElGamalPublicKey) -> Self:
     """Initialize a public key by taking the public parts of a public/private key.
 
     Args:
@@ -392,7 +390,7 @@ class ElGamalPrivateKey(ElGamalPublicKey, key.Decryptor, key.Signer):
       f'decrypt_exp={hashes.ObfuscateSecret(self.decrypt_exp)})'
     )
 
-  def RawDecrypt(self, ciphertext: tuple[int, int], /) -> int:
+  def RawDecrypt(self, ciphertext: tuple[int, int]) -> int:
     """Decrypt `ciphertext` tuple with this private key.
 
     BEWARE: This is raw El-Gamal, no ECIES-style KEM/DEM padding or validation! This is **NOT** DSA!
@@ -417,7 +415,7 @@ class ElGamalPrivateKey(ElGamalPublicKey, key.Decryptor, key.Signer):
     )
     return (ciphertext[1] * csi) % self.prime_modulus
 
-  def Decrypt(self, ciphertext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+  def Decrypt(self, ciphertext: bytes, *, associated_data: bytes | None = None) -> bytes:
     """Decrypt `ciphertext` and return the original `plaintext`.
 
     • Let k = ceil(log2(n))/8 be the modulus size in bytes.
@@ -454,7 +452,7 @@ class ElGamalPrivateKey(ElGamalPublicKey, key.Decryptor, key.Signer):
     )
     return aes.AESKey(key256=ss[32:]).Decrypt(aes_ct, associated_data=aad_prime)
 
-  def RawSign(self, message: int, /) -> tuple[int, int]:
+  def RawSign(self, message: int) -> tuple[int, int]:
     """Sign `message` with this private key.
 
     BEWARE: This is raw El-Gamal, no ECIES-style KEM/DEM padding or validation! This is **NOT** DSA!
@@ -484,7 +482,7 @@ class ElGamalPrivateKey(ElGamalPublicKey, key.Decryptor, key.Signer):
       b = (ephemeral_inv * ((message - a * self.decrypt_exp) % p_1)) % p_1
     return (a, b)
 
-  def Sign(self, message: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+  def Sign(self, message: bytes, *, associated_data: bytes | None = None) -> bytes:
     """Sign `message` and return the `signature`.
 
     • Let k = ceil(log2(n))/8 be the modulus size in bytes.
@@ -519,7 +517,7 @@ class ElGamalPrivateKey(ElGamalPublicKey, key.Decryptor, key.Signer):
     return salt + s_bytes
 
   @classmethod
-  def New(cls, shared_key: ElGamalSharedPublicKey, /) -> Self:
+  def New(cls, shared_key: ElGamalSharedPublicKey) -> Self:
     """Make a new private key based on an existing shared public key.
 
     Args:

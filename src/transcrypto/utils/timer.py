@@ -99,7 +99,6 @@ class Timer:
   def __init__(
     self,
     label: str = '',
-    /,
     *,
     emit_log: bool = True,
     emit_print: abc.Callable[[str], None] | None = None,

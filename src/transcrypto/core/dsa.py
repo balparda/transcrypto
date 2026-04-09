@@ -387,7 +387,7 @@ class DSAPublicKey(DSASharedPublicKey, key.Verifier):
       return False
 
   @classmethod
-  def Copy(cls, other: DSAPublicKey, /) -> Self:
+  def Copy(cls, other: DSAPublicKey) -> Self:
     """Initialize a public key by taking the public parts of a public/private key.
 
     Args:

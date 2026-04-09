@@ -570,7 +570,7 @@ def test_EnsureWheel_stale_wheel_rebuilds(tmp_path: pathlib.Path) -> None:
   # After "poetry build" we need a wheel with the right scripts; mock everything
   good_content: str = '[console_scripts]\nmycli = pkg.cli:main\n'
 
-  def _fake_run(cmd: list[str], /, **_kw: object) -> subprocess.CompletedProcess[str]:
+  def _fake_run(cmd: list[str], **_kw: object) -> subprocess.CompletedProcess[str]:
     # Simulate poetry build creating a new wheel
     new_whl: pathlib.Path = dist_dir / 'pkg-1.0.0-py3-none-any.whl'
     with zipfile.ZipFile(new_whl, 'w') as zf:
@@ -642,7 +642,7 @@ def test_EnsureAndInstallWheel_cleans_dist(tmp_path: pathlib.Path) -> None:
   # EnsureWheel is mocked; we capture what wheels exist at call time
   wheels_at_call: list[list[pathlib.Path]] = []
 
-  def _capture_ensure_wheel(_r: pathlib.Path, _v: str, _s: set[str], /) -> pathlib.Path:
+  def _capture_ensure_wheel(_r: pathlib.Path, _v: str, _s: set[str]) -> pathlib.Path:
     wheels_at_call.append(list(dist_dir.glob('*.whl')))
     return fake_wheel
 

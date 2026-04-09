@@ -45,7 +45,7 @@ def test_installed_cli_smoke(tmp_path: pathlib.Path) -> None:
   _profiler_call(cli_paths)
 
 
-def _transcrypto_call(cli_paths: dict[str, pathlib.Path], /) -> None:
+def _transcrypto_call(cli_paths: dict[str, pathlib.Path]) -> None:
   # basic command smoke tests; use --no-color to avoid ANSI codes in asserts.
   r = base.Run([str(cli_paths['transcrypto']), '--no-color', 'gcd', '462', '1071'])
   assert r.stdout.strip() == '21'
@@ -53,7 +53,7 @@ def _transcrypto_call(cli_paths: dict[str, pathlib.Path], /) -> None:
   assert '\x1b[' not in r.stderr
 
 
-def _profiler_call(cli_paths: dict[str, pathlib.Path], /) -> None:
+def _profiler_call(cli_paths: dict[str, pathlib.Path]) -> None:
   # simple profiler command
   r = base.Run([str(cli_paths['profiler']), '--no-color', '-n', '1', '-b', '16,17,1', 'primes'])
   assert 'Finished in' in r.stdout

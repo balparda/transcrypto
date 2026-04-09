@@ -237,7 +237,6 @@ def _PrimeProfiler(
   repeats: int,
   n_bits_range: tuple[int, int, int],
   confidence: float,
-  /,
 ) -> None:
   with timer.Timer(emit_log=False) as total_time:
     primes: dict[int, list[float]] = {}
