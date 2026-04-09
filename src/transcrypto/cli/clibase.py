@@ -43,7 +43,7 @@ class CLIConfig:
   appconfig: app_config.AppConfig
 
 
-def CLIErrorGuard[**P](fn: abc.Callable[P, None], /) -> abc.Callable[P, None]:
+def CLIErrorGuard[**P](fn: abc.Callable[P, None]) -> abc.Callable[P, None]:
   """Guard CLI command functions.
 
   Returns:
@@ -82,7 +82,6 @@ def _ClickWalk(
   command: click.Command,
   ctx: click.Context,
   path: list[str],
-  /,
 ) -> abc.Iterator[tuple[list[str], click.Command, click.Context]]:
   """Recursively walk Click commands/groups.
 
@@ -115,7 +114,6 @@ def _ClickWalk(
 
 def GenerateTyperHelpMarkdown(
   typer_app: typer.Typer,
-  /,
   *,
   prog_name: str,
   heading_level: int = 1,

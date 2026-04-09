@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 - [Changelog](#changelog)
   - [V.V.V - YYYY-MM-DD - Placeholder](#vvv---yyyy-mm-dd---placeholder)
-  - [2.6.0 - 2026-??](#260---2026-)
+  - [2.6.0 - 2026-04-09](#260---2026-04-09)
   - [2.5.0 - 2026-04-03](#250---2026-04-03)
   - [2.0.0 - 2026-01-30](#200---2026-01-30)
   - [1.7.0 - 2026-01-26](#170---2026-01-26)
@@ -28,16 +28,18 @@ This project follows a pragmatic versioning approach:
 - Fixed
   - Placeholder for future changes.
 
-## 2.6.0 - 2026-??
+## 2.6.0 - 2026-04-09
 
 - Added
   - N/A
 
 - Changed
-  - N/A
+  - Simpler/better Timer() class/decorator
+  - No more "unnecessary" call-by-name limitations in most public methods (ex: `def Foo(a, /)`)
 
 - Fixed
   - Clean /dist in integration test runs (2.5.1)
+  - Better JSON definitions
 
 ## 2.5.0 - 2026-04-03
 

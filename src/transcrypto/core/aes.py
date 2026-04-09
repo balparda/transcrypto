@@ -74,7 +74,7 @@ class AESKey(key.CryptoKey, key.Encryptor, key.Decryptor):
     return f'AESKey(key256={hashes.ObfuscateSecret(self.key256)})'
 
   @classmethod
-  def FromStaticPassword(cls, str_password: str, /) -> Self:
+  def FromStaticPassword(cls, str_password: str) -> Self:
     """Derive crypto key using string password.
 
     This is, purposefully, a very costly operation that should be cheap to execute once
@@ -124,7 +124,7 @@ class AESKey(key.CryptoKey, key.Encryptor, key.Decryptor):
     pre-existing key. No measures are taken here to prevent timing attacks.
     """
 
-    def __init__(self, key256: AESKey, /) -> None:
+    def __init__(self, key256: AESKey) -> None:
       """Construct.
 
       Args:
@@ -146,7 +146,7 @@ class AESKey(key.CryptoKey, key.Encryptor, key.Decryptor):
         'should never happen: AES256+ECB should have 128 bits block'
       )
 
-    def Encrypt(self, plaintext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+    def Encrypt(self, plaintext: bytes, *, associated_data: bytes | None = None) -> bytes:
       """Encrypt a 128 bits block (16 bytes) `plaintext` and return `ciphertext` of 128 bits.
 
       Note: Due to ECB encoding, this method is only safe-ish for blocks of random-looking data,
@@ -173,7 +173,7 @@ class AESKey(key.CryptoKey, key.Encryptor, key.Decryptor):
       encryptor: ciphers.CipherContext = self._cipher.encryptor()
       return encryptor.update(plaintext) + encryptor.finalize()
 
-    def Decrypt(self, ciphertext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+    def Decrypt(self, ciphertext: bytes, *, associated_data: bytes | None = None) -> bytes:
       """Decrypt a 128 bits block (16 bytes) `ciphertext` and return original 128 bits `plaintext`.
 
       Note: Due to ECB encoding, this method is only safe-ish for blocks of random-looking data,
@@ -200,7 +200,7 @@ class AESKey(key.CryptoKey, key.Encryptor, key.Decryptor):
       decryptor: ciphers.CipherContext = self._cipher.decryptor()
       return decryptor.update(ciphertext) + decryptor.finalize()
 
-    def EncryptHex(self, plaintext_hex: str, /) -> str:
+    def EncryptHex(self, plaintext_hex: str) -> str:
       """Encrypt a 128 bits hexadecimal block, outputting also a 128 bits hexadecimal block.
 
       Note: Due to ECB encoding, this method is only safe-ish for blocks of random-looking data,
@@ -215,7 +215,7 @@ class AESKey(key.CryptoKey, key.Encryptor, key.Decryptor):
       """
       return base.BytesToHex(self.Encrypt(base.HexToBytes(plaintext_hex)))
 
-    def EncryptHex256(self, plaintext_hex: str, /) -> str:
+    def EncryptHex256(self, plaintext_hex: str) -> str:
       """Encrypt a 256 bits hexadecimal block, outputting also a 256 bits hexadecimal block.
 
       Note: Due to ECB encoding, this method is only safe-ish for blocks of random-looking data,
@@ -235,7 +235,7 @@ class AESKey(key.CryptoKey, key.Encryptor, key.Decryptor):
         raise base.InputError(f'plaintext_hex must be 64 chars long, got {len(plaintext_hex)}')
       return self.EncryptHex(plaintext_hex[:32]) + self.EncryptHex(plaintext_hex[32:])
 
-    def DecryptHex(self, ciphertext_hex: str, /) -> str:
+    def DecryptHex(self, ciphertext_hex: str) -> str:
       """Decrypt a 128 bits hexadecimal block, outputting also a 128 bits hexadecimal block.
 
       Note: Due to ECB encoding, this method is only safe-ish for blocks of random-looking data,
@@ -250,7 +250,7 @@ class AESKey(key.CryptoKey, key.Encryptor, key.Decryptor):
       """
       return base.BytesToHex(self.Decrypt(base.HexToBytes(ciphertext_hex)))
 
-    def DecryptHex256(self, ciphertext_hex: str, /) -> str:
+    def DecryptHex256(self, ciphertext_hex: str) -> str:
       """Decrypt a 256 bits hexadecimal block, outputting also a 256 bits hexadecimal block.
 
       Note: Due to ECB encoding, this method is only safe-ish for blocks of random-looking data,
@@ -279,7 +279,7 @@ class AESKey(key.CryptoKey, key.Encryptor, key.Decryptor):
     """
     return AESKey.ECBEncoderClass(self)
 
-  def Encrypt(self, plaintext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+  def Encrypt(self, plaintext: bytes, *, associated_data: bytes | None = None) -> bytes:
     """Encrypt `plaintext` and return `ciphertext` with AES-256 + GCM algorithm.
 
     <https://en.wikipedia.org/wiki/Galois/Counter_Mode>
@@ -323,7 +323,7 @@ class AESKey(key.CryptoKey, key.Encryptor, key.Decryptor):
     assert len(tag) == 16, 'should never happen: AES256+GCM should have 128 bits tag'  # noqa: PLR2004, S101
     return iv + ciphertext + tag
 
-  def Decrypt(self, ciphertext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+  def Decrypt(self, ciphertext: bytes, *, associated_data: bytes | None = None) -> bytes:
     """Decrypt `ciphertext` and return the original `plaintext` with AES-256 + GCM algorithm.
 
     <https://en.wikipedia.org/wiki/Galois/Counter_Mode>

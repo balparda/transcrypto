@@ -78,7 +78,7 @@ class CryptoInputType(enum.StrEnum):
   RAW = 'raw:'  # raw:... → byte literals via \\xNN escapes (rare but handy)
 
 
-def DetectInputType(data_str: str, /) -> CryptoInputType | None:
+def DetectInputType(data_str: str) -> CryptoInputType | None:
   """Auto-detect `data_str` type, if possible.
 
   Args:
@@ -103,7 +103,7 @@ def DetectInputType(data_str: str, /) -> CryptoInputType | None:
   return None
 
 
-def BytesFromInput(data_str: str, /, *, expect: CryptoInputType | None = None) -> bytes:  # noqa: C901, PLR0911, PLR0912
+def BytesFromInput(data_str: str, *, expect: CryptoInputType | None = None) -> bytes:  # noqa: C901, PLR0911, PLR0912
   """Parse input `data_str` into `bytes`. May auto-detect or enforce a type of input.
 
   Can load from disk ('@'). Can load from stdin ('@-').
@@ -266,7 +266,7 @@ class CryptoKey(abstract.ABC):
 
   @final
   @classmethod
-  def _FromJSONDict(cls, json_dict: base.JSONDict, /) -> Self:
+  def _FromJSONDict(cls, json_dict: base.JSONDict) -> Self:
     """Create object from JSON representation.
 
     Args:
@@ -300,7 +300,7 @@ class CryptoKey(abstract.ABC):
 
   @final
   @classmethod
-  def FromJSON(cls, json_data: str, /) -> Self:
+  def FromJSON(cls, json_data: str) -> Self:
     """Create object from JSON representation.
 
     Args:
@@ -331,7 +331,7 @@ class CryptoKey(abstract.ABC):
     return self.Blob()
 
   @final
-  def Blob(self, /, *, encryption_key: Encryptor | None = None, silent: bool = True) -> bytes:
+  def Blob(self, *, encryption_key: Encryptor | None = None, silent: bool = True) -> bytes:
     """Get serial (bytes) representation of the object with more options, including encryption.
 
     Args:
@@ -358,7 +358,7 @@ class CryptoKey(abstract.ABC):
     return self.Encoded()
 
   @final
-  def Encoded(self, /, *, encryption_key: Encryptor | None = None, silent: bool = True) -> str:
+  def Encoded(self, *, encryption_key: Encryptor | None = None, silent: bool = True) -> str:
     """Base-64 representation of the object with more options, including encryption.
 
     Args:
@@ -385,7 +385,7 @@ class CryptoKey(abstract.ABC):
     return self.Hex()
 
   @final
-  def Hex(self, /, *, encryption_key: Encryptor | None = None, silent: bool = True) -> str:
+  def Hex(self, *, encryption_key: Encryptor | None = None, silent: bool = True) -> str:
     """Hexadecimal representation of the object with more options, including encryption.
 
     Args:
@@ -412,7 +412,7 @@ class CryptoKey(abstract.ABC):
     return self.Raw()
 
   @final
-  def Raw(self, /, *, encryption_key: Encryptor | None = None, silent: bool = True) -> str:
+  def Raw(self, *, encryption_key: Encryptor | None = None, silent: bool = True) -> str:
     """Raw escaped binary representation of the object with more options, including encryption.
 
     Args:
@@ -430,7 +430,7 @@ class CryptoKey(abstract.ABC):
   @final
   @classmethod
   def Load(
-    cls, data: str | bytes, /, *, decryption_key: Decryptor | None = None, silent: bool = True
+    cls, data: str | bytes, *, decryption_key: Decryptor | None = None, silent: bool = True
   ) -> Self:
     """Load (create) object from serialized bytes or string.
 
@@ -479,7 +479,7 @@ class Encryptor(Protocol):
   """
 
   @abstract.abstractmethod
-  def Encrypt(self, plaintext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+  def Encrypt(self, plaintext: bytes, *, associated_data: bytes | None = None) -> bytes:
     """Encrypt `plaintext` and return `ciphertext`.
 
     Args:
@@ -503,7 +503,7 @@ class Decryptor(Protocol):
   """Abstract interface for a class that has decryption (see contract/notes in Encryptor)."""
 
   @abstract.abstractmethod
-  def Decrypt(self, ciphertext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+  def Decrypt(self, ciphertext: bytes, *, associated_data: bytes | None = None) -> bytes:
     """Decrypt `ciphertext` and return the original `plaintext`.
 
     Args:
@@ -526,7 +526,7 @@ class Verifier(Protocol):
 
   @abstract.abstractmethod
   def Verify(
-    self, message: bytes, signature: bytes, /, *, associated_data: bytes | None = None
+    self, message: bytes, signature: bytes, *, associated_data: bytes | None = None
   ) -> bool:
     """Verify a `signature` for `message`. True if OK; False if failed verification.
 
@@ -550,7 +550,7 @@ class Signer(Protocol):
   """Abstract interface for asymmetric signing. (see contract/notes in Encryptor)."""
 
   @abstract.abstractmethod
-  def Sign(self, message: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+  def Sign(self, message: bytes, *, associated_data: bytes | None = None) -> bytes:
     """Sign `message` and return the `signature`.
 
     Args:
@@ -571,7 +571,6 @@ class Signer(Protocol):
 
 def Serialize[T](
   python_obj: T,
-  /,
   *,
   file_path: str | pathlib.Path | None = None,
   compress: int | None = 3,

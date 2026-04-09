@@ -53,7 +53,6 @@ def ResetConfig() -> None:
 def InitConfig(
   app_name: str,
   main_config: str,
-  /,
   *,
   app_author: str | None = None,
   version: str | None = None,
@@ -169,7 +168,6 @@ class AppConfig:
     self,
     app_name: str,
     main_config: str,
-    /,
     *,
     app_author: str | None = None,
     version: str | None = None,
@@ -233,7 +231,6 @@ class AppConfig:
   def Serialize[T](
     self,
     python_obj: T,
-    /,
     *,
     config_name: str | None = None,
     compress: int | None = 3,
@@ -273,7 +270,6 @@ class AppConfig:
 
   def DeSerialize[T](
     self,
-    /,
     *,
     config_name: str | None = None,
     decryption_key: key.Decryptor | None = None,
@@ -391,7 +387,7 @@ def WheelHasConsoleScripts(wheel: pathlib.Path, scripts: set[str]) -> bool:
   return scripts.issubset(found)
 
 
-def EnsureWheel(repo: pathlib.Path, expected_version: str, scripts: set[str], /) -> pathlib.Path:
+def EnsureWheel(repo: pathlib.Path, expected_version: str, scripts: set[str]) -> pathlib.Path:
   """Build a wheel if needed; return path to the newest wheel in dist/.
 
   Args:
@@ -442,7 +438,6 @@ def EnsureAndInstallWheel(
   temporary_dir: pathlib.Path,
   expected_version: str,
   scripts: set[str],
-  /,
 ) -> tuple[pathlib.Path, pathlib.Path]:
   """Ensure wheel exists (build if needed), create a `venv`, install the wheel.
 
@@ -489,7 +484,7 @@ def EnsureAndInstallWheel(
 
 
 def EnsureConsoleScriptsPrintExpectedVersion(
-  venv_python: pathlib.Path, venv_bin_dir: pathlib.Path, expected_version: str, scripts: set[str], /
+  venv_python: pathlib.Path, venv_bin_dir: pathlib.Path, expected_version: str, scripts: set[str]
 ) -> dict[str, pathlib.Path]:
   """Ensure the console scripts print the expected version; return their paths.
 

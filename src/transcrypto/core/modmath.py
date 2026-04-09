@@ -22,7 +22,7 @@ class ModularDivideError(base.Error):
   """Divide-by-zero-like exception (TransCrypto)."""
 
 
-def GCD(a: int, b: int, /) -> int:
+def GCD(a: int, b: int) -> int:
   """Greatest Common Divisor for `a` and `b`, integers ≥0. Uses the Euclid method.
 
   O(log(min(a, b)))
@@ -51,7 +51,7 @@ def GCD(a: int, b: int, /) -> int:
   return a
 
 
-def ExtendedGCD(a: int, b: int, /) -> tuple[int, int, int]:
+def ExtendedGCD(a: int, b: int) -> tuple[int, int, int]:
   """Greatest Common Divisor Extended for `a` and `b`, integers ≥0. Uses the Euclid method.
 
   O(log(min(a, b)))
@@ -95,7 +95,7 @@ def ExtendedGCD(a: int, b: int, /) -> tuple[int, int, int]:
   return (a, y2 if swapped else x2, x2 if swapped else y2)
 
 
-def ModInv(x: int, m: int, /) -> int:
+def ModInv(x: int, m: int) -> int:
   """Modular inverse of `x` mod `m`: a `y` such that (x * y) % m == 1 if GCD(x, m) == 1.
 
   Args:
@@ -128,7 +128,7 @@ def ModInv(x: int, m: int, /) -> int:
   return y if y >= 0 else (y + m)
 
 
-def ModDiv(x: int, y: int, m: int, /) -> int:
+def ModDiv(x: int, y: int, m: int) -> int:
   """Modular division of `x`/`y` mod `m`, if GCD(y, m) == 1.
 
   Args:
@@ -197,7 +197,7 @@ def CRTPair(a1: int, m1: int, a2: int, m2: int) -> int:
   return (a1 * m2 * n2 + a2 * m1 * n1) % (m1 * m2)
 
 
-def ModExp(x: int, y: int, m: int, /) -> int:
+def ModExp(x: int, y: int, m: int) -> int:
   """Modular exponential: returns (x ** y) % m efficiently (can handle huge values).
 
   0 ** 0 mod m = 1 (by convention)
@@ -238,7 +238,7 @@ def ModExp(x: int, y: int, m: int, /) -> int:
   return z
 
 
-def ModPolynomial(x: int, polynomial: abc.Reversible[int], m: int, /) -> int:
+def ModPolynomial(x: int, polynomial: abc.Reversible[int], m: int) -> int:
   """Evaluate `polynomial` (coefficients iterable) at `x` modulus `m`.
 
   Evaluate a polynomial at `x` under a modulus `m` using Horner's rule. Horner rewrites:
@@ -274,7 +274,7 @@ def ModPolynomial(x: int, polynomial: abc.Reversible[int], m: int, /) -> int:
   return total
 
 
-def ModLagrangeInterpolate(x: int, points: dict[int, int], m: int, /) -> int:
+def ModLagrangeInterpolate(x: int, points: dict[int, int], m: int) -> int:
   """Find the f(x) solution for the given `x` and {x: y} `points` modulus prime `m`.
 
   Given `points` will define a polynomial of up to len(points) order.
@@ -329,7 +329,7 @@ def ModLagrangeInterpolate(x: int, points: dict[int, int], m: int, /) -> int:
   return result
 
 
-def FermatIsPrime(n: int, /, *, safety: int = 10, witnesses: set[int] | None = None) -> bool:
+def FermatIsPrime(n: int, *, safety: int = 10, witnesses: set[int] | None = None) -> bool:
   """Primality test of `n` by Fermat's algo (n > 0) (UNRELIABLE!! -> use IsPrime()).
 
   Will execute Fermat's algo for non-trivial `n` (n > 3 and odd).
@@ -380,7 +380,7 @@ def FermatIsPrime(n: int, /, *, safety: int = 10, witnesses: set[int] | None = N
   return True
 
 
-def _MillerRabinWitnesses(n: int, /) -> set[int]:  # noqa: PLR0911
+def _MillerRabinWitnesses(n: int) -> set[int]:  # noqa: PLR0911
   """Generate a reasonable set of Miller-Rabin witnesses for testing primality of `n`.
 
   For n < 3317044064679887385961981 it is precise. That is more than 2**81. See:
@@ -426,7 +426,7 @@ def _MillerRabinWitnesses(n: int, /) -> set[int]:  # noqa: PLR0911
   return set(constants.FIRST_5K_PRIMES_SORTED[:safety])
 
 
-def _MillerRabinSR(n: int, /) -> tuple[int, int]:
+def _MillerRabinSR(n: int) -> tuple[int, int]:
   """Generate (s, r) where (2 ** s) * r == (n - 1) hold true, for odd n > 5.
 
   It should be always true that: s ≥ 1 and r ≥ 1 and r is odd.
@@ -455,7 +455,7 @@ def _MillerRabinSR(n: int, /) -> tuple[int, int]:
   return (s, r)
 
 
-def MillerRabinIsPrime(n: int, /, *, witnesses: set[int] | None = None) -> bool:
+def MillerRabinIsPrime(n: int, *, witnesses: set[int] | None = None) -> bool:
   """Primality test of `n` by Miller-Rabin's algo (n > 0).
 
   Will execute Miller-Rabin's algo for non-trivial `n` (n > 3 and odd).
@@ -500,7 +500,7 @@ def MillerRabinIsPrime(n: int, /, *, witnesses: set[int] | None = None) -> bool:
   return True
 
 
-def IsPrime(n: int, /) -> bool:
+def IsPrime(n: int) -> bool:
   """Primality test of `n` (n > 0).
 
   Args:
@@ -520,7 +520,7 @@ def IsPrime(n: int, /) -> bool:
   return MillerRabinIsPrime(n)
 
 
-def PrimeGenerator(start: int, /) -> abc.Generator[int]:
+def PrimeGenerator(start: int) -> abc.Generator[int]:
   """Generate all primes from `start` until loop is broken. Tuned for huge numbers.
 
   Args:
@@ -548,7 +548,7 @@ def PrimeGenerator(start: int, /) -> abc.Generator[int]:
       yield n  # found a prime
 
 
-def NBitRandomPrimes(n_bits: int, /, *, serial: bool = True, n_primes: int = 1) -> set[int]:
+def NBitRandomPrimes(n_bits: int, *, serial: bool = True, n_primes: int = 1) -> set[int]:
   """Generate a random prime with (guaranteed) `n_bits` size (i.e., first bit == 1).
 
   The fact that the first bit will be 1 means the entropy is ~ (n_bits-1) and
@@ -663,7 +663,7 @@ def FirstNPrimesSorted(n: int) -> abc.Generator[int]:
     yield pr
 
 
-def MersennePrimesGenerator(start: int, /) -> abc.Generator[tuple[int, int, int]]:
+def MersennePrimesGenerator(start: int) -> abc.Generator[tuple[int, int, int]]:
   """Generate all Mersenne prime (2 ** n - 1) exponents from start until loop is broken.
 
   <https://en.wikipedia.org/wiki/List_of_Mersenne_primes_and_perfect_numbers>

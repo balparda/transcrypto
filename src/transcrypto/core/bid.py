@@ -54,7 +54,7 @@ class PublicBid512(key.CryptoKey):
       f'public_hash={base.BytesToHex(self.public_hash)})'
     )
 
-  def VerifyBid(self, private_key: bytes, secret: bytes, /) -> bool:
+  def VerifyBid(self, private_key: bytes, secret: bytes) -> bool:
     """Verify a bid. True if OK; False if failed verification.
 
     Args:
@@ -78,7 +78,7 @@ class PublicBid512(key.CryptoKey):
       return False  # bid does not match the public commitment
 
   @classmethod
-  def Copy(cls, other: PublicBid512, /) -> Self:
+  def Copy(cls, other: PublicBid512) -> Self:
     """Initialize a public bid by taking the public parts of a public/private bid.
 
     Args:
@@ -133,7 +133,7 @@ class PrivateBid512(PublicBid512):
     )
 
   @classmethod
-  def New(cls, secret: bytes, /) -> Self:
+  def New(cls, secret: bytes) -> Self:
     """Make the `secret` into a new bid.
 
     Args:

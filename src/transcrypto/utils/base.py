@@ -47,7 +47,7 @@ class ImplementationError(Error, NotImplementedError):
   """Feature is not implemented yet (TransCrypto)."""
 
 
-def BytesToRaw(b: bytes, /) -> str:
+def BytesToRaw(b: bytes) -> str:
   r"""Convert bytes to double-quoted string with \\xNN escapes where needed.
 
   1. map bytes 0..255 to same code points (latin1)
@@ -64,7 +64,7 @@ def BytesToRaw(b: bytes, /) -> str:
   return f'"{inner.replace('"', r"\"")}"'
 
 
-def RawToBytes(s: str, /) -> bytes:
+def RawToBytes(s: str) -> bytes:
   r"""Convert double-quoted string with \\xNN escapes where needed to bytes.
 
   Args:
@@ -82,7 +82,6 @@ def RawToBytes(s: str, /) -> bytes:
 
 def Run(
   cmd: list[str],
-  /,
   *,
   cwd: pathlib.Path | None = None,
   env: dict[str, str] | None = None,

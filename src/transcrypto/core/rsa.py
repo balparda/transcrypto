@@ -79,7 +79,7 @@ class RSAPublicKey(key.CryptoKey, key.Encryptor, key.Verifier):
     """Modulus size in bytes. The number of bytes used in Encrypt/Decrypt/Sign/Verify."""
     return (self.public_modulus.bit_length() + 7) // 8
 
-  def RawEncrypt(self, message: int, /) -> int:
+  def RawEncrypt(self, message: int) -> int:
     """Encrypt `message` with this public key.
 
     BEWARE: This is raw RSA, no OAEP or PSS padding or validation!
@@ -102,7 +102,7 @@ class RSAPublicKey(key.CryptoKey, key.Encryptor, key.Verifier):
     # encrypt
     return int(gmpy2.powmod(message, self.encrypt_exp, self.public_modulus))
 
-  def Encrypt(self, plaintext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+  def Encrypt(self, plaintext: bytes, *, associated_data: bytes | None = None) -> bytes:
     """Encrypt `plaintext` and return `ciphertext`.
 
     • Let k = ceil(log2(n))/8 be the modulus size in bytes.
@@ -140,7 +140,7 @@ class RSAPublicKey(key.CryptoKey, key.Encryptor, key.Verifier):
     aad_prime: bytes = _RSA_ENCRYPTION_AAD_PREFIX + base.IntToFixedBytes(len(aad), 8) + aad + ct
     return ct + aes.AESKey(key256=ss[32:]).Encrypt(plaintext, associated_data=aad_prime)
 
-  def RawVerify(self, message: int, signature: int, /) -> bool:
+  def RawVerify(self, message: int, signature: int) -> bool:
     """Verify a signature. True if OK; False if failed verification.
 
     BEWARE: This is raw RSA, no OAEP or PSS padding or validation!
@@ -158,9 +158,7 @@ class RSAPublicKey(key.CryptoKey, key.Encryptor, key.Verifier):
     """
     return self.RawEncrypt(signature) == message
 
-  def _DomainSeparatedHash(
-    self, message: bytes, associated_data: bytes | None, salt: bytes, /
-  ) -> int:
+  def _DomainSeparatedHash(self, message: bytes, associated_data: bytes | None, salt: bytes) -> int:
     """Compute the domain-separated hash for signing and verifying.
 
     Args:
@@ -186,7 +184,7 @@ class RSAPublicKey(key.CryptoKey, key.Encryptor, key.Verifier):
     return y
 
   def Verify(
-    self, message: bytes, signature: bytes, /, *, associated_data: bytes | None = None
+    self, message: bytes, signature: bytes, *, associated_data: bytes | None = None
   ) -> bool:
     """Verify a `signature` for `message`. True if OK; False if failed verification.
 
@@ -224,7 +222,7 @@ class RSAPublicKey(key.CryptoKey, key.Encryptor, key.Verifier):
       return False
 
   @classmethod
-  def Copy(cls, other: RSAPublicKey, /) -> Self:
+  def Copy(cls, other: RSAPublicKey) -> Self:
     """Initialize a public key by taking the public parts of a public/private key.
 
     Args:
@@ -286,7 +284,7 @@ class RSAObfuscationPair(RSAPublicKey):
       f'key_inverse={hashes.ObfuscateSecret(self.key_inverse)})'
     )
 
-  def ObfuscateMessage(self, message: int, /) -> int:
+  def ObfuscateMessage(self, message: int) -> int:
     """Convert message to an obfuscated message to be signed by this key's owner.
 
     We explicitly disallow `message` to be zero.
@@ -309,7 +307,7 @@ class RSAObfuscationPair(RSAPublicKey):
       message * int(gmpy2.powmod(self.random_key, self.encrypt_exp, self.public_modulus))
     ) % self.public_modulus
 
-  def RevealOriginalSignature(self, message: int, signature: int, /) -> int:
+  def RevealOriginalSignature(self, message: int, signature: int) -> int:
     """Recover original signature for `message` from obfuscated `signature`.
 
     We explicitly disallow `message` to be zero.
@@ -337,7 +335,7 @@ class RSAObfuscationPair(RSAPublicKey):
     return original
 
   @classmethod
-  def New(cls, rsa_key: RSAPublicKey, /) -> Self:
+  def New(cls, rsa_key: RSAPublicKey) -> Self:
     """Generate new obfuscation pair for this `rsa_key`, respecting the size of the public modulus.
 
     Args:
@@ -464,7 +462,7 @@ class RSAPrivateKey(RSAPublicKey, key.Decryptor, key.Signer):
       f'decrypt_exp={hashes.ObfuscateSecret(self.decrypt_exp)})'
     )
 
-  def RawDecrypt(self, ciphertext: int, /) -> int:
+  def RawDecrypt(self, ciphertext: int) -> int:
     """Decrypt `ciphertext` with this private key.
 
     BEWARE: This is raw RSA, no OAEP or PSS padding or validation!
@@ -491,7 +489,7 @@ class RSAPrivateKey(RSAPublicKey, key.Decryptor, key.Signer):
     h: int = (self.q_inverse_p * (m_p - m_q)) % self.modulus_p
     return (m_q + h * self.modulus_q) % self.public_modulus
 
-  def Decrypt(self, ciphertext: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+  def Decrypt(self, ciphertext: bytes, *, associated_data: bytes | None = None) -> bytes:
     """Decrypt `ciphertext` and return the original `plaintext`.
 
     • Let k = ceil(log2(n))/8 be the modulus size in bytes.
@@ -524,7 +522,7 @@ class RSAPrivateKey(RSAPublicKey, key.Decryptor, key.Signer):
     aad_prime: bytes = _RSA_ENCRYPTION_AAD_PREFIX + base.IntToFixedBytes(len(aad), 8) + aad + rsa_ct
     return aes.AESKey(key256=ss[32:]).Decrypt(aes_ct, associated_data=aad_prime)
 
-  def RawSign(self, message: int, /) -> int:
+  def RawSign(self, message: int) -> int:
     """Sign `message` with this private key.
 
     BEWARE: This is raw RSA, no OAEP or PSS padding or validation!
@@ -548,7 +546,7 @@ class RSAPrivateKey(RSAPublicKey, key.Decryptor, key.Signer):
     # call decryption
     return self.RawDecrypt(message)
 
-  def Sign(self, message: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+  def Sign(self, message: bytes, *, associated_data: bytes | None = None) -> bytes:
     """Sign `message` and return the `signature`.
 
     • Let k = ceil(log2(n))/8 be the modulus size in bytes.
@@ -583,7 +581,7 @@ class RSAPrivateKey(RSAPublicKey, key.Decryptor, key.Signer):
     return salt + s_bytes
 
   @classmethod
-  def New(cls, bit_length: int, /) -> Self:
+  def New(cls, bit_length: int) -> Self:
     """Make a new private key of `bit_length` bits (primes p & q will be ~half this length).
 
     Args:

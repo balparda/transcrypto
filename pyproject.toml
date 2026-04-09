@@ -12,7 +12,7 @@ build-backend = "poetry.core.masonry.api"
 [project]
 
 name = "transcrypto"
-version = "2.5.1"  # also update src/transcrypto/__init__.py
+version = "2.6.0"  # also update src/transcrypto/__init__.py
 
 description = "Basic crypto primitives, not intended for actual use, but as a companion to --Criptografia, Métodos e Algoritmos--"
 license = "Apache-2.0"
@@ -124,7 +124,7 @@ typer = { version = "^0.24", extras = ["all"] }
 [tool.poetry.group.dev.dependencies]
 
 # basic, all projects should have
-ruff = "^0.15.9"
+ruff = "^0.15.10"
 mypy = "^1.20"
 pytest = "^9.0"
 pytest-cov = "^7.1"
@@ -270,6 +270,7 @@ venv = ".venv"
 include = [ "src", "tests", "tests_integration" ]
 extraPaths = [ ".", "src" ]  # needed to find tests/ directory modules
 exclude = [
+  "**/.*",
   "**/.venv",
   "**/__pycache__",
   "**/.mypy_cache",
@@ -277,6 +278,7 @@ exclude = [
   "**/.ruff_cache",
   "**/dist",
   "**/build",
+  "**/node_modules",
 ]
 
 executionEnvironments = [

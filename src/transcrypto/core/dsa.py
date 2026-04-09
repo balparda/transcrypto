@@ -28,9 +28,7 @@ _MAX_KEY_GENERATION_FAILURES = 15
 _DSA_SIGNATURE_HASH_PREFIX = b'transcrypto.DSA.Signature.1.0\x00'
 
 
-def NBitRandomDSAPrimes(
-  p_bits: int, q_bits: int, /, *, serial: bool = True
-) -> tuple[int, int, int]:
+def NBitRandomDSAPrimes(p_bits: int, q_bits: int, *, serial: bool = True) -> tuple[int, int, int]:
   """Generate 2 random DSA primes p & q with `x_bits` size and (p-1)%q==0.
 
   Uses an aggressive small-prime wheel sieve:
@@ -213,9 +211,7 @@ class DSASharedPublicKey(key.CryptoKey):
     """Modulus size in bytes. The number of bytes used in Sign/Verify."""
     return ((self.prime_modulus.bit_length() + 7) // 8, (self.prime_seed.bit_length() + 7) // 8)
 
-  def _DomainSeparatedHash(
-    self, message: bytes, associated_data: bytes | None, salt: bytes, /
-  ) -> int:
+  def _DomainSeparatedHash(self, message: bytes, associated_data: bytes | None, salt: bytes) -> int:
     """Compute the domain-separated hash for signing and verifying.
 
     Args:
@@ -241,7 +237,7 @@ class DSASharedPublicKey(key.CryptoKey):
     return y
 
   @classmethod
-  def NewShared(cls, p_bits: int, q_bits: int, /) -> Self:
+  def NewShared(cls, p_bits: int, q_bits: int) -> Self:
     """Make a new shared public key of `bit_length` bits.
 
     Args:
@@ -319,7 +315,7 @@ class DSAPublicKey(DSASharedPublicKey, key.Verifier):
       ephemeral_key = saferandom.RandBits(bit_length - 1)
     return (ephemeral_key, modmath.ModInv(ephemeral_key, self.prime_seed))
 
-  def RawVerify(self, message: int, signature: tuple[int, int], /) -> bool:
+  def RawVerify(self, message: int, signature: tuple[int, int]) -> bool:
     """Verify a signature. True if OK; False if failed verification.
 
     BEWARE: This is raw DSA, no ECDSA/EdDSA padding, no hash, no validation!
@@ -353,7 +349,7 @@ class DSAPublicKey(DSASharedPublicKey, key.Verifier):
     return ((a * b) % self.prime_modulus) % self.prime_seed == signature[0]
 
   def Verify(
-    self, message: bytes, signature: bytes, /, *, associated_data: bytes | None = None
+    self, message: bytes, signature: bytes, *, associated_data: bytes | None = None
   ) -> bool:
     """Verify a `signature` for `message`. True if OK; False if failed verification.
 
@@ -452,7 +448,7 @@ class DSAPrivateKey(DSAPublicKey, key.Signer):
       f'decrypt_exp={hashes.ObfuscateSecret(self.decrypt_exp)})'
     )
 
-  def RawSign(self, message: int, /) -> tuple[int, int]:
+  def RawSign(self, message: int) -> tuple[int, int]:
     """Sign `message` with this private key.
 
     BEWARE: This is raw DSA, no ECDSA/EdDSA padding, no hash, no validation!
@@ -481,7 +477,7 @@ class DSAPrivateKey(DSAPublicKey, key.Signer):
       b = (ephemeral_inv * ((message + a * self.decrypt_exp) % self.prime_seed)) % self.prime_seed
     return (a, b)
 
-  def Sign(self, message: bytes, /, *, associated_data: bytes | None = None) -> bytes:
+  def Sign(self, message: bytes, *, associated_data: bytes | None = None) -> bytes:
     """Sign `message` and return the `signature`.
 
     • Let k = ceil(log2(n))/8 be the modulus size in bytes.
@@ -516,7 +512,7 @@ class DSAPrivateKey(DSAPublicKey, key.Signer):
     return salt + s_bytes
 
   @classmethod
-  def New(cls, shared_key: DSASharedPublicKey, /) -> Self:
+  def New(cls, shared_key: DSASharedPublicKey) -> Self:
     """Make a new private key based on an existing shared public key.
 
     Args:

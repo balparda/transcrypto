@@ -65,7 +65,7 @@ class ShamirSharedSecretPublic(key.CryptoKey):
     return (self.modulus.bit_length() + 7) // 8
 
   def RawRecoverSecret(
-    self, shares: abc.Collection[ShamirSharePrivate], /, *, force_recover: bool = False
+    self, shares: abc.Collection[ShamirSharePrivate], *, force_recover: bool = False
   ) -> int:
     """Recover the secret from ShamirSharePrivate objects.
 
@@ -113,7 +113,7 @@ class ShamirSharedSecretPublic(key.CryptoKey):
     return modmath.ModLagrangeInterpolate(0, share_points, self.modulus)
 
   @classmethod
-  def Copy(cls, other: ShamirSharedSecretPublic, /) -> Self:
+  def Copy(cls, other: ShamirSharedSecretPublic) -> Self:
     """Initialize a public key by taking the public parts of a public/private key.
 
     Args:
@@ -176,7 +176,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
       f'polynomial=[{", ".join(hashes.ObfuscateSecret(i) for i in self.polynomial)}])'
     )
 
-  def RawShare(self, secret: int, /, *, share_key: int = 0) -> ShamirSharePrivate:
+  def RawShare(self, secret: int, *, share_key: int = 0) -> ShamirSharePrivate:
     """Make a new ShamirSharePrivate for the `secret`.
 
     BEWARE: This is raw SSS, no modern message wrapping, padding or validation!
@@ -214,7 +214,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
       share_value=modmath.ModPolynomial(share_key, [secret, *self.polynomial], self.modulus),
     )
 
-  def RawShares(self, secret: int, /, *, max_shares: int = 0) -> abc.Generator[ShamirSharePrivate]:
+  def RawShares(self, secret: int, *, max_shares: int = 0) -> abc.Generator[ShamirSharePrivate]:
     """Make any number of ShamirSharePrivate for the `secret`.
 
     BEWARE: This is raw SSS, no modern message wrapping, padding or validation!
@@ -256,7 +256,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
         # it could happen, for example, that the share_key will generate a value of 0
         logging.warning(err)
 
-  def MakeDataShares(self, secret: bytes, total_shares: int, /) -> list[ShamirShareData]:
+  def MakeDataShares(self, secret: bytes, total_shares: int) -> list[ShamirShareData]:
     """Make `total_shares` ShamirShareData objects with encrypted `secret`.
 
     • Let k = ceil(log2(n))/8 be the modulus size in bytes
@@ -304,7 +304,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
       for s in shares
     ]
 
-  def RawVerifyShare(self, secret: int, share: ShamirSharePrivate, /) -> bool:
+  def RawVerifyShare(self, secret: int, share: ShamirSharePrivate) -> bool:
     """Verify a ShamirSharePrivate object for the `secret`.
 
     BEWARE: This is raw SSS, no modern message wrapping, padding or validation!
@@ -323,7 +323,7 @@ class ShamirSharedSecretPrivate(ShamirSharedSecretPublic):
     return share == self.RawShare(secret, share_key=share.share_key)
 
   @classmethod
-  def New(cls, minimum_shares: int, bit_length: int, /) -> Self:
+  def New(cls, minimum_shares: int, bit_length: int) -> Self:
     """Make a new private SSS object of `bit_length` bits prime modulus and coefficients.
 
     Args:
@@ -396,7 +396,7 @@ class ShamirSharePrivate(ShamirSharedSecretPublic):
     )
 
   @classmethod
-  def CopyShare(cls, other: ShamirSharePrivate, /) -> Self:
+  def CopyShare(cls, other: ShamirSharePrivate) -> Self:
     """Initialize a share taking the parts of another share.
 
     Args:

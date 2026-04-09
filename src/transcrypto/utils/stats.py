@@ -33,7 +33,7 @@ _STUDENT_SMALL: float = 1e-12
 IS_STUDENT_EQUAL: abc.Callable[[float, float], bool] = lambda a, b: abs(a - b) < _STUDENT_SMALL
 
 
-def GammaLanczos(z: float, /) -> float:
+def GammaLanczos(z: float) -> float:
   """Compute the gamma function Γ(z) using the Lanczos approximation.
 
   The Lanczos approximation provides an efficient method to compute
@@ -65,7 +65,7 @@ def GammaLanczos(z: float, /) -> float:
   return math.sqrt(2.0 * math.pi) * tz * math.exp(-t) * x
 
 
-def BetaIncompleteCF(a: float, b: float, x: float, /) -> float:
+def BetaIncompleteCF(a: float, b: float, x: float) -> float:
   """Compute continued fraction for the regularized incomplete beta function.
 
   Uses the modified Lentz algorithm to evaluate the continued fraction
@@ -110,7 +110,7 @@ def BetaIncompleteCF(a: float, b: float, x: float, /) -> float:
   return h
 
 
-def BetaIncomplete(a: float, b: float, x: float, /) -> float:
+def BetaIncomplete(a: float, b: float, x: float) -> float:
   """Compute the regularized incomplete beta function I_x(a, b).
 
   The regularized incomplete beta function is defined as:
@@ -148,7 +148,7 @@ def BetaIncomplete(a: float, b: float, x: float, /) -> float:
   return 1.0 - front * BetaIncompleteCF(b, a, 1.0 - x) * a / b
 
 
-def StudentTCDF(t_val: float, df: float, /) -> float:
+def StudentTCDF(t_val: float, df: float) -> float:
   """Compute the cumulative distribution function (CDF) of Student's t-distribution.
 
   The CDF gives the probability P(T ≤ t) where T follows a t-distribution
@@ -174,7 +174,7 @@ def StudentTCDF(t_val: float, df: float, /) -> float:
   return 0.5 + (0.5 - prob) if t_val >= 0 else prob
 
 
-def StudentTPPF(q: float, df: float, /) -> float:
+def StudentTPPF(q: float, df: float) -> float:
   """Compute the percent point function (inverse CDF) of Student's t-distribution.
 
   Given a probability q, find the value t such that P(T ≤ t) = q,
@@ -238,7 +238,7 @@ def StudentTPPF(q: float, df: float, /) -> float:
   return x0  # pragma: no cover - Newton-Raphson always converges for t-distribution
 
 
-def SampleVariance(data: list[int | float], mean: float, /) -> float:
+def SampleVariance(data: list[int | float], mean: float) -> float:
   """Compute sample variance with Bessel's correction (n-1 denominator).
 
   Args:
@@ -257,7 +257,7 @@ def SampleVariance(data: list[int | float], mean: float, /) -> float:
   return sum((x - mean) ** 2 for x in data) / float(data_sz - 1)
 
 
-def StandardErrorOfMean(data: list[int | float], /) -> tuple[float, float]:
+def StandardErrorOfMean(data: list[int | float]) -> tuple[float, float]:
   """Compute the mean and standard error of the mean (SEM).
 
   The SEM is the standard deviation of the sampling distribution of the
@@ -282,9 +282,7 @@ def StandardErrorOfMean(data: list[int | float], /) -> tuple[float, float]:
   return (mean, math.sqrt(variance / n))
 
 
-def StudentTInterval(
-  confidence: float, df: int, loc: float, scale: float, /
-) -> tuple[float, float]:
+def StudentTInterval(confidence: float, df: int, loc: float, scale: float) -> tuple[float, float]:
   """Compute a symmetric confidence interval using Student's t-distribution.
 
   Args:
@@ -309,7 +307,7 @@ def StudentTInterval(
 
 
 def MeasurementStats(
-  data: list[int | float], /, *, confidence: float = 0.95
+  data: list[int | float], *, confidence: float = 0.95
 ) -> tuple[int, float, float, float, tuple[float, float], float]:
   """Compute descriptive statistics for repeated measurements.
 

@@ -59,7 +59,6 @@ def ResetConsole() -> None:
 
 def InitLogging(
   verbosity: int,
-  /,
   *,
   include_process: bool = False,
   soft_wrap: bool = False,

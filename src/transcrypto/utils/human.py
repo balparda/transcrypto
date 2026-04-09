@@ -27,7 +27,7 @@ _SI_PREFIXES: dict[int, str] = {
 }
 
 
-def HumanizedBytes(inp_sz: float, /) -> str:  # noqa: PLR0911
+def HumanizedBytes(inp_sz: float) -> str:  # noqa: PLR0911
   """Convert a byte count into a human-readable string using binary prefixes (powers of 1024).
 
   Scales the input size by powers of 1024, returning a value with the
@@ -78,7 +78,7 @@ def HumanizedBytes(inp_sz: float, /) -> str:  # noqa: PLR0911
   return f'{(inp_sz / (1024 * 1024 * 1024 * 1024 * 1024 * 1024)):0.3f} EiB'
 
 
-def HumanizedDecimal(inp_sz: float, /, *, unit: str = '') -> str:
+def HumanizedDecimal(inp_sz: float, *, unit: str = '') -> str:
   """Convert a numeric value into a human-readable string using SI metric prefixes.
 
   Scales the input value by powers of 1000, returning a value with the
@@ -139,7 +139,7 @@ def HumanizedDecimal(inp_sz: float, /, *, unit: str = '') -> str:
   return f'{neg}{scaled:0.3f} {prefix}{unit}'
 
 
-def HumanizedSeconds(inp_secs: float, /) -> str:  # noqa: PLR0911
+def HumanizedSeconds(inp_secs: float) -> str:  # noqa: PLR0911
   """Convert a duration in seconds into a human-readable time string.
 
   Selects the appropriate time unit based on the duration's magnitude:
@@ -200,7 +200,7 @@ def HumanizedSeconds(inp_secs: float, /) -> str:  # noqa: PLR0911
   return f'{(inp_secs / (24 * 60 * 60)):0.3f} d'
 
 
-def _SigFigs(x: float, /, *, n: int = 6) -> str:
+def _SigFigs(x: float, *, n: int = 6) -> str:
   """Format a float to n significant figures.
 
   Args:
@@ -227,7 +227,6 @@ def _SigFigs(x: float, /, *, n: int = 6) -> str:
 
 def HumanizedMeasurements(
   data: list[int | float],
-  /,
   *,
   unit: str = '',
   parser: abc.Callable[[float], str] | None = None,

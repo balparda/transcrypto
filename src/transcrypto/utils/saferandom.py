@@ -10,7 +10,7 @@ from collections import abc
 from transcrypto.utils import base
 
 
-def RandBits(n_bits: int, /) -> int:
+def RandBits(n_bits: int) -> int:
   """Crypto-random integer with guaranteed `n_bits` size (i.e., first bit == 1).
 
   The fact that the first bit will be 1 means the entropy is ~ (n_bits-1) and
@@ -37,7 +37,7 @@ def RandBits(n_bits: int, /) -> int:
   return n
 
 
-def RandInt(min_int: int, max_int: int, /) -> int:
+def RandInt(min_int: int, max_int: int) -> int:
   """Crypto-random integer uniform over [min_int, max_int].
 
   Args:
@@ -61,7 +61,7 @@ def RandInt(min_int: int, max_int: int, /) -> int:
   return n
 
 
-def RandShuffle[T](seq: abc.MutableSequence[T], /) -> None:
+def RandShuffle[T](seq: abc.MutableSequence[T]) -> None:
   """In-place Crypto-random shuffle order for `seq` mutable sequence.
 
   Args:
@@ -80,11 +80,11 @@ def RandShuffle[T](seq: abc.MutableSequence[T], /) -> None:
     seq[i], seq[j] = seq[j], seq[i]
 
 
-def RandBytes(n_bytes: int, /) -> bytes:
+def RandBytes(n_bytes: int) -> bytes:
   """Crypto-random `n_bytes` bytes. Just plain good quality random bytes.
 
   Args:
-    n_bytes (int): number of bits to produce, > 0
+    n_bytes (int): number of bytes to produce, > 0
 
   Returns:
     bytes: random with len()==n_bytes

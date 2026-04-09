@@ -11,7 +11,7 @@ import pathlib
 from transcrypto.utils import base
 
 
-def Hash256(data: bytes, /) -> bytes:
+def Hash256(data: bytes) -> bytes:
   """SHA-256 hash of bytes data. Always a length of 32 bytes.
 
   Args:
@@ -26,7 +26,7 @@ def Hash256(data: bytes, /) -> bytes:
   return hashlib.sha256(data).digest()
 
 
-def Hash512(data: bytes, /) -> bytes:
+def Hash512(data: bytes) -> bytes:
   """SHA-512 hash of bytes data. Always a length of 64 bytes.
 
   Args:
@@ -41,7 +41,7 @@ def Hash512(data: bytes, /) -> bytes:
   return hashlib.sha512(data).digest()
 
 
-def FileHash(full_path: str | pathlib.Path, /, *, digest: str = 'sha256') -> bytes:
+def FileHash(full_path: str | pathlib.Path, *, digest: str = 'sha256') -> bytes:
   """SHA-256 hex hash of file on disk. Always a length of 32 bytes (if default digest=='sha256').
 
   Args:
@@ -70,7 +70,7 @@ def FileHash(full_path: str | pathlib.Path, /, *, digest: str = 'sha256') -> byt
     return hashlib.file_digest(file_obj, digest).digest()
 
 
-def ObfuscateSecret(data: str | bytes | int, /) -> str:
+def ObfuscateSecret(data: str | bytes | int) -> str:
   """Obfuscate a secret string/key/bytes/int by hashing SHA-512 and only showing the first 4 bytes.
 
   Always a length of 9 chars, e.g. "aabbccdd…" (always adds '…' at the end).
