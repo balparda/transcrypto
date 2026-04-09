@@ -70,23 +70,27 @@ class Timer:
 
   Examples:
     # As a context manager
-    with Timer('Block timing'):
-      time.sleep(1.2)
+    with Timer('Block timing') as tmr:
+      try:
+        time.sleep(1.2)
+      except:
+        print('Exception in {tmr}')
 
     # As a decorator
     @Timer('Function timing')
-    def slow_function():
+    def any_function():
       time.sleep(0.8)
 
     # As a regular object
     tm = Timer('Inline timing')
+    time.sleep(0.1)  # time not measured
     tm.Start()
-    time.sleep(0.1)
+    time.sleep(0.1)  # time measured
     tm.Stop()
     print(tm)
 
   Attributes:
-    label (str, optional): Timer label
+    label (str, optional): Timer label, to be printed in logs but *NOT* used for Timer.__str__()
     emit_log (bool, optional): If True (default) will logging.info() the timer, else will not
     emit_print (bool, optional): If True will print() the timer, else (default) will not
 
@@ -103,7 +107,8 @@ class Timer:
     """Initialize the Timer.
 
     Args:
-      label (str, optional): A description or name for the timed block or function
+      label (str, optional): A description or name for the timed block or function;
+          printed in logs but *NOT* used for Timer.__str__()
       emit_log (bool, optional): Emit a log message when finished; default is True
       emit_print (Callable[[str], None] | None, optional): Emit a print() message when
           finished using the provided callable; default is None
@@ -120,17 +125,17 @@ class Timer:
     """Elapsed time. Will be zero until a measurement is available with start/end.
 
     Returns:
-        float: elapsed time, in seconds
+        float: elapsed time, in seconds, >=0.0
 
     Raises:
         base.Error: negative elapsed time
 
     """
-    if self.start is None or self.end is None:
+    if self.start is None:
       return 0.0
-    delta: float = self.end - self.start
-    if delta <= 0.0:
-      raise base.Error(f'negative/zero delta: {delta}')
+    delta: float = self.end - self.start if self.end else time.perf_counter() - self.start
+    if delta < 0.0:
+      raise base.Error(f'negative delta: {delta}')
     return delta
 
   def __str__(self) -> str:
@@ -140,16 +145,10 @@ class Timer:
         str: human-readable representation of current time value
 
     """
-    if self.start is None:
-      return f'{self.label}: <UNSTARTED>' if self.label else '<UNSTARTED>'
-    if self.end is None:
-      return (
-        f'{self.label}: ' if self.label else ''
-      ) + f'<PARTIAL> {human.HumanizedSeconds(time.perf_counter() - self.start)}'
-    return (f'{self.label}: ' if self.label else '') + f'{human.HumanizedSeconds(self.elapsed)}'
+    return human.HumanizedSeconds(self.elapsed)
 
   def Start(self) -> None:
-    """Start the timer.
+    """Start the timer (no label).
 
     Raises:
         base.Error: if you try to re-start the timer
@@ -158,16 +157,6 @@ class Timer:
     if self.start is not None:
       raise base.Error('Re-starting timer is forbidden')
     self.start = time.perf_counter()
-
-  def __enter__(self) -> Self:
-    """Start the timer when entering the context.
-
-    Returns:
-        Timer: context object (self)
-
-    """
-    self.Start()
-    return self
 
   def Stop(self) -> None:
     """Stop the timer and emit logging.info with timer message.
@@ -179,13 +168,23 @@ class Timer:
     if self.start is None:
       raise base.Error('Stopping an unstarted timer')
     if self.end is not None:
-      raise base.Error('Re-stopping timer is forbidden')
+      logging.info(f'Re-stopping previous timer @{self}')
     self.end = time.perf_counter()
-    message: str = str(self)
+    message: str = f'{self.label}: {self}'
     if self.emit_log:
       logging.info(message)
     if self.emit_print is not None:
       self.emit_print(message)
+
+  def __enter__(self) -> Self:
+    """Start the timer when entering the context.
+
+    Returns:
+        Timer: context object (self)
+
+    """
+    self.Start()
+    return self
 
   def __exit__(
     self,
