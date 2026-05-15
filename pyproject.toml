@@ -59,14 +59,14 @@ license-files = [ "LICENSE" ]
 
 dependencies = [
 
-  "typer>=0.24.1",   # if this changes, also change: [tool.poetry.dependencies]
-  "rich>=14.3.3",  # 14.3.2 hangs GitHub CI pipeline
+  "typer>=0.25",   # if this changes, also change: [tool.poetry.dependencies]
+  "rich>=15.0",  # 14.3.2 hangs GitHub CI pipeline
   "platformdirs>=4.9",
 
   # best place for project dependencies, if possible
   # development-only dependencies go in the [tool.poetry.group.dev.dependencies] section below
 
-  "cryptography>=46.0",
+  "cryptography>=48.0",
   "gmpy2>=2.3",
   "zstandard>=0.25",
 
@@ -119,19 +119,19 @@ include = [
 # prefer to add dependencies inside the [project.dependencies] section
 
 python = "^3.12"  # if version changes, remember to change README.md
-typer = { version = "^0.24", extras = ["all"] }
+typer = { version = "^0.25", extras = ["all"] }
 
 [tool.poetry.group.dev.dependencies]
 
 # basic, all projects should have
-ruff = "^0.15.10"
-mypy = "^1.20"
+mypy = "^2.1"
+pyinstrument = "^5.1"
+pyright = "^1.1"
 pytest = "^9.0"
 pytest-cov = "^7.1"
 pytest-flakefinder = "^1.1"
-pyright = "^1.1"
-pre-commit = "^4.5"
-pyinstrument = "^5.1"
+pre-commit = "^4.6"
+ruff = "^0.15"
 typeguard = "^4.5"
 
 # project-specific dev-only
@@ -214,6 +214,7 @@ ignore = [
 
   "TRY003",  # Avoid specifying long messages outside the exception class
   "TRY300",  # Consider moving this statement to an `else` block
+  "TRY400",  # Use `logging.exception` instead of `logging.error`
   "EM101",   # Exception must not use a string literal, assign to variable first
   "EM102",   # Exception must not use an f-string literal, assign to variable first
 
