@@ -3,7 +3,7 @@
 
 """Integration tests: build wheel, install into a fresh venv, run installed console scripts.
 
-Run this with: make cov
+Run this with: make integration
 """
 
 from __future__ import annotations

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Daniel Balparda <balparda@github.com>
 # SPDX-License-Identifier: Apache-2.0
 
-.PHONY: install init fmt lint type test integration cov flakes precommit docs req ci
+.PHONY: install init fmt lint type test integration cov flakes precommit docs req build ci
 
 install:
 	poetry install

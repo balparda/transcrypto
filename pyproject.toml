@@ -5,14 +5,14 @@
 ####################################################################################################
 [build-system]
 
-requires = [ "poetry-core>=2.3" ]
+requires = [ "poetry-core>=2.4" ]
 build-backend = "poetry.core.masonry.api"
 
 ####################################################################################################
 [project]
 
 name = "transcrypto"
-version = "2.6.2"  # also update src/transcrypto/__init__.py
+version = "2.6.3"  # also update src/transcrypto/__init__.py
 
 description = "Basic crypto primitives, not intended for actual use, but as a companion to --Criptografia, Métodos e Algoritmos--"
 license = "Apache-2.0"
@@ -109,7 +109,7 @@ PyPI = "https://pypi.org/project/transcrypto/"
 ####################################################################################################
 [tool.poetry]
 
-requires-poetry = "^2.1"
+requires-poetry = "^2.4"
 
 packages = [{ include = "transcrypto", from = "src" }]
 include = [
