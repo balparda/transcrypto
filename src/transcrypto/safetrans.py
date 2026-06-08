@@ -422,7 +422,9 @@ def Main(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def Markdown(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # noqa: D103
   config: TransConfig = ctx.obj
-  config.console.print(clibase.GenerateTyperHelpMarkdown(app, prog_name='safetrans'))
+  config.console.print(
+    clibase.GenerateTyperHelpMarkdown(app, prog_name='safetrans'), soft_wrap=True
+  )
 
 
 # Import CLI modules to register their commands with the app

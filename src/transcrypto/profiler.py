@@ -228,7 +228,7 @@ def DSA(*, ctx: click.Context) -> None:  # documentation is help/epilog/args # n
 @clibase.CLIErrorGuard
 def Markdown() -> None:  # documentation is help/epilog/args # noqa: D103
   console: rich_console.Console = tc_logging.Console()
-  console.print(clibase.GenerateTyperHelpMarkdown(app, prog_name='profiler'))
+  console.print(clibase.GenerateTyperHelpMarkdown(app, prog_name='profiler'), soft_wrap=True)
 
 
 def _PrimeProfiler(

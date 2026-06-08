@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import pathlib
 import subprocess  # noqa: S404
+import unittest.mock
 
 import pytest
 
@@ -76,3 +77,51 @@ def test_Run_with_env() -> None:
     ['env'], env={'MY_TEST_VAR': 'test_value_42', 'PATH': '/usr/bin:/bin'}
   )
   assert 'MY_TEST_VAR=test_value_42' in result.stdout
+
+
+def test_VersionCallCheck_success() -> None:
+  """Test VersionCallCheck with matching version."""
+  cli: pathlib.Path = pathlib.Path('/usr/bin/test-cli')
+  expected_version: str = '1.2.3'
+  mock_result: subprocess.CompletedProcess[str] = subprocess.CompletedProcess(
+    args=['test-cli', '--version'],
+    returncode=0,
+    stdout='1.2.3\n',
+    stderr='',
+  )
+  with unittest.mock.patch('transcrypto.utils.base.Run', return_value=mock_result):
+    base.VersionCallCheck(cli, expected_version)  # Should not raise
+
+
+def test_VersionCallCheck_version_mismatch() -> None:
+  """Test VersionCallCheck with mismatched version."""
+  cli: pathlib.Path = pathlib.Path('/usr/bin/test-cli')
+  expected_version: str = '1.2.3'
+  mock_result: subprocess.CompletedProcess[str] = subprocess.CompletedProcess(
+    args=['test-cli', '--version'],
+    returncode=0,
+    stdout='2.0.0\n',
+    stderr='',
+  )
+  with (
+    unittest.mock.patch('transcrypto.utils.base.Run', return_value=mock_result),
+    pytest.raises(base.Error, match=r'CLI version mismatch'),
+  ):
+    base.VersionCallCheck(cli, expected_version)
+
+
+def test_VersionCallCheck_command_fails() -> None:
+  """Test VersionCallCheck when the command fails."""
+  cli: pathlib.Path = pathlib.Path('/usr/bin/test-cli')
+  expected_version: str = '1.2.3'
+  mock_result: subprocess.CompletedProcess[str] = subprocess.CompletedProcess(
+    args=['test-cli', '--version'],
+    returncode=1,
+    stdout='',
+    stderr='command not found',
+  )
+  with (
+    unittest.mock.patch('transcrypto.utils.base.Run', return_value=mock_result),
+    pytest.raises(base.Error, match=r'Failed:'),
+  ):
+    base.VersionCallCheck(cli, expected_version)

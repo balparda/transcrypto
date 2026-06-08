@@ -270,3 +270,80 @@ def test_generate_help_markdown_skips_invalid_commands(monkeypatch: pytest.Monke
   assert 'cmd1' in md
   # cmd2 should not appear since it fails without output
   # (the walker includes it but the markdown skips it)
+
+
+def test_generate_help_markdown_uses_fixed_width(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test that GenerateTyperHelpMarkdown passes COLUMNS env to runner.invoke for a fixed width."""
+  app = typer.Typer()
+
+  @app.command()
+  def hello() -> None:  # pyright: ignore[reportUnusedFunction]
+    """Say hello."""
+    print('hello')  # noqa: T201
+
+  # Capture the env kwarg passed to runner.invoke
+  captured_envs: list[dict[str, str]] = []
+  original_invoke = click_testing.CliRunner.invoke
+
+  def _mock_invoke(
+    self: click_testing.CliRunner,
+    cli: click.Command,
+    args: list[str] | None = None,
+    **kwargs: object,
+  ) -> click_testing.Result:
+    env = kwargs.get('env')
+    if isinstance(env, dict):
+      captured_envs.append(
+        # filter to str keys and values only, since the actual env may have other types
+        {
+          k: v
+          for k, v in env.items()  # pyright: ignore[reportUnknownVariableType]
+          if isinstance(k, str) and isinstance(v, str)
+        }
+      )
+    return original_invoke(self, cli, args, **kwargs)  # type: ignore[arg-type]
+
+  monkeypatch.setattr(click_testing.CliRunner, 'invoke', _mock_invoke)
+  # Call with custom width
+  clibase.GenerateTyperHelpMarkdown(app, prog_name='myprog', width=42)
+  # Every invoke call should have COLUMNS set to '42'
+  assert captured_envs, 'expected at least one invoke call'
+  for env in captured_envs:
+    assert env.get('COLUMNS') == '42', f'expected COLUMNS=42, got {env}'
+
+
+def test_generate_help_markdown_default_width_is_100(monkeypatch: pytest.MonkeyPatch) -> None:
+  """Test that GenerateTyperHelpMarkdown defaults to COLUMNS=100."""
+  app = typer.Typer()
+
+  @app.command()
+  def hello() -> None:  # pyright: ignore[reportUnusedFunction]
+    """Say hello."""
+    print('hello')  # noqa: T201
+
+  captured_envs: list[dict[str, str]] = []
+  original_invoke = click_testing.CliRunner.invoke
+
+  def _mock_invoke(
+    self: click_testing.CliRunner,
+    cli: click.Command,
+    args: list[str] | None = None,
+    **kwargs: object,
+  ) -> click_testing.Result:
+    env = kwargs.get('env')
+    if isinstance(env, dict):
+      captured_envs.append(
+        # filter to str keys and values only, since the actual env may have other types
+        {
+          k: v
+          for k, v in env.items()  # pyright: ignore[reportUnknownVariableType]
+          if isinstance(k, str) and isinstance(v, str)
+        }
+      )
+    return original_invoke(self, cli, args, **kwargs)  # type: ignore[arg-type]
+
+  monkeypatch.setattr(click_testing.CliRunner, 'invoke', _mock_invoke)
+  clibase.GenerateTyperHelpMarkdown(app, prog_name='myprog')
+  assert captured_envs, 'expected at least one invoke call'
+  for env in captured_envs:
+    assert env.get('COLUMNS') == '100', f'expected COLUMNS=100, got {env}'

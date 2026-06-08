@@ -119,3 +119,21 @@ def Run(
     )
     raise AssertionError(details)
   return result
+
+
+def VersionCallCheck(cli: pathlib.Path, expected_version: str) -> None:
+  """Check that a CLI command returns the expected version string.
+
+  Args:
+    cli (Path): CLI executable path
+    expected_version (str): expected version string (exact match)
+
+  Raises:
+    Error: if the command fails or the version does not match
+
+  """
+  result: subprocess.CompletedProcess[str] = Run([str(cli), '--version'])
+  if result.returncode != 0:
+    raise Error(f'Failed: {cli} --version\n\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}')
+  if (actual := result.stdout.strip()) != expected_version:
+    raise Error(f'CLI version mismatch: expected {expected_version!r}, got {actual!r}')

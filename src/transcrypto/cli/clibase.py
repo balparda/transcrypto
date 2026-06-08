@@ -118,6 +118,7 @@ def GenerateTyperHelpMarkdown(
   prog_name: str,
   heading_level: int = 1,
   code_fence_language: str = 'text',
+  width: int = 100,
 ) -> str:
   """Capture `--help` for a Typer CLI and all subcommands as Markdown.
 
@@ -133,12 +134,18 @@ def GenerateTyperHelpMarkdown(
     - This uses Click's `CliRunner().invoke(...)` for faithful output.
     - The walk is generic over Click `MultiCommand`/`Group` structures.
     - If a command cannot be loaded, it is skipped.
+    - The `width` parameter controls the terminal width used by Click's help formatter
+      via the `COLUMNS` environment variable, ensuring consistent output regardless of
+      the actual shell width.
 
   Args:
     typer_app: The Typer app (e.g. `app`).
     prog_name: Program name used in usage strings (e.g. "profiler").
     heading_level: Markdown heading level for each command section.
     code_fence_language: Language tag for fenced blocks (default: "text").
+    width: Fixed terminal width (columns) passed to Click's formatter via the COLUMNS
+      environment variable. Defaults to 100. This ensures the generated help text is
+      always wrapped at this width, regardless of the actual shell/terminal width.
 
   Returns:
     Markdown string.
@@ -148,6 +155,8 @@ def GenerateTyperHelpMarkdown(
   click_root: click.Command = typer.main.get_command(typer_app)
   root_ctx: click.Context = click.Context(click_root, info_name=prog_name)
   runner = click_testing.CliRunner()
+  # fix the terminal width so help output is consistent regardless of shell width
+  fixed_env: dict[str, str] = {'COLUMNS': str(width)}
   parts: list[str] = []
   for path, _, _ in _ClickWalk(click_root, root_ctx, []):
     # build command path
@@ -156,12 +165,13 @@ def GenerateTyperHelpMarkdown(
     # ensure clean state for the command
     tc_logging.ResetConsole()
     app_config.ResetConfig()
-    # invoke --help for this command path
+    # invoke --help for this command path, with a fixed terminal width
     result: click_testing.Result = runner.invoke(
       click_root,
       [*path, '--help'],
       prog_name=prog_name,
       color=False,
+      env=fixed_env,
     )
     if result.exit_code != 0 and not result.output:
       continue  # skip invalid commands
@@ -178,6 +188,7 @@ def GenerateTyperHelpMarkdown(
       ('Command-Line Interface' if not path else 'Command') if len(path) <= 1 else 'Sub-Command'
     )
     parts.extend(
+      # build markdown section for this command
       (
         f'{global_prefix}{heading_prefix} `{command_path}` {extras}',
         '',
