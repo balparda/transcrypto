@@ -10,9 +10,9 @@ import logging
 from collections import abc
 from typing import cast
 
-import click
 import typer
-from click import testing as click_testing
+import typer.core
+import typer.testing
 from rich import console as rich_console
 
 from transcrypto.utils import base
@@ -59,10 +59,10 @@ def CLIErrorGuard[**P](fn: abc.Callable[P, None]) -> abc.Callable[P, None]:
     except (base.Error, ValueError) as err:
       # get context
       ctx: object | None = dict(kwargs).get('ctx')
-      if not isinstance(ctx, click.Context):
-        ctx = next((a for a in args if isinstance(a, click.Context)), None)
+      if not isinstance(ctx, typer.Context):
+        ctx = next((a for a in args if isinstance(a, typer.Context)), None)
       # print error nicely
-      if isinstance(ctx, click.Context):
+      if isinstance(ctx, typer.Context):
         # we have context
         obj: CLIConfig = cast('CLIConfig', ctx.obj)
         if obj.verbose >= 2:  # verbose >= 2 means INFO level or more verbose  # noqa: PLR2004
@@ -79,36 +79,38 @@ def CLIErrorGuard[**P](fn: abc.Callable[P, None]) -> abc.Callable[P, None]:
 
 
 def _ClickWalk(
-  command: click.Command,
-  ctx: click.Context,
+  command: typer.core.TyperCommand,
+  ctx: typer.Context,
   path: list[str],
-) -> abc.Iterator[tuple[list[str], click.Command, click.Context]]:
+) -> abc.Iterator[tuple[list[str], typer.core.TyperCommand, typer.Context]]:
   """Recursively walk Click commands/groups.
 
   Yields:
-    tuple[list[str], click.Command, click.Context]: path, command, ctx
+    tuple[list[str], typer.core.TyperCommand, typer.Context]: path, command, ctx
 
   """
   yield (path, command, ctx)  # yield self
   # now walk subcommands, if any
-  sub_cmd: click.Command | None
-  sub_ctx: click.Context
+  sub_cmd: typer.core.TyperCommand | None
+  sub_ctx: typer.Context
   # prefer the explicit `.commands` mapping when present; otherwise fall back to
   # click's `list_commands()`/`get_command()` for dynamic groups
-  if not isinstance(command, click.Group):
+  if not isinstance(command, typer.core.TyperGroup):
     return
   # explicit commands mapping
   if command.commands:
-    for name, sub_cmd in sorted(command.commands.items()):
-      sub_ctx = click.Context(sub_cmd, info_name=name, parent=ctx)
+    for name, sub_cmd in sorted(command.commands.items()):  # type: ignore[assignment]
+      if sub_cmd is None:
+        continue  # skip invalid subcommands
+      sub_ctx = typer.Context(sub_cmd, info_name=name, parent=ctx)
       yield from _ClickWalk(sub_cmd, sub_ctx, [*path, name])
     return
   # dynamic commands
   for name in sorted(command.list_commands(ctx)):
-    sub_cmd = command.get_command(ctx, name)
+    sub_cmd = cast('typer.core.TyperCommand | None', command.get_command(ctx, name))
     if sub_cmd is None:
       continue  # skip invalid subcommands
-    sub_ctx = click.Context(sub_cmd, info_name=name, parent=ctx)
+    sub_ctx = typer.Context(sub_cmd, info_name=name, parent=ctx)
     yield from _ClickWalk(sub_cmd, sub_ctx, [*path, name])
 
 
@@ -152,9 +154,11 @@ def GenerateTyperHelpMarkdown(
 
   """
   # prepare Click root command and context
-  click_root: click.Command = typer.main.get_command(typer_app)
-  root_ctx: click.Context = click.Context(click_root, info_name=prog_name)
-  runner = click_testing.CliRunner()
+  click_root: typer.core.TyperCommand = cast(
+    'typer.core.TyperCommand', typer.main.get_command(typer_app)
+  )
+  root_ctx: typer.Context = typer.Context(click_root, info_name=prog_name)
+  runner = typer.testing.CliRunner()
   # fix the terminal width so help output is consistent regardless of shell width
   fixed_env: dict[str, str] = {'COLUMNS': str(width)}
   parts: list[str] = []
@@ -166,8 +170,9 @@ def GenerateTyperHelpMarkdown(
     tc_logging.ResetConsole()
     app_config.ResetConfig()
     # invoke --help for this command path, with a fixed terminal width
-    result: click_testing.Result = runner.invoke(
-      click_root,
+    # Use typer_app for invocation to avoid the get_command() issue
+    result: typer.testing.Result = runner.invoke(
+      typer_app,
       [*path, '--help'],
       prog_name=prog_name,
       color=False,

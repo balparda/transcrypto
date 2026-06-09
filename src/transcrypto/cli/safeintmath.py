@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import click
 import typer
 
 from transcrypto import safetrans
@@ -30,7 +29,7 @@ safetrans.app.add_typer(random_app, name='random')
 @clibase.CLIErrorGuard
 def RandomBits(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   bits: int = typer.Argument(..., min=8, help='Number of bits, ≥ 8'),
 ) -> None:
   config: safetrans.TransConfig = ctx.obj
@@ -45,7 +44,7 @@ def RandomBits(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def RandomInt(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   min_: str = typer.Argument(..., help='Minimum, ≥ 0'),
   max_: str = typer.Argument(..., help='Maximum, > `min`'),
 ) -> None:
@@ -67,7 +66,7 @@ def RandomInt(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def RandomBytes(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   n: int = typer.Argument(..., min=1, help='Number of bytes, ≥ 1'),
 ) -> None:
   config: safetrans.TransConfig = ctx.obj
@@ -82,7 +81,7 @@ def RandomBytes(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def RandomPrime(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   bits: int = typer.Argument(..., min=11, help='Bit length, ≥ 11'),
 ) -> None:
   config: safetrans.TransConfig = ctx.obj

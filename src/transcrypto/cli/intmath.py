@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import click
 import typer
 
 from transcrypto import transcrypto
@@ -29,7 +28,7 @@ from transcrypto.utils import base, saferandom
 @clibase.CLIErrorGuard
 def IsPrimeCLI(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   n: str = typer.Argument(..., help='Integer to test, ≥ 1'),
 ) -> None:
   config: transcrypto.TransConfig = ctx.obj
@@ -45,7 +44,7 @@ def IsPrimeCLI(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def PrimeGenCLI(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   start: str = typer.Argument(..., help='Starting integer (inclusive), ≥ 0'),
   count: int = typer.Option(1, '-c', '--count', min=1, help='How many to print, ≥ 1'),
 ) -> None:
@@ -78,7 +77,7 @@ def PrimeGenCLI(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def MersenneCLI(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   min_k: int = typer.Option(2, '-k', '--min-k', min=1, help='Starting exponent `k`, ≥ 2'),
   max_k: int = typer.Option(10000, '-m', '--max-k', min=1, help='Stop once `k` > `max-k`, ≥ 2'),
 ) -> None:
@@ -110,7 +109,7 @@ def MersenneCLI(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def GcdCLI(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   a: str = typer.Argument(..., help='Integer, ≥ 0'),
   b: str = typer.Argument(..., help="Integer, ≥ 0 (can't be both zero)"),
 ) -> None:
@@ -141,7 +140,7 @@ def GcdCLI(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def XgcdCLI(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   a: str = typer.Argument(..., help='Integer, ≥ 0'),
   b: str = typer.Argument(..., help="Integer, ≥ 0 (can't be both zero)"),
 ) -> None:
@@ -171,7 +170,7 @@ transcrypto.app.add_typer(random_app, name='random')
 @clibase.CLIErrorGuard
 def RandomBits(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   bits: int = typer.Argument(..., min=8, help='Number of bits, ≥ 8'),
 ) -> None:
   config: transcrypto.TransConfig = ctx.obj
@@ -186,7 +185,7 @@ def RandomBits(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def RandomInt(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   min_: str = typer.Argument(..., help='Minimum, ≥ 0'),
   max_: str = typer.Argument(..., help='Maximum, > `min`'),
 ) -> None:
@@ -208,7 +207,7 @@ def RandomInt(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def RandomBytes(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   n: int = typer.Argument(..., min=1, help='Number of bytes, ≥ 1'),
 ) -> None:
   config: transcrypto.TransConfig = ctx.obj
@@ -223,7 +222,7 @@ def RandomBytes(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def RandomPrime(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   bits: int = typer.Argument(..., min=11, help='Bit length, ≥ 11'),
 ) -> None:
   config: transcrypto.TransConfig = ctx.obj
@@ -259,7 +258,7 @@ transcrypto.app.add_typer(mod_app, name='mod')
 @clibase.CLIErrorGuard
 def ModInv(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   a: str = typer.Argument(..., help='Integer to invert'),
   m: str = typer.Argument(..., help='Modulus `m`, ≥ 2'),
 ) -> None:
@@ -289,7 +288,7 @@ def ModInv(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def ModDiv(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   x: str = typer.Argument(..., help='Integer'),
   y: str = typer.Argument(..., help='Integer, cannot be zero'),
   m: str = typer.Argument(..., help='Modulus `m`, ≥ 2'),
@@ -318,7 +317,7 @@ def ModDiv(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def ModExp(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   a: str = typer.Argument(..., help='Integer value'),
   e: str = typer.Argument(..., help='Integer exponent, ≥ 0'),
   m: str = typer.Argument(..., help='Modulus `m`, ≥ 2'),
@@ -347,7 +346,7 @@ def ModExp(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def ModPoly(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   x: str = typer.Argument(..., help='Evaluation point `x`'),
   m: str = typer.Argument(..., help='Modulus `m`, ≥ 2'),
   coeff: list[str] = typer.Argument(  # noqa: B008
@@ -379,7 +378,7 @@ def ModPoly(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def ModLagrange(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   x: str = typer.Argument(..., help='Evaluation point `x`'),
   m: str = typer.Argument(..., help='Modulus `m`, ≥ 2'),
   pt: list[str] = typer.Argument(  # noqa: B008
@@ -413,7 +412,7 @@ def ModLagrange(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def ModCRT(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   a1: str = typer.Argument(..., help='Integer residue for first congruence'),
   m1: str = typer.Argument(..., help='Modulus `m1`, ≥ 2'),
   a2: str = typer.Argument(..., help='Integer residue for second congruence'),

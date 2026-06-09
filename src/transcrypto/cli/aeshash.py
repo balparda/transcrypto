@@ -7,7 +7,6 @@ from __future__ import annotations
 import pathlib
 import re
 
-import click
 import typer
 
 from transcrypto import transcrypto
@@ -41,7 +40,7 @@ transcrypto.app.add_typer(hash_app, name='hash')
 @clibase.CLIErrorGuard
 def Hash256(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   data: str = typer.Argument(..., help='Input data (raw text; or `--input-format <hex|b64|bin>`)'),
 ) -> None:
   config: transcrypto.TransConfig = ctx.obj
@@ -65,7 +64,7 @@ def Hash256(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def Hash512(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   data: str = typer.Argument(..., help='Input data (raw text; or `--input-format <hex|b64|bin>`)'),
 ) -> None:
   config: transcrypto.TransConfig = ctx.obj
@@ -86,7 +85,7 @@ def Hash512(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def HashFile(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   path: pathlib.Path = typer.Argument(  # noqa: B008
     ...,
     exists=True,
@@ -96,11 +95,10 @@ def HashFile(  # documentation is help/epilog/args # noqa: D103
     resolve_path=True,
     help='Path to existing file',
   ),
-  digest: str = typer.Option(
-    'sha256',
+  digest: hashes.SHA = typer.Option(  # noqa: B008
+    hashes.SHA.SHA256,
     '-d',
     '--digest',
-    click_type=click.Choice(['sha256', 'sha512'], case_sensitive=False),
     help='Digest type, SHA-256 ("sha256") or SHA-512 ("sha512")',
   ),
 ) -> None:
@@ -142,7 +140,7 @@ transcrypto.app.add_typer(aes_app, name='aes')
 @clibase.CLIErrorGuard
 def AESKeyFromPass(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   password: str = typer.Argument(..., help='Password (leading/trailing spaces ignored)'),
 ) -> None:
   config: transcrypto.TransConfig = ctx.obj
@@ -176,7 +174,7 @@ def AESKeyFromPass(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def AESEncrypt(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   plaintext: str = typer.Argument(..., help='Input data to encrypt (PT)'),
   key: str | None = typer.Option(
     None, '-k', '--key', help="Key if `-p`/`--key-path` wasn't used (32 bytes)"
@@ -228,7 +226,7 @@ def AESEncrypt(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def AESDecrypt(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   ciphertext: str = typer.Argument(..., help='Input data to decrypt (CT)'),
   key: str | None = typer.Option(
     None, '-k', '--key', help="Key if `-p`/`--key-path` wasn't used (32 bytes)"
@@ -289,7 +287,7 @@ aes_app.add_typer(aes_ecb_app, name='ecb')
 @clibase.CLIErrorGuard
 def AESECBEncrypt(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   plaintext: str = typer.Argument(..., help='Plaintext block as 32 hex chars (16-bytes)'),
   key: str | None = typer.Option(
     None,
@@ -338,7 +336,7 @@ def AESECBEncrypt(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def AESECBDecrypt(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: click.Context,
+  ctx: typer.Context,
   ciphertext: str = typer.Argument(..., help='Ciphertext block as 32 hex chars (16-bytes)'),
   key: str | None = typer.Option(
     None,

@@ -80,7 +80,7 @@ def test_Hash(data: str, hash256: str, hash512: str) -> None:
     assert len(h3) == 32
     assert base.BytesToHex(h3) == hash256.replace(' ', '')
     # SHA-512 file
-    h4: bytes = hashes.FileHash(file_path, digest='sha512')
+    h4: bytes = hashes.FileHash(file_path, digest=hashes.SHA.SHA512)
     assert len(h4) == 64
     assert base.BytesToHex(h4) == hash512.replace(' ', '')
     # invalid digest type, but file exits

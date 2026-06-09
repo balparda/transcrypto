@@ -43,7 +43,7 @@ conversions) used by dependent projects.
 - Two separate Typer apps: `transcrypto` (main crypto CLI) and `profiler` (benchmarking CLI)
 - Each has a global callback (`@app.callback`) handling `--version`, `--verbose`, `--color` and storing config in `ctx.obj`
 - `transcrypto` also has `--input-format`/`--output-format` (hex/b64/bin) and `--key-path`/`--protect` for key management
-- Every command receives `ctx: click.Context` and reads config via `config = ctx.obj`
+- Every command receives `ctx: typer.Context` and reads config via `config = ctx.obj`
 - Every command is decorated with `@clibase.CLIErrorGuard` (from `transcrypto.cli.clibase`)
 - Subcommand groups (e.g., `random`, `mod`, `hash`, `aes`, `rsa`, `elgamal`, `dsa`, `bid`, `sss`) use `app.add_typer(...)`
 - CLI modules are imported at the bottom of the main app file to register commands: `from transcrypto.cli import aeshash, bidsecret, intmath, publicalgos`
