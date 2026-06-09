@@ -83,9 +83,6 @@ def test_Hash(data: str, hash256: str, hash512: str) -> None:
     h4: bytes = hashes.FileHash(file_path, digest=hashes.SHA.SHA512)
     assert len(h4) == 64
     assert base.BytesToHex(h4) == hash512.replace(' ', '')
-    # invalid digest type, but file exits
-    with pytest.raises(base.InputError, match='unrecognized digest'):
-      hashes.FileHash(file_path, digest='sha100')
 
 
 def test_FileHash_missing_file() -> None:

@@ -1,6 +1,5 @@
 annotated-doc==0.0.4 ; python_version >= "3.12" and python_version < "4.0"
 cffi==2.0.0 ; python_version >= "3.12" and python_version < "4.0" and platform_python_implementation != "PyPy"
-click==8.3.3 ; python_version >= "3.12" and python_version < "4.0"
 colorama==0.4.6 ; python_version >= "3.12" and python_version < "4.0" and platform_system == "Windows"
 cryptography==48.0.0 ; python_version >= "3.12" and python_version < "4.0"
 gmpy2==2.3.0 ; python_version >= "3.12" and python_version < "4.0"
@@ -11,5 +10,5 @@ pycparser==3.0 ; python_version >= "3.12" and python_version < "4.0" and platfor
 pygments==2.20.0 ; python_version >= "3.12" and python_version < "4.0"
 rich==15.0.0 ; python_version >= "3.12" and python_version < "4.0"
 shellingham==1.5.4 ; python_version >= "3.12" and python_version < "4.0"
-typer==0.25.1 ; python_version >= "3.12" and python_version < "4.0"
+typer==0.26.7 ; python_version >= "3.12" and python_version < "4.0"
 zstandard==0.25.0 ; python_version >= "3.12" and python_version < "4.0"

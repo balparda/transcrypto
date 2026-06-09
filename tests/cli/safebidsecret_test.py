@@ -11,7 +11,7 @@ from __future__ import annotations
 import pathlib
 
 import pytest
-from click import testing as click_testing
+import typer.testing
 
 from tests import safetrans_test
 from transcrypto.utils import config as app_config
@@ -41,7 +41,7 @@ def test_cli_commands_that_require_key_path_print_error(
   argv: list[str], expected_prefix: str
 ) -> None:
   """Test CLI commands that require -p/--key-path print expected error messages."""
-  res: click_testing.Result = safetrans_test._CallCLI(argv)
+  res: typer.testing.Result = safetrans_test._CallCLI(argv)
   assert res.exit_code == 0
   assert expected_prefix in res.output
 
@@ -55,8 +55,17 @@ def test_bid_commit_verify(tmp_path: pathlib.Path) -> None:
     'bid-message-123'  # raw UTF-8; we'll use `--input-format bin` so it's treated as bytes
   )
   # Create new bid (writes .priv/.pub beside key_base)
-  res: click_testing.Result = safetrans_test._CallCLI(
-    ['--input-format', 'bin', '-p', str(key_base), 'bid', 'new', bid_message]
+  res: typer.testing.Result = safetrans_test._CallCLI(
+    # call params
+    [
+      '--input-format',
+      'bin',
+      '-p',
+      str(key_base),
+      'bid',
+      'new',
+      bid_message,
+    ]
   )
   assert res.exit_code == 0 and 'Bid private/public commitments saved to' in res.output
   assert priv_path.exists()
@@ -78,8 +87,17 @@ def test_sss_new_shares_recover_verify(tmp_path: pathlib.Path) -> None:
   priv_path = pathlib.Path(str(base_path) + '.priv')
   pub_path = pathlib.Path(str(base_path) + '.pub')
   # Generate params
-  res: click_testing.Result = safetrans_test._CallCLI(
-    ['-p', str(base_path), 'sss', 'new', '3', '--bits', '128']
+  res: typer.testing.Result = safetrans_test._CallCLI(
+    # call params
+    [
+      '-p',
+      str(base_path),
+      'sss',
+      'new',
+      '3',
+      '--bits',
+      '128',
+    ]
   )
   assert res.exit_code == 0 and 'SSS private/public keys saved to' in res.output
   assert priv_path.exists() and pub_path.exists()
@@ -96,8 +114,17 @@ def test_sss_shares_recover_safe(tmp_path: pathlib.Path) -> None:
   priv_path = pathlib.Path(str(base_path) + '.priv')
   pub_path = pathlib.Path(str(base_path) + '.pub')
   # Make params. AEAD path requires modulus_size > 32 → bits > 256 (use 384 for speed).
-  res: click_testing.Result = safetrans_test._CallCLI(
-    ['-p', str(base_path), 'sss', 'new', '3', '--bits', '384']
+  res: typer.testing.Result = safetrans_test._CallCLI(
+    # call params
+    [
+      '-p',
+      str(base_path),
+      'sss',
+      'new',
+      '3',
+      '--bits',
+      '384',
+    ]
   )
   assert res.exit_code == 0 and priv_path.exists() and pub_path.exists()
   assert 'SSS private/public keys saved to' in res.output
@@ -105,7 +132,17 @@ def test_sss_shares_recover_safe(tmp_path: pathlib.Path) -> None:
   tc_logging.ResetConsole()
   app_config.ResetConfig()
   res = safetrans_test._CallCLI(
-    ['--input-format', 'bin', '-p', str(base_path), 'sss', 'shares', 'abcde', '2']
+    # call params
+    [
+      '--input-format',
+      'bin',
+      '-p',
+      str(base_path),
+      'sss',
+      'shares',
+      'abcde',
+      '2',
+    ]
   )
   assert res.exit_code == 0
   assert 'count (2) must be >= minimum (3)' in res.output
@@ -114,7 +151,17 @@ def test_sss_shares_recover_safe(tmp_path: pathlib.Path) -> None:
   tc_logging.ResetConsole()
   app_config.ResetConfig()
   res = safetrans_test._CallCLI(
-    ['--input-format', 'bin', '-p', str(base_path), 'sss', 'shares', 'abcde', '3']
+    # call params
+    [
+      '--input-format',
+      'bin',
+      '-p',
+      str(base_path),
+      'sss',
+      'shares',
+      'abcde',
+      '3',
+    ]
   )
   assert res.exit_code == 0 and 'SSS 3 individual (private) shares saved' in res.output
   for i in range(1, 4):

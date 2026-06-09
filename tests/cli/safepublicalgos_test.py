@@ -11,7 +11,7 @@ from __future__ import annotations
 import pathlib
 
 import pytest
-from click import testing as click_testing
+import typer.testing
 
 from tests import safetrans_test
 from transcrypto.utils import config as app_config
@@ -44,7 +44,7 @@ def test_cli_commands_that_require_key_path_print_error(
   argv: list[str], expected_prefix: str
 ) -> None:
   """Test CLI commands that require -p/--key-path print expected error messages."""
-  res: click_testing.Result = safetrans_test._CallCLI(argv)
+  res: typer.testing.Result = safetrans_test._CallCLI(argv)
   assert res.exit_code == 0
   assert expected_prefix in res.output
 
@@ -56,8 +56,16 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
   priv_path = pathlib.Path(str(base_path) + '.priv')
   pub_path = pathlib.Path(str(base_path) + '.pub')
   # Safe signing requires k > 64 → use ≥1024-bit modulus
-  res: click_testing.Result = safetrans_test._CallCLI(
-    ['-p', str(base_path), 'rsa', 'new', '--bits', '1024']
+  res: typer.testing.Result = safetrans_test._CallCLI(
+    # call params
+    [
+      '-p',
+      str(base_path),
+      'rsa',
+      'new',
+      '--bits',
+      '1024',
+    ]
   )
   assert res.exit_code == 0 and 'RSA private/public keys saved to' in res.output
   assert priv_path.exists() and pub_path.exists()
@@ -66,6 +74,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
   tc_logging.ResetConsole()
   app_config.ResetConfig()
   res = safetrans_test._CallCLI(
+    # call params
     [
       '--input-format',
       'bin',
@@ -86,6 +95,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
   tc_logging.ResetConsole()
   app_config.ResetConfig()
   res = safetrans_test._CallCLI(
+    # call params
     [
       '--input-format',
       'b64',
@@ -106,6 +116,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
   tc_logging.ResetConsole()
   app_config.ResetConfig()
   res = safetrans_test._CallCLI(
+    # call params
     [
       '--input-format',
       'bin',
@@ -126,6 +137,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
   tc_logging.ResetConsole()
   app_config.ResetConfig()
   res = safetrans_test._CallCLI(
+    # call params
     [
       '--input-format',
       'b64',
@@ -145,6 +157,7 @@ def test_rsa_encrypt_decrypt_and_sign_verify_safe(tmp_path: pathlib.Path) -> Non
   tc_logging.ResetConsole()
   app_config.ResetConfig()
   res = safetrans_test._CallCLI(
+    # call params
     [
       '--input-format',
       'b64',
@@ -170,8 +183,18 @@ def test_dsa_sign_verify_safe(tmp_path: pathlib.Path) -> None:
   priv_path = pathlib.Path(str(base_path) + '.priv')
   pub_path = pathlib.Path(str(base_path) + '.pub')
   # Safe DSA requires q > 512 bits (k > 64 bytes). Use q=544, p≥q+11 → p=1024.
-  res: click_testing.Result = safetrans_test._CallCLI(
-    ['-p', str(base_path), 'dsa', 'shared', '--p-bits', '1024', '--q-bits', '544']
+  res: typer.testing.Result = safetrans_test._CallCLI(
+    # call params
+    [
+      '-p',
+      str(base_path),
+      'dsa',
+      'shared',
+      '--p-bits',
+      '1024',
+      '--q-bits',
+      '544',
+    ]
   )
   assert res.exit_code == 0 and shared_path.exists() and 'DSA shared key saved to' in res.output
   # Generate private/public keys
@@ -184,6 +207,7 @@ def test_dsa_sign_verify_safe(tmp_path: pathlib.Path) -> None:
   tc_logging.ResetConsole()
   app_config.ResetConfig()
   res = safetrans_test._CallCLI(
+    # call params
     [
       '--input-format',
       'bin',
@@ -204,6 +228,7 @@ def test_dsa_sign_verify_safe(tmp_path: pathlib.Path) -> None:
   tc_logging.ResetConsole()
   app_config.ResetConfig()
   res = safetrans_test._CallCLI(
+    # call params
     [
       '--input-format',
       'b64',
@@ -222,6 +247,7 @@ def test_dsa_sign_verify_safe(tmp_path: pathlib.Path) -> None:
   tc_logging.ResetConsole()
   app_config.ResetConfig()
   res = safetrans_test._CallCLI(
+    # call params
     [
       '--input-format',
       'b64',

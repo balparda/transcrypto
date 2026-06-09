@@ -12,10 +12,11 @@ import io
 import logging
 import re
 
-import click
 import pytest
 import typer
-from click import testing as click_testing
+import typer._click.core
+import typer.core
+import typer.testing
 from rich import console as rich_console
 
 from transcrypto import transcrypto
@@ -105,13 +106,13 @@ def test_CLIErrorGuard_with_ctx_prints_exception_when_verbose_ge_INFO() -> None:
   """Exercise CLIErrorGuard ctx branch (traceback)."""
   buf = io.StringIO()
   c = rich_console.Console(file=buf, force_terminal=False, color_system=None, record=True)
-  cmd = click.Command('x', callback=lambda: None)
-  ctx = click.Context(cmd, info_name='x')
+  cmd = typer.core.TyperCommand(name='x', callback=lambda: None)
+  ctx = typer._click.core.Context(cmd, info_name='x')
   appconfig: app_config.AppConfig = app_config.InitConfig('test_app', 'test.bin')
   ctx.obj = clibase.CLIConfig(console=c, verbose=logging.INFO, color=None, appconfig=appconfig)
 
   @clibase.CLIErrorGuard
-  def _boom(*, ctx: click.Context) -> None:  # noqa: ARG001
+  def _boom(*, ctx: typer._click.core.Context) -> None:  # noqa: ARG001
     raise base.InputError('boom')
 
   _boom(ctx=ctx)
@@ -123,13 +124,13 @@ def test_CLIErrorGuard_with_ctx_prints_message_when_verbose_lt_INFO() -> None:
   """Exercise CLIErrorGuard ctx branch (message-only)."""
   buf = io.StringIO()
   c = rich_console.Console(file=buf, force_terminal=False, color_system=None, record=True)
-  cmd = click.Command('x', callback=lambda: None)
-  ctx = click.Context(cmd, info_name='x')
+  cmd = typer.core.TyperCommand(name='x', callback=lambda: None)
+  ctx = typer._click.core.Context(cmd, info_name='x')
   appconfig: app_config.AppConfig = app_config.InitConfig('test_app2', 'test2.bin')
   ctx.obj = clibase.CLIConfig(console=c, verbose=0, color=None, appconfig=appconfig)
 
   @clibase.CLIErrorGuard
-  def _boom(*, ctx: click.Context) -> None:  # noqa: ARG001
+  def _boom(*, ctx: typer._click.core.Context) -> None:  # noqa: ARG001
     raise base.InputError('boom')
 
   _boom(ctx=ctx)
@@ -144,8 +145,8 @@ def test_transcrypto_markdown_command_executes(monkeypatch: pytest.MonkeyPatch) 
   monkeypatch.setattr(tc_logging, 'Console', lambda: c)
   monkeypatch.setattr(clibase, 'GenerateTyperHelpMarkdown', lambda *_a, **_k: 'DOC')  # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
   # Create a mock context object
-  cmd = click.Command('markdown', callback=lambda: None)
-  ctx = click.Context(cmd, info_name='markdown')
+  cmd = typer.core.TyperCommand(name='markdown', callback=lambda: None)
+  ctx = typer._click.core.Context(cmd, info_name='markdown')
   appconfig: app_config.AppConfig = app_config.InitConfig('test_app3', 'test3.bin')
   ctx.obj = transcrypto.TransConfig(
     console=c,
@@ -161,23 +162,25 @@ def test_transcrypto_markdown_command_executes(monkeypatch: pytest.MonkeyPatch) 
   assert 'DOC' in c.export_text()
 
 
-class _DynamicGroup(click.Group):
+class _DynamicGroup(typer.core.TyperGroup):
   """A click.Group that simulates dynamic command loading."""
 
-  def list_commands(self, ctx: click.Context) -> list[str]:  # noqa: ARG002, PLR6301
+  def list_commands(self, ctx: typer._click.core.Context) -> list[str]:  # noqa: ARG002, PLR6301
     # Pretend we are dynamic: expose one real command and one missing.
     return ['ok', 'missing']
 
-  def get_command(self, ctx: click.Context, name: str) -> click.Command | None:  # pyright: ignore[reportIncompatibleMethodOverride] # noqa: ARG002, PLR6301
+  def get_command(  # pyright: ignore[reportIncompatibleMethodOverride]  # noqa: PLR6301
+    self, _ctx: typer._click.core.Context, name: str
+  ) -> typer._click.core.Command | None:
     if name == 'missing':
       return None
-    return click.Command('ok', callback=lambda: None)
+    return typer.core.TyperCommand(name='ok', callback=lambda: None)
 
 
 def test_ClickWalk_multi_command_path_is_supported() -> None:
   """Test."""
-  cmd = _DynamicGroup('root', commands={})
-  ctx = click.Context(cmd, info_name='root')
+  cmd = _DynamicGroup(name='root', commands={})
+  ctx = typer._click.core.Context(cmd, info_name='root')
   walked = list(clibase._ClickWalk(cmd, ctx, []))
   # Root plus the valid child command. The invalid subcommand should be skipped.
   assert any(path == [] for path, _, _ in walked)
@@ -237,20 +240,20 @@ def test_generate_help_markdown_skips_invalid_commands(monkeypatch: pytest.Monke
 
   # Track invoke calls
   invoke_count: dict[str, int] = {'count': 0}
-  original_invoke = click_testing.CliRunner.invoke
+  original_invoke = typer.testing.CliRunner.invoke
 
   def _mock_invoke(
-    self: click_testing.CliRunner,
-    cli: click.Command,
+    self: typer.testing.CliRunner,
+    cli: typer._click.core.Command,
     args: list[str] | None = None,
     **kwargs: object,
-  ) -> click_testing.Result:
+  ) -> typer.testing.Result:
     invoke_count['count'] += 1
     # First call is root help, second is cmd1 help, third is cmd2 help
     if invoke_count['count'] == 3:
       # Return a result with non-zero exit code and no output
       # This simulates a command that fails silently
-      return click_testing.Result(
+      return typer.testing.Result(
         runner=self,
         stdout_bytes=b'',
         stderr_bytes=b'',
@@ -262,7 +265,7 @@ def test_generate_help_markdown_skips_invalid_commands(monkeypatch: pytest.Monke
       )
     return original_invoke(self, cli, args, **kwargs)  # type: ignore[arg-type]
 
-  monkeypatch.setattr(click_testing.CliRunner, 'invoke', _mock_invoke)
+  monkeypatch.setattr(typer.testing.CliRunner, 'invoke', _mock_invoke)
   # Generate markdown - should skip the failing command and continue
   md: str = clibase.GenerateTyperHelpMarkdown(app, prog_name='test', heading_level=1)
   # Should have output for root and cmd1, but skip cmd2
@@ -283,14 +286,14 @@ def test_generate_help_markdown_uses_fixed_width(monkeypatch: pytest.MonkeyPatch
 
   # Capture the env kwarg passed to runner.invoke
   captured_envs: list[dict[str, str]] = []
-  original_invoke = click_testing.CliRunner.invoke
+  original_invoke = typer.testing.CliRunner.invoke
 
   def _mock_invoke(
-    self: click_testing.CliRunner,
-    cli: click.Command,
+    self: typer.testing.CliRunner,
+    cli: typer._click.core.Command,
     args: list[str] | None = None,
     **kwargs: object,
-  ) -> click_testing.Result:
+  ) -> typer.testing.Result:
     env = kwargs.get('env')
     if isinstance(env, dict):
       captured_envs.append(
@@ -303,7 +306,7 @@ def test_generate_help_markdown_uses_fixed_width(monkeypatch: pytest.MonkeyPatch
       )
     return original_invoke(self, cli, args, **kwargs)  # type: ignore[arg-type]
 
-  monkeypatch.setattr(click_testing.CliRunner, 'invoke', _mock_invoke)
+  monkeypatch.setattr(typer.testing.CliRunner, 'invoke', _mock_invoke)
   # Call with custom width
   clibase.GenerateTyperHelpMarkdown(app, prog_name='myprog', width=42)
   # Every invoke call should have COLUMNS set to '42'
@@ -322,14 +325,14 @@ def test_generate_help_markdown_default_width_is_100(monkeypatch: pytest.MonkeyP
     print('hello')  # noqa: T201
 
   captured_envs: list[dict[str, str]] = []
-  original_invoke = click_testing.CliRunner.invoke
+  original_invoke = typer.testing.CliRunner.invoke
 
   def _mock_invoke(
-    self: click_testing.CliRunner,
-    cli: click.Command,
+    self: typer.testing.CliRunner,
+    cli: typer._click.core.Command,
     args: list[str] | None = None,
     **kwargs: object,
-  ) -> click_testing.Result:
+  ) -> typer.testing.Result:
     env = kwargs.get('env')
     if isinstance(env, dict):
       captured_envs.append(
@@ -342,7 +345,7 @@ def test_generate_help_markdown_default_width_is_100(monkeypatch: pytest.MonkeyP
       )
     return original_invoke(self, cli, args, **kwargs)  # type: ignore[arg-type]
 
-  monkeypatch.setattr(click_testing.CliRunner, 'invoke', _mock_invoke)
+  monkeypatch.setattr(typer.testing.CliRunner, 'invoke', _mock_invoke)
   clibase.GenerateTyperHelpMarkdown(app, prog_name='myprog')
   assert captured_envs, 'expected at least one invoke call'
   for env in captured_envs:

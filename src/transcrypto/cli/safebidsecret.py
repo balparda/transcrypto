@@ -7,6 +7,7 @@ from __future__ import annotations
 import glob
 
 import typer
+import typer._click.core
 
 from transcrypto import safetrans
 from transcrypto.cli import clibase
@@ -41,7 +42,7 @@ safetrans.app.add_typer(bid_app, name='bid')
 @clibase.CLIErrorGuard
 def BidNew(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: typer._click.core.Context,
   secret: str = typer.Argument(..., help='Input data to bid to, the protected "secret"'),
 ) -> None:
   config: safetrans.TransConfig = ctx.obj
@@ -66,7 +67,9 @@ def BidNew(  # documentation is help/epilog/args # noqa: D103
   ),
 )
 @clibase.CLIErrorGuard
-def BidVerify(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def BidVerify(  # noqa: D103
+  *, ctx: typer._click.core.Context
+) -> None:  # documentation is help/epilog/args
   config: safetrans.TransConfig = ctx.obj
   base_path: str = safetrans.RequireKeyPath(config, 'bid')
   bid_priv: bid.PrivateBid512 = safetrans.LoadObj(
@@ -122,7 +125,7 @@ safetrans.app.add_typer(sss_app, name='sss')
 @clibase.CLIErrorGuard
 def SSSNew(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: typer._click.core.Context,
   minimum: int = typer.Argument(
     ..., min=2, help='Minimum number of shares required to recover secret, ≥ 2'
   ),
@@ -160,7 +163,7 @@ def SSSNew(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def SSSShares(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: typer._click.core.Context,
   secret: str = typer.Argument(..., help='Secret to be protected'),
   count: int = typer.Argument(
     ...,
@@ -201,7 +204,9 @@ def SSSShares(  # documentation is help/epilog/args # noqa: D103
   ),
 )
 @clibase.CLIErrorGuard
-def SSSRecover(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def SSSRecover(  # noqa: D103
+  *, ctx: typer._click.core.Context
+) -> None:  # documentation is help/epilog/args
   config: safetrans.TransConfig = ctx.obj
   base_path: str = safetrans.RequireKeyPath(config, 'sss')
   subset: list[sss.ShamirSharePrivate] = []

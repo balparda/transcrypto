@@ -7,6 +7,7 @@ from __future__ import annotations
 import glob
 
 import typer
+import typer._click.core
 
 from transcrypto import transcrypto
 from transcrypto.cli import clibase
@@ -41,7 +42,7 @@ transcrypto.app.add_typer(bid_app, name='bid')
 @clibase.CLIErrorGuard
 def BidNew(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: typer._click.core.Context,
   secret: str = typer.Argument(..., help='Input data to bid to, the protected "secret"'),
 ) -> None:
   config: transcrypto.TransConfig = ctx.obj
@@ -66,7 +67,9 @@ def BidNew(  # documentation is help/epilog/args # noqa: D103
   ),
 )
 @clibase.CLIErrorGuard
-def BidVerify(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def BidVerify(  # noqa: D103
+  *, ctx: typer._click.core.Context
+) -> None:  # documentation is help/epilog/args
   config: transcrypto.TransConfig = ctx.obj
   base_path: str = transcrypto.RequireKeyPath(config, 'bid')
   bid_priv: bid.PrivateBid512 = transcrypto.LoadObj(
@@ -122,7 +125,7 @@ transcrypto.app.add_typer(sss_app, name='sss')
 @clibase.CLIErrorGuard
 def SSSNew(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: typer._click.core.Context,
   minimum: int = typer.Argument(
     ..., min=2, help='Minimum number of shares required to recover secret, ≥ 2'
   ),
@@ -163,7 +166,7 @@ def SSSNew(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def SSSRawShares(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: typer._click.core.Context,
   secret: str = typer.Argument(..., help='Integer secret to be protected, 1≤`secret`<*modulus*'),
   count: int = typer.Argument(
     ...,
@@ -208,7 +211,9 @@ def SSSRawShares(  # documentation is help/epilog/args # noqa: D103
   ),
 )
 @clibase.CLIErrorGuard
-def SSSRawRecover(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def SSSRawRecover(  # noqa: D103
+  *, ctx: typer._click.core.Context
+) -> None:  # documentation is help/epilog/args
   config: transcrypto.TransConfig = ctx.obj
   base_path: str = transcrypto.RequireKeyPath(config, 'sss')
   sss_pub: sss.ShamirSharedSecretPublic = transcrypto.LoadObj(
@@ -243,7 +248,7 @@ def SSSRawRecover(*, ctx: typer.Context) -> None:  # documentation is help/epilo
 @clibase.CLIErrorGuard
 def SSSRawVerify(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: typer._click.core.Context,
   secret: str = typer.Argument(..., help='Integer secret used to generate the shares, ≥ 1'),
 ) -> None:
   config: transcrypto.TransConfig = ctx.obj
@@ -275,7 +280,7 @@ def SSSRawVerify(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def SSSShares(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: typer._click.core.Context,
   secret: str = typer.Argument(..., help='Secret to be protected'),
   count: int = typer.Argument(
     ...,
@@ -316,7 +321,9 @@ def SSSShares(  # documentation is help/epilog/args # noqa: D103
   ),
 )
 @clibase.CLIErrorGuard
-def SSSRecover(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def SSSRecover(  # noqa: D103
+  *, ctx: typer._click.core.Context
+) -> None:  # documentation is help/epilog/args
   config: transcrypto.TransConfig = ctx.obj
   base_path: str = transcrypto.RequireKeyPath(config, 'sss')
   subset: list[sss.ShamirSharePrivate] = []

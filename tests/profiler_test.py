@@ -11,8 +11,8 @@ from __future__ import annotations
 import sys
 
 import pytest
-from click import testing as click_testing
 from typer import testing
+from typer import testing as click_testing
 
 from transcrypto import profiler
 from transcrypto.utils import config as app_config
@@ -67,7 +67,17 @@ def test_primes_serial() -> None:
 def test_dsa_parallel() -> None:
   """DSA command (parallel) prints expected output."""
   res: click_testing.Result = _CallCLI(
-    ['--no-serial', '-n', '2', '-b', '300,800,200', '-c', '70', 'dsa']
+    # call params
+    [
+      '--no-serial',
+      '-n',
+      '2',
+      '-b',
+      '300,800,200',
+      '-c',
+      '70',
+      'dsa',
+    ]
   )
   assert res.exit_code == 0
   lines: list[str] = res.output.strip().splitlines()
@@ -82,7 +92,17 @@ def test_dsa_parallel() -> None:
 def test_dsa_invalid_bits() -> None:
   """DSA with invalid bits argument returns a non-zero exit and error message."""
   res: click_testing.Result = _CallCLI(
-    ['--no-serial', '-n', '2', '-b', '300,800', '-c', '70', 'dsa']
+    # call params
+    [
+      '--no-serial',
+      '-n',
+      '2',
+      '-b',
+      '300,800',
+      '-c',
+      '70',
+      'dsa',
+    ]
   )
   assert res.exit_code != 0
   # Different Click/Typer versions (and Python 3.14) may emit different

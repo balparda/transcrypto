@@ -22,6 +22,7 @@ import dataclasses
 from collections import abc
 
 import typer
+import typer._click.core
 from rich import console as rich_console
 
 from transcrypto.cli import clibase
@@ -79,7 +80,7 @@ def Run() -> None:
 @clibase.CLIErrorGuard
 def Main(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,  # global context
+  ctx: typer._click.core.Context,  # global context
   version: bool = typer.Option(False, '--version', help='Show version and exit.'),
   verbose: int = typer.Option(
     0,
@@ -175,7 +176,9 @@ def Main(  # documentation is help/epilog/args # noqa: D103
   ),
 )
 @clibase.CLIErrorGuard
-def Primes(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def Primes(  # noqa: D103
+  *, ctx: typer._click.core.Context
+) -> None:  # documentation is help/epilog/args
   config: ProfilerConfig = ctx.obj  # get application global config
   config.console.print(
     f'Starting [yellow]{"SERIAL" if config.serial else "PARALLEL"} regular primes[/] test'
@@ -205,7 +208,9 @@ def Primes(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args 
   ),
 )
 @clibase.CLIErrorGuard
-def DSA(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def DSA(  # noqa: D103
+  *, ctx: typer._click.core.Context
+) -> None:  # documentation is help/epilog/args
   config: ProfilerConfig = ctx.obj  # get application global config
   config.console.print(
     f'Starting [yellow]{"SERIAL" if config.serial else "PARALLEL"} DSA primes[/] test'

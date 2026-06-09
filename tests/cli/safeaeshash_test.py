@@ -13,7 +13,7 @@ import pathlib
 import re
 
 import pytest
-from click import testing as click_testing
+import typer.testing
 
 from tests import safetrans_test
 from transcrypto.core import aes, key
@@ -59,7 +59,7 @@ def reset_cli() -> None:
 )
 def test_cli_deterministic_pairs(argv: list[str], expected: str) -> None:
   """Test CLI commands with deterministic outputs."""
-  res: click_testing.Result = safetrans_test._CallCLI(argv)
+  res: typer.testing.Result = safetrans_test._CallCLI(argv)
   assert res.exit_code == 0, f'non-zero exit for argv={argv!r}'
   if '\n' in expected:
     assert safetrans_test.Out(res) == expected
@@ -72,7 +72,7 @@ def test_cli_hash_file(tmp_path: pathlib.Path) -> None:
   # Create a small file and hash it (deterministic)
   p: pathlib.Path = tmp_path / 'hello.txt'
   p.write_text('hello', encoding='utf-8')
-  res: click_testing.Result = safetrans_test._CallCLI(['hash', 'file', str(p)])
+  res: typer.testing.Result = safetrans_test._CallCLI(['hash', 'file', str(p)])
   assert res.exit_code == 0
   assert (  # SHA-256('hello')
     safetrans_test.OneToken(res)
@@ -90,7 +90,7 @@ def test_cli_hash_file(tmp_path: pathlib.Path) -> None:
 )
 def test_cli_aes_missing_key_prints_error(argv: list[str], needle: str) -> None:
   """Test CLI AES commands missing key print expected error messages."""
-  res: click_testing.Result = safetrans_test._CallCLI(argv)
+  res: typer.testing.Result = safetrans_test._CallCLI(argv)
   assert res.exit_code == 0
   assert needle in res.output
 
@@ -100,8 +100,15 @@ def test_cli_aes_missing_key_prints_error(argv: list[str], needle: str) -> None:
 def test_aes_key_print_b64_matches_library(tmp_path: pathlib.Path) -> None:
   """Test AES key CLI command output matches library."""
   # CLI derives & prints b64; library derives for ground truth
-  res: click_testing.Result = safetrans_test._CallCLI(
-    ['--output-format', 'b64', 'aes', 'key', 'correct horse battery staple']
+  res: typer.testing.Result = safetrans_test._CallCLI(
+    # call params
+    [
+      '--output-format',
+      'b64',
+      'aes',
+      'key',
+      'correct horse battery staple',
+    ]
   )
   assert res.exit_code == 0
   assert (
@@ -113,7 +120,14 @@ def test_aes_key_print_b64_matches_library(tmp_path: pathlib.Path) -> None:
   tc_logging.ResetConsole()
   app_config.ResetConfig()
   res = safetrans_test._CallCLI(
-    ['-p', str(priv_path), 'aes', 'key', 'correct horse battery staple']
+    # call params
+    [
+      '-p',
+      str(priv_path),
+      'aes',
+      'key',
+      'correct horse battery staple',
+    ]
   )
   assert res.exit_code == 0
   assert 'AES key saved to' in res.output
@@ -142,8 +156,19 @@ def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None:
   plaintext = 'secret message'
   aad = 'assoc'
   # Encrypt: inputs as binary text, outputs default hex
-  res: click_testing.Result = safetrans_test._CallCLI(
-    ['--input-format', 'bin', '-p', str(aes_key_file), 'aes', 'encrypt', plaintext, '-a', aad]
+  res: typer.testing.Result = safetrans_test._CallCLI(
+    # call params
+    [
+      '--input-format',
+      'bin',
+      '-p',
+      str(aes_key_file),
+      'aes',
+      'encrypt',
+      plaintext,
+      '-a',
+      aad,
+    ]
   )
   assert res.exit_code == 0
   ct_hex = safetrans_test.OneToken(res)
@@ -153,7 +178,8 @@ def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None:
   # Reset CLI singletons before calling CLI again in the same test
   tc_logging.ResetConsole()
   app_config.ResetConfig()
-  res2: click_testing.Result = safetrans_test._CallCLI(
+  res2: typer.testing.Result = safetrans_test._CallCLI(
+    # call params
     [
       '--input-format',
       'hex',
@@ -182,7 +208,7 @@ def test_aes_gcm_encrypt_decrypt_roundtrip(aes_key_file: pathlib.Path) -> None:
 )
 def test_cli_aes_invalid_key_size_prints_error(argv: list[str], needle: str) -> None:
   """Test CLI AES commands with invalid key sizes print expected error messages."""
-  res: click_testing.Result = safetrans_test._CallCLI(argv)
+  res: typer.testing.Result = safetrans_test._CallCLI(argv)
   assert res.exit_code == 0
   assert needle in res.output
 
@@ -197,7 +223,7 @@ def test_cli_aes_invalid_key_size_prints_error(argv: list[str], needle: str) -> 
 )
 def test_requires_key(argv: list[str]) -> None:
   """Hit the 'provide --key or --key-path' error in AES."""
-  res: click_testing.Result = safetrans_test._CallCLI(argv)
+  res: typer.testing.Result = safetrans_test._CallCLI(argv)
   assert res.exit_code == 0
   assert '-p/--key-path' in res.output
 
@@ -209,7 +235,8 @@ def test_aes_gcm_decrypt_wrong_aad_raises() -> None:
   key_bytes = bytes(range(32))
   key_b64: str = base.BytesToEncoded(key_bytes)
   # Encrypt with AAD='A'
-  res: click_testing.Result = safetrans_test._CallCLI(
+  res: typer.testing.Result = safetrans_test._CallCLI(
+    # call params
     [
       '--input-format',
       'b64',
@@ -230,6 +257,7 @@ def test_aes_gcm_decrypt_wrong_aad_raises() -> None:
   tc_logging.ResetConsole()
   app_config.ResetConfig()
   res = safetrans_test._CallCLI(
+    # call params
     [
       '--input-format',
       'b64',

@@ -89,6 +89,7 @@ import logging
 import pathlib
 
 import typer
+import typer._click.core
 from rich import console as rich_console
 
 from transcrypto.cli import clibase
@@ -340,7 +341,7 @@ def Run() -> None:
 @clibase.CLIErrorGuard
 def Main(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,  # global context
+  ctx: typer._click.core.Context,  # global context
   version: bool = typer.Option(False, '--version', help='Show version and exit.'),
   verbose: int = typer.Option(
     0,
@@ -419,7 +420,9 @@ def Main(  # documentation is help/epilog/args # noqa: D103
   epilog=('Example:\n\n\n\n$ poetry run safetrans markdown > safetrans.md\n\n<<saves CLI doc>>'),
 )
 @clibase.CLIErrorGuard
-def Markdown(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def Markdown(  # noqa: D103
+  *, ctx: typer._click.core.Context
+) -> None:  # documentation is help/epilog/args
   config: TransConfig = ctx.obj
   config.console.print(
     clibase.GenerateTyperHelpMarkdown(app, prog_name='safetrans'), soft_wrap=True

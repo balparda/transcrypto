@@ -14,9 +14,9 @@ import re
 import sys
 
 import pytest
-from click import testing as click_testing
 from rich import console as rich_console
 from typer import testing
+from typer import testing as click_testing
 
 from transcrypto import safetrans
 from transcrypto.core import aes, bid

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import typer
+import typer._click.core
 
 from transcrypto import safetrans
 from transcrypto.cli import clibase
@@ -43,7 +44,7 @@ safetrans.app.add_typer(rsa_app, name='rsa')
 @clibase.CLIErrorGuard
 def RSANew(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: typer._click.core.Context,
   bits: int = typer.Option(
     3332,
     '-b',
@@ -73,7 +74,7 @@ def RSANew(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def RSAEncrypt(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: typer._click.core.Context,
   plaintext: str = typer.Argument(..., help='Message to encrypt'),
   aad: str = typer.Option(
     '',
@@ -104,7 +105,7 @@ def RSAEncrypt(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def RSADecrypt(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: typer._click.core.Context,
   ciphertext: str = typer.Argument(..., help='Ciphertext to decrypt'),
   aad: str = typer.Option(
     '',
@@ -134,7 +135,7 @@ def RSADecrypt(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def RSASign(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: typer._click.core.Context,
   message: str = typer.Argument(..., help='Message to sign'),
   aad: str = typer.Option(
     '',
@@ -168,7 +169,7 @@ def RSASign(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def RSAVerify(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: typer._click.core.Context,
   message: str = typer.Argument(..., help='Message that was signed earlier'),
   signature: str = typer.Argument(..., help='Putative signature for `message`'),
   aad: str = typer.Option(
@@ -227,7 +228,7 @@ safetrans.app.add_typer(dsa_app, name='dsa')
 @clibase.CLIErrorGuard
 def DSAShared(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: typer._click.core.Context,
   p_bits: int = typer.Option(
     4096,
     '-b',
@@ -263,7 +264,9 @@ def DSAShared(  # documentation is help/epilog/args # noqa: D103
   ),
 )
 @clibase.CLIErrorGuard
-def DSANew(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args # noqa: D103
+def DSANew(  # noqa: D103
+  *, ctx: typer._click.core.Context
+) -> None:  # documentation is help/epilog/args
   config: safetrans.TransConfig = ctx.obj
   base_path: str = safetrans.RequireKeyPath(config, 'dsa')
   dsa_shared: dsa.DSASharedPublicKey = safetrans.LoadObj(
@@ -288,7 +291,7 @@ def DSANew(*, ctx: typer.Context) -> None:  # documentation is help/epilog/args 
 @clibase.CLIErrorGuard
 def DSASign(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: typer._click.core.Context,
   message: str = typer.Argument(..., help='Message to sign'),
   aad: str = typer.Option(
     '',
@@ -322,7 +325,7 @@ def DSASign(  # documentation is help/epilog/args # noqa: D103
 @clibase.CLIErrorGuard
 def DSAVerify(  # documentation is help/epilog/args # noqa: D103
   *,
-  ctx: typer.Context,
+  ctx: typer._click.core.Context,
   message: str = typer.Argument(..., help='Message that was signed earlier'),
   signature: str = typer.Argument(..., help='Putative signature for `message`'),
   aad: str = typer.Option(

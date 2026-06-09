@@ -177,6 +177,7 @@
     "ipywidgets",
     "isort",
     "isprime",
+    "keygen",
     "Lanczos",
     "Lentz",
     "levelname",
@@ -319,6 +320,7 @@
     "xmlschema",
     "yourcli",
     "yzhang",
+    "Zeroize",
     "Zstandard",
     "Zstd"
   ]

@@ -65,9 +65,7 @@ def FileHash(full_path: str | pathlib.Path, *, digest: SHA = SHA.SHA256) -> byte
     base.InputError: file could not be found
 
   """
-  # test inputs
-  if digest not in {SHA.SHA256, SHA.SHA512}:
-    raise base.InputError(f'unrecognized digest: {digest!r}')
+  # test path
   full_path = pathlib.Path(full_path)
   if not full_path.exists():
     raise base.InputError(f'file {str(full_path)!r} not found for hashing')
