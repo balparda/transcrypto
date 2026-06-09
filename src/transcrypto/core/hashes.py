@@ -4,11 +4,19 @@
 
 from __future__ import annotations
 
+import enum
 import hashlib
 import logging
 import pathlib
 
 from transcrypto.utils import base
+
+
+class SHA(enum.Enum):
+  """SHA enum."""
+
+  SHA256 = 'sha256'
+  SHA512 = 'sha512'
 
 
 def Hash256(data: bytes) -> bytes:
@@ -41,25 +49,24 @@ def Hash512(data: bytes) -> bytes:
   return hashlib.sha512(data).digest()
 
 
-def FileHash(full_path: str | pathlib.Path, *, digest: str = 'sha256') -> bytes:
-  """SHA-256 hex hash of file on disk. Always a length of 32 bytes (if default digest=='sha256').
+def FileHash(full_path: str | pathlib.Path, *, digest: SHA = SHA.SHA256) -> bytes:
+  """SHA-256 hex hash of file on disk. Always a length of 32 bytes (if default digest==SHA.SHA256).
 
   Args:
     full_path (str | pathlib.Path): Path to existing file on disk
-    digest (str, optional): Hash method to use, accepts 'sha256' (default) or 'sha512'
+    digest (SHA, optional): Hash method to use, accepts SHA.SHA256 (default) or SHA.SHA512
 
   Returns:
-    32 bytes (256 bits) of SHA-256 hash (if default digest=='sha256');
-    if converted to hexadecimal (with BytesToHex() or hex()) will be 64 chars of string;
-    if converted to int (big-endian, unsigned, with BytesToInt()) will be 0 ≤ i < 2**256
+    32 bytes (256 bits) of SHA-256 hash (if default digest==SHA.SHA256);
+        if converted to hexadecimal (with BytesToHex() or hex()) will be 64 chars of string;
+        if converted to int (big-endian, unsigned, with BytesToInt()) will be 0 ≤ i < 2**256
 
   Raises:
     base.InputError: file could not be found
 
   """
   # test inputs
-  digest = digest.lower().strip().replace('-', '')  # normalize so we can accept e.g. "SHA-256"
-  if digest not in {'sha256', 'sha512'}:
+  if digest not in {SHA.SHA256, SHA.SHA512}:
     raise base.InputError(f'unrecognized digest: {digest!r}')
   full_path = pathlib.Path(full_path)
   if not full_path.exists():
@@ -67,7 +74,7 @@ def FileHash(full_path: str | pathlib.Path, *, digest: str = 'sha256') -> bytes:
   # compute hash
   logging.info(f'Hashing file {str(full_path)!r}')
   with full_path.open('rb') as file_obj:
-    return hashlib.file_digest(file_obj, digest).digest()
+    return hashlib.file_digest(file_obj, digest.value).digest()
 
 
 def ObfuscateSecret(data: str | bytes | int) -> str:
