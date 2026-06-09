@@ -105,9 +105,9 @@ Known dependencies:
 ```py
 from transcrypto.utils import human
 
-human.HumanizedBytes(512)                  # '512 B'
-human.HumanizedBytes(2048)                 # '2.000 KiB'
-human.HumanizedBytes(5 * 1024**3)          # '5.000 GiB'
+human.HumanizedBytes(512)  # '512 B'
+human.HumanizedBytes(2048)  # '2.000 KiB'
+human.HumanizedBytes(5 * 1024**3)  # '5.000 GiB'
 ```
 
 Converts raw byte counts to binary-prefixed strings (`B`, `KiB`, `MiB`, `GiB`, `TiB`, `PiB`, `EiB`).
@@ -125,16 +125,16 @@ Converts raw byte counts to binary-prefixed strings (`B`, `KiB`, `MiB`, `GiB`, `
 from transcrypto.utils import human
 
 # Base (unitless)
-human.HumanizedDecimal(950)                # '950'
-human.HumanizedDecimal(1500)               # '1.500 k'
+human.HumanizedDecimal(950)  # '950'
+human.HumanizedDecimal(1500)  # '1.500 k'
 
 # With a unit (trimmed and attached)
 human.HumanizedDecimal(1500, unit=' Hz ')  # '1.500 kHz'
-human.HumanizedDecimal(0.123456, unit='V') # '123.456 mV'
+human.HumanizedDecimal(0.123456, unit='V')  # '123.456 mV'
 
 # Large magnitudes
-human.HumanizedDecimal(3_200_000)          # '3.200 M'
-human.HumanizedDecimal(7.2e12, unit='B/s') # '7.200 TB/s'
+human.HumanizedDecimal(3_200_000)  # '3.200 M'
+human.HumanizedDecimal(7.2e12, unit='B/s')  # '7.200 TB/s'
 ```
 
 Scales by powers of 1000 using SI prefixes to keep the displayed value in roughly `[1, 1000)` when possible.
@@ -151,12 +151,12 @@ Scales by powers of 1000 using SI prefixes to keep the displayed value in roughl
 ```py
 from transcrypto.utils import human
 
-human.HumanizedSeconds(0)                  # '0.000 s'
-human.HumanizedSeconds(0.000004)           # '4.000 µs'
-human.HumanizedSeconds(0.25)               # '250.000 ms'
-human.HumanizedSeconds(42)                 # '42.000 s'
-human.HumanizedSeconds(3661)               # '1.017 h'
-human.HumanizedSeconds(172800)             # '2.000 d'
+human.HumanizedSeconds(0)  # '0.000 s'
+human.HumanizedSeconds(0.000004)  # '4.000 µs'
+human.HumanizedSeconds(0.25)  # '250.000 ms'
+human.HumanizedSeconds(42)  # '42.000 s'
+human.HumanizedSeconds(3661)  # '1.017 h'
+human.HumanizedSeconds(172800)  # '2.000 d'
 ```
 
 Chooses an appropriate time unit based on magnitude and formats with fixed precision:
@@ -183,7 +183,7 @@ import time
 
 ```py
 with timer.Timer('Block timing'):
-    time.sleep(1.2)
+  time.sleep(1.2)
 # → logs: "Block timing: 1.200 s" (default via logging.info)
 ```
 
@@ -194,7 +194,8 @@ Starts timing on entry, stops on exit, and reports elapsed time automatically.
 ```py
 @timer.Timer('Function timing')
 def slow_function():
-    time.sleep(0.8)
+  time.sleep(0.8)
+
 
 slow_function()
 # → logs: "Function timing: 0.800 s"
@@ -208,7 +209,7 @@ Wraps a function so that each call is automatically timed independently (each in
 tm = timer.Timer('Inline timing', emit_print=print)
 tm.Start()
 time.sleep(0.1)
-tm.Stop()   # prints: "Inline timing: 0.100 s"
+tm.Stop()  # prints: "Inline timing: 0.100 s"
 ```
 
 Manual control over `Start()` and `Stop()` for precise measurement of custom intervals.
@@ -245,9 +246,9 @@ blob = key.Serialize(data)
 
 # With compression and encryption
 blob = key.Serialize(
-    data,
-    compress=9,               # compression level (-22..22, default=3)
-    encryption_key=my_encryptor  # must implement `key.Encryptor` (e.g., `aes.AESKey`)
+  data,
+  compress=9,  # compression level (-22..22, default=3)
+  encryption_key=my_encryptor,  # must implement `key.Encryptor` (e.g., `aes.AESKey`)
 )
 
 # Save directly to file
@@ -348,7 +349,7 @@ Returns a crypto-secure integer uniformly distributed over the closed interval `
 ```py
 deck = list(range(10))
 saferandom.RandShuffle(deck)
-print(deck)   # securely shuffled order
+print(deck)  # securely shuffled order
 ```
 
 Performs an in-place Fisher–Yates shuffle using `secrets.randbelow`. Suitable for sensitive data ordering.
@@ -399,7 +400,7 @@ Use-cases:
 ```py
 from transcrypto.core import modmath
 
-m = 2**256 - 189    # a large prime modulus
+m = 2**256 - 189  # a large prime modulus
 
 # Inverse ──────────────────────────────
 x = 123456789
@@ -408,11 +409,11 @@ assert (x * x_inv) % m == 1
 
 # Division (x / y) mod m ──────────────
 y = 987654321
-z = modmath.ModDiv(x, y, m)      # solves z·y ≡ x (mod m)
+z = modmath.ModDiv(x, y, m)  # solves z·y ≡ x (mod m)
 assert (z * y) % m == x % m
 
 # Exponentiation ──────────────────────
-exp = modmath.ModExp(3, 10**20, m)   # ≈ log₂(y) time, handles huge exponents
+exp = modmath.ModExp(3, 10**20, m)  # ≈ log₂(y) time, handles huge exponents
 ```
 
 ##### Chinese Remainder Theorem (CRT) – Pair
@@ -424,7 +425,7 @@ from transcrypto.core import modmath
 #   x ≡ 2 (mod 3)
 #   x ≡ 3 (mod 5)
 x = modmath.CRTPair(2, 3, 3, 5)
-print(x)             # 8
+print(x)  # 8
 assert x % 3 == 2
 assert x % 5 == 3
 ```
@@ -451,21 +452,21 @@ This function is a 2-modulus variant; for multiple moduli, apply it iteratively 
 ```py
 # f(t) = 7t³ − 3t² + 2t + 5  (coefficients constant-term first)
 coefficients = [5, 2, -3, 7]
-print(modmath.ModPolynomial(11, coefficients, 97))   # → 19
+print(modmath.ModPolynomial(11, coefficients, 97))  # → 19
 
 # Given three points build the degree-≤2 polynomial and evaluate it.
 pts = {2: 4, 5: 3, 7: 1}
-print(modmath.ModLagrangeInterpolate(9, pts, 11))   # → 2
+print(modmath.ModLagrangeInterpolate(9, pts, 11))  # → 2
 ```
 
 #### Primality testing & Prime generators, Mersenne primes
 
 ```py
-modmath.IsPrime(2**127 - 1)              # True  (Mersenne prime)
-modmath.IsPrime(3825123056546413051)     # False (strong pseudo-prime)
+modmath.IsPrime(2**127 - 1)  # True  (Mersenne prime)
+modmath.IsPrime(3825123056546413051)  # False (strong pseudo-prime)
 
 # Direct Miller–Rabin with custom witnesses
-modmath.MillerRabinIsPrime(961748941, witnesses={2,7,61})
+modmath.MillerRabinIsPrime(961748941, witnesses={2, 7, 61})
 
 # Infinite iterator of primes ≥ 10⁶
 for p in modmath.PrimeGenerator(1_000_000):
@@ -478,7 +479,7 @@ p384 = modmath.NBitRandomPrimes(384).pop()
 
 for k, m_p, perfect in modmath.MersennePrimesGenerator(0):
   print(f'p = {k:>8}  M = {m_p}  perfect = {perfect}')
-  if k > 10000:          # stop after a few
+  if k > 10000:  # stop after a few
     break
 ```
 
@@ -494,8 +495,8 @@ from transcrypto.core import hashes
 
 ```py
 h = hashes.Hash256(b'hello world')
-assert len(h) == 32                       # bytes
-print(h.hex())                            # 64 hex chars
+assert len(h) == 32  # bytes
+print(h.hex())  # 64 hex chars
 ```
 
 Computes the SHA-256 digest of a byte string, returning exactly 32 bytes (256 bits). Suitable for fingerprints, commitments, or internal crypto primitives.
@@ -504,8 +505,8 @@ Computes the SHA-256 digest of a byte string, returning exactly 32 bytes (256 bi
 
 ```py
 h = hashes.Hash512(b'hello world')
-assert len(h) == 64                       # bytes
-print(h.hex())                            # 128 hex chars
+assert len(h) == 64  # bytes
+print(h.hex())  # 128 hex chars
 ```
 
 Computes the SHA-512 digest of a byte string, returning exactly 64 bytes (512 bits). Higher collision resistance and larger output space than SHA-256.
@@ -538,11 +539,10 @@ Hashes a file from disk in streaming mode. By default uses SHA-256; `digest='sha
 ```py
 from transcrypto.core import key
 
+
 class MyAES(key.Encryptor, key.Decryptor):
-    def Encrypt(self, plaintext: bytes, *, associated_data=None) -> bytes:
-        ...
-    def Decrypt(self, ciphertext: bytes, *, associated_data=None) -> bytes:
-        ...
+  def Encrypt(self, plaintext: bytes, *, associated_data=None) -> bytes: ...
+  def Decrypt(self, ciphertext: bytes, *, associated_data=None) -> bytes: ...
 ```
 
 #### Crypto Objects General Properties (`CryptoKey`)
@@ -562,7 +562,7 @@ Example:
 from transcrypto.core import aes, rsa
 
 priv = rsa.RSAPrivateKey.New(512)  # small key, but good for this example
-print(str(priv))                   # safe, no secrets
+print(str(priv))  # safe, no secrets
 # ▶ RSAPrivateKey(RSAPublicKey(public_modulus=pQaoxy-QeXSds1k9WsGjJw==, encrypt_exp=AQAB), modulus_p=f18141aa…, modulus_q=67494eb9…, decrypt_exp=c96db24a…)
 
 print(priv._DebugDump())  # UNSAFE: prints secrets
@@ -611,7 +611,7 @@ print(aes_key.encoded)  # URL-safe Base64
 
 ```py
 data = b'secret message'
-aad  = b'metadata'
+aad = b'metadata'
 
 # Encrypt (returns IV + ciphertext + tag)
 ct = aes_key.Encrypt(data, associated_data=aad)
@@ -671,35 +671,35 @@ By default and deliberate choice the *encryption exponent* will be either 7 or 6
 from transcrypto.core import rsa
 
 # Generate a key pair
-priv = rsa.RSAPrivateKey.New(2048)        # 2048-bit modulus
-pub  = rsa.RSAPublicKey.Copy(priv)        # public half
-print(priv.public_modulus.bit_length())   # 2048
+priv = rsa.RSAPrivateKey.New(2048)  # 2048-bit modulus
+pub = rsa.RSAPublicKey.Copy(priv)  # public half
+print(priv.public_modulus.bit_length())  # 2048
 
 # Safe Encrypt & decrypt
 msg = b'xyz'
 cipher = pub.Encrypt(msg, associated_data=b'aad')
-plain  = priv.Decrypt(cipher, associated_data=b'aad')
+plain = priv.Decrypt(cipher, associated_data=b'aad')
 assert plain == msg
 
-# Safe Sign & verify
+# Safe Sign & verify
 signature = priv.Sign(msg)  # can also have associated_data, optionally
 assert pub.Verify(msg, signature)
 
-# Raw Encrypt & decrypt
+# Raw Encrypt & decrypt
 msg = 123456789  # (Zero is forbidden by design; smallest valid message is 1.)
 cipher = pub.RawEncrypt(msg)
-plain  = priv.RawDecrypt(cipher)
+plain = priv.RawDecrypt(cipher)
 assert plain == msg
 
-# Raw Sign & verify
+# Raw Sign & verify
 signature = priv.RawSign(msg)
 assert pub.RawVerify(msg, signature)
 
-# Blind signatures (obfuscation pair) - only works on raw RSA
+# Blind signatures (obfuscation pair) - only works on raw RSA
 pair = rsa.RSAObfuscationPair.New(pub)
 
-blind_msg = pair.ObfuscateMessage(msg)            # what you send to signer
-blind_sig = priv.RawSign(blind_msg)               # signer’s output
+blind_msg = pair.ObfuscateMessage(msg)  # what you send to signer
+blind_sig = priv.RawSign(blind_msg)  # signer’s output
 
 sig = pair.RevealOriginalSignature(msg, blind_sig)
 assert pub.RawVerify(msg, sig)
@@ -722,15 +722,15 @@ print(shared.group_base)
 
 # Public key from private
 priv = elgamal.ElGamalPrivateKey.New(shared)
-pub  = elgamal.ElGamalPublicKey.Copy(priv)
+pub = elgamal.ElGamalPublicKey.Copy(priv)
 
 # Safe Encrypt & decrypt
 msg = b'xyz'
 cipher = pub.Encrypt(msg, associated_data=b'aad')
-plain  = priv.Decrypt(cipher, associated_data=b'aad')
+plain = priv.Decrypt(cipher, associated_data=b'aad')
 assert plain == msg
 
-# Safe Sign & verify
+# Safe Sign & verify
 signature = priv.Sign(msg)  # can also have associated_data, optionally
 assert pub.Verify(msg, signature)
 
@@ -771,14 +771,14 @@ from transcrypto.core import dsa
 # Shared parameters (p, q, g) - Safe Sign/Verify requires q > 512 bits
 shared = dsa.DSASharedPublicKey.NewShared(2048, 520)
 print(shared.prime_modulus)  # p
-print(shared.prime_seed)     # q  (q | p-1)
-print(shared.group_base)     # g
+print(shared.prime_seed)  # q  (q | p-1)
+print(shared.group_base)  # g
 
 # Individual key pair
 priv = dsa.DSAPrivateKey.New(shared)
-pub  = dsa.DSAPublicKey.Copy(priv)
+pub = dsa.DSAPublicKey.Copy(priv)
 
-# Safe Sign & verify
+# Safe Sign & verify
 msg = b'xyz'
 signature = priv.Sign(msg)  # can also have associated_data, optionally
 assert pub.Verify(msg, signature)
@@ -820,10 +820,10 @@ This is a way of bidding on some commitment (the `secret`) that can be cryptogra
 from transcrypto.core import bid
 
 # Generate the private and public bids
-bid_priv = bid.PrivateBid512.New(secret)    # this one you keep private
-bid_pub = bid.PublicBid512.Copy(bid_priv)   # this one you publish
+bid_priv = bid.PrivateBid512.New(secret)  # this one you keep private
+bid_pub = bid.PublicBid512.Copy(bid_priv)  # this one you publish
 
-# Checking that a bid is genuine requires the public bid and knowing the nonce and the secret:
+# Checking that a bid is genuine requires the public bid and knowing the nonce and the secret:
 print(bid_pub.VerifyBid(private_key, secret_bid))  # these come from a divulged private bid
 # of course, you want to also make sure the provided private data matches your version of it, e.g.:
 bid_pub_expected = bid.PublicBid512.Copy(bid_priv)
@@ -842,11 +842,11 @@ from transcrypto.core import sss
 # Generate parameters: at least 3 of 5 shares needed,
 # coefficients & modulus are 264-bit primes (> 256 bits required for MakeDataShares)
 priv = sss.ShamirSharedSecretPrivate.New(3, 264)
-pub  = sss.ShamirSharedSecretPublic.Copy(priv)   # what you publish
+pub = sss.ShamirSharedSecretPublic.Copy(priv)  # what you publish
 
 print(f'threshold        : {pub.minimum}')
 print(f'prime mod        : {pub.modulus}')
-print(f'poly coefficients: {priv.polynomial}')         # keep these private!
+print(f'poly coefficients: {priv.polynomial}')  # keep these private!
 
 # Safe Issuing shares
 
@@ -856,7 +856,7 @@ five_shares = priv.MakeDataShares(secret, 5)
 for sh in five_shares:
   print(sh)
 
-# Raw Issuing shares
+# Raw Issuing shares
 
 secret = 0xC0FFEE
 # Generate an unlimited stream; here we take 5
@@ -871,14 +871,16 @@ A single share object looks like `sss.ShamirSharePrivate(minimum=3, modulus=...,
 # Safe Re-constructing the secret
 secret = b'xyz'
 five_shares = priv.MakeDataShares(secret, 5)
-subset = five_shares[:3]                        # any 3 distinct shares
-recovered = subset[0].RecoverData(subset[1:])   # each share has the encrypted data, pass other shares
+subset = five_shares[:3]  # any 3 distinct shares
+recovered = subset[0].RecoverData(
+  subset[1:]
+)  # each share has the encrypted data, pass other shares
 assert recovered == secret
 
-# Raw Re-constructing the secret
+# Raw Re-constructing the secret
 secret = 0xC0FFEE
 five_shares = list(priv.RawShares(secret, max_shares=5))
-subset = five_shares[:3]          # any 3 distinct shares
+subset = five_shares[:3]  # any 3 distinct shares
 recovered = pub.RawRecoverSecret(subset)
 assert recovered == secret
 ```
@@ -887,22 +889,23 @@ If you supply fewer than minimum shares you get a `key.CryptoError`, unless you 
 
 ```py
 try:
-  pub.RawRecoverSecret(five_shares[:2])        # raises
+  pub.RawRecoverSecret(five_shares[:2])  # raises
 except Exception as e:
-  print(e)                                  # "unrecoverable secret …"
+  print(e)  # "unrecoverable secret …"
 
 # Force the interpolation even with 2 points (gives a wrong secret, of course)
 print(pub.RawRecoverSecret(five_shares[:2], force_recover=True))
 
-# Checking that a share is genuine
+# Checking that a share is genuine
 
 share = five_shares[0]
-ok = priv.RawVerifyShare(secret, share)       # ▶ True
+ok = priv.RawVerifyShare(secret, share)  # ▶ True
 tampered = sss.ShamirSharePrivate(
-    minimum=share.minimum,
-    modulus=share.modulus,
-    share_key=share.share_key,
-    share_value=(share.share_value + 1) % share.modulus)
+  minimum=share.minimum,
+  modulus=share.modulus,
+  share_key=share.share_key,
+  share_value=(share.share_value + 1) % share.modulus,
+)
 print(priv.RawVerifyShare(secret, tampered))  # ▶ False
 ```
 
@@ -925,7 +928,7 @@ sudo apt-get remove python3-poetry
 python3.12 -m pipx ensurepath
 # re-open terminal
 pipx install poetry
-poetry --version  # should be >=2.1
+poetry --version  # should be >=2.4
 
 poetry config virtualenvs.in-project true  # creates .venv inside project directory
 poetry config pypi-token.pypi <TOKEN>      # add your personal PyPI project token, if any
@@ -945,7 +948,7 @@ python3.12 -m pip install --user pipx
 python3.12 -m pipx ensurepath
 # re-open terminal
 pipx install poetry
-poetry --version  # should be >=2.1
+poetry --version  # should be >=2.4
 
 poetry config virtualenvs.in-project true  # creates .venv inside project directory
 poetry config pypi-token.pypi <TOKEN>      # add your personal PyPI project token, if any

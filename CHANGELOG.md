@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 - [Changelog](#changelog)
   - [V.V.V - YYYY-MM-DD - Placeholder](#vvv---yyyy-mm-dd---placeholder)
+  - [2.7.0 - 2026-06-09](#270---2026-06-09)
   - [2.6.0 - 2026-04-09](#260---2026-04-09)
   - [2.5.0 - 2026-04-03](#250---2026-04-03)
   - [2.0.0 - 2026-01-30](#200---2026-01-30)
@@ -27,6 +28,23 @@ This project follows a pragmatic versioning approach:
 
 - Fixed
   - Placeholder for future changes.
+
+## 2.7.0 - 2026-06-09
+
+- Added
+  - SHA algorithm enum for hash selection
+
+- Changed
+  - Upgraded Typer from 0.24.1 to 0.26.7 (now uses typer's own CLI infrastructure, removed click dependency)
+  - Upgraded Rich from 14.3.3 to 15.0
+  - Upgraded Cryptography from 46.0 to 48.0
+  - Upgraded MyPy from 1.20 to 2.1
+  - Upgraded Ruff from 0.15.10 to 0.15.16
+  - Upgraded Poetry requirement from 2.1 to 2.4
+  - Upgraded other dependencies: platformdirs (4.9→4.10), pre-commit (4.5→4.6), poetry-core (2.3→2.4)
+
+- Fixed
+  - Various fixes related to Typer migration
 
 ## 2.6.0 - 2026-04-09
 
